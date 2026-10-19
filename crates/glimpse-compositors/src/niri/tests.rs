@@ -8,8 +8,6 @@ use super::*;
 use crate::event::Resync;
 use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
-/// Captured from a live niri 26.04 and re-wrapped: `niri msg -j` prints the payload without the
-/// `{"Ok": …}` envelope the socket actually carries.
 fn reply(name: &str, payload: Value) -> Vec<String> {
     vec![json!({ "Ok": { name: payload } }).to_string()]
 }
@@ -134,8 +132,6 @@ async fn a_failed_cast_snapshot_fails_closed() {
     assert!(Niri::at(&server.socket).snapshot().await.is_err());
 }
 
-/// Niri has no `enabled` field, so a null `current_mode` is the only thing that says an output
-/// is switched off. Reading it as "no mode known" would leave a dead monitor in the list.
 #[tokio::test]
 async fn an_output_with_no_current_mode_is_disabled() {
     let server = snapshot_server();
@@ -216,8 +212,6 @@ async fn a_missing_socket_names_the_path_it_tried() {
     );
 }
 
-/// The one test that catches an upstream rename: every target, against the literal JSON niri
-/// 26.04 accepts.
 #[test]
 fn every_addon_names_its_subject_rather_than_acting_on_the_focused_one() {
     assert_eq!(
@@ -576,7 +570,6 @@ async fn the_stream_consumes_the_acknowledgement_and_decodes_what_follows() {
     );
 }
 
-/// A variant added by a future niri must not end the subscription.
 #[tokio::test]
 async fn an_unrecognized_event_is_skipped_and_the_stream_survives() {
     let events = events_from(vec![
@@ -606,8 +599,6 @@ async fn a_layout_switch_is_named_from_the_layouts_last_announced() {
     );
 }
 
-/// Niri emits no output event. A monitor leaving shows up as its workspaces being reassigned,
-/// and without noticing that shift the daemon keeps a dead monitor in its list forever.
 #[tokio::test]
 async fn losing_a_monitor_asks_for_an_output_resync() {
     let workspaces = |outputs: [&str; 2]| {
@@ -638,8 +629,6 @@ async fn losing_a_monitor_asks_for_an_output_resync() {
     assert_eq!(events[3], Event::Resync(Resync::Outputs));
 }
 
-/// Three events `_old` never saw, each feeding a model field that would otherwise only ever
-/// update on a full refresh.
 #[tokio::test]
 async fn urgency_and_layout_order_arrive_incrementally() {
     let events = events_from(vec![
@@ -703,8 +692,6 @@ async fn screencasts_report_the_full_set_changes_and_stops() {
     );
 }
 
-/// Niri reloads its own configuration in place, and `kb_layout` is the part of it this crate
-/// caches — without the resync the panel shows a layout list the compositor has discarded.
 #[tokio::test]
 async fn a_successful_config_reload_asks_for_a_keyboard_resync() {
     let events = events_from(vec![

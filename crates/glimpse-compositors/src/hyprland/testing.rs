@@ -4,8 +4,6 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixListener;
 
-/// A stand-in Hyprland. Unlike niri it needs two sockets: `.socket.sock` answers one text command
-/// per connection, and `.socket2.sock` only ever pushes event lines.
 pub struct FakeHyprland {
     _dir: tempfile::TempDir,
     pub dir: PathBuf,

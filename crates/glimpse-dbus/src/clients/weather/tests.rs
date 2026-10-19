@@ -26,8 +26,6 @@ const EVERY: [Condition; 21] = [
     Condition::Unknown,
 ];
 
-/// `Condition` has no `_` arm in `icon_name`, so a new variant is a compile error there; this
-/// is what catches an arm that compiles and answers with nothing.
 #[test]
 fn every_condition_maps_to_a_day_and_a_night_icon() {
     for condition in EVERY {

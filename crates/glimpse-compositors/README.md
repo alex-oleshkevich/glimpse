@@ -109,6 +109,6 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 
 The headless suite runs against `FakeNiri` and `FakeHyprland`, real Unix sockets in a temporary
 directory replaying scripted lines; both take their socket path through `Niri::at` / `Hyprland::at`,
-so no test touches process environment. `tests/live.rs` holds two `#[ignore]` tests that run against
+so no test touches process environment. `tests/live.rs` holds `#[ignore]` tests that run against
 the real session under `just test-compositor` — the only check that the commands sent are ones the
 compositor still accepts.

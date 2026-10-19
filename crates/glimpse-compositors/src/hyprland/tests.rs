@@ -70,12 +70,9 @@ async fn a_snapshot_reads_every_part_of_the_model() {
     assert!(snapshot.workspaces[0].is_active && snapshot.workspaces[0].is_focused);
     assert!(!snapshot.workspaces[1].is_active);
     assert_eq!(snapshot.workspaces[0].active_window_id, Some(WindowId(9)));
-    // Hyprland writes `0x0` for an empty workspace, which is not a window at address zero.
     assert_eq!(snapshot.workspaces[1].active_window_id, None);
 }
 
-/// Hyprland reports focus once for the session rather than on each client, so without filling
-/// it in `is_focused` would be false on every window while niri sets it on one.
 #[tokio::test]
 async fn the_focused_window_is_marked_the_way_niri_marks_it() {
     let server = snapshot_server();
@@ -96,9 +93,6 @@ async fn the_focused_window_is_marked_the_way_niri_marks_it() {
     );
 }
 
-/// Hyprland sends an absent title or class as `""` where niri sends `null`. Both have to reach
-/// a caller as `None`, or a panel renders an empty label under one compositor and nothing
-/// under the other.
 #[tokio::test]
 async fn an_empty_title_is_absent_rather_than_an_empty_string() {
     let server = FakeHyprland::spawn(
@@ -122,7 +116,6 @@ async fn an_empty_title_is_absent_rather_than_an_empty_string() {
     assert_eq!(snapshot.windows[0].app_id, None);
 }
 
-/// The same question niri answers with a null mode, so both have to land on `enabled: false`.
 #[tokio::test]
 async fn a_disabled_monitor_reports_the_same_shape_niri_does() {
     let server = snapshot_server();
@@ -144,7 +137,6 @@ async fn a_disabled_monitor_reports_the_same_shape_niri_does() {
         })
     );
     assert_eq!(built_in.description.as_deref(), Some("Samsung 14\""));
-    // Hyprland reports the mode's pixels; niri reports the scaled logical size. 2880 / 1.25.
     let logical = built_in
         .logical
         .as_ref()
@@ -161,8 +153,6 @@ async fn a_disabled_monitor_reports_the_same_shape_niri_does() {
     );
 }
 
-/// Hyprland gives xkb codes and a display name from opposite ends, so both halves have to be
-/// filled — otherwise the same layout renders as "Russian" here and "ru" under niri.
 #[tokio::test]
 async fn both_names_and_codes_are_populated() {
     let server = snapshot_server();
@@ -390,8 +380,6 @@ fn every_target_serializes_to_the_command_hyprland_expects() {
     );
 }
 
-/// Disabling a monitor discards its mode, so the only way back is the remembered config. The
-/// zero-size fallback covers a monitor that was already off when it was first seen.
 #[test]
 fn a_remembered_monitor_config_restores_its_mode() {
     let config = MonitorConfig {
@@ -454,8 +442,6 @@ async fn addresses_arrive_bare_in_events_and_prefixed_in_json() {
     );
 }
 
-/// Hyprland's fine-grained events carry an address and nothing else, so the honest answer is a
-/// resync rather than a half-built record.
 #[tokio::test]
 async fn structural_events_ask_for_a_resync() {
     let events = events_from(&[
@@ -517,8 +503,6 @@ async fn screencasts_keep_privacy_active_until_every_client_stops() {
     );
 }
 
-/// `activelayout` reports a display name against a configured list of xkb codes, and a keyboard
-/// name may itself contain a comma.
 #[tokio::test]
 async fn a_layout_switch_resolves_a_display_name_to_a_configured_code() {
     let events = events_from(&[
@@ -536,8 +520,6 @@ async fn a_layout_switch_resolves_a_display_name_to_a_configured_code() {
     );
 }
 
-/// A window title is attacker-controlled and Hyprland packs it into a comma-separated line, so
-/// the split must not let a crafted title impersonate another field.
 #[tokio::test]
 async fn a_title_containing_a_comma_does_not_shift_the_other_fields() {
     let server = FakeHyprland::spawn(

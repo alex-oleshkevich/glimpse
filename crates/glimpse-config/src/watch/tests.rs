@@ -2,8 +2,6 @@ use std::sync::{Arc, Mutex};
 
 use super::*;
 
-/// Generous, because it covers an inotify round trip plus the debounce window; a correct
-/// implementation answers in well under it and a broken one waits the whole time either way.
 const SETTLE: Duration = Duration::from_secs(10);
 
 type Updates = Pin<Box<dyn Stream<Item = Update> + Send>>;
@@ -15,9 +13,6 @@ async fn next(updates: &mut Updates) -> Update {
         .expect("the stream is still alive")
 }
 
-/// A re-arm may arrive on its own before the change that followed it, because the debounce
-/// window does not have to contain both. Skipping them is what keeps these tests from
-/// depending on that timing.
 async fn next_changed(updates: &mut Updates) -> Vec<PathBuf> {
     loop {
         match next(updates).await {
@@ -73,10 +68,6 @@ async fn a_directory_named_relatively_reports_the_same_as_one_named_absolutely()
     );
 }
 
-/// The walk stops at the set it was given, so a directory that is missing and has no watched
-/// parent beside it in the set is not reachable from above. `$XDG_CONFIG_HOME` and `/etc` are
-/// written constantly by unrelated software; the configuration directory appearing is the one
-/// moment a restart costs nothing, because nothing was configured to reload.
 #[tokio::test]
 async fn a_missing_directory_is_never_watched_through_a_parent_outside_the_set() {
     let root = tempfile::tempdir().expect("a temporary directory");
@@ -88,8 +79,6 @@ async fn a_missing_directory_is_never_watched_through_a_parent_outside_the_set()
     );
 }
 
-/// The ordinary case: the configuration directory exists and `config.d/` does not, so the
-/// drop-in arm falls back onto the directory beside it in the set.
 #[tokio::test]
 async fn a_dropin_directory_that_appears_is_descended_into() {
     let root = tempfile::tempdir().expect("a temporary directory");
@@ -106,8 +95,6 @@ async fn a_dropin_directory_that_appears_is_descended_into() {
     assert!(paths.iter().any(|path| path.ends_with("10-laptop.toml")));
 }
 
-/// What a dotfile manager does. The directory has the same name and a different inode, so a
-/// watcher comparing names alone would report nothing ever again and look healthy doing it.
 #[tokio::test]
 async fn a_recreated_directory_is_watched_again() {
     let root = tempfile::tempdir().expect("a temporary directory");
@@ -124,9 +111,6 @@ async fn a_recreated_directory_is_watched_again() {
     assert!(paths.iter().any(|path| path.ends_with("config.toml")));
 }
 
-/// Both directories start missing and collapse onto the same ancestor, so they share one
-/// watch. As each appears the set descends — and releasing the ancestor by path must not take
-/// the watch the other arm is still using.
 #[tokio::test]
 async fn directories_sharing_a_watch_survive_each_other_descending() {
     let root = tempfile::tempdir().expect("a temporary directory");
@@ -139,7 +123,6 @@ async fn directories_sharing_a_watch_survive_each_other_descending() {
     let paths = next_changed(&mut updates).await;
     assert!(paths.iter().any(|path| path.ends_with("config.toml")));
 
-    // The drop-in directory now descends off the base, which is still armed for the other arm.
     std::fs::create_dir(&dropins).expect("creates");
     assert_eq!(next(&mut updates).await, Update::Rearmed);
 
@@ -177,9 +160,6 @@ async fn a_reread_skips_an_identical_rewrite_and_yields_a_changed_document() {
     );
 }
 
-/// The change lands before the watch is armed, so inotify never reports it and `SIGHUP` is the
-/// only thing that can produce a document here. That is the whole point of the second trigger:
-/// an editor whose write the watch missed still has a way to apply the change.
 #[tokio::test]
 async fn sighup_rereads_a_change_no_filesystem_event_announced() {
     let dir = tempfile::tempdir().expect("a temporary directory");
@@ -189,7 +169,6 @@ async fn sighup_rereads_a_change_no_filesystem_event_announced() {
     let current = load(Some(&path)).expect("loads");
     std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("changes");
 
-    // Registers the handler. Raising SIGHUP before this point kills the test binary.
     let mut configs = Box::pin(watch_config(Some(path.clone()), current));
     hangup().await;
 
@@ -200,8 +179,6 @@ async fn sighup_rereads_a_change_no_filesystem_event_announced() {
     assert_eq!(config.night_light.temperature, 3000);
 }
 
-/// Captures what the crate logs on this thread. `set_default` is thread-local and the test
-/// runtime is current-thread, so everything awaited below reports into this buffer.
 #[derive(Clone, Default)]
 struct Logged(Arc<Mutex<Vec<u8>>>);
 
@@ -244,10 +221,6 @@ fn good(temperature: u32) -> String {
     format!("[night-light]\ntemperature = {temperature}\n")
 }
 
-/// Drives `watch_config` through a sequence of writes, polling the stream throughout — it is
-/// lazy, so the writes and the polling have to run together — and answers with the documents it
-/// yielded and everything it logged at `ERROR`. `wanted` is how many documents the sequence
-/// ends up producing; the collector stops there rather than waiting out the settle window.
 async fn replay(writes: &[(&str, &str)], wanted: usize) -> (Vec<u32>, String) {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join("config.toml");
@@ -284,9 +257,6 @@ fn complaints(lines: &str) -> usize {
     lines.matches("dropped a reload").count()
 }
 
-/// One broken document and a directory that keeps producing events is one problem, not four.
-/// Editors drop swap files right beside `config.toml`, and before the failure was gated the way
-/// a success already was, every one of them reproduced the whole error line.
 #[tokio::test]
 async fn a_failure_that_has_not_changed_is_reported_once() {
     let (seen, lines) = replay(
@@ -309,7 +279,6 @@ async fn a_failure_that_has_not_changed_is_reported_once() {
     assert_eq!(complaints(&lines), 1, "one broken document, got:\n{lines}");
 }
 
-/// The gate is keyed on the message, so it must not swallow a different way of being broken.
 #[tokio::test]
 async fn a_failure_that_changed_is_reported_again() {
     let (_, lines) = replay(
@@ -329,8 +298,6 @@ async fn a_failure_that_changed_is_reported_again() {
     );
 }
 
-/// The gate has to reopen on a good load, or a document broken, fixed, and broken again the
-/// same way reports the first break and stays quiet for the life of the process.
 #[tokio::test]
 async fn the_same_failure_after_a_good_load_is_reported_again() {
     let (seen, lines) = replay(
@@ -352,9 +319,6 @@ async fn the_same_failure_after_a_good_load_is_reported_again() {
     );
 }
 
-/// Undoing the edit that broke it is a good load that yields nothing, because the document is
-/// back to what is already running. It still has to reopen the gate — the fix is that a
-/// document *loads*, not that it moved.
 #[tokio::test]
 async fn a_good_load_reopens_the_gate_even_when_the_document_did_not_move() {
     let (seen, lines) = replay(

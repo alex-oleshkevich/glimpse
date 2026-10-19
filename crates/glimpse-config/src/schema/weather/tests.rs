@@ -26,8 +26,6 @@ fn every_key_reads_kebab_case() {
     assert_eq!(parsed.forecast_days, 3);
 }
 
-/// A place is a lease held by whoever wants to see it, not a document the provider reads. Writing
-/// one here has to be an error rather than a setting that is quietly ignored.
 #[test]
 fn a_place_is_watched_rather_than_configured() {
     let rendered = load("[weather]\nplaces = []\n")

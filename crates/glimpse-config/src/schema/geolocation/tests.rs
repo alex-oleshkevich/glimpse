@@ -22,8 +22,6 @@ fn a_manual_table_carries_the_pair_it_names() {
     );
 }
 
-/// The whole point of the tagged enum: a half-filled table is refused at load, naming the key
-/// that is missing, rather than reaching a service as a location it has to degrade over.
 #[test]
 fn a_manual_table_is_refused_unless_both_coordinates_are_given() {
     for (text, missing) in [

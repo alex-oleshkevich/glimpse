@@ -192,9 +192,6 @@ fn an_unnamed_theme_watches_the_roots_alone_rather_than_joining_an_empty_name() 
     );
 }
 
-/// The root has to be a temporary one, not `/usr/share/glimpse/themes`: `theme_dir_in` asks
-/// the filesystem whether the default theme is there, so a hardcoded system path asserts that
-/// glimpse is not installed on the machine running the test.
 #[test]
 fn a_platform_naming_no_config_directory_still_watches_the_installed_root() {
     let base = tempfile::tempdir().expect("a temporary directory");

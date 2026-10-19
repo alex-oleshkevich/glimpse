@@ -14,7 +14,6 @@ fn an_absent_table_keeps_a_hundred() {
     assert!(notifications.enabled);
     assert_eq!(notifications.monitor, None);
     assert_eq!(notifications.edge, super::NotificationEdge::TopRight);
-    assert_eq!(super::NotificationEdge::default(), notifications.edge);
     assert_eq!(notifications.hide_delay, 4);
     assert_eq!(notifications.max_items, 6);
 }

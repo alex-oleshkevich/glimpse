@@ -13,10 +13,6 @@ async fn main() -> zbus::Result<()> {
         .inspect_err(|error| eprintln!("the pixmap fake did not start: {error}"))?;
 
     for item in [&ayatana, &pixmap] {
-        // A well-known name is what lets a host's sweep find this item after the host restarts, and
-        // re-registering on the announcement is what a Qt or libayatana client does. Without both, a
-        // panel restart loses the item until the application itself restarts — which is the residue
-        // case the README documents, and is no way to run a dev helper.
         match item.claim_well_known_name().await {
             Ok(name) => println!("holding {name}"),
             Err(error) => println!("no well-known name: {error}"),

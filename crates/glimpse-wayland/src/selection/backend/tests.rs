@@ -51,7 +51,6 @@ fn an_offer_of_nothing_we_understand_is_not_read() {
     assert_eq!(choose(&[]), None);
 }
 
-/// X11 atoms arrive from some toolkits in their own casing, and mime types are case-insensitive.
 #[test]
 fn a_mime_is_matched_without_regard_to_casing() {
     assert_eq!(

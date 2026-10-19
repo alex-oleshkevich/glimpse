@@ -73,7 +73,6 @@ fn the_stack_is_each_directory_and_its_dropins_in_merge_order() {
     );
 }
 
-/// `--config` replaces the stack, drop-ins included, so there is nothing else to watch.
 #[test]
 fn an_explicit_file_is_watched_through_its_own_directory_alone() {
     assert_eq!(
@@ -86,9 +85,6 @@ fn an_explicit_file_is_watched_through_its_own_directory_alone() {
     );
 }
 
-/// The dotfile case: the file lives in a repository and is linked into place. Both ends need a
-/// watch, because editing the file and replacing the link produce events in different
-/// directories.
 #[test]
 fn a_symlinked_base_file_adds_the_directory_holding_its_target() {
     let root = tempfile::tempdir().expect("a temporary directory");
@@ -111,9 +107,6 @@ fn a_symlinked_base_file_adds_the_directory_holding_its_target() {
     );
 }
 
-/// `[geolocation]` is one internally tagged enum, so it is the table most likely to break under
-/// layering: the layers have to merge as plain maps and be typed once at the end, or a drop-in
-/// completing a base table would be read as a table missing a key.
 #[test]
 fn a_dropin_completes_a_base_table_rather_than_replacing_it() {
     let root = tempfile::tempdir().expect("a temporary directory");

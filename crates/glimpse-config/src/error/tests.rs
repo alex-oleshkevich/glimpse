@@ -32,11 +32,10 @@ fn a_parse_error_names_the_position_without_quoting_the_line() {
 
 #[test]
 fn a_type_mismatch_names_the_key_without_quoting_the_value() {
-    // Only ever exercises the Err path, so `count` is never read back.
     #[derive(serde::Deserialize)]
     struct Fixture {
-        #[allow(dead_code)]
-        count: u64,
+        #[serde(rename = "count")]
+        _count: u64,
     }
 
     let raw = config::Config::builder()

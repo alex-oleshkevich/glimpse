@@ -28,8 +28,6 @@ fn every_key_reads_kebab_case() {
     assert_eq!(parsed.units, Units::Imperial);
 }
 
-/// An explicit setting must not consult the environment at all, or a test on one machine says
-/// something different from the same test on another.
 #[test]
 fn an_explicit_setting_answers_without_asking_the_environment() {
     let twelve = Regional {
@@ -51,7 +49,6 @@ fn an_explicit_setting_answers_without_asking_the_environment() {
     assert_eq!(environment::clock(twenty_four.twelve_hour()), "%H:%M");
 }
 
-/// Whitespace is what a person leaves behind when they clear the key rather than delete it.
 #[test]
 fn a_blank_language_is_the_same_as_an_absent_one() {
     assert_eq!(
@@ -72,8 +69,6 @@ fn a_blank_language_is_the_same_as_an_absent_one() {
     );
 }
 
-/// It is not a key of an applet's own table, and it must not come back out when one is
-/// written to disk.
 #[test]
 fn it_is_not_an_applet_setting() {
     load("[applets.clock]\nregional = {}\n").expect_err("`regional` is not an applet setting");
