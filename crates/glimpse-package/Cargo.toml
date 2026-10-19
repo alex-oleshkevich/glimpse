@@ -76,6 +76,7 @@ assets = [
   ["../../data/portals/*.portal", "usr/share/xdg-desktop-portal/portals/", "644"],
   ["../../data/portals/glimpse-portals.conf", "etc/xdg-desktop-portal/", "644"],
   ["../../data/portals/niri-portals.conf", "etc/xdg-desktop-portal/", "644"],
+  ["../../data/portals/hyprland-portals.conf", "etc/xdg-desktop-portal/", "644"],
   ["../../data/portals/*-portals.conf", "usr/share/glimpse/portals/", "644"],
   ["../../data/geoclue/conf.d/glimpse.conf", "etc/geoclue/conf.d/", "644"],
   ["../../data/pam.d/debian/glimpse-lock", "etc/pam.d/glimpse-lock", "644"],
@@ -108,6 +109,7 @@ conf-files = [
   "/etc/pam.d/glimpse-lock",
   "/etc/xdg-desktop-portal/glimpse-portals.conf",
   "/etc/xdg-desktop-portal/niri-portals.conf",
+  "/etc/xdg-desktop-portal/hyprland-portals.conf",
 ]
 
 # `cargo generate-rpm -p crates/glimpse-package` is run from the workspace root, so these `source` paths
@@ -155,6 +157,7 @@ assets = [
   { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
   { source = "data/portals/glimpse-portals.conf", dest = "/etc/xdg-desktop-portal/glimpse-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/niri-portals.conf", dest = "/etc/xdg-desktop-portal/niri-portals.conf", mode = "644", config = "noreplace" },
+  { source = "data/portals/hyprland-portals.conf", dest = "/etc/xdg-desktop-portal/hyprland-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/*-portals.conf", dest = "/usr/share/glimpse/portals/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "data/pam.d/fedora/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
@@ -224,6 +227,7 @@ assets = [
   { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
   { source = "data/portals/glimpse-portals.conf", dest = "/etc/xdg-desktop-portal/glimpse-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/niri-portals.conf", dest = "/etc/xdg-desktop-portal/niri-portals.conf", mode = "644", config = "noreplace" },
+  { source = "data/portals/hyprland-portals.conf", dest = "/etc/xdg-desktop-portal/hyprland-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/*-portals.conf", dest = "/usr/share/glimpse/portals/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "data/pam.d/debian/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },

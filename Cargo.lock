@@ -1671,7 +1671,9 @@ dependencies = [
  "clap",
  "colorchoice-clap",
  "futures-util",
+ "gettext-rs",
  "glimpse-config",
+ "glimpse-dbus",
  "glimpse-utils",
  "glimpse-widgets",
  "gtk4",
@@ -1681,8 +1683,11 @@ dependencies = [
  "shadow-rs",
  "tempfile",
  "tokio",
+ "toml_edit",
  "tracing",
  "tracing-subscriber",
+ "url",
+ "zbus",
 ]
 
 [[package]]

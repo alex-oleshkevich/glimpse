@@ -27,6 +27,7 @@ backup=(
     'etc/pam.d/glimpse-lock'
     'etc/xdg-desktop-portal/glimpse-portals.conf'
     'etc/xdg-desktop-portal/niri-portals.conf'
+    'etc/xdg-desktop-portal/hyprland-portals.conf'
 )
 provides=('glimpse-desktop')
 conflicts=('glimpse-desktop')

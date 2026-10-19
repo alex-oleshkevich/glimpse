@@ -279,7 +279,11 @@ fn idle_portal_routing_assets_reach_every_package() {
     let root = workspace_root();
     assert!(root.join("data/portals/glimpse.portal").is_file());
     let manifest = manifest(&root);
-    for conf in ["glimpse-portals.conf", "niri-portals.conf"] {
+    for conf in [
+        "glimpse-portals.conf",
+        "niri-portals.conf",
+        "hyprland-portals.conf",
+    ] {
         let text = fs::read_to_string(root.join("data/portals").join(conf)).expect(conf);
         assert!(
             text.contains("org.freedesktop.impl.portal.Inhibit=glimpse"),
@@ -320,6 +324,54 @@ fn idle_portal_routing_assets_reach_every_package() {
 }
 
 #[test]
+fn wallpaper_portal_assets_agree_with_the_binary() {
+    let root = workspace_root();
+    let portal =
+        fs::read_to_string(root.join("data/portals/glimpse-wallpaper.portal")).expect(".portal");
+    assert!(portal.contains("DBusName=me.aresa.Glimpse.Wallpaper.Portal"));
+    assert!(portal.contains("Interfaces=org.freedesktop.impl.portal.Wallpaper"));
+    assert!(portal.contains("UseIn=glimpse"));
+
+    let activation = fs::read_to_string(
+        root.join("data/dbus-1/services/me.aresa.Glimpse.Wallpaper.Portal.service"),
+    )
+    .expect("activation file");
+    assert!(activation.contains("Name=me.aresa.Glimpse.Wallpaper.Portal"));
+    assert!(activation.contains("Exec=/usr/bin/glimpse-wallpaper"));
+    assert!(activation.contains("SystemdService=glimpse-wallpaper.service"));
+
+    let source = fs::read_to_string(root.join("crates/glimpse-wallpaper/src/portal.rs"))
+        .expect("portal source");
+    assert!(source.contains("\"me.aresa.Glimpse.Wallpaper.Portal\""));
+
+    for conf in [
+        "glimpse-portals.conf",
+        "niri-portals.conf",
+        "hyprland-portals.conf",
+    ] {
+        let text = fs::read_to_string(root.join("data/portals").join(conf)).expect(conf);
+        assert!(
+            text.contains("org.freedesktop.impl.portal.Wallpaper=glimpse-wallpaper"),
+            "{conf}"
+        );
+        assert!(
+            text.contains("org.freedesktop.impl.portal.Screenshot=glimpse-shot"),
+            "{conf}"
+        );
+        assert!(
+            !text
+                .lines()
+                .any(|line| line.trim_start().starts_with("default")),
+            "{conf} must not set a default"
+        );
+    }
+
+    let uninstall = fs::read_to_string(root.join("scripts/uninstall.sh")).expect("uninstall");
+    assert!(uninstall.contains("glimpse-wallpaper.portal"));
+    assert!(uninstall.contains("me.aresa.Glimpse.Wallpaper.Portal.service"));
+}
+
+#[test]
 fn the_etc_portal_routing_is_configuration_in_every_package() {
     let root = workspace_root();
     let manifest = manifest(&root);
@@ -341,6 +393,7 @@ fn the_etc_portal_routing_is_configuration_in_every_package() {
         "/etc/pam.d/glimpse-lock",
         "/etc/xdg-desktop-portal/glimpse-portals.conf",
         "/etc/xdg-desktop-portal/niri-portals.conf",
+        "/etc/xdg-desktop-portal/hyprland-portals.conf",
     ] {
         assert!(
             pkgbuild.contains(&format!("'{}'", path.trim_start_matches('/'))),
