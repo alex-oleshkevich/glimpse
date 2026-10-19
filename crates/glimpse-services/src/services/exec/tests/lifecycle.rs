@@ -359,14 +359,77 @@ async fn exits_before_hello_keeps_restarting() {
 #[tokio::test]
 async fn retry_recovers() {
     let (_dir, entry, _output) = script(LOOP);
-    let catalog = FakeCatalog(Arc::new(Mutex::new(Err("not installed".to_owned()))));
-    let ((handle, _sender, cancel, task, _launcher), _config) = running(catalog.clone());
+    let test = configured();
+    let applications = test.config.application_dirs[0].clone();
+    let catalog = file_catalog(&test.config);
+    let (handle, _sender, cancel, task, _launcher) = running_with(test, catalog, None);
     handle.attach(1, "test", placement()).await.expect("attach");
     assert!(
-        matches!(status(&handle, 1, |s| matches!(s, Status::Failed(_))).await.status, Status::Failed(reason) if reason == "not installed")
+        matches!(status(&handle, 1, |s| matches!(s, Status::Failed(_))).await.status, Status::Failed(reason) if reason.contains("not installed"))
     );
-    *catalog.0.lock().expect("catalog") = Ok(entry);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(applications.is_dir());
+    write_entry(&applications, &entry);
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        status(&handle, 1, |s| matches!(s, Status::Running)),
+    )
+    .await
+    .expect("entry starts within one second");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn replacing_an_entry_keeps_the_child_running() {
+    let (_dir, entry, _output) = script(LOOP);
+    let test = configured();
+    let applications = test.config.application_dirs[0].clone();
+    let path = write_entry(&applications, &entry);
+    let catalog = file_catalog(&test.config);
+    let (handle, _sender, cancel, task, launcher) = running_with(test, catalog.clone(), None);
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let before = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    std::fs::remove_file(&path).expect("remove entry");
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while catalog.reads.load(std::sync::atomic::Ordering::Relaxed) < 2 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("first miss observed");
+    write_entry(&applications, &entry);
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    let after = handle.snapshot().slots[&1].clone();
+    assert_eq!(after.status, Status::Running);
+    assert_eq!(after.generation, before.generation);
+    assert_eq!(launcher.started().len(), 1);
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn unchanged_entries_do_not_trigger_periodic_retries() {
+    let (_dir, entry, _output) = script(LOOP);
+    let test = configured();
+    let applications = test.config.application_dirs[0].clone();
+    let catalog = file_catalog(&test.config);
+    let (handle, _sender, cancel, task, _launcher) = running_with(test, catalog.clone(), None);
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+    tokio::time::sleep(Duration::from_secs(6)).await;
+    assert_eq!(catalog.reads.load(std::sync::atomic::Ordering::Relaxed), 1);
+    write_entry(&applications, &entry);
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    let reads = catalog.reads.load(std::sync::atomic::Ordering::Relaxed);
+    tokio::time::sleep(Duration::from_secs(6)).await;
+    assert_eq!(
+        catalog.reads.load(std::sync::atomic::Ordering::Relaxed),
+        reads
+    );
     handle.detach(1).await.expect("detach");
     cancel.cancel();
     let _ = task.await;

@@ -63,9 +63,10 @@ process with its own options.
 | The bar moves to another edge or size | The panel sends a `placement` message. A bar whose placement now differs from the bars it shared a process with starts its own. |
 | The applet is removed from every zone | The unit stops. |
 
-The panel looks up the entries of placed applets every 5 seconds. An applet that failed because its
-entry was missing starts once the entry appears; a running applet whose entry is missing twice in a
-row stops.
+The panel watches the `applications` folders for placed applets' entries. An applet that failed
+because its entry was missing starts as soon as the entry appears; a running applet whose entry is
+gone and still missing a second later stops. An applet that failed to launch for another reason
+tries again after 5 seconds.
 
 ## When it exits
 
