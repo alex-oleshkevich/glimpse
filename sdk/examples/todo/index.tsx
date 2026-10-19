@@ -83,8 +83,12 @@ function App() {
             writeFileSync(temp, JSON.stringify(items));
             renameSync(temp, target);
         } catch (error) {
-            rmSync(temp, { force: true });
             notify({ summary: "Could not save Todo items", body: String(error) });
+            try {
+                rmSync(temp, { force: true });
+            } catch {
+                return;
+            }
         }
     }, [items, stateDir, loaded]);
 

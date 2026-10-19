@@ -10,6 +10,8 @@ use zbus::zvariant::{Fd, Value};
 
 pub const NEEDS_SYSTEMD: &str = "needs the systemd user manager";
 
+pub const EXIT_UNAVAILABLE: i32 = 69;
+
 pub struct UnitSpec {
     pub name: String,
     pub description: String,
@@ -51,6 +53,29 @@ pub fn unit_name(panel: &str, applet: &str, slot: u64, n: u64) -> String {
 
 pub fn sweep_prefix(panel: &str) -> String {
     format!("app-glimpse-{}-", escape(panel))
+}
+
+pub fn panel_pid(name: &str) -> Option<u32> {
+    let body = name
+        .strip_prefix("app-glimpse-")?
+        .strip_suffix(".service")?;
+    let parts: Vec<&str> = body.split('-').collect();
+    let [panel, applet, slot, pid, n] = parts[..] else {
+        return None;
+    };
+    let decimal = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    if panel.is_empty() || applet.is_empty() || !decimal(slot) || !decimal(pid) || !decimal(n) {
+        return None;
+    }
+    pid.parse().ok()
+}
+
+pub fn is_orphan_unit(name: &str, own_pid: u32, alive: impl Fn(u32) -> bool) -> bool {
+    panel_pid(name).is_some_and(|pid| pid != own_pid && !alive(pid))
+}
+
+fn pid_alive(pid: u32) -> bool {
+    Path::new("/proc").join(pid.to_string()).exists()
 }
 
 fn set_env(env: &mut Vec<(String, String)>, name: String, value: String) {
@@ -168,6 +193,10 @@ pub fn unit_properties(spec: &UnitSpec) -> Result<Vec<(&'static str, Value<'_>)>
         (
             "Restart",
             Value::from(if spec.restart { "always" } else { "no" }),
+        ),
+        (
+            "RestartPreventExitStatus",
+            Value::from((vec![EXIT_UNAVAILABLE], Vec::<i32>::new())),
         ),
         ("RestartUSec", Value::from(1_000_000u64)),
         ("RestartSteps", Value::from(6u32)),
@@ -294,12 +323,18 @@ impl Launcher for SystemdLauncher {
             let Ok(manager) = inner.manager().await else {
                 return;
             };
-            let pattern = format!("{prefix}*");
-            let Ok(units) = manager.list_units_by_patterns(&[], &[&pattern]).await else {
+            let own = format!("{prefix}*");
+            let Ok(units) = manager
+                .list_units_by_patterns(&[], &[&own, "app-glimpse-*.service"])
+                .await
+            else {
                 return;
             };
+            let own_pid = std::process::id();
             for unit in units {
-                let _ = manager.stop_unit(&unit.0, "replace").await;
+                if unit.0.starts_with(&prefix) || is_orphan_unit(&unit.0, own_pid, pid_alive) {
+                    let _ = manager.stop_unit(&unit.0, "replace").await;
+                }
             }
         })
     }

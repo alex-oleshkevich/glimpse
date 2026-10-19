@@ -1215,7 +1215,7 @@ test("applet sdk", async (t) => {
 	});
 
 	await t.test(
-		"socket io exits 0 when the socket is missing or refused",
+		"socket io exits 69 when the socket is missing or refused",
 		async () => {
 			const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sock-"));
 			const stale = path.join(dir, "stale.sock");
@@ -1231,7 +1231,7 @@ test("applet sdk", async (t) => {
 				} finally {
 					exit.restore();
 				}
-				assert(exit.code() === 0, `${target}: exit ${exit.code()}`);
+				assert(exit.code() === 69, `${target}: exit ${exit.code()}`);
 			}
 			fs.rmSync(dir, { recursive: true, force: true });
 		},

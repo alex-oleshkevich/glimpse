@@ -13,6 +13,12 @@ class _Closed(Exception):
     pass
 
 
+class _Unavailable(Exception):
+    def __init__(self, path: str) -> None:
+        super().__init__(path)
+        self.path = path
+
+
 class _Signal(enum.Enum):
     WAKE = enum.auto()
     EOF = enum.auto()
@@ -27,6 +33,13 @@ def run(app: App) -> None:
 
     try:
         asyncio.run(_serve(app, path))
+    except _Unavailable as unavailable:
+        print(
+            f"GLIMPSE_APPLET_SOCKET at {unavailable.path} is not reachable: "
+            "run the applet under the panel",
+            file=sys.stderr,
+        )
+        sys.exit(69)
     except BaseExceptionGroup as group:
         _exit(group)
     except Exception as error:
@@ -48,7 +61,7 @@ async def _serve(app: App, path: str) -> None:
     try:
         reader, writer = await asyncio.open_unix_connection(path)
     except FileNotFoundError, ConnectionRefusedError:
-        return
+        raise _Unavailable(path) from None
 
     await _Connection(reader, writer).serve(app)
 

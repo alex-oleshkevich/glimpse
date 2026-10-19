@@ -200,6 +200,128 @@ fn unit_properties_carry_the_restart_curve() {
     );
 }
 
+#[test]
+fn unit_properties_stop_restarting_when_the_panel_is_gone() {
+    let spec = UnitSpec {
+        name: "app-glimpse-x.service".to_owned(),
+        description: "Test".to_owned(),
+        argv: vec!["/usr/bin/true".to_owned()],
+        cwd: None,
+        env: Vec::new(),
+        restart: true,
+        stderr: None,
+    };
+    let props = unit_properties(&spec).expect("properties");
+    let value = props
+        .iter()
+        .find(|(key, _)| *key == "RestartPreventExitStatus")
+        .map(|(_, value)| value)
+        .expect("RestartPreventExitStatus");
+    assert_eq!(
+        value,
+        &zbus::zvariant::Value::from((vec![69i32], Vec::<i32>::new()))
+    );
+    assert_eq!(value.value_signature().to_string(), "(aiai)");
+    assert_eq!(
+        <(Vec<i32>, Vec<i32>)>::try_from(value).expect("(aiai)"),
+        (vec![69], Vec::new())
+    );
+}
+
+#[test]
+fn panel_pid_parses_only_exec_unit_names() {
+    assert_eq!(
+        panel_pid("app-glimpse-me.aresa.GlimpsePanel-me.example.Test-1-765616-2.service"),
+        Some(765616)
+    );
+    assert_eq!(
+        panel_pid(&unit_name("panel-a", "applet-b", 3, 7)),
+        Some(std::process::id())
+    );
+    for name in [
+        "app-glimpse-firefox-765616-1.service",
+        "app-glimpse-panel-applet-1-765616.service",
+        "app-glimpse-panel-applet-1-765616-1-extra.service",
+        "app-glimpse-panel-applet-x-765616-1.service",
+        "app-glimpse-panel-applet-1-x-1.service",
+        "app-glimpse-panel-applet-1-765616-x.service",
+        "app-glimpse-panel-applet-1--1.service",
+        "app-glimpse--applet-1-765616-1.service",
+        "app-glimpse-panel--1-765616-1.service",
+        "app-glimpse-panel-applet-1-765616-1",
+        "glimpse-panel-applet-1-765616-1.service",
+    ] {
+        assert_eq!(panel_pid(name), None, "{name}");
+    }
+}
+
+#[test]
+fn orphan_units_belong_to_dead_foreign_panels() {
+    let name = "app-glimpse-me.aresa.Other-me.example.Test-1-765616-1.service";
+    let own = std::process::id();
+    assert!(is_orphan_unit(name, own, |_| false));
+    assert!(is_orphan_unit(name, own, |pid| pid != 765616));
+    assert!(!is_orphan_unit(name, own, |_| true));
+    assert!(!is_orphan_unit(name, 765616, |_| false));
+    assert!(!is_orphan_unit(
+        "app-glimpse-firefox-765616-1.service",
+        own,
+        |_| false
+    ));
+    assert!(!is_orphan_unit("not-a-unit", own, |_| false));
+}
+
+async fn watched_gone(mut watch: BoxStream<'static, UnitState>) -> bool {
+    use futures_util::StreamExt;
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while let Some(state) = watch.next().await {
+            if state == UnitState::Gone {
+                return true;
+            }
+        }
+        false
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[tokio::test]
+async fn process_sweep_stops_orphans_and_spares_live_panels() {
+    use futures_util::StreamExt;
+    let launcher = ProcessLauncher::new();
+    let panel = "me.aresa.GlimpsePanel";
+    let mine = unit_name(panel, "me.example.Test", 1, 1);
+    let orphan = "app-glimpse-me.aresa.DeadPanel-me.example.Test-1-4194999-1.service".to_owned();
+    let live = unit_name("me.aresa.OtherPanel", "me.example.Test", 1, 1);
+    for name in [&mine, &orphan, &live] {
+        launcher
+            .start(UnitSpec {
+                name: name.clone(),
+                description: "sleeper".to_owned(),
+                argv: vec!["/bin/sleep".to_owned(), "30".to_owned()],
+                cwd: None,
+                env: Vec::new(),
+                restart: false,
+                stderr: None,
+            })
+            .await
+            .expect("start sleeper");
+    }
+    let mine_watch = launcher.watch(&mine);
+    let orphan_watch = launcher.watch(&orphan);
+    let mut live_watch = launcher.watch(&live);
+    launcher.sweep(&sweep_prefix(panel)).await;
+    assert!(watched_gone(mine_watch).await, "own unit swept");
+    assert!(watched_gone(orphan_watch).await, "orphan swept");
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(200), live_watch.next())
+            .await
+            .is_err(),
+        "a live panel's unit untouched"
+    );
+    launcher.stop(&live).await;
+}
+
 #[tokio::test]
 async fn missing_connection_needs_the_user_manager() {
     let launcher = SystemdLauncher::new(None);

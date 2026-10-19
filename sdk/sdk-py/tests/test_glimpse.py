@@ -664,11 +664,22 @@ class RunLoopTest(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 1)
 
-    def test_a_missing_socket_file_exits_0(self) -> None:
-        missing = os.path.join(tempfile.mkdtemp(), "none.sock")
+    def test_a_missing_or_refused_socket_exits_69(self) -> None:
+        directory = tempfile.mkdtemp()
+        missing = os.path.join(directory, "none.sock")
+        refused = os.path.join(directory, "refused.sock")
+        holder = socket.socket(socket.AF_UNIX)
+        holder.bind(refused)
+        holder.close()
 
-        with mock.patch.dict(os.environ, {"GLIMPSE_APPLET_SOCKET": missing}):
-            glimpse.run(EmptyApp())
+        for path in (missing, refused):
+            with (
+                mock.patch.dict(os.environ, {"GLIMPSE_APPLET_SOCKET": path}),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                glimpse.run(EmptyApp())
+
+            self.assertEqual(raised.exception.code, 69)
 
 
 if __name__ == "__main__":
