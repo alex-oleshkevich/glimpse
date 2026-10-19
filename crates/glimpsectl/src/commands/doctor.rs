@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use glimpse_compositors::Hyprland;
 use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, HealthKind, Idle1Proxy};
 use glimpse_dbus::night_light::{GLIMPSE_NIGHT_LIGHT_BUS_NAME, NightLight1Proxy};
 use glimpse_dbus::notifications::{GLIMPSE_NOTIFICATIONS_BUS_NAME, Notifications1Proxy};
@@ -19,6 +20,10 @@ pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
     let session = within(Connection::session()).await;
     let configuration = configuration(config);
     let providers = providers(&session).await;
+    let session_lock = match Hyprland::from_env() {
+        Some(hyprland) => session_lock(&hyprland).await,
+        None => None,
+    };
     let components = match &session {
         Ok(connection) => super::status::rows(connection).await,
         Err(error) => Err(anyhow::anyhow!(error.to_string())),
@@ -28,6 +33,7 @@ pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
         || providers
             .iter()
             .any(|provider| !provider.running || !provider.serving)
+        || session_lock.as_ref().is_some_and(|lock| !lock.enabled)
         || components.is_err();
     let components = components.unwrap_or_else(|_| super::status::absent_rows());
 
@@ -36,6 +42,7 @@ pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
             configuration: &configuration,
             providers: &providers,
             components: &components,
+            session_lock: session_lock.as_ref(),
         })?;
     } else {
         configuration.section().print()?;
@@ -43,6 +50,10 @@ pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
         providers_section(&providers, &session).print()?;
         render::print("")?;
         super::status::print(&components, false)?;
+        if let Some(lock) = &session_lock {
+            render::print("")?;
+            lock.section().print()?;
+        }
     }
     anyhow::ensure!(!failed, "diagnostic checks failed");
     Ok(())
@@ -53,6 +64,47 @@ struct Diagnosis<'a> {
     configuration: &'a Configuration,
     providers: &'a [Provider],
     components: &'a [super::status::ComponentRow],
+    session_lock: Option<&'a SessionLock>,
+}
+
+const RESTORE_OPTION: &str = "misc:allow_session_lock_restore";
+const RESTORE_FIX: &str = "misc { allow_session_lock_restore = true }";
+
+#[derive(Serialize)]
+pub struct SessionLock {
+    pub option: &'static str,
+    pub enabled: bool,
+    pub fix: &'static str,
+}
+
+pub async fn session_lock(hyprland: &Hyprland) -> Option<SessionLock> {
+    let enabled = match within(hyprland.allow_session_lock_restore()).await {
+        Ok(enabled) => enabled,
+        Err(error) => {
+            tracing::warn!(%error, "could not read {RESTORE_OPTION}");
+            return None;
+        }
+    };
+    Some(SessionLock {
+        option: RESTORE_OPTION,
+        enabled,
+        fix: RESTORE_FIX,
+    })
+}
+
+impl SessionLock {
+    pub fn section(&self) -> Section {
+        let section = Section::new("Session lock");
+        match self.enabled {
+            true => section.with_note(&format!("{} is on", self.option)),
+            false => section
+                .with(styled::bad(&format!(
+                    "{} is off, so Hyprland refuses a restarted glimpse-lock",
+                    self.option
+                )))
+                .with_note(&format!("set {}", self.fix)),
+        }
+    }
 }
 
 #[derive(Serialize)]

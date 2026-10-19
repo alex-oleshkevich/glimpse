@@ -9,6 +9,10 @@ use crate::event::Resync;
 use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
 fn snapshot_server() -> FakeHyprland {
+    snapshot_server_with(Vec::new())
+}
+
+fn snapshot_server_with(events: Vec<String>) -> FakeHyprland {
     FakeHyprland::spawn(
         |command| match command {
             "j/monitors all" => json!([
@@ -31,11 +35,11 @@ fn snapshot_server() -> FakeHyprland {
             .to_string(),
             "j/clients" => json!([
                 { "address": "0x9", "title": "a terminal", "class": "foot", "pid": 4265,
-                  "workspace": { "id": 5, "name": "5" }, "floating": false, "urgent": false,
+                  "workspace": { "id": 5, "name": "5" }, "floating": false,
                   "monitor": 0, "at": [0, 0], "size": [2880, 1800] },
                 { "address": "0xa", "title": "a chat", "class": "foot", "pid": 4266,
                   "workspace": { "id": -1337, "name": "chat" }, "floating": false,
-                  "urgent": false, "monitor": 1, "at": [2880, 0], "size": [800, 600] }
+                  "monitor": 1, "at": [2880, 0], "size": [800, 600] }
             ])
             .to_string(),
             "j/activewindow" => json!({ "address": "0x9" }).to_string(),
@@ -49,7 +53,7 @@ fn snapshot_server() -> FakeHyprland {
             .to_string(),
             other => panic!("the fake was asked for {other}"),
         },
-        Vec::new(),
+        events,
     )
 }
 
@@ -142,6 +146,32 @@ async fn an_empty_title_is_absent_rather_than_an_empty_string() {
 }
 
 #[tokio::test]
+async fn reading_the_layouts_asks_for_nothing_else() {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            sink.lock().expect("lock").push(command.to_owned());
+            json!({ "keyboards": [
+                { "main": true, "layout": "us,gb", "active_layout_index": 1,
+                  "active_keymap": "English (UK)" }
+            ] })
+            .to_string()
+        },
+        Vec::new(),
+    );
+
+    let layouts = Hyprland::at(&server.dir)
+        .keyboard_layouts()
+        .await
+        .expect("layouts");
+
+    assert_eq!(layouts.codes, ["us", "gb"]);
+    assert_eq!(layouts.current, Some(1));
+    assert_eq!(*received.lock().expect("lock"), ["j/devices"]);
+}
+
+#[tokio::test]
 async fn a_disabled_monitor_reports_the_same_shape_niri_does() {
     let server = snapshot_server();
     let snapshot = Hyprland::at(&server.dir)
@@ -230,37 +260,6 @@ async fn a_missing_socket_names_the_path_it_tried() {
             .to_string()
             .contains("/nonexistent/hypr/.socket.sock"),
         "expected the path in {failure}"
-    );
-}
-
-#[test]
-fn every_addon_serializes_to_the_dispatch_hyprland_expects() {
-    assert_eq!(
-        move_to_output_command("4", "DP-3"),
-        "dispatch moveworkspacetomonitor 4 DP-3"
-    );
-    assert_eq!(
-        move_window_command(WindowId(0x5b), "4"),
-        "dispatch movetoworkspacesilent 4,address:0x5b",
-        "the silent form is what keeps focus where the user left it"
-    );
-    assert_eq!(
-        close_command(WindowId(0x5b)),
-        "dispatch closewindow address:0x5b"
-    );
-    assert_eq!(focus_output_command("DP-3"), "dispatch focusmonitor DP-3");
-}
-
-#[tokio::test]
-async fn reordering_a_workspace_is_refused_rather_than_dispatched() {
-    let error = Hyprland::at("/nonexistent")
-        .reorder_workspace(WorkspaceId(4), 2)
-        .await
-        .expect_err("refused");
-
-    assert!(
-        matches!(error, CompositorError::Unavailable(_)),
-        "a dispatch would have failed to connect first, so this is what proves nothing was sent"
     );
 }
 
@@ -517,6 +516,50 @@ async fn screencasts_keep_privacy_active_until_every_client_stops() {
     );
 }
 
+async fn snapshot_after(lines: &[&str]) -> Snapshot {
+    let server = snapshot_server_with(lines.iter().map(|line| (*line).to_owned()).collect());
+    let hyprland = Hyprland::at(&server.dir);
+    let _: Vec<Event> = hyprland.events().await.expect("subscribed").collect().await;
+    hyprland.snapshot().await.expect("snapshot")
+}
+
+#[tokio::test]
+async fn a_snapshot_keeps_the_screencasts_the_stream_has_seen() {
+    let snapshot = snapshot_after(&["screencast>>1,monitor", "workspacev2>>5,5"]).await;
+
+    assert_eq!(
+        snapshot.casts,
+        [Cast {
+            stream_id: 0,
+            session_id: None,
+            kind: CastKind::Unknown,
+            target: CastTarget::Unknown,
+            pw_node_id: None,
+            active: true,
+        }]
+    );
+}
+
+#[tokio::test]
+async fn a_snapshot_after_the_last_screencast_stops_holds_no_casts() {
+    let snapshot = snapshot_after(&["screencast>>1,monitor", "screencast>>0,monitor"]).await;
+
+    assert!(snapshot.casts.is_empty());
+}
+
+#[tokio::test]
+async fn an_urgent_window_stays_urgent_across_a_resync_until_it_is_focused() {
+    let snapshot = snapshot_after(&["urgent>>0x9", "windowtitlev2>>9,a title"]).await;
+    assert!(snapshot.windows[0].is_urgent);
+    assert!(!snapshot.windows[1].is_urgent);
+
+    let snapshot = snapshot_after(&["urgent>>0x9", "activewindowv2>>9"]).await;
+    assert!(!snapshot.windows[0].is_urgent);
+
+    let snapshot = snapshot_after(&["urgent>>0x9", "closewindow>>0x9"]).await;
+    assert!(!snapshot.windows[0].is_urgent);
+}
+
 #[tokio::test]
 async fn a_layout_switch_takes_its_index_from_devices_not_the_display_name() {
     let events = events_from(&[
@@ -528,14 +571,8 @@ async fn a_layout_switch_takes_its_index_from_devices_not_the_display_name() {
     assert_eq!(
         events,
         [
-            Event::KeyboardLayoutSwitched {
-                idx: 1,
-                name: Some("English (UK)".to_owned()),
-            },
-            Event::KeyboardLayoutSwitched {
-                idx: 1,
-                name: Some("English (UK)".to_owned()),
-            },
+            Event::KeyboardLayoutSwitched(1),
+            Event::KeyboardLayoutSwitched(1),
         ]
     );
 }
@@ -742,4 +779,27 @@ async fn only_the_second_title_event_asks_for_a_resync() {
     let events = events_from(&["windowtitle>>9", "windowtitlev2>>9,a title"]).await;
 
     assert_eq!(events, [Event::Resync(Resync::Structure)]);
+}
+
+async fn session_lock_restore(int: i64) -> bool {
+    let server = FakeHyprland::spawn(
+        move |command| match command {
+            "j/getoption misc:allow_session_lock_restore" => json!({
+                "option": "misc:allow_session_lock_restore", "int": int, "set": false
+            })
+            .to_string(),
+            other => panic!("the fake was asked for {other}"),
+        },
+        Vec::new(),
+    );
+    Hyprland::at(&server.dir)
+        .allow_session_lock_restore()
+        .await
+        .expect("an answer")
+}
+
+#[tokio::test]
+async fn the_session_lock_restore_option_reads_its_int() {
+    assert!(!session_lock_restore(0).await);
+    assert!(session_lock_restore(1).await);
 }

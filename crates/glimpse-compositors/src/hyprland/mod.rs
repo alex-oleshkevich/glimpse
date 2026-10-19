@@ -21,8 +21,6 @@ use crate::model::{
 use event::{EventState, address};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
-    floating: true,
-    workspace_reorder: false,
     output_power: true,
     blank_screens: false,
 };
@@ -38,6 +36,25 @@ pub struct Hyprland {
 impl Hyprland {
     pub fn at(dir: impl Into<PathBuf>) -> Self {
         Self { dir: dir.into() }
+    }
+
+    pub fn from_env() -> Option<Self> {
+        let signature = std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE")?;
+        match signature.is_empty() {
+            true => None,
+            false => Some(Self::at(dirs::runtime_dir()?.join("hypr").join(signature))),
+        }
+    }
+
+    pub async fn allow_session_lock_restore(&self) -> Result<bool, CompositorError> {
+        #[derive(Deserialize)]
+        struct Reading {
+            int: i64,
+        }
+        let option = self
+            .json::<Reading>("j/getoption misc:allow_session_lock_restore")
+            .await?;
+        Ok(option.int != 0)
     }
 
     pub(crate) async fn snapshot(&self) -> Result<Snapshot, CompositorError> {
@@ -136,33 +153,6 @@ impl Hyprland {
         self.dispatch(&window_command(to)).await
     }
 
-    pub(crate) async fn move_workspace_to_output(
-        &self,
-        id: WorkspaceId,
-        connector: &str,
-    ) -> Result<(), CompositorError> {
-        let selector = self.resolve_id_selector(id).await?;
-        self.dispatch(&move_to_output_command(&selector, connector))
-            .await
-    }
-
-    pub(crate) async fn reorder_workspace(
-        &self,
-        _id: WorkspaceId,
-        _index: u8,
-    ) -> Result<(), CompositorError> {
-        Err(CompositorError::Unavailable("reorder a workspace"))
-    }
-
-    pub(crate) async fn move_window_to_workspace(
-        &self,
-        window: WindowId,
-        to: &WorkspaceTarget,
-    ) -> Result<(), CompositorError> {
-        let selector = self.resolve_selector(to).await?;
-        self.dispatch(&move_window_command(window, &selector)).await
-    }
-
     async fn resolve_selector(&self, to: &WorkspaceTarget) -> Result<String, CompositorError> {
         match plain_selector(to) {
             Some(selector) => Ok(selector),
@@ -185,14 +175,6 @@ impl Hyprland {
             .map(|workspace| workspace.name.clone())
             .ok_or_else(|| CompositorError::Refused(format!("unknown workspace {signed}")))?;
         Ok(format!("name:{name}"))
-    }
-
-    pub(crate) async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
-        self.dispatch(&close_command(id)).await
-    }
-
-    pub(crate) async fn focus_output(&self, connector: &str) -> Result<(), CompositorError> {
-        self.dispatch(&focus_output_command(connector)).await
     }
 
     pub(crate) async fn set_output_enabled(
@@ -238,7 +220,7 @@ impl Hyprland {
         Err(CompositorError::Unavailable("screenshot a window"))
     }
 
-    async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
+    pub(crate) async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
         let devices = self.json::<WireDevices>("j/devices").await?;
         let Some(keyboard) = devices.main_keyboard() else {
             return Ok(KeyboardLayouts::default());
@@ -320,10 +302,7 @@ impl LineDecoder for EventDecoder {
             if let Ok(layouts) = self.hyprland.keyboard_layouts().await
                 && let Some(idx) = layouts.current
             {
-                events.push(Event::KeyboardLayoutSwitched {
-                    idx,
-                    name: layouts.names.get(idx).cloned(),
-                });
+                events.push(Event::KeyboardLayoutSwitched(idx));
             }
             events
         } else {
@@ -349,16 +328,6 @@ async fn connect(path: &std::path::Path) -> Result<UnixStream, CompositorError> 
     UnixStream::connect(path)
         .await
         .map_err(|error| CompositorError::connect(path, error))
-}
-
-pub(crate) fn from_env() -> Option<Hyprland> {
-    let signature = std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE")?;
-    match signature.is_empty() {
-        true => None,
-        false => Some(Hyprland::at(
-            dirs::runtime_dir()?.join("hypr").join(signature),
-        )),
-    }
 }
 
 fn lua_string(value: &str) -> String {
@@ -596,25 +565,6 @@ fn plain_selector(to: &WorkspaceTarget) -> Option<String> {
 
 fn workspace_command(selector: &str) -> String {
     format!("dispatch workspace {selector}")
-}
-
-fn move_to_output_command(selector: &str, connector: &str) -> String {
-    format!("dispatch moveworkspacetomonitor {selector} {connector}")
-}
-
-fn move_window_command(window: WindowId, selector: &str) -> String {
-    format!(
-        "dispatch movetoworkspacesilent {selector},address:0x{:x}",
-        window.0
-    )
-}
-
-fn close_command(id: WindowId) -> String {
-    format!("dispatch closewindow address:0x{:x}", id.0)
-}
-
-fn focus_output_command(connector: &str) -> String {
-    format!("dispatch focusmonitor {connector}")
 }
 
 fn window_command(to: WindowTarget) -> String {

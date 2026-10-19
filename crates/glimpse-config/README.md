@@ -17,8 +17,8 @@ place that asks the environment a regional question.
 | 6   | screenshot      | `shot.toml` beside the user or `--config` file            |
 
 `--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included. Layer 6
-contributes only its `[screenshot]` table, and a change to it alone is not a reload: it is the file
-glimpse-shot's Preferences writes, so the panel never reloads for it.
+contributes only its `[screenshot]` table, and a change to `[screenshot]` alone is not a reload for
+any binary: only glimpse-shot reads it, and it calls `load` itself.
 `resolved_files(config_path)` returns the same ordered list without reading any of it.
 
 **`user_dir()` (`~/.config/glimpse`) is owned by this crate** — anything needing a glimpse path asks
@@ -59,13 +59,13 @@ generated documents and fail with guidance: `auto-dark` names `desktop-color-sch
 Symlinks are followed; regular files only, capped at 1 MiB. **The descriptor is inspected after the
 open, never a path before it** — between a `stat` and an `open` the path can be replaced. **A
 missing file is an absent layer; a file that exists and is wrong fails the whole load.**
-`load` reports every problem found, not the first. **No `ConfigError` renders any file content** —
+**No `ConfigError` renders any file content** —
 only the message and span are taken from `toml::de::Error`, so a `config.toml` aimed at an SSH key
 is never echoed into the journal. A syntax error names file, line, column and the drop-in it came
 from; a schema error names the key path, since it is found only in the merged document. **No
-config error stops a daemon:** `load_or_default` logs and starts `Config::default()` (idle and night
-light start off, since the document may have turned them off), a reload drops the update, and only
-the panel notifies, so one broken document is one notification.
+config error stops a daemon:** `load_or_default` logs and starts `Config::default()`; `glimpse-idle` and `glimpse-sunset` turn
+their feature off on that default (`main.rs:38-39`), since the document may have set it. A reload
+drops the update, and only the panel notifies, so one broken document is one notification.
 **A value the runtime cannot use is refused here, where the key can be named.** `[night-light]`
 `start-time`/`end-time` are checked against `%H:%M` at deserialization, so a typo fails on the
 document rather than reaching the night light as an indistinguishable "not set".
@@ -112,20 +112,15 @@ directories, existing or not; `--config` replaces the whole stack and so the who
   recomputed after each change or re-arm, so re-pointing a symlinked base file also watches edits at
   the new target.
 
-`reread` answers with a new document only if it parsed **and differs**. `watch_config` merges the
+`reread` answers with a new document only if it parsed **and differs outside `[screenshot]`**. `watch_config` merges the
 filesystem watch with `SIGHUP` — neither replaces the other. Nothing is filtered by extension,
 which would drop the creation of `config.d/` itself.
 
 ## Applets
 
-`Applet` is a `Common` plus a `Kind`, an internally-tagged enum on `extends`, both in the schema so
-a misspelled setting is a load error naming the table and key. Kind names use their canonical
+`Applet` is `{ kind, regional }`; `kind` is an internally-tagged enum on `extends`, and both are in
+the schema so a misspelled setting is a load error naming the table and key. Kind names use their canonical
 spelling. The table name supplies the tag when `extends` is absent; custom instances set `extends`.
-**Common settings are split off the table by `take_common`, not `#[serde(flatten)]`** — `flatten`
-collects unclaimed keys and `deny_unknown_fields` rejects them, so serde refuses both on one type.
-Both halves still deny unknown fields, so a misspelled common key survives into the kind's table
-and fails by name.
-
 **A variant with no settings is written `Clock {}`, never `Clock`** — `deny_unknown_fields` has
 nothing to deny on a unit variant, so it silently swallows every key under it.
 
@@ -133,7 +128,7 @@ nothing to deny on a unit variant, so it silently swallows every key under it.
 name: `center = ["me.example.Pomodoro"]`, two or more `.`-separated segments of
 `[A-Za-z_][A-Za-z0-9_-]*`. A table named by the id sets `options` without `extends`; a second
 instance is `[applets.pomo]` with `extends = "exec"` and a required `applet` id. `options` reaches
-the applet as written, unvalidated; the common settings stay beside it in the applet table. Exec
+the applet as written, unvalidated. Exec
 applets run unconfined as systemd units; their table takes `applet`, `options` and `env`.
 
 ## The `locale` convention

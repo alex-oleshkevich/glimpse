@@ -19,16 +19,14 @@ use tokio::net::UnixStream;
 use crate::error::CompositorError;
 use crate::event::{Event, line_events};
 use crate::model::{
-    LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
-    WorkspaceId, WorkspaceTarget, capped_edid_str, fill_window_outputs, is_built_in,
+    KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget,
+    Workspace, WorkspaceId, WorkspaceTarget, capped_edid_str, fill_window_outputs, is_built_in,
 };
 use event::{EventState, WireCast, WireLayouts, into_casts};
 
 const SCREENSHOT_DEADLINE: Duration = Duration::from_secs(2);
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
-    floating: false,
-    workspace_reorder: true,
     output_power: true,
     blank_screens: true,
 };
@@ -73,6 +71,10 @@ impl Niri {
         })
     }
 
+    pub(crate) async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
+        Ok(self.fetch::<WireLayouts>("KeyboardLayouts").await?.into())
+    }
+
     pub(crate) async fn events(&self) -> Result<BoxStream<'static, Event>, CompositorError> {
         let mut lines = self.open(&json!("EventStream")).await?;
         // Niri acknowledges the subscription before it sends anything, and a refusal here has to
@@ -104,38 +106,6 @@ impl Niri {
 
     pub(crate) async fn focus_window(&self, to: WindowTarget) -> Result<(), CompositorError> {
         self.act(&window_action(to)).await
-    }
-
-    pub(crate) async fn move_workspace_to_output(
-        &self,
-        id: WorkspaceId,
-        connector: &str,
-    ) -> Result<(), CompositorError> {
-        self.act(&move_to_output_action(id, connector)).await
-    }
-
-    pub(crate) async fn reorder_workspace(
-        &self,
-        id: WorkspaceId,
-        index: u8,
-    ) -> Result<(), CompositorError> {
-        self.act(&reorder_action(id, index)).await
-    }
-
-    pub(crate) async fn move_window_to_workspace(
-        &self,
-        window: WindowId,
-        to: &WorkspaceTarget,
-    ) -> Result<(), CompositorError> {
-        self.act(&move_window_action(window, to)?).await
-    }
-
-    pub(crate) async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
-        self.act(&close_action(id)).await
-    }
-
-    pub(crate) async fn focus_output(&self, connector: &str) -> Result<(), CompositorError> {
-        self.act(&focus_output_action(connector)).await
     }
 
     pub(crate) async fn set_output_enabled(
@@ -346,40 +316,6 @@ fn rename_action(id: WorkspaceId, name: Option<&str>) -> Value {
         Some(name) => json!({ "SetWorkspaceName": { "name": name, "workspace": reference } }),
         None => json!({ "UnsetWorkspaceName": { "reference": reference } }),
     }
-}
-
-fn workspace_reference(to: &WorkspaceTarget) -> Result<Value, CompositorError> {
-    match to {
-        WorkspaceTarget::Id(id) => Ok(json!({ "Id": id.0 })),
-        WorkspaceTarget::Index(index) => Ok(json!({ "Index": index })),
-        WorkspaceTarget::Name(name) => Ok(json!({ "Name": name })),
-        WorkspaceTarget::Next | WorkspaceTarget::Prev => Err(CompositorError::Unavailable(
-            "move a window to a workspace named only as next or previous",
-        )),
-    }
-}
-
-fn move_to_output_action(id: WorkspaceId, connector: &str) -> Value {
-    json!({ "MoveWorkspaceToMonitor": { "output": connector, "reference": { "Id": id.0 } } })
-}
-
-fn reorder_action(id: WorkspaceId, index: u8) -> Value {
-    json!({ "MoveWorkspaceToIndex": { "index": index, "reference": { "Id": id.0 } } })
-}
-
-fn move_window_action(window: WindowId, to: &WorkspaceTarget) -> Result<Value, CompositorError> {
-    let reference = workspace_reference(to)?;
-    Ok(json!({
-        "MoveWindowToWorkspace": { "reference": reference, "window_id": window.0, "focus": false }
-    }))
-}
-
-fn close_action(id: WindowId) -> Value {
-    json!({ "CloseWindow": { "id": id.0 } })
-}
-
-fn focus_output_action(connector: &str) -> Value {
-    json!({ "FocusMonitor": { "output": connector } })
 }
 
 fn output_request(connector: &str, on: bool) -> Value {

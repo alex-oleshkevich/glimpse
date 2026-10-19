@@ -125,6 +125,30 @@ fn a_menu_path_of_root_means_the_item_offers_none() {
 }
 
 #[test]
+fn qt_no_dbusmenu_placeholder_is_not_a_menu() {
+    let item = decode_item(
+        ":1.2/StatusNotifierItem",
+        &properties(vec![(
+            "Menu",
+            Value::from(zbus::zvariant::ObjectPath::try_from("/NO_DBUSMENU").expect("a path")),
+        )]),
+    );
+    assert!(item.menu.is_none());
+}
+
+#[test]
+fn a_real_menu_path_beside_the_placeholder_names_is_kept() {
+    let item = decode_item(
+        ":1.2/StatusNotifierItem",
+        &properties(vec![(
+            "Menu",
+            Value::from(zbus::zvariant::ObjectPath::try_from("/MenuBar").expect("a path")),
+        )]),
+    );
+    assert_eq!(item.menu.as_deref(), Some("/MenuBar"));
+}
+
+#[test]
 fn hostile_text_is_capped_by_characters_and_not_by_bytes() {
     let hostile = "ы".repeat(TITLE * 2);
     let item = decode_item(

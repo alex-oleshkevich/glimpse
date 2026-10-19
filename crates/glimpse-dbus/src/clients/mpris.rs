@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use zbus::zvariant::{ObjectPath, OwnedValue};
 
 pub const MPRIS_PATH: &str = "/org/mpris/MediaPlayer2";
-pub const MPRIS_ROOT_INTERFACE: &str = "org.mpris.MediaPlayer2";
 pub const MPRIS_NAME_PREFIX: &str = "org.mpris.MediaPlayer2.";
 
 #[zbus::proxy(

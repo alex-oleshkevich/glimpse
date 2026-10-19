@@ -106,16 +106,58 @@ fn snapshots_round_trip_without_losing_domain_values() {
     assert!(decoded.owner);
 }
 
-#[test]
-fn a_requested_location_name_is_bounded_like_the_resolved_one() {
-    let decoded = decode_place_kind(2, 0.0, 0.0, format!("{}\u{202e}", "n".repeat(CITY + 10)))
-        .expect("a named place");
+fn named_place(location: &str) -> PlaceWeatherWire {
+    (
+        2,
+        0.0,
+        0.0,
+        location.to_owned(),
+        54.7,
+        25.3,
+        String::new(),
+        String::new(),
+        0,
+        (false, empty_current()),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    )
+}
 
+#[test]
+fn a_watched_location_round_trips_unchanged_and_an_identifier_out_of_bounds_drops_its_place() {
+    let at_cap = "n".repeat(CITY);
+    let spaced = "Rio  de Janeiro, BR";
+    let decoded = decode_snapshot((
+        true,
+        false,
+        String::new(),
+        0,
+        0,
+        vec![
+            named_place(&"n".repeat(CITY + 1)),
+            named_place("   "),
+            named_place(&at_cap),
+            named_place(spaced),
+        ],
+    ))
+    .unwrap();
+
+    let names: Vec<WatchedPlace> = decoded
+        .status
+        .unwrap()
+        .places
+        .into_iter()
+        .map(|place| place.place)
+        .collect();
     assert_eq!(
-        decoded,
-        WatchedPlace::Location {
-            name: format!("{}…", "n".repeat(CITY))
-        }
+        names,
+        [
+            WatchedPlace::Location { name: at_cap },
+            WatchedPlace::Location {
+                name: spaced.to_owned()
+            },
+        ]
     );
 }
 

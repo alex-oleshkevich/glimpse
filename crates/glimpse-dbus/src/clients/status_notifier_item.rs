@@ -217,7 +217,7 @@ pub fn decode_item(key: &str, properties: &Properties) -> TrayItem {
     let menu = properties
         .get("Menu")
         .and_then(object_path)
-        .filter(|path| path.starts_with('/') && path != "/");
+        .filter(|path| path.starts_with('/') && path != "/" && path != "/NO_DBUSMENU");
 
     TrayItem {
         key: key.to_owned(),

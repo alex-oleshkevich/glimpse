@@ -4,6 +4,7 @@ use std::sync::Arc;
 use glimpse_dbus::idle::{IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets};
 use glimpse_dbus::login1::Login1ManagerProxy;
 use zbus::Connection;
+use zbus::message::Header;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue};
 
 use super::{Backend, Health, SharedRegistry, WHO_CAP, WHY_CAP, unix_now};
@@ -21,6 +22,10 @@ pub struct PortalInhibit {
 
 #[zbus::interface(name = "org.freedesktop.impl.portal.Inhibit")]
 impl PortalInhibit {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "five wire arguments plus the connection and header the zbus macro injects"
+    )]
     async fn inhibit(
         &self,
         handle: ObjectPath<'_>,
@@ -29,7 +34,12 @@ impl PortalInhibit {
         flags: u32,
         options: HashMap<String, OwnedValue>,
         #[zbus(connection)] conn: &Connection,
+        #[zbus(header)] header: Header<'_>,
     ) -> zbus::fdo::Result<()> {
+        let sender = header
+            .sender()
+            .map(|name| name.as_str().to_owned())
+            .unwrap_or_default();
         let app_id = glimpse_utils::clean(&app_id, WHO_CAP);
         let targets = InhibitionTargets::from_portal_flags(flags);
         let reason = options
@@ -38,72 +48,35 @@ impl PortalInhibit {
             .map(|reason| glimpse_utils::clean(&reason, WHY_CAP))
             .unwrap_or_default();
 
-        let app_id_for_check = app_id.clone();
+        let what = login1_what(&targets);
+        let handle_string = handle.to_string();
+        let added_at_unix = unix_now();
         let id = self
             .registry
-            .mutate(move |registry| -> Result<u64, String> {
-                registry.check_capacity(Some(&app_id_for_check))?;
-                Ok(registry.mint_id())
+            .mutate({
+                let app_id = app_id.clone();
+                let reason = reason.clone();
+                move |registry| -> Result<u64, String> {
+                    registry.check_capacity(Some(&app_id))?;
+                    let id = registry.mint_id();
+                    let record = IdleInhibitorRecord {
+                        id,
+                        who: hold_label(&app_id, "glimpse-idle").to_owned(),
+                        why: reason,
+                        bus_name: sender,
+                        process_name: String::new(),
+                        source: IdleInhibitorSource::portal(handle_string, app_id),
+                        targets,
+                        can_release: true,
+                        added_at_unix,
+                    };
+                    registry.insert(record, None);
+                    Ok(id)
+                }
             })
             .await
             .inspect_err(|reason| {
                 tracing::warn!(%app_id, reason, "rejecting portal Inhibit");
-            })
-            .map_err(zbus::fdo::Error::LimitsExceeded)?;
-
-        let what = login1_what(&targets);
-        let logind_fd = if what.is_empty() {
-            None
-        } else {
-            match self.login1.as_ref() {
-                Some(login1) => login1
-                    .inhibit(
-                        &what,
-                        hold_label(&app_id, "glimpse-idle"),
-                        hold_label(&reason, "Portal inhibit"),
-                        "block",
-                    )
-                    .await
-                    .inspect_err(|error| {
-                        tracing::warn!(
-                            %error,
-                            %app_id,
-                            "portal inhibit could not take a login1 hold; tracking without one"
-                        );
-                    })
-                    .ok(),
-                None => None,
-            }
-        };
-
-        let handle_string = handle.to_string();
-        let who = app_id.clone();
-        let app_id_for_log = app_id.clone();
-        let added_at_unix = unix_now();
-        self.registry
-            .mutate(move |registry| -> Result<(), String> {
-                registry.check_capacity(None)?;
-                let record = IdleInhibitorRecord {
-                    id,
-                    who,
-                    why: reason,
-                    bus_name: String::new(),
-                    process_name: String::new(),
-                    source: IdleInhibitorSource::portal(handle_string, app_id),
-                    targets,
-                    can_release: true,
-                    added_at_unix,
-                };
-                registry.insert(record, logind_fd);
-                Ok(())
-            })
-            .await
-            .inspect_err(|reason| {
-                tracing::warn!(
-                    app_id = %app_id_for_log,
-                    reason,
-                    "rejecting portal Inhibit after login1 hold"
-                );
             })
             .map_err(zbus::fdo::Error::LimitsExceeded)?;
 
@@ -125,7 +98,32 @@ impl PortalInhibit {
                 self.registry
                     .mutate(move |registry| registry.release_record(id))
                     .await;
+                return Ok(());
             }
+        }
+
+        let Some(login1) = self.login1.as_ref().filter(|_| !what.is_empty()) else {
+            return Ok(());
+        };
+        match login1
+            .inhibit(
+                &what,
+                hold_label(&app_id, "glimpse-idle"),
+                hold_label(&reason, "Portal inhibit"),
+                "block",
+            )
+            .await
+        {
+            Ok(fd) => {
+                self.registry
+                    .mutate(move |registry| registry.attach_fd(id, fd))
+                    .await;
+            }
+            Err(error) => tracing::warn!(
+                %error,
+                %app_id,
+                "portal inhibit could not take a login1 hold; tracking without one"
+            ),
         }
 
         Ok(())
@@ -210,6 +208,14 @@ impl PortalRequest {
             .remove::<PortalRequest, _>(self.handle.clone())
             .await;
         Ok(())
+    }
+}
+
+pub async fn remove_requests(object_server: &zbus::ObjectServer, handles: Vec<String>) {
+    for handle in handles {
+        if let Ok(path) = OwnedObjectPath::try_from(handle) {
+            let _ = object_server.remove::<PortalRequest, _>(path).await;
+        }
     }
 }
 

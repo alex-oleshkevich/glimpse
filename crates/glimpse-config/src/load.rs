@@ -39,10 +39,6 @@ pub fn applets_dir() -> Option<PathBuf> {
     dirs::data_dir().map(|dir| dir.join(FOLDER_NAME).join("applets"))
 }
 
-pub fn applet_dir(id: &str) -> Option<PathBuf> {
-    applets_dir().map(|dir| dir.join(id))
-}
-
 pub fn runtime_dir() -> Option<PathBuf> {
     runtime_dir_in(std::env::var_os("XDG_RUNTIME_DIR"))
 }
@@ -124,17 +120,9 @@ fn write_table_with(
             Some(_) => read(&target)?,
             None => String::new(),
         };
-        if let Err(error) = text.parse::<toml::Table>() {
-            return Err(ConfigError::parse(&target, &text, &error));
-        }
-        let mut document =
-            text.parse::<toml_edit::DocumentMut>()
-                .map_err(|error| ConfigError::Parse {
-                    path: target.clone(),
-                    line: 1,
-                    column: 1,
-                    message: error.message().to_owned(),
-                })?;
+        let mut document = text.parse::<toml_edit::DocumentMut>().map_err(|error| {
+            ConfigError::parse_at(&target, &text, error.message(), error.span())
+        })?;
         set_table(&mut document, table, values, remove)?;
         let mut output = document.to_string();
         if text.contains("\r\n") {
@@ -396,7 +384,12 @@ fn load_from(
                 tracing::info!(path = ?path, "load config");
                 text
             }
-            Err(error) if is_missing(&error) => continue,
+            Err(error) if is_missing(&error) => {
+                if config_path == Some(path.as_path()) {
+                    tracing::warn!(path = %path.display(), "the configuration file does not exist; using the defaults");
+                }
+                continue;
+            }
             Err(error) => return Err(error),
         };
 

@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use futures_util::{StreamExt, stream};
 use glimpse_compositors::{
-    Compositor as Backend, CompositorError, Event as Change, KeyboardLayouts as BackendLayouts,
-    LayoutTarget, Resync, detect_compositor, layout_code,
+    Compositor as Backend, Event as Change, KeyboardLayouts as BackendLayouts, LayoutTarget,
+    Resync, detect_compositor, layout_code,
 };
 use glimpse_config::Remember;
 use tokio::sync::oneshot;
@@ -16,7 +16,7 @@ use crate::{
     subscription::Sub,
 };
 
-use super::compositor::CompositorHandle;
+use super::compositor::{CompositorHandle, command_error};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,14 +149,7 @@ impl Service for Keyboard {
                 Watch::Fetch {
                     attempt: self.attempt,
                 },
-                move |_ctx| async move {
-                    stream::once(async move {
-                        match read.snapshot().await {
-                            Ok(snapshot) => Event::Snapshot(snapshot.keyboard),
-                            Err(error) => Event::FetchFailed(error.to_string()),
-                        }
-                    })
-                },
+                move |_ctx| async move { stream::once(async move { fetch_layouts(&read).await }) },
             ),
         ];
         if self.config.remember != Remember::Global {
@@ -202,7 +195,7 @@ impl Service for Keyboard {
                 if std::mem::take(&mut self.fetch_failed) {
                     self.attempt += 1;
                 }
-                if let Change::KeyboardLayoutSwitched { idx, .. } = &change {
+                if let Change::KeyboardLayoutSwitched(idx) = &change {
                     self.remember(*idx);
                 }
                 match apply_keyboard(&mut self.state, change) {
@@ -318,6 +311,13 @@ impl Keyboard {
     }
 }
 
+async fn fetch_layouts(backend: &Backend) -> Event {
+    match backend.keyboard_layouts().await {
+        Ok(layouts) => Event::Snapshot(layouts),
+        Err(error) => Event::FetchFailed(error.to_string()),
+    }
+}
+
 enum Apply {
     Publish,
     Refetch,
@@ -330,7 +330,7 @@ fn apply_keyboard(state: &mut BackendLayouts, change: Change) -> Apply {
             *state = layouts;
             Apply::Publish
         }
-        Change::KeyboardLayoutSwitched { idx, .. } => {
+        Change::KeyboardLayoutSwitched(idx) => {
             state.current = (idx < state.names.len()).then_some(idx);
             Apply::Publish
         }
@@ -411,22 +411,6 @@ fn stepped(current: u8, target: LayoutRef, len: usize) -> Option<u8> {
         LayoutRef::Prev => current.checked_sub(1).unwrap_or(n - 1),
         LayoutRef::Index { index } => index,
     })
-}
-
-fn command_error(error: &CompositorError) -> CommandError {
-    match error {
-        CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
-            CommandError::Unsupported(reason.to_string())
-        }
-        CompositorError::Connect { .. } | CompositorError::Closed => {
-            CommandError::Unavailable(error.to_string())
-        }
-        CompositorError::Refused(reason) => CommandError::InvalidArgument(reason.to_string()),
-        CompositorError::Protocol(reason) => CommandError::Internal(reason.to_string()),
-        CompositorError::NoFile(_)
-        | CompositorError::InvalidPath(_)
-        | CompositorError::Watch { .. } => CommandError::Internal(error.to_string()),
-    }
 }
 
 #[cfg(test)]

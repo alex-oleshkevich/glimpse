@@ -31,10 +31,7 @@ pub enum Event {
     },
     WindowLayoutsChanged(Vec<(WindowId, Option<u16>)>),
     KeyboardLayoutsChanged(KeyboardLayouts),
-    KeyboardLayoutSwitched {
-        idx: usize,
-        name: Option<String>,
-    },
+    KeyboardLayoutSwitched(usize),
     CastsChanged(Vec<Cast>),
     CastStartedOrChanged {
         cast: Cast,

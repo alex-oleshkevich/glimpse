@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use gettextrs::gettext;
+use glimpse_compositors::Hyprland;
 use glimpse_dbus::DEADLINE;
 use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use tokio::sync::mpsc;
@@ -15,6 +16,14 @@ pub fn text(notice: Notice) -> (String, String) {
     let (summary, reason) = match notice {
         Notice::NotLocked(reason) => (gettext("Screen not locked"), reason),
         Notice::SuspendingUnlocked(reason) => (gettext("Suspending unlocked"), reason),
+        Notice::RestoreDisabled => {
+            return (
+                gettext("Lock restore is off"),
+                gettext(
+                    "Hyprland will refuse a restarted glimpse-lock. Set misc:allow_session_lock_restore to true.",
+                ),
+            );
+        }
         Notice::PasswordExpired => {
             return (
                 gettext("Password expired"),
@@ -35,7 +44,7 @@ pub fn text(notice: Notice) -> (String, String) {
 fn urgency(notice: Notice) -> u8 {
     match notice {
         Notice::NotLocked(_) | Notice::SuspendingUnlocked(_) => CRITICAL,
-        Notice::PasswordExpired => NORMAL,
+        Notice::PasswordExpired | Notice::RestoreDisabled => NORMAL,
     }
 }
 
@@ -69,8 +78,27 @@ async fn post(proxy: &FreedesktopNotificationsProxy<'_>, notice: Notice) -> Resu
     }
 }
 
+pub async fn restore_notice(hyprland: &Hyprland) -> Option<Notice> {
+    match hyprland.allow_session_lock_restore().await {
+        Ok(true) => None,
+        Ok(false) => Some(Notice::RestoreDisabled),
+        Err(error) => {
+            tracing::warn!(%error, "could not read misc:allow_session_lock_restore");
+            None
+        }
+    }
+}
+
 pub fn spawn() -> mpsc::UnboundedSender<Notice> {
     let (notices, mut receiver) = mpsc::unbounded_channel::<Notice>();
+    if let Some(hyprland) = Hyprland::from_env() {
+        let notices = notices.clone();
+        relm4::spawn(async move {
+            if let Some(notice) = restore_notice(&hyprland).await {
+                let _ = notices.send(notice);
+            }
+        });
+    }
     relm4::spawn(async move {
         let mut proxy = None;
         while let Some(notice) = receiver.recv().await {

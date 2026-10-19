@@ -196,11 +196,14 @@ pub async fn watch_disconnects(
                     let Ok(args) = signal.args() else { continue };
                     if args.old_owner().is_some() && args.new_owner().is_none() {
                         let name = args.name().to_string();
-                        registry
+                        let handles = registry
                             .mutate(move |registry| {
+                                let handles = registry.portal_handles_of(&name);
                                 registry.release_by_bus_name(&name);
+                                handles
                             })
                             .await;
+                        super::portal::remove_requests(connection.object_server(), handles).await;
                     }
                 }
                 None => break,

@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use futures_util::StreamExt;
-use glimpse_utils::clean;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 use zbus::zvariant::{OwnedValue, Type, Value};
+
+use super::follower::{
+    Changes, Follow, Provider, ProviderError, ProviderHandle, Snapshots, call, changes,
+    follow_snapshots,
+};
 
 pub const GLIMPSE_NIGHT_LIGHT_BUS_NAME: &str = "me.aresa.Glimpse.NightLight";
 pub const GLIMPSE_NIGHT_LIGHT_OBJECT_PATH: &str = "/me/aresa/Glimpse/NightLight";
@@ -143,7 +146,8 @@ pub trait NightLight1 {
     fn resume(&self) -> zbus::Result<()>;
 }
 
-const REASON: usize = 240;
+pub type NightLightProvider = Provider<NightLightProviderState>;
+pub type NightLightProviderHandle = ProviderHandle<NightLightProviderState>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NightLightProviderState {
@@ -162,8 +166,59 @@ impl NightLightProviderState {
     fn unavailable(reason: impl Into<String>) -> Self {
         Self {
             current: None,
-            unavailable: Some(clean(&reason.into(), REASON)),
+            unavailable: Some(reason.into()),
         }
+    }
+}
+
+impl Follow for NightLightProviderState {
+    type Proxy = NightLight1Proxy<'static>;
+    type Error = NightLightProviderError;
+
+    const NAME: &'static str = "night light";
+
+    fn lost(reason: String, _: Option<&Self>) -> Self {
+        Self::unavailable(reason)
+    }
+
+    fn reason(&self) -> Option<&str> {
+        self.unavailable.as_deref()
+    }
+
+    fn follow(
+        connection: zbus::Connection,
+        updates: watch::Sender<Self>,
+        current: Arc<RwLock<Option<Self::Proxy>>>,
+    ) -> impl Future<Output = ()> + Send {
+        follow_snapshots(connection, updates, current)
+    }
+}
+
+impl Snapshots for NightLightProviderState {
+    type Snapshot = NightLightSnapshot;
+
+    const BUS_NAME: &'static str = GLIMPSE_NIGHT_LIGHT_BUS_NAME;
+
+    async fn build(connection: &zbus::Connection) -> zbus::Result<Self::Proxy> {
+        NightLight1Proxy::builder(connection)
+            .cache_properties(CacheProperties::Yes)
+            .build()
+            .await
+    }
+
+    async fn read(proxy: &Self::Proxy) -> zbus::Result<Self::Snapshot> {
+        match proxy.cached_snapshot()? {
+            Some(snapshot) => Ok(snapshot),
+            None => proxy.snapshot().await,
+        }
+    }
+
+    async fn changes(proxy: &Self::Proxy) -> Changes<Self::Snapshot> {
+        changes(proxy.receive_snapshot_changed().await)
+    }
+
+    fn decode(snapshot: Self::Snapshot) -> Result<Self, String> {
+        Ok(Self::decoded(snapshot))
     }
 }
 
@@ -183,83 +238,35 @@ pub enum NightLightProviderError {
     Call(String),
 }
 
-#[derive(Clone)]
-pub struct NightLightProviderHandle {
-    state: watch::Receiver<NightLightProviderState>,
-    proxy: Arc<RwLock<Option<NightLight1Proxy<'static>>>>,
-}
-
-pub struct NightLightProvider {
-    handle: NightLightProviderHandle,
-    task: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl NightLightProvider {
-    pub fn unavailable(reason: impl Into<String>) -> Self {
-        let (_, state) = watch::channel(NightLightProviderState::unavailable(reason));
-        Self {
-            handle: NightLightProviderHandle {
-                state,
-                proxy: Default::default(),
-            },
-            task: None,
-        }
+impl ProviderError for NightLightProviderError {
+    fn unavailable(reason: String) -> Self {
+        Self::Unavailable(reason)
     }
 
-    pub fn start(connection: zbus::Connection) -> Self {
-        let (updates, state) = watch::channel(NightLightProviderState::unavailable(
-            "provider has no bus owner",
-        ));
-        let proxy = Arc::new(RwLock::new(None));
-        let task = tokio::spawn(follow_provider(connection, updates, proxy.clone()));
-        Self {
-            handle: NightLightProviderHandle { state, proxy },
-            task: Some(task),
-        }
+    fn timed_out() -> Self {
+        Self::TimedOut
     }
 
-    pub fn handle(&self) -> NightLightProviderHandle {
-        self.handle.clone()
+    fn call(reason: String) -> Self {
+        Self::Call(reason)
     }
 
-    pub async fn shutdown(&mut self) {
-        if let Some(task) = self.task.take() {
-            task.abort();
-            let _ = task.await;
-            tracing::debug!("night light provider follower stopped");
-        }
-    }
-}
-
-impl Drop for NightLightProvider {
-    fn drop(&mut self) {
-        if let Some(task) = &self.task {
-            task.abort();
+    fn named(name: &str, reason: String) -> Option<Self> {
+        match name {
+            "me.aresa.Glimpse.NightLight1.Error.InvalidSchedule" => {
+                Some(Self::InvalidSchedule(reason))
+            }
+            "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature" => {
+                Some(Self::InvalidTemperature(reason))
+            }
+            "me.aresa.Glimpse.NightLight1.Error.NotActive" => Some(Self::NotActive(reason)),
+            "me.aresa.Glimpse.NightLight1.Error.Unavailable" => Some(Self::Unavailable(reason)),
+            _ => None,
         }
     }
 }
 
 impl NightLightProviderHandle {
-    pub fn snapshot(&self) -> NightLightProviderState {
-        self.state.borrow().clone()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<NightLightProviderState> {
-        self.state.clone()
-    }
-
-    async fn proxy(&self) -> Result<NightLight1Proxy<'static>, NightLightProviderError> {
-        self.proxy.read().await.clone().ok_or_else(|| {
-            NightLightProviderError::Unavailable(
-                self.state
-                    .borrow()
-                    .unavailable
-                    .clone()
-                    .unwrap_or_else(|| "provider has no bus owner".to_owned()),
-            )
-        })
-    }
-
     pub async fn pause(&self) -> Result<(), NightLightProviderError> {
         call(self.proxy().await?.pause()).await
     }
@@ -275,209 +282,6 @@ impl NightLightProviderHandle {
     pub async fn set_temperature(&self, kelvin: u32) -> Result<(), NightLightProviderError> {
         call(self.proxy().await?.set_temperature(kelvin)).await
     }
-}
-
-async fn call<T>(
-    request: impl Future<Output = zbus::Result<T>>,
-) -> Result<T, NightLightProviderError> {
-    match tokio::time::timeout(super::DEADLINE, request).await {
-        Ok(Ok(answer)) => Ok(answer),
-        Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
-            let reason = clean(&reason.unwrap_or_default(), REASON);
-            match name.as_str() {
-                "me.aresa.Glimpse.NightLight1.Error.InvalidSchedule" => {
-                    Err(NightLightProviderError::InvalidSchedule(reason))
-                }
-                "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature" => {
-                    Err(NightLightProviderError::InvalidTemperature(reason))
-                }
-                "me.aresa.Glimpse.NightLight1.Error.NotActive" => {
-                    Err(NightLightProviderError::NotActive(reason))
-                }
-                "me.aresa.Glimpse.NightLight1.Error.Unavailable"
-                | "org.freedesktop.DBus.Error.ServiceUnknown"
-                | "org.freedesktop.DBus.Error.NameHasNoOwner" => {
-                    Err(NightLightProviderError::Unavailable(reason))
-                }
-                "org.freedesktop.DBus.Error.NoReply" => Err(NightLightProviderError::TimedOut),
-                _ => Err(NightLightProviderError::Call(reason)),
-            }
-        }
-        Ok(Err(error)) => Err(NightLightProviderError::Call(clean(
-            &error.to_string(),
-            REASON,
-        ))),
-        Err(_) => Err(NightLightProviderError::TimedOut),
-    }
-}
-
-async fn follow_provider(
-    connection: zbus::Connection,
-    updates: watch::Sender<NightLightProviderState>,
-    current: Arc<RwLock<Option<NightLight1Proxy<'static>>>>,
-) {
-    let dbus = match zbus::fdo::DBusProxy::new(&connection).await {
-        Ok(dbus) => dbus,
-        Err(error) => {
-            replace_unavailable(&updates, error.to_string());
-            tracing::warn!(%error, "cannot observe the night light provider owner");
-            return;
-        }
-    };
-    let mut owners = match dbus
-        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_NIGHT_LIGHT_BUS_NAME)])
-        .await
-    {
-        Ok(owners) => owners,
-        Err(error) => {
-            replace_unavailable(&updates, error.to_string());
-            tracing::warn!(%error, "cannot observe night light provider owner changes");
-            return;
-        }
-    };
-
-    let mut retry_delay = super::RetryDelay::default();
-
-    loop {
-        let proxy = match NightLight1Proxy::builder(&connection)
-            .cache_properties(CacheProperties::Yes)
-            .build()
-            .await
-        {
-            Ok(proxy) => {
-                retry_delay.reset();
-                proxy
-            }
-            Err(error) => {
-                *current.write().await = None;
-                replace_unavailable(&updates, error.to_string());
-                tracing::debug!(
-                    reason = %error,
-                    "night light provider property cache is unavailable"
-                );
-                if !super::retry_after_failure(
-                    &dbus,
-                    &mut owners,
-                    GLIMPSE_NIGHT_LIGHT_BUS_NAME,
-                    &mut retry_delay,
-                )
-                .await
-                {
-                    return;
-                }
-                continue;
-            }
-        };
-        let mut snapshots = proxy.receive_snapshot_changed().await;
-        let snapshot = match proxy.cached_snapshot() {
-            Ok(Some(snapshot)) => Some(snapshot),
-            Ok(None) => match proxy.snapshot().await {
-                Ok(snapshot) => Some(snapshot),
-                Err(error) => {
-                    replace_unavailable(&updates, error.to_string());
-                    *current.write().await = None;
-                    tracing::warn!(reason = %error, "night light snapshot is unavailable");
-                    None
-                }
-            },
-            Err(error) => {
-                replace_unavailable(&updates, error.to_string());
-                *current.write().await = None;
-                tracing::warn!(reason = %error, "night light property cache is unavailable");
-                None
-            }
-        };
-        let mut serving = match snapshot {
-            Some(snapshot) => {
-                *current.write().await = Some(proxy.clone());
-                let state = NightLightProviderState::decoded(snapshot);
-                tracing::info!(
-                    serving = state
-                        .current
-                        .as_ref()
-                        .is_some_and(|snapshot| snapshot.serving),
-                    "night light provider connected"
-                );
-                updates.send_replace(state);
-                true
-            }
-            None => false,
-        };
-
-        let reason = loop {
-            tokio::select! {
-                changed = snapshots.next() => {
-                    let Some(changed) = changed else {
-                        break "night light snapshot stream ended".to_owned();
-                    };
-                    match changed.get().await {
-                        Ok(snapshot) => {
-                            if !serving {
-                                *current.write().await = Some(proxy.clone());
-                                serving = true;
-                                tracing::info!("night light provider recovered without changing owner");
-                            }
-                            let state = NightLightProviderState::decoded(snapshot);
-                            tracing::debug!(
-                                serving = state.current.as_ref().is_some_and(|snapshot| snapshot.serving),
-                                "night light snapshot changed"
-                            );
-                            updates.send_replace(state);
-                        }
-                        Err(error) => {
-                            replace_unavailable(&updates, error.to_string());
-                            tracing::warn!(reason = %error, "night light snapshot change failed");
-                            if serving {
-                                *current.write().await = None;
-                                serving = false;
-                            }
-                        }
-                    }
-                }
-                owner = owners.next() => {
-                    let Some(owner) = owner else {
-                        break "night light provider owner stream ended".to_owned();
-                    };
-                    let Ok(args) = owner.args() else {
-                        continue;
-                    };
-                    if args.name().as_str() != GLIMPSE_NIGHT_LIGHT_BUS_NAME {
-                        continue;
-                    }
-                    if args.old_owner().is_some() {
-                        break match args.new_owner().is_some() {
-                            true => "provider owner changed",
-                            false => "provider has no bus owner",
-                        }.to_owned();
-                    }
-                    if !serving && args.new_owner().is_some() {
-                        break "provider took the name".to_owned();
-                    }
-                }
-            }
-        };
-        if serving {
-            *current.write().await = None;
-            replace_unavailable(&updates, &reason);
-            tracing::warn!(reason, "night light provider disconnected");
-        } else {
-            tracing::debug!(reason, "night light provider rebuilding its proxy");
-        }
-    }
-}
-
-fn replace_unavailable(
-    updates: &tokio::sync::watch::Sender<NightLightProviderState>,
-    reason: impl Into<String>,
-) {
-    let next = NightLightProviderState::unavailable(reason);
-    updates.send_if_modified(|previous| {
-        if *previous == next {
-            return false;
-        }
-        *previous = next;
-        true
-    });
 }
 
 #[cfg(test)]

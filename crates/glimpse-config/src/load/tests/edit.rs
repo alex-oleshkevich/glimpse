@@ -92,6 +92,27 @@ fn an_unparseable_file_is_refused_and_left_untouched() {
 }
 
 #[test]
+fn a_parse_error_reports_its_line_and_column() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let path = dir.path().join(FILE_NAME);
+    std::fs::write(&path, "[screenshot]\nflash = true\nflash = = false\n").expect("writes");
+
+    let error = write_table(&path, "screenshot", &flash_off(), &[]).expect_err("refused");
+
+    assert!(
+        matches!(
+            error,
+            ConfigError::Parse {
+                line: 3,
+                column: 9,
+                ..
+            }
+        ),
+        "{error}"
+    );
+}
+
+#[test]
 fn a_crlf_file_keeps_its_line_endings() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join(FILE_NAME);

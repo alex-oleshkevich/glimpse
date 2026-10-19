@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures_util::{Stream, StreamExt};
 
 use chrono::{DateTime, Utc};
-use zbus::zvariant::OwnedValue;
+use zbus::zvariant::{OwnedValue, Value};
 
 pub const DEADLINE: Duration = Duration::from_secs(5);
 
@@ -79,6 +79,17 @@ pub(crate) fn number(properties: &Properties, key: &str) -> Option<u32> {
     u32::try_from(properties.get(key)?).ok()
 }
 
+pub(crate) fn code(properties: &Properties, key: &str) -> u32 {
+    number(properties, key).unwrap_or_default()
+}
+
+pub(crate) fn path(properties: &Properties, key: &str) -> Option<String> {
+    match &**properties.get(key)? {
+        Value::ObjectPath(value) if value.as_str() != "/" => Some(value.as_str().to_owned()),
+        _ => None,
+    }
+}
+
 pub(crate) fn optional_clean(value: String, limit: usize) -> Option<String> {
     let value = glimpse_utils::clean(&value, limit);
     (!value.is_empty()).then_some(value)
@@ -94,6 +105,7 @@ pub mod applet_host;
 pub mod bluez;
 pub mod clipboard;
 pub mod dbusmenu;
+mod follower;
 pub mod freedesktop_notifications;
 pub mod geoclue;
 pub mod gtk_actions;

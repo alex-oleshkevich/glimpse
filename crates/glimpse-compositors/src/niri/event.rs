@@ -9,12 +9,10 @@ use crate::model::{
     Cast, CastKind, CastTarget, KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId,
 };
 
-/// The little niri does not repeat in every event: which layouts exist, so a switch carrying only
-/// an index can be named, and which outputs the workspace list mentioned, because niri has no
-/// output event and a monitor appearing or disappearing shows up here first.
+/// The little niri does not repeat in every event: which outputs the workspace list mentioned,
+/// because niri has no output event and a monitor appearing or disappearing shows up here first.
 #[derive(Default)]
 pub struct EventState {
-    layout_names: Vec<String>,
     output_names: HashSet<String>,
 }
 
@@ -68,13 +66,11 @@ impl EventState {
                     .collect(),
             )],
             Wire::KeyboardLayoutsChanged { keyboard_layouts } => {
-                self.layout_names = keyboard_layouts.names.clone();
                 vec![Event::KeyboardLayoutsChanged(keyboard_layouts.into())]
             }
-            Wire::KeyboardLayoutSwitched { idx } => vec![Event::KeyboardLayoutSwitched {
-                idx: usize::from(idx),
-                name: self.layout_names.get(usize::from(idx)).cloned(),
-            }],
+            Wire::KeyboardLayoutSwitched { idx } => {
+                vec![Event::KeyboardLayoutSwitched(usize::from(idx))]
+            }
             Wire::CastsChanged { casts } => vec![Event::CastsChanged(into_casts(casts))],
             Wire::CastStartedOrChanged { cast } => vec![Event::CastStartedOrChanged {
                 cast: cast.into_model(),

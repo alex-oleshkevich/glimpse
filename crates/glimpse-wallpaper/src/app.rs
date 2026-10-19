@@ -42,6 +42,7 @@ pub struct App {
     styles: Styles,
     surfaces: Vec<SurfaceState>,
     dark: bool,
+    on_niri: bool,
     missing_warned: MissingWarned,
 }
 
@@ -84,6 +85,7 @@ impl SimpleComponent for App {
             styles,
             surfaces: Vec::new(),
             dark,
+            on_niri: std::env::var_os("NIRI_SOCKET").is_some(),
             missing_warned: MissingWarned::default(),
         };
         model.reload_styles();
@@ -92,6 +94,7 @@ impl SimpleComponent for App {
             &mut model.missing_warned,
             &model.config,
             model.dark,
+            model.on_niri,
         );
         model
             .styles
@@ -134,6 +137,7 @@ impl SimpleComponent for App {
             &mut self.missing_warned,
             &self.config,
             self.dark,
+            self.on_niri,
         );
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
@@ -190,11 +194,19 @@ fn watch_scheme(sender: ComponentSender<App>) {
     });
 }
 
+fn wants_role(role: Role, on_niri: bool) -> bool {
+    match role {
+        Role::Wallpaper => true,
+        Role::Backdrop => on_niri,
+    }
+}
+
 fn reconcile_surfaces(
     surfaces: &mut Vec<SurfaceState>,
     missing_warned: &mut MissingWarned,
     config: &Config,
     dark: bool,
+    on_niri: bool,
 ) {
     let mut existing: HashMap<Key, SurfaceState> = surfaces
         .drain(..)
@@ -208,6 +220,9 @@ fn reconcile_surfaces(
         };
 
         for role in [Role::Wallpaper, Role::Backdrop] {
+            if !wants_role(role, on_niri) {
+                continue;
+            }
             let Some(intent) =
                 resolve::intent(&config.wallpaper, &connector, role, dark, missing_warned)
             else {
@@ -255,3 +270,6 @@ fn list_gdk_monitors() -> Vec<gdk::Monitor> {
         .filter_map(|i| model.item(i).and_downcast::<gdk::Monitor>())
         .collect()
 }
+
+#[cfg(test)]
+mod tests;

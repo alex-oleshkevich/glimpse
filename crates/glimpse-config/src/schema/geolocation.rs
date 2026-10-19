@@ -1,5 +1,5 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
 /// Set your location for sunset times and local weather; changes apply without a restart.
 /// Omit `[geolocation]` to use GeoClue; if you write the table, you must set `provider`.
@@ -13,10 +13,42 @@ pub enum Geolocation {
     /// Your own coordinates.
     Manual {
         /// Your latitude in degrees north, from -90 to 90.
+        #[serde(deserialize_with = "latitude")]
         latitude: f64,
         /// Your longitude in degrees east, from -180 to 180.
+        #[serde(deserialize_with = "longitude")]
         longitude: f64,
     },
+}
+
+fn latitude<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = f64::deserialize(deserializer)?;
+    (-90.0..=90.0)
+        .contains(&value)
+        .then_some(value)
+        .ok_or_else(|| {
+            D::Error::custom(
+                "geolocation.latitude is degrees north of the equator, between -90 and 90",
+            )
+        })
+}
+
+fn longitude<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = f64::deserialize(deserializer)?;
+    (-180.0..=180.0)
+        .contains(&value)
+        .then_some(value)
+        .ok_or_else(|| {
+            D::Error::custom(
+                "geolocation.longitude is degrees east of Greenwich, between -180 and 180",
+            )
+        })
 }
 
 #[cfg(test)]

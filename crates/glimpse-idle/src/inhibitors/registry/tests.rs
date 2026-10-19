@@ -81,6 +81,28 @@ fn release_record_closes_the_held_logind_fd() {
 }
 
 #[test]
+fn attach_fd_holds_the_fd_until_release_and_drops_it_for_a_gone_record() {
+    let mut r = Registry::default();
+    let id = r.mint_id();
+    r.insert(test_record(id, ":1.1", false), None);
+
+    let (mut reader, writer) = std::io::pipe().expect("create a test pipe");
+    let write_fd: StdOwnedFd = writer.into();
+    assert!(r.attach_fd(id, write_fd.into()));
+    r.release_record(id);
+    let mut buf = [0u8; 1];
+    assert_eq!(reader.read(&mut buf).expect("read after release"), 0);
+
+    let (mut reader, writer) = std::io::pipe().expect("create a test pipe");
+    let write_fd: StdOwnedFd = writer.into();
+    assert!(!r.attach_fd(id, write_fd.into()));
+    assert_eq!(
+        reader.read(&mut buf).expect("read after a refused attach"),
+        0
+    );
+}
+
+#[test]
 fn bus_name_to_ids_tracks_multiple_records_and_release_by_bus_name_clears_them() {
     let mut r = Registry::default();
     let id1 = r.mint_id();

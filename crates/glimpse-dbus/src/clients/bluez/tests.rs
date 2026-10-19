@@ -145,6 +145,14 @@ fn a_vendor_codec_is_named_from_its_configuration() {
 }
 
 #[test]
+fn an_lc3_transport_is_named_without_a_vendor_header() {
+    let configuration = [0x02, 0x01, 0x08, 0x02, 0x02, 0x01, 0x03, 0x04, 0x78, 0x00];
+
+    assert_eq!(codec(0x06, Some(&configuration)), Codec::Lc3);
+    assert_eq!(codec(0x06, None), Codec::Lc3);
+}
+
+#[test]
 fn a_transport_decodes_its_parent_device() {
     let decoded = decode_transport(&properties(vec![
         (

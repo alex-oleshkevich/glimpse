@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 
-use super::{Properties, flag, number, optional_clean, text};
+use super::{Properties, code, flag, number, optional_clean, path, text};
 
 pub const SERVICE: &str = "org.freedesktop.NetworkManager";
 pub const MANAGER: &str = "/org/freedesktop/NetworkManager";
@@ -389,13 +389,6 @@ pub struct Profile {
 
 pub type Settings = HashMap<String, HashMap<String, OwnedValue>>;
 
-fn path(properties: &Properties, key: &str) -> Option<String> {
-    match &**properties.get(key)? {
-        Value::ObjectPath(value) if value.as_str() != "/" => Some(value.as_str().to_owned()),
-        _ => None,
-    }
-}
-
 fn paths(properties: &Properties, key: &str) -> Vec<String> {
     let Some(value) = properties.get(key) else {
         return Vec::new();
@@ -403,10 +396,6 @@ fn paths(properties: &Properties, key: &str) -> Vec<String> {
     Vec::<OwnedObjectPath>::try_from(value.clone())
         .map(|found| found.into_iter().map(|one| one.to_string()).collect())
         .unwrap_or_default()
-}
-
-fn code(properties: &Properties, key: &str) -> u32 {
-    number(properties, key).unwrap_or_default()
 }
 
 pub fn decode_ssid(raw: &[u8]) -> Option<String> {

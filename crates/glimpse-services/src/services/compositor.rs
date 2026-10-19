@@ -74,8 +74,6 @@ pub struct OutputInfo {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompositorCapabilities {
-    pub floating: bool,
-    pub workspace_reorder: bool,
     pub output_power: bool,
     #[serde(default)]
     pub blank_screens: bool,
@@ -168,32 +166,9 @@ pub enum Command {
         target: WindowRef,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    FocusOutput {
-        connector: String,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
     RenameWorkspace {
         id: u64,
         name: Option<String>,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    MoveWorkspaceToOutput {
-        id: u64,
-        connector: String,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    ReorderWorkspace {
-        id: u64,
-        index: u8,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    MoveWindowToWorkspace {
-        window: u64,
-        workspace: WorkspaceRef,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    CloseWindow {
-        id: u64,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     SetOutputEnabled {
@@ -248,14 +223,6 @@ impl ServiceEndpoint<Compositor> {
         }
     }
 
-    pub async fn focus_output(&self, connector: String) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| Command::FocusOutput {
-            connector,
-            reply,
-        })
-        .await?
-    }
-
     pub async fn rename_workspace(
         &self,
         id: u64,
@@ -263,51 +230,6 @@ impl ServiceEndpoint<Compositor> {
     ) -> Result<(), CommandError> {
         self.call("compositor service stopped", |reply| {
             Command::RenameWorkspace { id, name, reply }
-        })
-        .await?
-    }
-
-    pub async fn move_workspace_to_output(
-        &self,
-        id: u64,
-        connector: String,
-    ) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| {
-            Command::MoveWorkspaceToOutput {
-                id,
-                connector,
-                reply,
-            }
-        })
-        .await?
-    }
-
-    pub async fn reorder_workspace(&self, id: u64, index: u8) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| {
-            Command::ReorderWorkspace { id, index, reply }
-        })
-        .await?
-    }
-
-    pub async fn move_window_to_workspace(
-        &self,
-        window: u64,
-        workspace: WorkspaceRef,
-    ) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| {
-            Command::MoveWindowToWorkspace {
-                window,
-                workspace,
-                reply,
-            }
-        })
-        .await?
-    }
-
-    pub async fn close_window(&self, id: u64) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| Command::CloseWindow {
-            id,
-            reply,
         })
         .await?
     }
@@ -520,10 +442,6 @@ impl Compositor {
                 },
                 reply,
             ),
-            Command::FocusOutput { connector, reply } => (
-                async move { backend.focus_output(&connector).await }.boxed(),
-                reply,
-            ),
             Command::RenameWorkspace { id, name, reply } => (
                 async move {
                     backend
@@ -531,43 +449,6 @@ impl Compositor {
                         .await
                 }
                 .boxed(),
-                reply,
-            ),
-            Command::MoveWorkspaceToOutput {
-                id,
-                connector,
-                reply,
-            } => (
-                async move {
-                    backend
-                        .move_workspace_to_output(WorkspaceId(id), &connector)
-                        .await
-                }
-                .boxed(),
-                reply,
-            ),
-            Command::ReorderWorkspace { id, index, reply } => (
-                async move { backend.reorder_workspace(WorkspaceId(id), index).await }.boxed(),
-                reply,
-            ),
-            Command::MoveWindowToWorkspace {
-                window,
-                workspace,
-                reply,
-            } => {
-                let workspace = workspace_target(workspace);
-                (
-                    async move {
-                        backend
-                            .move_window_to_workspace(WindowId(window), workspace)
-                            .await
-                    }
-                    .boxed(),
-                    reply,
-                )
-            }
-            Command::CloseWindow { id, reply } => (
-                async move { backend.close_window(WindowId(id)).await }.boxed(),
                 reply,
             ),
             Command::SetOutputEnabled {
@@ -584,14 +465,7 @@ impl Compositor {
                 reply,
             ),
             Command::PowerOffMonitors { reply } => (
-                if self.capabilities.blank_screens {
-                    async move { backend.power_off_monitors().await }.boxed()
-                } else {
-                    ready(Err(CompositorError::Unsupported(
-                        "this compositor cannot blank the displays",
-                    )))
-                    .boxed()
-                },
+                async move { backend.power_off_monitors().await }.boxed(),
                 reply,
             ),
             Command::StopScreencast { session_id, reply } => (
@@ -706,7 +580,7 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
             }
         }
         Change::KeyboardLayoutsChanged(_)
-        | Change::KeyboardLayoutSwitched { .. }
+        | Change::KeyboardLayoutSwitched(_)
         | Change::Resync(Resync::Keyboard) => {}
         Change::CastsChanged(casts) => state.casts = casts,
         Change::CastStartedOrChanged { cast } => {
@@ -858,8 +732,6 @@ fn position(workspace: &WorkspaceInfo) -> u64 {
 
 fn capabilities(capabilities: Capabilities) -> CompositorCapabilities {
     CompositorCapabilities {
-        floating: capabilities.floating,
-        workspace_reorder: capabilities.workspace_reorder,
         output_power: capabilities.output_power,
         blank_screens: capabilities.blank_screens,
     }
@@ -911,7 +783,7 @@ fn app_key(name: &str) -> String {
     name.trim().trim_end_matches(".desktop").to_lowercase()
 }
 
-fn command_error(error: &CompositorError) -> CommandError {
+pub(crate) fn command_error(error: &CompositorError) -> CommandError {
     match error {
         CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
             CommandError::Unsupported(reason.to_string())

@@ -26,16 +26,12 @@ use futures_util::stream::BoxStream;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Capabilities {
-    pub floating: bool,
-    pub workspace_reorder: bool,
     pub output_power: bool,
     pub blank_screens: bool,
 }
 
 impl Capabilities {
     pub const NONE: Self = Self {
-        floating: false,
-        workspace_reorder: false,
         output_power: false,
         blank_screens: false,
     };
@@ -57,7 +53,7 @@ pub fn detect_compositor() -> Compositor {
     if let Some(niri) = niri::from_env() {
         return Compositor::Niri(niri);
     }
-    if let Some(hyprland) = hyprland::from_env() {
+    if let Some(hyprland) = Hyprland::from_env() {
         return Compositor::Hyprland(hyprland);
     }
     Compositor::Unsupported
@@ -88,6 +84,11 @@ impl Compositor {
             Self::Hyprland(_) => hyprland::CAPABILITIES,
             Self::Unsupported => Capabilities::NONE,
         }
+    }
+
+    pub async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
+        delegate!(self, "cannot read keyboard layouts", |backend| backend
+            .keyboard_layouts())
     }
 
     pub async fn snapshot(&self) -> Result<Snapshot, CompositorError> {
@@ -125,45 +126,6 @@ impl Compositor {
     pub async fn focus_window(&self, to: WindowTarget) -> Result<(), CompositorError> {
         delegate!(self, "cannot focus a window", |backend| backend
             .focus_window(to))
-    }
-
-    pub async fn move_workspace_to_output(
-        &self,
-        id: WorkspaceId,
-        connector: &str,
-    ) -> Result<(), CompositorError> {
-        delegate!(self, "cannot move a workspace to an output", |backend| {
-            backend.move_workspace_to_output(id, connector)
-        })
-    }
-
-    pub async fn reorder_workspace(
-        &self,
-        id: WorkspaceId,
-        index: u8,
-    ) -> Result<(), CompositorError> {
-        delegate!(self, "cannot reorder a workspace", |backend| backend
-            .reorder_workspace(id, index))
-    }
-
-    pub async fn move_window_to_workspace(
-        &self,
-        window: WindowId,
-        to: WorkspaceTarget,
-    ) -> Result<(), CompositorError> {
-        delegate!(self, "cannot move a window to a workspace", |backend| {
-            backend.move_window_to_workspace(window, &to)
-        })
-    }
-
-    pub async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
-        delegate!(self, "cannot close a window", |backend| backend
-            .close_window(id))
-    }
-
-    pub async fn focus_output(&self, connector: &str) -> Result<(), CompositorError> {
-        delegate!(self, "cannot focus an output", |backend| backend
-            .focus_output(connector))
     }
 
     pub async fn set_output_enabled(

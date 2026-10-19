@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use glimpse_config::{Idle, IdleListener};
 use tokio::process::Command as TokioCommand;
@@ -9,6 +10,7 @@ use tokio::sync::{Mutex as AsyncMutex, mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 const COMMAND_QUEUE_SIZE: usize = 16;
+const COMMAND_WAIT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PowerSource {
@@ -41,6 +43,7 @@ pub enum Event {
     ListenerIdle { generation: u64, id: usize },
     ListenerResume { generation: u64, id: usize },
     RegistryChanged(bool),
+    BackendReset,
 }
 
 type BoxFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
@@ -148,6 +151,7 @@ impl Actor {
                     Some(Event::ListenerIdle { generation, id }) => self.listener_idle(generation, id),
                     Some(Event::ListenerResume { generation, id }) => self.listener_resume(generation, id),
                     Some(Event::RegistryChanged(value)) => self.set_any_idle_target(value),
+                    Some(Event::BackendReset) => self.backend_reset(),
                     None => break,
                 }
             }
@@ -242,6 +246,13 @@ impl Actor {
         }
     }
 
+    fn backend_reset(&mut self) {
+        self.resume_fired_before_replace();
+        self.fired.clear();
+        self.suppressed.clear();
+        self.publish_fired();
+    }
+
     fn resume_fired_before_replace(&mut self) {
         for id in sorted(&self.fired) {
             let Some(listener) = self.active_listener(id) else {
@@ -261,7 +272,17 @@ impl Actor {
         };
         let runner = self.runner.clone();
         tokio::spawn(async move {
-            let _guard = lock.lock().await;
+            let _guard = match tokio::time::timeout(COMMAND_WAIT, lock.lock()).await {
+                Ok(guard) => Some(guard),
+                Err(_) => {
+                    tracing::warn!(
+                        listener = id,
+                        command,
+                        "previous listener command still running, running queued command anyway"
+                    );
+                    None
+                }
+            };
             runner.run(&command).await;
         });
     }

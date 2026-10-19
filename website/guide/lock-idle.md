@@ -103,3 +103,7 @@ the status island; the session button has its own switch under `[lock.session]`.
 The session menu offers `Suspend...`, `Restart...`, and `Power Off...`, and every action asks for
 confirmation. Configuration edits apply live while the screen is locked; only `pam-service` waits
 for a restart.
+
+## Let Hyprland accept a restarted lock screen
+
+If the lock screen crashes or restarts while the screen is locked, Hyprland refuses the new lock unless `misc:allow_session_lock_restore` is on, and the session stays stuck on its lock-dead screen. In `hyprland.conf`, set `misc { allow_session_lock_restore = true }`. In `hyprland.lua`, set `hl.config({ misc = { allow_session_lock_restore = true } })`.

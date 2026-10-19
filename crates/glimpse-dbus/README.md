@@ -123,5 +123,6 @@ temperature would claim what the screen no longer shows. Idle keeps `health` whi
 belongs to `glimpse-sunset` and is documented only in its README.
 
 **A reader caps text the writer already capped** — trusting the cap already applied would mean
-trusting a bus name rather than a process. Cap tables are per-direction and need not match: an image
+trusting a bus name rather than a process. An identifier the provider matches byte for byte (an action
+key, an application id, a watched place name) is checked and rejected whole, never shortened. Cap tables are per-direction and need not match: an image
 path and a themed icon name have different limits.

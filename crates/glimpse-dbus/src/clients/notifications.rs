@@ -1,6 +1,13 @@
+use super::follower::{
+    Changes, Follow, Provider, ProviderError, ProviderHandle, REASON, Snapshots, call, changes,
+    follow_snapshots,
+};
 use super::{epoch, optional_clean};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::{RwLock, watch};
+use zbus::proxy::CacheProperties;
 
 /// Urgency as the freedesktop specification defines it. Internally tagged for the same reason
 /// `Condition` is: a sender may send a byte outside the three the specification names, and that
@@ -136,7 +143,7 @@ pub trait Notifications1 {
     fn set_do_not_disturb(&self, enabled: bool, until: i64) -> zbus::Result<()>;
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, PartialEq, serde::Serialize)]
 pub struct NotificationsView {
     pub notifications: Vec<NotificationRecord>,
     pub do_not_disturb: DoNotDisturb,
@@ -150,8 +157,8 @@ const SUMMARY: usize = 200;
 const ICON: usize = 200;
 const IMAGE: usize = 4096;
 const ACTION_LABEL: usize = 120;
+const ACTION_KEY: usize = 64;
 const MOST_ACTIONS: usize = 8;
-const NOTIFICATION_REASON: usize = 240;
 
 pub fn decode_snapshot(snapshot: NotificationsSnapshot) -> Result<NotificationsView, String> {
     let (records, dnd, serving, reason) = snapshot;
@@ -162,7 +169,7 @@ pub fn decode_snapshot(snapshot: NotificationsSnapshot) -> Result<NotificationsV
             .collect(),
         do_not_disturb: decode_do_not_disturb(dnd)?,
         serving,
-        reason: glimpse_utils::clean(&reason, NOTIFICATION_REASON),
+        reason: glimpse_utils::clean(&reason, REASON),
     })
 }
 
@@ -184,9 +191,12 @@ fn decode_notification(wire: NotificationWire) -> Result<NotificationRecord, Str
         resident,
         expire_timeout,
     ) = wire;
+    if !is_identifier(&app_id, APP_ID) {
+        return Err("notification application id is empty or too long".to_owned());
+    }
     Ok(NotificationRecord {
         id,
-        app_id: glimpse_utils::clean(&app_id, APP_ID),
+        app_id,
         app_name: glimpse_utils::clean(&app_name, APP_NAME),
         app_pid: (app_pid != 0).then_some(app_pid),
         summary: glimpse_utils::clean(&summary, SUMMARY),
@@ -196,9 +206,10 @@ fn decode_notification(wire: NotificationWire) -> Result<NotificationRecord, Str
         urgency: decode_urgency(urgency),
         actions: actions
             .into_iter()
+            .filter(|(key, _)| is_identifier(key, ACTION_KEY))
             .take(MOST_ACTIONS)
             .map(|(key, label)| NotificationAction {
-                key: glimpse_utils::clean(&key, ACTION_LABEL),
+                key,
                 label: glimpse_utils::clean(&label, ACTION_LABEL),
             })
             .collect(),
@@ -218,6 +229,10 @@ fn decode_do_not_disturb((enabled, until): DoNotDisturbWire) -> Result<DoNotDist
             value => Some(epoch(value)?),
         },
     })
+}
+
+fn is_identifier(value: &str, cap: usize) -> bool {
+    !value.is_empty() && value.chars().count() <= cap
 }
 
 fn decode_urgency(urgency: u8) -> NotificationUrgency {
@@ -241,7 +256,10 @@ pub fn urgency_from_wire(urgency: u32) -> NotificationUrgency {
     decode_urgency(u8::try_from(urgency).unwrap_or(1))
 }
 
-#[derive(Clone)]
+pub type NotificationsProvider = Provider<NotificationsProviderState>;
+pub type NotificationsProviderHandle = ProviderHandle<NotificationsProviderState>;
+
+#[derive(Clone, PartialEq)]
 pub struct NotificationsProviderState {
     pub view: Option<NotificationsView>,
     pub unavailable: Option<String>,
@@ -266,6 +284,57 @@ impl NotificationsProviderState {
     }
 }
 
+impl Follow for NotificationsProviderState {
+    type Proxy = Notifications1Proxy<'static>;
+    type Error = NotificationsProviderError;
+
+    const NAME: &'static str = "notifications";
+
+    fn lost(reason: String, _: Option<&Self>) -> Self {
+        Self::unavailable(reason)
+    }
+
+    fn reason(&self) -> Option<&str> {
+        self.unavailable.as_deref()
+    }
+
+    fn follow(
+        connection: zbus::Connection,
+        updates: watch::Sender<Self>,
+        current: Arc<RwLock<Option<Self::Proxy>>>,
+    ) -> impl Future<Output = ()> + Send {
+        follow_snapshots(connection, updates, current)
+    }
+}
+
+impl Snapshots for NotificationsProviderState {
+    type Snapshot = NotificationsSnapshot;
+
+    const BUS_NAME: &'static str = GLIMPSE_NOTIFICATIONS_BUS_NAME;
+
+    async fn build(connection: &zbus::Connection) -> zbus::Result<Self::Proxy> {
+        Notifications1Proxy::builder(connection)
+            .cache_properties(CacheProperties::Yes)
+            .build()
+            .await
+    }
+
+    async fn read(proxy: &Self::Proxy) -> zbus::Result<Self::Snapshot> {
+        match proxy.cached_snapshot()? {
+            Some(snapshot) => Ok(snapshot),
+            None => proxy.snapshot().await,
+        }
+    }
+
+    async fn changes(proxy: &Self::Proxy) -> Changes<Self::Snapshot> {
+        changes(proxy.receive_snapshot_changed().await)
+    }
+
+    fn decode(snapshot: Self::Snapshot) -> Result<Self, String> {
+        Ok(Self::decoded(snapshot))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum NotificationsProviderError {
     #[error("notification action is invalid: {0}")]
@@ -278,83 +347,31 @@ pub enum NotificationsProviderError {
     Call(String),
 }
 
-#[derive(Clone)]
-pub struct NotificationsProviderHandle {
-    state: tokio::sync::watch::Receiver<NotificationsProviderState>,
-    proxy: std::sync::Arc<tokio::sync::RwLock<Option<Notifications1Proxy<'static>>>>,
-}
-
-pub struct NotificationsProvider {
-    handle: NotificationsProviderHandle,
-    task: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl NotificationsProvider {
-    pub fn unavailable(reason: impl Into<String>) -> Self {
-        let (_, state) =
-            tokio::sync::watch::channel(NotificationsProviderState::unavailable(reason));
-        Self {
-            handle: NotificationsProviderHandle {
-                state,
-                proxy: Default::default(),
-            },
-            task: None,
-        }
+impl ProviderError for NotificationsProviderError {
+    fn unavailable(reason: String) -> Self {
+        Self::Unavailable(reason)
     }
 
-    pub fn start(connection: zbus::Connection) -> Self {
-        let (updates, state) = tokio::sync::watch::channel(
-            NotificationsProviderState::unavailable("provider has no bus owner"),
-        );
-        let proxy = std::sync::Arc::new(tokio::sync::RwLock::new(None));
-        let task = tokio::spawn(follow_provider(connection, updates, proxy.clone()));
-        Self {
-            handle: NotificationsProviderHandle { state, proxy },
-            task: Some(task),
-        }
+    fn timed_out() -> Self {
+        Self::TimedOut
     }
 
-    pub fn handle(&self) -> NotificationsProviderHandle {
-        self.handle.clone()
+    fn call(reason: String) -> Self {
+        Self::Call(reason)
     }
 
-    pub async fn shutdown(&mut self) {
-        if let Some(task) = self.task.take() {
-            task.abort();
-            let _ = task.await;
-        }
-    }
-}
-
-impl Drop for NotificationsProvider {
-    fn drop(&mut self) {
-        if let Some(task) = &self.task {
-            task.abort();
+    fn named(name: &str, reason: String) -> Option<Self> {
+        match name {
+            "me.aresa.Glimpse.Notifications1.Error.InvalidAction" => {
+                Some(Self::InvalidAction(reason))
+            }
+            "me.aresa.Glimpse.Notifications1.Error.Unavailable" => Some(Self::Unavailable(reason)),
+            _ => None,
         }
     }
 }
 
 impl NotificationsProviderHandle {
-    pub fn snapshot(&self) -> NotificationsProviderState {
-        self.state.borrow().clone()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<NotificationsProviderState> {
-        self.state.clone()
-    }
-
-    async fn proxy(&self) -> Result<Notifications1Proxy<'static>, NotificationsProviderError> {
-        self.proxy.read().await.clone().ok_or_else(|| {
-            NotificationsProviderError::Unavailable(
-                self.state
-                    .borrow()
-                    .unavailable
-                    .clone()
-                    .unwrap_or_else(|| "provider has no bus owner".to_owned()),
-            )
-        })
-    }
-
     pub async fn dismiss(&self, id: u32) -> Result<(), NotificationsProviderError> {
         call(self.proxy().await?.dismiss(id)).await
     }
@@ -426,199 +443,6 @@ impl NotificationsProviderHandle {
     ) -> Result<(), NotificationsProviderError> {
         call(self.proxy().await?.set_do_not_disturb(enabled, until)).await
     }
-}
-
-async fn call<T>(
-    request: impl std::future::Future<Output = zbus::Result<T>>,
-) -> Result<T, NotificationsProviderError> {
-    match tokio::time::timeout(super::DEADLINE, request).await {
-        Ok(Ok(answer)) => Ok(answer),
-        Ok(Err(zbus::Error::MethodError(name, reason, _)))
-            if name.as_str() == "me.aresa.Glimpse.Notifications1.Error.InvalidAction" =>
-        {
-            Err(NotificationsProviderError::InvalidAction(
-                reason.unwrap_or_default(),
-            ))
-        }
-        Ok(Err(zbus::Error::MethodError(name, reason, _)))
-            if name.as_str() == "me.aresa.Glimpse.Notifications1.Error.Unavailable" =>
-        {
-            Err(NotificationsProviderError::Unavailable(
-                reason.unwrap_or_default(),
-            ))
-        }
-        Ok(Err(error)) => Err(NotificationsProviderError::Call(error.to_string())),
-        Err(_) => Err(NotificationsProviderError::TimedOut),
-    }
-}
-
-async fn follow_provider(
-    connection: zbus::Connection,
-    updates: tokio::sync::watch::Sender<NotificationsProviderState>,
-    current: std::sync::Arc<tokio::sync::RwLock<Option<Notifications1Proxy<'static>>>>,
-) {
-    use futures_util::StreamExt;
-    use zbus::proxy::CacheProperties;
-
-    let dbus = match zbus::fdo::DBusProxy::new(&connection).await {
-        Ok(dbus) => dbus,
-        Err(error) => {
-            replace_unavailable(&updates, error.to_string());
-            tracing::warn!(%error, "cannot observe the notifications provider owner");
-            return;
-        }
-    };
-    let mut owners = match dbus
-        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_NOTIFICATIONS_BUS_NAME)])
-        .await
-    {
-        Ok(owners) => owners,
-        Err(error) => {
-            replace_unavailable(&updates, error.to_string());
-            tracing::warn!(%error, "cannot observe notifications provider owner changes");
-            return;
-        }
-    };
-
-    let mut retry_delay = super::RetryDelay::default();
-
-    loop {
-        let proxy = match Notifications1Proxy::builder(&connection)
-            .cache_properties(CacheProperties::Yes)
-            .build()
-            .await
-        {
-            Ok(proxy) => {
-                retry_delay.reset();
-                proxy
-            }
-            Err(error) => {
-                *current.write().await = None;
-                replace_unavailable(&updates, error.to_string());
-                tracing::debug!(
-                    reason = %error,
-                    "notifications provider property cache is unavailable"
-                );
-                if !super::retry_after_failure(
-                    &dbus,
-                    &mut owners,
-                    GLIMPSE_NOTIFICATIONS_BUS_NAME,
-                    &mut retry_delay,
-                )
-                .await
-                {
-                    return;
-                }
-                continue;
-            }
-        };
-        let mut snapshots = proxy.receive_snapshot_changed().await;
-        let snapshot = match proxy.cached_snapshot() {
-            Ok(Some(snapshot)) => Some(snapshot),
-            Ok(None) => match proxy.snapshot().await {
-                Ok(snapshot) => Some(snapshot),
-                Err(error) => {
-                    replace_unavailable(&updates, error.to_string());
-                    *current.write().await = None;
-                    tracing::warn!(reason = %error, "notifications snapshot is unavailable");
-                    None
-                }
-            },
-            Err(error) => {
-                replace_unavailable(&updates, error.to_string());
-                *current.write().await = None;
-                tracing::warn!(reason = %error, "notifications property cache is unavailable");
-                None
-            }
-        };
-        let mut serving = match snapshot {
-            Some(snapshot) => {
-                *current.write().await = Some(proxy.clone());
-                let state = NotificationsProviderState::decoded(snapshot);
-                tracing::info!(
-                    serving = state.view.as_ref().is_some_and(|view| view.serving),
-                    held = state
-                        .view
-                        .as_ref()
-                        .map_or(0, |view| view.notifications.len()),
-                    "notifications provider connected"
-                );
-                updates.send_replace(state);
-                true
-            }
-            None => false,
-        };
-
-        loop {
-            tokio::select! {
-                changed = snapshots.next() => {
-                    let Some(changed) = changed else {
-                        break;
-                    };
-                    match changed.get().await {
-                        Ok(snapshot) => {
-                            if !serving {
-                                *current.write().await = Some(proxy.clone());
-                                serving = true;
-                                tracing::info!(
-                                    "notifications provider recovered without changing owner"
-                                );
-                            }
-                            let state = NotificationsProviderState::decoded(snapshot);
-                            tracing::debug!(
-                                serving = state.view.as_ref().is_some_and(|view| view.serving),
-                                held = state.view.as_ref().map_or(0, |view| view.notifications.len()),
-                                "notifications snapshot changed"
-                            );
-                            updates.send_replace(state);
-                        }
-                        Err(error) => {
-                            replace_unavailable(&updates, error.to_string());
-                            tracing::warn!(reason = %error, "notifications snapshot change failed");
-                            if serving {
-                                *current.write().await = None;
-                                serving = false;
-                            }
-                        }
-                    }
-                }
-                owner = owners.next() => {
-                    let Some(owner) = owner else {
-                        break;
-                    };
-                    let Ok(args) = owner.args() else {
-                        continue;
-                    };
-                    // `old_owner` is what makes this a disconnect; see the weather client.
-                    if args.name().as_str() != GLIMPSE_NOTIFICATIONS_BUS_NAME {
-                        continue;
-                    }
-                    if args.old_owner().is_some() || (!serving && args.new_owner().is_some()) {
-                        break;
-                    }
-                }
-            }
-        }
-        if serving {
-            *current.write().await = None;
-            replace_unavailable(&updates, "provider has no bus owner");
-            tracing::warn!("notifications provider disconnected");
-        }
-    }
-}
-
-fn replace_unavailable(
-    updates: &tokio::sync::watch::Sender<NotificationsProviderState>,
-    reason: impl Into<String>,
-) {
-    let next = NotificationsProviderState::unavailable(reason);
-    updates.send_if_modified(|previous| {
-        if previous.view.is_none() && previous.unavailable == next.unavailable {
-            return false;
-        }
-        *previous = next;
-        true
-    });
 }
 
 #[cfg(test)]

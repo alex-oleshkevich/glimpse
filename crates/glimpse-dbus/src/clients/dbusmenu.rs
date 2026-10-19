@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use zbus::zvariant::{OwnedValue, Value};
 
+use super::{Properties, text};
+
 pub type MenuLayout = (i32, HashMap<String, OwnedValue>, Vec<OwnedValue>);
 
 pub type MenuItemProperties = (i32, HashMap<String, OwnedValue>);
@@ -106,14 +108,6 @@ pub struct MenuNode {
     pub submenu: bool,
     pub disposition: String,
     pub children: Vec<MenuNode>,
-}
-
-type Properties = HashMap<String, OwnedValue>;
-
-fn text(properties: &Properties, key: &str, cap: usize) -> Option<String> {
-    let raw = <&str>::try_from(properties.get(key)?).ok()?;
-    let cleaned = glimpse_utils::clean(raw, cap);
-    (!cleaned.is_empty()).then_some(cleaned)
 }
 
 /// dbusmenu escapes a literal underscore by doubling it, so a plain `strip('_')` turns

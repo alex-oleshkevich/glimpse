@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gettextrs::gettext;
 use gtk4::gdk_pixbuf::Pixbuf;
@@ -75,14 +75,43 @@ fn decodes(path: &Path) -> Result<(), Reject> {
     Ok(())
 }
 
+const COPY_TIMEOUT: Duration = Duration::from_secs(30);
+
 pub async fn copy_image(source: &Path, dir: &Path) -> Result<PathBuf, Reject> {
-    let input = tokio::fs::File::open(source)
+    bounded(COPY_TIMEOUT, copy_file(source, dir)).await
+}
+
+pub(super) async fn bounded(
+    limit: Duration,
+    copied: impl std::future::Future<Output = Result<PathBuf, Reject>>,
+) -> Result<PathBuf, Reject> {
+    tokio::time::timeout(limit, copied)
+        .await
+        .unwrap_or(Err(Reject::Unreadable))
+}
+
+pub(super) async fn open_regular(source: &Path) -> Result<tokio::fs::File, Reject> {
+    let input = tokio::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
+        .open(source)
         .await
         .map_err(|_| Reject::Unreadable)?;
     let metadata = input.metadata().await.map_err(|_| Reject::Unreadable)?;
     if !metadata.is_file() {
         return Err(Reject::Unreadable);
     }
+    Ok(input)
+}
+
+async fn copy_file(source: &Path, dir: &Path) -> Result<PathBuf, Reject> {
+    let metadata = tokio::fs::metadata(source)
+        .await
+        .map_err(|_| Reject::Unreadable)?;
+    if !metadata.is_file() {
+        return Err(Reject::Unreadable);
+    }
+    let input = open_regular(source).await?;
     tokio::fs::create_dir_all(dir)
         .await
         .map_err(|_| Reject::Unreadable)?;

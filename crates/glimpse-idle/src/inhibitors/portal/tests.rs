@@ -1,13 +1,15 @@
 use std::io::Read as _;
 
-use glimpse_dbus::idle::{
-    IdleInhibitorRecord as TestRecord, IdleInhibitorSource, InhibitionTargets as TestTargets,
-    Login1Mode,
-};
+use glimpse_dbus::idle::{IdleInhibitorRecord as TestRecord, InhibitionTargets as TestTargets};
 use glimpse_dbus::testing::PrivateBus;
 use zbus::zvariant::Value;
 
+use std::time::Duration;
+
+use tokio_util::sync::CancellationToken;
+
 use super::*;
+use crate::inhibitors::screen_saver::watch_disconnects;
 use crate::inhibitors::test_support::{FakeLogin1, start_fake_login1, start_paused_fake_login1};
 
 #[zbus::proxy(
@@ -129,7 +131,7 @@ async fn inhibit_with_idle_and_suspend_flags_lands_a_matching_record() {
         }
     );
     assert_eq!(record.who, "org.test.App");
-    assert_eq!(record.bus_name, "");
+    assert_eq!(record.bus_name, client.unique_name().unwrap().as_str());
 }
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn close_releases_the_record_and_a_second_close_does_not_crash_the_server() {
@@ -257,44 +259,25 @@ async fn login1_fd_is_taken_only_when_targets_include_suspend_or_shutdown() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn inhibit_rechecks_capacity_after_logind_returns_and_closes_its_fd() {
+async fn portal_per_app_cap_holds() {
     let bus = PrivateBus::start();
-    let (_login1_conn, _app, registry, fake_login1, started, release) =
-        start_server_with_paused_login1(&bus).await;
+    let (_login1_conn, _app, registry, fake_login1) = start_server(&bus).await;
     let client = bus.connection().await;
     let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
 
-    let inhibit = tokio::spawn(async move {
-        let handle = ObjectPath::try_from("/req/late_capacity").unwrap();
+    for index in 0..crate::inhibitors::Registry::MAX_INHIBITORS_PER_BUS {
+        let handle = ObjectPath::try_from(format!("/req/cap{index}")).unwrap();
         proxy
-            .inhibit(&handle, "org.test.App", "", 4, HashMap::new())
+            .inhibit(&handle, "org.test.A", "", 8, HashMap::new())
             .await
-    });
-    started.notified().await;
-    registry
-        .mutate(|registry| {
-            for _ in 0..crate::inhibitors::Registry::MAX_INHIBITORS_TOTAL {
-                let id = registry.mint_id();
-                registry.insert(
-                    IdleInhibitorRecord {
-                        id,
-                        who: "test".to_owned(),
-                        why: String::new(),
-                        bus_name: String::new(),
-                        process_name: String::new(),
-                        source: IdleInhibitorSource::login1(0, 0, Login1Mode::Block),
-                        targets: TestTargets::NONE,
-                        can_release: false,
-                        added_at_unix: 0,
-                    },
-                    None,
-                );
-            }
-        })
-        .await;
-    release.notify_one();
+            .unwrap();
+    }
 
-    let error = inhibit.await.unwrap().unwrap_err();
+    let handle = ObjectPath::try_from("/req/cap_over").unwrap();
+    let error = proxy
+        .inhibit(&handle, "org.test.A", "", 4, HashMap::new())
+        .await
+        .unwrap_err();
     assert!(
         matches!(
             &error,
@@ -303,13 +286,229 @@ async fn inhibit_rechecks_capacity_after_logind_returns_and_closes_its_fd() {
         ),
         "unexpected error: {error:?}"
     );
+    assert!(
+        record_for_handle(&registry, "/req/cap_over")
+            .await
+            .is_none()
+    );
+    assert!(fake_login1.readers.lock().unwrap().is_empty());
     assert_eq!(
         registry.read(|registry| registry.snapshot().len()).await,
-        crate::inhibitors::Registry::MAX_INHIBITORS_TOTAL
+        crate::inhibitors::Registry::MAX_INHIBITORS_PER_BUS
     );
-    let mut readers = fake_login1.readers.lock().unwrap();
+
+    let other = ObjectPath::try_from("/req/cap_other").unwrap();
+    proxy
+        .inhibit(&other, "org.test.B", "", 8, HashMap::new())
+        .await
+        .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_departed_frontend_releases_its_records() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, app, registry, fake_login1) = start_server(&bus).await;
+    let cancel = CancellationToken::new();
+    let watch_task = tokio::spawn(watch_disconnects(
+        app.clone(),
+        registry.clone(),
+        cancel.clone(),
+    ));
+    let client = bus.connection().await;
+    let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
+    let handle = ObjectPath::try_from("/req/frontend").unwrap();
+    proxy
+        .inhibit(&handle, "org.test.App", "", 8 | 4, HashMap::new())
+        .await
+        .unwrap();
+    assert!(
+        record_for_handle(&registry, "/req/frontend")
+            .await
+            .is_some()
+    );
+    assert_eq!(fake_login1.readers.lock().unwrap().len(), 1);
+
+    drop(proxy);
+    drop(client);
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while record_for_handle(&registry, "/req/frontend")
+            .await
+            .is_some()
+        {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the record is released once its frontend leaves the bus");
+
     let mut buf = [0u8; 1];
-    assert_eq!(readers[0].read(&mut buf).unwrap(), 0);
+    assert_eq!(
+        fake_login1.readers.lock().unwrap()[0]
+            .read(&mut buf)
+            .unwrap(),
+        0
+    );
+    wait_until_request_is_gone(&bus, &handle).await;
+    cancel.cancel();
+    watch_task.await.unwrap();
+}
+
+async fn request_is_gone(observer: &Connection, handle: &ObjectPath<'_>) -> bool {
+    zbus::fdo::IntrospectableProxy::builder(observer)
+        .destination("me.aresa.Glimpse.Idle.Portal")
+        .unwrap()
+        .path(handle.clone())
+        .unwrap()
+        .build()
+        .await
+        .unwrap()
+        .introspect()
+        .await
+        .is_err()
+}
+
+async fn wait_until_request_is_gone(bus: &PrivateBus, handle: &ObjectPath<'_>) {
+    let observer = bus.connection().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while !request_is_gone(&observer, handle).await {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the Request object is removed with its record");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn releasing_a_portal_record_through_idle1_removes_its_request_object() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, app, registry, _fake_login1) = start_server(&bus).await;
+    let idle1 = crate::inhibitors::Idle1Server::new(registry.clone(), None, Health::new().0);
+    app.object_server()
+        .at(glimpse_dbus::idle::GLIMPSE_IDLE_OBJECT_PATH, idle1)
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&app, glimpse_dbus::idle::GLIMPSE_IDLE_BUS_NAME)
+        .await
+        .unwrap();
+    let client = bus.connection().await;
+    let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
+    let handle = ObjectPath::try_from("/req/idle1_release").unwrap();
+    proxy
+        .inhibit(&handle, "org.test.App", "", 8, HashMap::new())
+        .await
+        .unwrap();
+    let id = record_for_handle(&registry, "/req/idle1_release")
+        .await
+        .unwrap()
+        .id;
+
+    glimpse_dbus::idle::Idle1Proxy::new(&client)
+        .await
+        .unwrap()
+        .release(id)
+        .await
+        .unwrap();
+
+    assert!(find_record(&registry, id).await.is_none());
+    wait_until_request_is_gone(&bus, &handle).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_empty_app_id_is_named_after_the_daemon_rather_than_the_frontend() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
+    let client = bus.connection().await;
+    let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
+    let handle = ObjectPath::try_from("/req/anonymous").unwrap();
+    proxy
+        .inhibit(&handle, "", "", 8, HashMap::new())
+        .await
+        .unwrap();
+
+    let record = record_for_handle(&registry, "/req/anonymous")
+        .await
+        .unwrap();
+    assert_eq!(record.who, "glimpse-idle");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn one_frontend_may_hold_more_records_than_the_per_source_limit_across_apps() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
+    let client = bus.connection().await;
+    let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
+
+    let count = crate::inhibitors::Registry::MAX_INHIBITORS_PER_BUS + 1;
+    for index in 0..count {
+        let handle = ObjectPath::try_from(format!("/req/many{index}")).unwrap();
+        proxy
+            .inhibit(
+                &handle,
+                &format!("org.test.App{index}"),
+                "",
+                8,
+                HashMap::new(),
+            )
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        registry.read(|registry| registry.snapshot().len()).await,
+        count
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn close_during_the_login1_call_releases_the_record() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, _app, registry, fake_login1, started, release) =
+        start_server_with_paused_login1(&bus).await;
+    let client = bus.connection().await;
+    let inhibit_client = bus.connection().await;
+    let handle = ObjectPath::try_from("/req/close_mid_call").unwrap();
+
+    let inhibit = tokio::spawn({
+        let handle = handle.clone();
+        async move {
+            let proxy = PortalInhibitTestProxy::new(&inhibit_client).await.unwrap();
+            proxy
+                .inhibit(&handle, "org.test.App", "", 4, HashMap::new())
+                .await
+        }
+    });
+    started.notified().await;
+    let request_proxy = PortalRequestTestProxy::builder(&client)
+        .path(handle.clone())
+        .unwrap()
+        .destination("me.aresa.Glimpse.Idle.Portal")
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    request_proxy
+        .close()
+        .await
+        .expect("the Request object exists before logind answers");
+    assert!(
+        record_for_handle(&registry, "/req/close_mid_call")
+            .await
+            .is_none()
+    );
+
+    release.notify_one();
+    inhibit.await.unwrap().unwrap();
+    let mut buf = [0u8; 1];
+    assert_eq!(
+        fake_login1.readers.lock().unwrap()[0]
+            .read(&mut buf)
+            .unwrap(),
+        0
+    );
+    assert!(
+        record_for_handle(&registry, "/req/close_mid_call")
+            .await
+            .is_none()
+    );
 }
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn create_monitor_serves_a_session_that_closes_and_query_end_is_accepted() {
