@@ -9,10 +9,9 @@ header before running it; the notes here are the traps that header does not cove
   tested by hand. `baseline` before the first change, `arm [seconds]` to self-heal in the
   background, `disarm` when done, `restore` to bring the recorded profile back once.
 - **`glimpse-lock-rescue-pam.sh` / `glimpse-lock-restore-pam.sh`** — break-glass for a lock that
-  refuses every password: rescue swaps `/etc/pam.d/glimpse-lock` for `pam_permit` (backing the
-  original up to `glimpse-lock.glimpse-rescue.bak`), restore copies `data/pam.d/glimpse-lock` back
-  and must run from the repo root. Rescue resets faillock for a hardcoded user. Both need sudo, so
-  the user runs them; never leave the rescue file installed.
+  refuses every password: rescue swaps `/etc/pam.d/glimpse-lock` for `pam_permit`, backing the
+  original up to `glimpse-lock.glimpse-rescue.bak` and resetting faillock; restore puts that backup
+  back. Both need sudo, so the user runs them; never leave the rescue file installed.
 
 ## Input and windows
 
@@ -35,8 +34,7 @@ header before running it; the notes here are the traps that header does not cove
 - **`calendar-fake-event.py [--in MIN] [--duration MIN] [--title T] [--location L] [--name F]
   [clear]`** — writes an `.ics` event for the `next_event` applet and prints the
   `[[calendar.sources]]` block to add. It defaults to `~/.config/glimpse/calendars`: always pass
-  `--dir "$SCRATCH/calendars" --config "$SCRATCH/config.toml"`. The printed block says
-  `poll_interval`; the schema key is `poll-interval`. Its unit test is
+  `--dir "$SCRATCH/calendars" --config "$SCRATCH/config.toml"`. Its unit test is
   `python3 scripts/calendar_fake_event_test.py`.
 - **`removable-test.sh up [--parts N] [--size MB] [--optical] [--readonly] | down | status`** —
   attaches a RAM-backed `scsi_debug` drive with `Removable` set, the only way to make UDisks2 show
@@ -58,8 +56,7 @@ header before running it; the notes here are the traps that header does not cove
 
 - **`printing-mock-cups.py [--auto N]`** — replaces CUPS with an IPP server on port 16631
   (`GLIMPSE_MOCK_PORT`) that steps through printer and job states on Enter. Point a test panel at it
-  with `[printing] server-url = "http://localhost:16631/"`; the header's `GLIMPSE_CUPS_URL` and
-  `glimpse-shell` are gone. Use it for widget states.
+  with `[printing] server-url = "http://localhost:16631/"`. Use it for widget states.
 - **`printing-network-printer.sh run | up | jobs [N] | status | down`** — publishes a real IPP
   Everywhere printer that CUPS discovers through cups-browsed. Use it for discovery, job control
   and anything that must hold for real CUPS. Low toner and out-of-paper cannot reach the applet.
@@ -90,11 +87,10 @@ read from compositor casts, the camera from a `/proc` fd scan, the microphone fr
   `exec-applet-demo.py`, a protocol-speaking exec applet. `--mode garbage|huge-line|flood|no-read|
   exit-before-hello|crash-after SECONDS|many-nodes [--nodes N]|churn` makes it misbehave on purpose;
   `exec-applet-demo.py --self-test` checks the demo itself.
-- **`portal-routing.sh <XDG_CURRENT_DESKTOP>`** — starts xdg-desktop-portal in a user namespace
-  with `data/portals/*` installed and reports which backend each portal interface resolves to.
-  Needs unprivileged user namespaces with overlay mounts; it cannot run inside a sandboxed shell.
-  The `ScreenCast=gnome` and `FileChooser=gnome` lines come from the host's portal config, not
-  from glimpse.
+- **`portal-routing.sh <XDG_CURRENT_DESKTOP>`** — starts xdg-desktop-portal on a private bus with
+  `XDG_DESKTOP_PORTAL_DIR` holding the host's backends plus `data/portals/*`, and fails unless
+  Inhibit resolves to `glimpse` and Screenshot to `glimpse-shot`. Run it for `niri` and
+  `glimpse:niri` after any change under `data/portals/`.
 - **`blur-wire.sh [-v]`** — reads `WAYLAND_DEBUG=1` output on stdin and prints each surface's
   background-blur regions; a surface holding more than one blur object is `BAD` and fails the run.
   `WAYLAND_DEBUG=1 glimpse-panel --config "$SCRATCH/config.toml" 2>&1 | scripts/blur-wire.sh`.

@@ -14,8 +14,7 @@ Usage:
     ./scripts/printing-mock-cups.py
     ./scripts/printing-mock-cups.py --auto 4
 
-Launch glimpse-shell with the mock:
-    GLIMPSE_CUPS_URL=http://localhost:16631/ ./target/debug/glimpse-shell
+Point a test panel at it with `[printing] server-url = "http://localhost:16631/"`.
 
 Port defaults to 16631; override with GLIMPSE_MOCK_PORT env var.
 """
@@ -433,7 +432,7 @@ def main():
     server = HTTPServer(("127.0.0.1", port), IppHandler)
 
     print(f"\n{BOLD}Mock CUPS IPP server listening on http://127.0.0.1:{port}/{RESET}")
-    print(f"  Launch with:  GLIMPSE_CUPS_URL=http://127.0.0.1:{port}/ glimpse-shell")
+    print(f"  Configure:  [printing] server-url = \"http://127.0.0.1:{port}/\"")
     if args.auto:
         print(f"  Auto-advancing every {args.auto}s.  Ctrl-C to stop.")
     else:

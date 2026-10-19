@@ -14,7 +14,7 @@ different playback status. Run, open the glimpse mpris popover, then
 Ctrl-C to tear everything down.
 
 Implements just enough of org.mpris.MediaPlayer2 + .Player for
-glimpse-core's parser: Identity / CanRaise / PlaybackStatus / Metadata /
+glimpse's mpris service: Identity / CanRaise / PlaybackStatus / Metadata /
 Position / CanGo{Previous,Next} / CanPlay / CanPause / CanSeek. Transport
 methods (PlayPause, Next, Previous, Seek, SetPosition) update local
 state and emit the corresponding signals so the popover sees the change

@@ -11,8 +11,7 @@
 # reboot. Nothing here ever touches a device it did not create: every destructive step re-checks
 # that the target's SCSI model is `scsi_debug` first.
 #
-# It becomes root with `sudo`, matching the justfile's own `elevate`, because no polkit agent is
-# registered on this machine: pkexec's textual fallback authenticates and then fails with "No
+# It becomes root with `sudo`, because no polkit agent is registered on this machine: pkexec's textual fallback authenticates and then fails with "No
 # session for cookie". Set GLIMPSE_SUDO to something else from a launcher with no terminal.
 #
 #   scripts/removable-test.sh up [options]   attach and format a fake drive

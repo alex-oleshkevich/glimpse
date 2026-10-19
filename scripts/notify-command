@@ -52,7 +52,7 @@ else
 fi
 
 # Locate a rich image to attach. The daemon parses the `image-path` hint
-# (see glimpse-core/src/dbus/notifications.rs). The first existing path wins;
+# (see glimpse-services/src/services/notifications.rs). The first existing path wins;
 # if nothing is found, the rich image is silently omitted.
 image_path=""
 for candidate in \

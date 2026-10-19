@@ -2,7 +2,7 @@
 #
 # Start a desktop screencast-like capture via wf-recorder for DURATION seconds.
 # Depending on the compositor/backend, wf-recorder may use screencopy or a
-# portal-mediated path; glimpse-shell should see an active screencast session.
+# portal-mediated path; glimpse-panel should see an active screencast session.
 #
 # wf-recorder is NOT installed on this machine (checked 2026-09-22, `command
 # -v wf-recorder` finds nothing), so this script is currently a no-op here —
