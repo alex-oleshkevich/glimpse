@@ -13,12 +13,12 @@ fixed in the `justfile` rather than worked around with a raw `cargo` invocation.
 
 ## Which tier
 
-| The code touches | Tier | Recipe |
-| --- | --- | --- |
-| Nothing but data | plain `#[test]` | `just test`, `just test-crate <crate>` |
-| tokio, a fake dependency handle, a mock bus | `#[tokio::test]` | same |
-| GTK widgets | one `#[test] #[ignore]` per crate | `just test-compositor` |
-| A live Wayland session | `#[ignore]`, documented as manual | `just test-compositor` |
+| The code touches                            | Tier                              | Recipe                                 |
+| ------------------------------------------- | --------------------------------- | -------------------------------------- |
+| Nothing but data                            | plain `#[test]`                   | `just test`, `just test-crate <crate>` |
+| tokio, a fake dependency handle, a mock bus | `#[tokio::test]`                  | same                                   |
+| GTK widgets                                 | one `#[test] #[ignore]` per crate | `just test-compositor`                 |
+| A live Wayland session                      | `#[ignore]`, documented as manual | `just test-compositor`                 |
 
 `just test` must stay green headless, which is why every GTK test is `#[ignore]`d.
 
@@ -81,7 +81,7 @@ glimpse-panel --config "$SCRATCH/config.toml"  # replaces the whole stack, drop-
 HOME="$SCRATCH/home" glimpse-panel            # a fake home, when drop-ins are the thing under test
 ```
 
-`--config` watches that file's *parent directory*, so redirecting the daemon's log into it makes
+`--config` watches that file's _parent directory_, so redirecting the daemon's log into it makes
 every line an event that triggers another read — a closed loop at `DEBOUNCE` that looks exactly like
 a watcher retrying. Send the log somewhere else.
 
@@ -100,7 +100,7 @@ just test-crate <crate> 2>&1 | grep -E "FAILED|left:|right:"
 cp "$SCRATCH/f.bak" <file>
 ```
 
-Mutate the *decision*, not the syntax: drop the early-return guard, discard the carried remainder,
+Mutate the _decision_, not the syntax: drop the early-return guard, discard the carried remainder,
 remove the topic check. If nothing fails, the test asserts less than it appears to — that is the
 finding, and it is worth more than the test.
 
@@ -131,8 +131,18 @@ it does not go in a crate README, which AGENTS.md keeps free of what was tested.
 Write the step you actually cannot automate, not the one you did not get to. "Check it looks right"
 is not a step; "the knob must flip and exactly one dialog must appear" is.
 
+## Live test every code change
+
+Every change to code that runs (not docs) is live-tested before it is called done, by a cheap
+capable model in a fresh session that did not write it: a sonnet subagent, or pi with DeepSeek
+(`pi -p --no-session -ne --no-mcp -ns -np --model openrouter/deepseek/deepseek-v4-flash-latest`).
+It follows the `live-testing` skill and runs everything on the laptop screen eDP-1, never DP-2:
+the nested niri window and any test panel move there right after they start. Its brief names the
+acceptance criteria to drive, and its report says what it saw, not what it assumed.
+
 ## Definition of done
 
+- Every code change passed a live test on eDP-1 when it is available otherwise on any other secondary display. Use primary when it is the only one available display.
 - Every new decision has a test, and every such test has been checked against a deliberately broken
   version of the code it covers.
 - Anything that could only be asserted with a display is on the GTK test's list, or is stated as

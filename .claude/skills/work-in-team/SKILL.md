@@ -15,8 +15,11 @@ on typing code or grepping for facts.
   The one exception is a delta of a line or two, which Claude may fix itself.
 - Claude owns every review verdict: read the diff, adjudicate, relay fixes. The only reviewer
   Claude may spawn is codex astra, which also drafts plans; Claude still reads the diff and decides.
-- Docs go to an opus subagent (Agent tool, `model: opus`) whose brief tells it to load the
-  `writing-documentation-with-diataxis` and `docs` skills first. Every page has one Diataxis type.
+- Writing docs (new prose, a page or section rewrite) goes to an opus subagent (Agent tool,
+  `model: opus`) whose brief tells it to load the `writing-documentation-with-diataxis` and `docs`
+  skills first. Every page has one Diataxis type. Mechanical docs work (formatting samples,
+  applying listed fixes, removing sections, repointing links, running lint and builds) goes to
+  sonnet or haiku, never opus.
 - Shell fact-finding (grep, sed, reading source to answer a question) goes codegraph, and if not available, to pi, so the answer
   lands in Claude's context without the file dumps.
 
@@ -38,7 +41,12 @@ Pick by complexity, cheapest that will get it right:
 - **pi with DeepSeek** — fact analysis: `pi -p --no-session --model
 "openrouter/~deepseek/deepseek-flash-latest" "<question>"`. Live tests: `pi -p --no-session -ne
 --no-mcp -ns -np --model openrouter/deepseek/deepseek-v4-flash-latest "<brief>"`.
-- When a CLI is broken, fall back to a Claude subagent and say so.
+- When a CLI is broken, fall back to a Claude subagent and say so. kimi's `-p` mode rejects any
+  approval flag and fails on a large tool schema; use grok or muse in its place.
+- Workers economize too: they hand simple steps (running tests, reading or grepping files) to a
+  cheaper agent (a haiku subagent or pi) and use `codegraph explore "<symbols or question>"` to
+  find code. Codegraph indexes the main checkout, not the worktree, so it is right for code the
+  worker has not changed and stale for code it has. Every brief says this.
 
 ## Briefs
 
@@ -54,7 +62,8 @@ needs only its file and verify command. The brief then carries:
 - The worktree path to work in and the branch it is on.
 - For normal and risky beads: the architecture, structs, interfaces and file:line links the work
   builds on, so the worker writes best-in-class code instead of rediscovering the tree.
-- The repo rules that bite: `just` not raw `cargo`, no comments, `timeout` around every command,
+- The repo rules that bite: `just` not raw `cargo`, no comments, tests in a sibling `<module>/tests.rs`
+  behind `#[cfg(test)] mod tests;` never inline, `timeout` around every command,
   `env -C` instead of `cd`, never touch `~/.config/glimpse` or the main checkout.
 - What to report back, and in what shape.
 
