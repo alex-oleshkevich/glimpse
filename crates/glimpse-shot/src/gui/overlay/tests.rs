@@ -162,6 +162,8 @@ fn a_cancelled_run_answers_once_as_cancelled_and_stays_off_the_app() {
     let app = adw::Application::builder()
         .application_id("me.aresa.Glimpse.Shot.Test")
         .build();
+    app.register(None::<&gtk4::gio::Cancellable>)
+        .expect("register the application");
     let ended = Rc::new(RefCell::new(Vec::new()));
     let options = Options {
         target: Target::Screen("eDP-1".to_owned()),

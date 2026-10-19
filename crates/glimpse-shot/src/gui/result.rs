@@ -1035,14 +1035,14 @@ impl ResultFace {
     fn perform(self: &Rc<Self>, effect: Effect) -> Option<Event> {
         match effect {
             Effect::Encode => {
-                let encoded = self
-                    .doc()
-                    .ok_or_else(|| anyhow::anyhow!("nothing to encode"))
-                    .and_then(|doc| render::export(&doc, headless::factor(self.setup.scale, &doc)));
-                let result = encoded
-                    .map(|png| drop(self.png.replace(Some(png))))
-                    .map_err(|error| format!("{error:#}"));
-                Some(Event::Effected(Effect::Encode, result))
+                let weak = Rc::downgrade(self);
+                super::encode(self.doc(), self.setup.scale, move |encoded| {
+                    if let Some(face) = weak.upgrade() {
+                        let result = encoded.map(|png| drop(face.png.replace(Some(png))));
+                        face.send(Event::Effected(Effect::Encode, result));
+                    }
+                });
+                None
             }
             Effect::Write(requested) => {
                 let written = match (&*self.png.borrow(), &*self.destination.borrow()) {

@@ -54,14 +54,49 @@ fn runtime_dir_in(runtime: Option<OsString>) -> Option<PathBuf> {
         .map(|dir| dir.join(FOLDER_NAME))
 }
 
-pub fn write_table(path: &Path, table: &str, values: &toml_edit::Table) -> Result<(), ConfigError> {
-    write_table_with(path, table, values, &mut || {})
+pub fn write_table(
+    path: &Path,
+    table: &str,
+    values: &toml_edit::Table,
+    remove: &[&str],
+) -> Result<(), ConfigError> {
+    write_table_with(path, table, values, remove, &mut || {})
+}
+
+pub fn shadowing_dropin(
+    user_dir: Option<&Path>,
+    table: &str,
+    key: &str,
+) -> Result<Option<PathBuf>, ConfigError> {
+    let Some(dir) = user_dir else {
+        return Ok(None);
+    };
+    let mut shadowing = None;
+    for path in dropins(&dir.join(DROPIN_DIR))? {
+        let text = match read(&path) {
+            Ok(text) => text,
+            Err(error) if is_missing(&error) => continue,
+            Err(error) => return Err(error),
+        };
+        let parsed = text
+            .parse::<toml::Table>()
+            .map_err(|error| ConfigError::parse(&path, &text, &error))?;
+        if parsed
+            .get(table)
+            .and_then(toml::Value::as_table)
+            .is_some_and(|values| values.contains_key(key))
+        {
+            shadowing = Some(path);
+        }
+    }
+    Ok(shadowing)
 }
 
 fn write_table_with(
     path: &Path,
     table: &str,
     values: &toml_edit::Table,
+    remove: &[&str],
     before_rename: &mut dyn FnMut(),
 ) -> Result<(), ConfigError> {
     let target = match fs::canonicalize(path) {
@@ -100,7 +135,7 @@ fn write_table_with(
                     column: 1,
                     message: error.message().to_owned(),
                 })?;
-        set_table(&mut document, table, values)?;
+        set_table(&mut document, table, values, remove)?;
         let mut output = document.to_string();
         if text.contains("\r\n") {
             output = output.replace("\r\n", "\n").replace('\n', "\r\n");
@@ -153,6 +188,7 @@ fn set_table(
     document: &mut toml_edit::DocumentMut,
     table: &str,
     values: &toml_edit::Table,
+    remove: &[&str],
 ) -> Result<(), ConfigError> {
     let Some(existing) = document
         .entry(table)
@@ -182,6 +218,9 @@ fn set_table(
                 existing.insert(key, item);
             }
         }
+    }
+    for key in remove {
+        existing.remove(key);
     }
     Ok(())
 }
