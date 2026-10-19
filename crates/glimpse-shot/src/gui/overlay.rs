@@ -223,16 +223,14 @@ impl Run {
         match effect {
             Effect::Capture(target) => Some(Event::Captured(self.capture(target))),
             Effect::Encode => {
-                let encoded = self
-                    .doc()
-                    .ok_or_else(|| anyhow::anyhow!("nothing was captured"))
-                    .and_then(|doc| {
-                        render::export(&doc, headless::factor(self.options.scale, &doc))
-                    });
-                let result = encoded
-                    .map(|png| drop(self.png.replace(Some(png))))
-                    .map_err(|error| format!("{error:#}"));
-                Some(Event::Effected(Effect::Encode, result))
+                let weak = Rc::downgrade(self);
+                super::encode(self.doc(), self.options.scale, move |encoded| {
+                    if let Some(overlay) = weak.upgrade() {
+                        let result = encoded.map(|png| drop(overlay.png.replace(Some(png))));
+                        overlay.send(Event::Effected(Effect::Encode, result));
+                    }
+                });
+                None
             }
             Effect::Write(requested) => {
                 let written = match (&*self.png.borrow(), &*self.destination.borrow()) {
