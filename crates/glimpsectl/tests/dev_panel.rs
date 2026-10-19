@@ -181,7 +181,7 @@ GLib.MainLoop().run()
         source.join("org.example.Interrupt.desktop"),
         "[Desktop Entry]\nType=Application\nName=Interrupt\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n",
     )?;
-    fs::write(source.join("config.toml"), "")?;
+    fs::write(source.join("devconfig.toml"), "")?;
     let bus = PrivateBus::start();
     let mut child = Process(
         Command::new(cli)

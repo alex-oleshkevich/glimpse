@@ -477,12 +477,14 @@ fn the_lens_ships_as_a_plain_binary() {
     assert!(!package.contains("target/release/glimpse-ruler"));
     assert!(!root.join("data/systemd/glimpse-lens.service").exists());
 
-    let manifest =
-        fs::read_to_string(root.join("crates/glimpse-lens/Cargo.toml")).expect("lens manifest");
-    assert!(
-        !manifest.contains("zbus"),
-        "the lens is a command, not a D-Bus provider"
-    );
+    for entry in fs::read_dir(root.join("data/dbus-1/services")).expect("dbus services") {
+        let service =
+            fs::read_to_string(entry.expect("dbus service").path()).expect("dbus service");
+        assert!(
+            !service.contains("glimpse-lens"),
+            "the lens is a command, not a D-Bus provider"
+        );
+    }
 }
 
 #[test]
