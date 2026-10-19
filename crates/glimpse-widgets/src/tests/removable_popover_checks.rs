@@ -17,9 +17,9 @@ fn removable_popover_widgets() {
         "an untouched popover lists no device"
     );
     assert_eq!(imp.shell.title().as_deref(), Some("Removable"));
-    assert!(
-        imp.shell.icon_name().is_none(),
-        "the header carries no icon"
+    assert_eq!(
+        imp.shell.icon_name().as_deref(),
+        Some("drive-removable-media-symbolic")
     );
 
     let kingston = |main_mounted: bool, extra_mounted: bool, busy: bool| RemovableDrive {

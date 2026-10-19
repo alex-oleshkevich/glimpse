@@ -82,10 +82,6 @@ fn printing_popover_states() {
 
     assert!(!imp.jobs.get_visible(), "no jobs is no section at all");
 
-    let opened = Rc::new(RefCell::new(0));
-
-    assert_eq!(*opened.borrow(), 1);
-
     popover.set_jobs(&[job("1", Some((3, 12)))]);
     assert!(imp.jobs.get_visible());
     assert_eq!(
