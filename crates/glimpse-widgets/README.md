@@ -190,10 +190,9 @@ In `PrivacyPopover`, **a row is one app, and it opens to what it uses and, when 
 Stop sharing.** `Mute
 microphone` is a `ToggleRow` under the list, not an action in an app's card, because it mutes the
 input device rather than that one app. `Swatch` paints its `color` property and nothing else; a
-color is data, so it is never a CSS class per value. `ColorList` takes finished `Shade`s, already
-rendered by the applet, and reports ids and notation keys, never a format it would have to
-understand. `WorkspaceNamePopover::set_name` writes the entry only while the user has not touched
-it, or a compositor event arriving mid-edit would replace what is being typed.
+color is data, so it is never a CSS class per value. `WorkspaceNamePopover::set_name` writes the
+entry only while the user has not touched it, or a compositor event arriving mid-edit would
+replace what is being typed.
 
 ## Bars and Sparkline
 

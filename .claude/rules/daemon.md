@@ -4,6 +4,8 @@ paths:
   - "crates/glimpse-notifications/**"
   - "crates/glimpse-weather/**"
   - "crates/glimpse-sunset/**"
+  - "crates/glimpse-idle/**"
+  - "crates/glimpse-settings-daemon/**"
 ---
 
 # Service and provider conventions

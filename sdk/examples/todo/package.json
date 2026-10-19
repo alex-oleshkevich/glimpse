@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "glimpse-sdk": "^0.12.0"
+    "glimpse-sdk": "^0.13.0"
   },
   "devDependencies": {
     "@types/node": "26.6.3",

@@ -73,7 +73,7 @@ the service framework. Commands carry typed arguments and a command-specific
 
 ```rust
 #[derive(Clone, PartialEq)]
-pub struct WeatherState { pub current: Option<Reading> }
+pub struct TidesState { pub current: Option<Reading> }
 
 pub enum Command {
     Refresh { reply: oneshot::Sender<Result<(), CommandError>> },
@@ -90,13 +90,13 @@ A service cannot read a table that does not exist in the schema. Four edits, all
 `crates/glimpse-config/src/schema/`:
 
 ```rust
-// weather.rs — new
+// tides.rs — new
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
-pub struct Weather { pub units: Units }
+pub struct Tides { pub units: Units }
 ```
 
-then in `mod.rs`: `mod weather;`, `pub use weather::Weather;`, a `pub weather: Weather` field on
+then in `mod.rs`: `mod tides;`, `pub use tides::Tides;`, a `pub tides: Tides` field on
 `Config`, and the matching line in its hand-written `Default` impl. `deny_unknown_fields` is what
 makes a typo an error the user sees rather than a setting silently ignored.
 
@@ -119,7 +119,7 @@ pub struct Config {
 
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
-        Self { units: document.weather.units }
+        Self { units: document.tides.units }
     }
 }
 ```
@@ -132,7 +132,7 @@ foreign trait on a foreign type and the orphan rules refuse it.
 cannot perturb the night light schedule, because that subtree is unchanged and its service never
 hears about the reload at all.
 
-### 4. The service — `glimpse-services/src/services/weather.rs`
+### 4. The service — `glimpse-services/src/services/tides.rs`
 
 ```rust
 pub enum Event { Fetched(Option<Reading>), Unavailable(String) }
@@ -145,25 +145,25 @@ pub enum Watch { Poll { units: Units } }
 
 pub struct Dependencies { pub location: LocationHandle }
 
-pub type WeatherHandle = ServiceEndpoint<Weather>;
+pub type TidesHandle = ServiceEndpoint<Tides>;
 
-impl ServiceEndpoint<Weather> {
+impl ServiceEndpoint<Tides> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call("weather stopped before refreshing", |reply| Command::Refresh { reply }).await?
+        self.call("tides stopped before refreshing", |reply| Command::Refresh { reply }).await?
     }
 }
 
-impl Service for Weather {
-    const NAME: &'static str = "weather";
+impl Service for Tides {
+    const NAME: &'static str = "tides";
 
     type Config = Config;
-    type State = WeatherState;
+    type State = TidesState;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn initial_state(_: &Self::Config) -> Self::State { WeatherState { current: None } }
+    fn initial_state(_: &Self::Config) -> Self::State { TidesState { current: None } }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         vec![Sub::interval(Watch::Poll { units: self.units }, POLL, fetch)]
@@ -194,18 +194,18 @@ Export the concrete service and handle from `services/mod.rs`, then create the r
 the process that owns the service:
 
 ```rust
-mod weather;
-pub use weather::{Weather, WeatherHandle};
+mod tides;
+pub use tides::{Tides, TidesHandle};
 ```
 
 ```rust
 let (mut location_runtime, location) = ServiceRuntime::new(
     location_config, buses.clone(), cancel.child_token());
-let (mut weather_runtime, weather) = ServiceRuntime::new(
-    weather_config, buses.clone(), cancel.child_token());
-let deps = weather::Dependencies { location };
+let (mut tides_runtime, tides) = ServiceRuntime::new(
+    tides_config, buses.clone(), cancel.child_token());
+let deps = tides::Dependencies { location };
 tokio::spawn(async move { location_runtime.run(()).await });
-tokio::spawn(async move { weather_runtime.run(deps).await });
+tokio::spawn(async move { tides_runtime.run(deps).await });
 ```
 
 The composition root makes dependency order visible. A panel-local root passes handles directly to
