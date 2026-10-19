@@ -45,6 +45,7 @@ app-glimpse-<panel>-<applet>-<slot>-<pid>-<n>.service
 | `Slice` | `app.slice` |
 | `MemoryMax` | 256 MiB |
 | `Restart` | `always`; `no` for a copy started by `glimpsectl applet run` |
+| `RestartPreventExitStatus` | `69`: an applet that cannot reach its panel socket exits 69 and is not restarted |
 | Restart delay | 1 second, rising in 6 steps to 60 seconds, with no start limit |
 | `WorkingDirectory` | The entry's `Path`; for a copy from `glimpsectl applet run`, the directory of its desktop file |
 | `Environment` | The panel's environment without systemd's own variables (`INVOCATION_ID`, `NOTIFY_SOCKET`, `LISTEN_*` and the like), plus `env` from the applet's config table and `GLIMPSE_APPLET_SOCKET` |

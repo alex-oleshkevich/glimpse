@@ -629,3 +629,18 @@ fn state_is_a_no_op_without_a_state_dir() {
     ctx.save_state(&json!({"count": 1}))
         .expect("save is a no-op");
 }
+
+#[test]
+fn missing_or_refused_socket_exits_69() {
+    use crate::run::{fail_code, run_inner};
+    let dir = temp_state_dir("unavailable");
+    let refused = dir.join("refused.sock");
+    drop(std::os::unix::net::UnixListener::bind(&refused).expect("bind refused socket"));
+    for path in [dir.join("none.sock"), refused] {
+        let path = path.to_string_lossy().into_owned();
+        let fail = run_inner(WideApp, &path).expect_err("unavailable socket fails");
+        assert_eq!(fail_code(&fail), 69, "{path}");
+        assert!(fail.to_string().contains(&path), "{fail}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

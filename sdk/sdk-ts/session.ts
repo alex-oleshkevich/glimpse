@@ -245,9 +245,16 @@ export function socketIo(path: string): Io {
 	const input = new PassThrough();
 	socket.pipe(input);
 	socket.on("error", (error: NodeJS.ErrnoException) => {
-		const gone = ["ENOENT", "ECONNREFUSED", "EPIPE", "ECONNRESET"].includes(
-			error.code ?? "",
-		);
+		const code = error.code ?? "";
+		if (code === "ENOENT" || code === "ECONNREFUSED") {
+			console.error(
+				`GLIMPSE_APPLET_SOCKET at ${path} is not reachable: run the applet under the panel`,
+			);
+			input.end();
+			process.exit(69);
+			return;
+		}
+		const gone = ["EPIPE", "ECONNRESET"].includes(code);
 		if (!gone) console.error(error);
 		input.end();
 		process.exit(gone ? 0 : 1);

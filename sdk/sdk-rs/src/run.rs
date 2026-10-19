@@ -8,15 +8,17 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::process::ExitCode;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-fn fail_code(fail: &Fail) -> u8 {
+pub(crate) fn fail_code(fail: &Fail) -> u8 {
     match fail {
         Fail::Limit(_) | Fail::Render(_) => 70,
+        Fail::Unavailable(_) => 69,
         Fail::Io(_) => 1,
     }
 }
 
 pub fn run<A: App>(app: A) -> ExitCode {
-    match run_inner(app) {
+    let socket = std::env::var("GLIMPSE_APPLET_SOCKET").unwrap_or_default();
+    match run_inner(app, &socket) {
         Ok(()) => ExitCode::from(0),
         Err(fail) => {
             eprintln!("{fail}");
@@ -25,16 +27,15 @@ pub fn run<A: App>(app: A) -> ExitCode {
     }
 }
 
-fn run_inner<A: App>(app: A) -> Check<()> {
+pub(crate) fn run_inner<A: App>(app: A, socket: &str) -> Check<()> {
     let (tx, rx): (Sender<In>, Receiver<In>) = channel();
-    let socket = std::env::var("GLIMPSE_APPLET_SOCKET").unwrap_or_default();
     if socket.is_empty() {
         return Err(Fail::Io(
             "GLIMPSE_APPLET_SOCKET is not set: run the applet under the panel".to_owned(),
         ));
     }
 
-    let mut writer: Box<dyn Write> = match UnixStream::connect(&socket) {
+    let mut writer: Box<dyn Write> = match UnixStream::connect(socket) {
         Ok(stream) => {
             let reader_stream = stream
                 .try_clone()
@@ -44,7 +45,9 @@ fn run_inner<A: App>(app: A) -> Check<()> {
         }
         Err(error) => match error.kind() {
             std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused => {
-                return Ok(());
+                return Err(Fail::Unavailable(format!(
+                    "GLIMPSE_APPLET_SOCKET at {socket} is not reachable: run the applet under the panel"
+                )));
             }
             _ => return Err(Fail::Io(error.to_string())),
         },
