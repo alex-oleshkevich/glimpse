@@ -123,7 +123,7 @@ def escape_text(value: str) -> str:
 
 
 def default_config_path() -> Path:
-    if config_path := os.environ.get("GLIMPSE_CONFIG"):
+    if config_path := os.environ.get("GLIMPSE_CONFIG_PATH"):
         return Path(config_path).expanduser()
 
     local_config = Path("config.toml")
@@ -152,7 +152,7 @@ def print_config_hint(config_path: Path, target_dir: Path) -> None:
     print('name = "Local Test Events"')
     print(f'uri = "{uri}"')
     print('color = "#f6c343"')
-    print("poll_interval = 60")
+    print("poll-interval = 60")
 
 
 def parse_args() -> argparse.Namespace:
