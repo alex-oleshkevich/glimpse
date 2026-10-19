@@ -21,15 +21,36 @@ pub struct Entry {
 
 pub struct DesktopCatalog;
 
+pub(super) fn application_dirs() -> Vec<PathBuf> {
+    let mut dirs = vec![gio::glib::user_data_dir().join("applications")];
+    for dir in gio::glib::system_data_dirs() {
+        let dir = dir.join("applications");
+        if dir.is_dir() && !dirs.contains(&dir) {
+            dirs.push(dir);
+        }
+    }
+    dirs
+}
+
 impl Catalog for DesktopCatalog {
     fn resolve(&self, id: &str) -> Result<Entry, String> {
-        let info = DesktopAppInfo::new(&format!("{id}.desktop"))
-            .ok_or_else(|| format!("{id}: not installed, or not Type=Application, or its TryExec/Exec program is not on PATH"))?;
-        entry_of(&info, id, None)
+        self.resolve_in(id, &application_dirs())
     }
 }
 
 impl DesktopCatalog {
+    pub(super) fn resolve_in(&self, id: &str, dirs: &[PathBuf]) -> Result<Entry, String> {
+        for dir in dirs {
+            let path = dir.join(format!("{id}.desktop"));
+            if path.exists() {
+                return self.resolve_file(&path);
+            }
+        }
+        Err(format!(
+            "{id}: not installed, or not Type=Application, or its TryExec/Exec program is not on PATH"
+        ))
+    }
+
     pub fn resolve_file(&self, path: &Path) -> Result<Entry, String> {
         let subject = path.display().to_string();
         if let Some(info) = DesktopAppInfo::from_filename(path) {

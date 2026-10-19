@@ -54,6 +54,7 @@ struct SlotStream {
     connection: CancellationToken,
     hello_state: String,
     resolved: Option<super::Entry>,
+    catalog_refused: bool,
     listener: Option<UnixListener>,
     watch: Option<BoxStream<'static, UnitState>>,
     reader: Option<FramedRead<tokio::io::ReadHalf<UnixStream>, LinesCodec>>,
@@ -114,6 +115,7 @@ pub async fn source(catalog: Arc<dyn Catalog>, args: SourceArgs) -> impl Stream<
             connection: CancellationToken::new(),
             hello_state: String::new(),
             resolved: None,
+            catalog_refused: false,
             listener: None,
             watch: None,
             reader: None,
@@ -386,7 +388,10 @@ impl SlotStream {
                 let id = self.id.clone();
                 match tokio::task::spawn_blocking(move || catalog.resolve(&id)).await {
                     Ok(Ok(entry)) => entry,
-                    Ok(Err(reason)) => return self.failed(reason),
+                    Ok(Err(reason)) => {
+                        self.catalog_refused = true;
+                        return self.failed(reason);
+                    }
                     Err(error) => return self.failed(format!("cannot resolve applet: {error}")),
                 }
             }
@@ -501,6 +506,7 @@ impl SlotStream {
             spawn: self.spawn,
             reason,
             resolved: self.resolved.clone(),
+            catalog_refused: self.catalog_refused,
         })
     }
 }

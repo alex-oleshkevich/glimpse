@@ -212,3 +212,80 @@ fn resolve_file_treats_an_empty_icon_as_absent_and_runs_beside_the_desktop_file(
     assert_eq!(entry.cwd.as_deref(), path.canonicalize().unwrap().parent());
     assert_eq!(entry.argv.len(), 1);
 }
+
+#[test]
+fn resolve_searches_directories_in_order_without_caching_entries() {
+    let dir = tempfile::tempdir().expect("data directories");
+    let user = dir.path().join("user");
+    let system = dir.path().join("system");
+    std::fs::create_dir_all(&user).expect("user applications");
+    std::fs::create_dir_all(&system).expect("system applications");
+    let user_entry = user.join("me.example.Test.desktop");
+    let system_entry = system.join("me.example.Test.desktop");
+    let body = "[Desktop Entry]\nType=Application\nName=Test applet\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n";
+    std::fs::write(&system_entry, body).expect("system entry");
+    let dirs = [user, system];
+    assert_eq!(
+        DesktopCatalog
+            .resolve_in("me.example.Test", &dirs)
+            .expect("system entry")
+            .path,
+        system_entry
+    );
+    std::fs::write(&user_entry, body).expect("user entry");
+    assert_eq!(
+        DesktopCatalog
+            .resolve_in("me.example.Test", &dirs)
+            .expect("user override")
+            .path,
+        user_entry
+    );
+    std::fs::write(
+        &user_entry,
+        body.replace("Name=Test applet", "Name=Replacement"),
+    )
+    .expect("replace entry");
+    assert_eq!(
+        DesktopCatalog
+            .resolve_in("me.example.Test", &dirs)
+            .expect("replacement")
+            .name,
+        "Replacement"
+    );
+    std::fs::remove_file(&user_entry).expect("remove user entry");
+    assert_eq!(
+        DesktopCatalog
+            .resolve_in("me.example.Test", &dirs)
+            .expect("system fallback")
+            .path,
+        system_entry
+    );
+    std::fs::remove_file(&system_entry).expect("remove system entry");
+    assert_eq!(
+        DesktopCatalog
+            .resolve_in("me.example.Test", &dirs)
+            .expect_err("missing entry"),
+        "me.example.Test: not installed, or not Type=Application, or its TryExec/Exec program is not on PATH"
+    );
+}
+
+#[test]
+fn resolve_does_not_skip_an_invalid_higher_priority_entry() {
+    let dir = tempfile::tempdir().expect("data directories");
+    let user = dir.path().join("user");
+    let system = dir.path().join("system");
+    std::fs::create_dir_all(&user).expect("user applications");
+    std::fs::create_dir_all(&system).expect("system applications");
+    let path = user.join("me.example.Test.desktop");
+    let body = "[Desktop Entry]\nType=Application\nName=Test applet\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n";
+    std::fs::write(system.join("me.example.Test.desktop"), body).expect("system entry");
+    let dirs = [user, system];
+    for refused in [
+        format!("{body}Hidden=true\n"),
+        format!("{body}TryExec=/nonexistent/x\n"),
+        body.replace("Type=Application", "Type=Link"),
+    ] {
+        std::fs::write(&path, refused).expect("invalid user entry");
+        assert!(DesktopCatalog.resolve_in("me.example.Test", &dirs).is_err());
+    }
+}

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
+use futures_util::{StreamExt, stream};
 use serde_json::{Map, Value};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
@@ -38,7 +39,6 @@ pub use wire::{
 };
 
 const MAX_UPDATES_PER_SECOND: u32 = 120;
-const RETRY: Duration = Duration::from_secs(5);
 const RESET_AFTER: Duration = Duration::from_secs(60);
 const URI_CAP: usize = 2048;
 
@@ -92,6 +92,7 @@ pub enum BarRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub applets: BTreeMap<String, glimpse_config::ExecAppletConfig>,
+    pub application_dirs: Vec<PathBuf>,
     pub state_base: Option<PathBuf>,
     pub runtime_base: Option<PathBuf>,
     pub panel: String,
@@ -100,6 +101,7 @@ pub struct Config {
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
+            application_dirs: catalog::application_dirs(),
             state_base: glimpse_config::state_dir(),
             runtime_base: glimpse_config::runtime_dir(),
             panel: glimpse_dbus::panel_app_id(),
@@ -154,6 +156,8 @@ struct DevSpec {
 pub enum SubKey {
     Child { slot: u64, spawn: u64 },
     Reset { slot: u64, generation: u64 },
+    Recheck { slot: u64, spawn: u64 },
+    Relaunch { slot: u64, spawn: u64 },
     Retry,
 }
 
@@ -202,6 +206,7 @@ pub enum Event {
         spawn: u64,
         reason: String,
         resolved: Option<Entry>,
+        catalog_refused: bool,
     },
     ResetFailed {
         slot: u64,
@@ -439,6 +444,7 @@ struct Slot {
     dev: Option<DevSpec>,
     catalog_refused: bool,
     launch_failed: bool,
+    failed_at: Option<chrono::DateTime<Utc>>,
     options: Map<String, Value>,
     spawn: u64,
     unit: String,
@@ -450,6 +456,7 @@ struct Slot {
     popover_own: bool,
     last_failed_reason: Option<String>,
     catalog_misses: u32,
+    missed_at: Option<chrono::DateTime<Utc>>,
     resolving: bool,
     running_since: Option<Instant>,
     reset_done: bool,
@@ -656,6 +663,7 @@ impl Exec {
             }),
             catalog_refused: false,
             launch_failed: false,
+            failed_at: None,
             options: request.options,
             spawn: self.next_spawn,
             unit,
@@ -667,6 +675,7 @@ impl Exec {
             popover_own: false,
             last_failed_reason: None,
             catalog_misses: 0,
+            missed_at: None,
             resolving: false,
             running_since: None,
             reset_done: false,
@@ -735,6 +744,10 @@ impl Exec {
             slot.entry = slot.dev.as_ref().map(|dev| dev.entry.clone());
             slot.catalog_refused = false;
             slot.launch_failed = false;
+            slot.failed_at = None;
+            slot.catalog_misses = 0;
+            slot.missed_at = None;
+            slot.resolving = false;
             slot.running_since = None;
             slot.reset_done = false;
         }
@@ -843,6 +856,35 @@ impl Service for Exec {
             if slot.primary.is_some() {
                 continue;
             }
+            if slot.origin == Origin::Spawned {
+                if matches!(slot.public.status, Status::Running)
+                    && slot.catalog_misses == 1
+                    && let Some(missed_at) = slot.missed_at
+                {
+                    subs.push(Sub::deadline(
+                        SubKey::Recheck {
+                            slot: slot_id,
+                            spawn: slot.spawn,
+                        },
+                        missed_at + chrono::Duration::seconds(1),
+                        Event::Retry,
+                    ));
+                }
+                if matches!(slot.public.status, Status::Failed(_))
+                    && slot.launch_failed
+                    && self.config.applets.contains_key(&slot.public.applet)
+                    && let Some(failed_at) = slot.failed_at
+                {
+                    subs.push(Sub::deadline(
+                        SubKey::Relaunch {
+                            slot: slot_id,
+                            spawn: slot.spawn,
+                        },
+                        failed_at + chrono::Duration::seconds(5),
+                        Event::Retry,
+                    ));
+                }
+            }
             if matches!(
                 slot.public.status,
                 Status::Starting | Status::Running | Status::Restarting { .. }
@@ -907,8 +949,37 @@ impl Service for Exec {
             slot.origin == Origin::Spawned
                 && matches!(slot.public.status, Status::Failed(_) | Status::Running)
         }) {
-            subs.push(Sub::interval(SubKey::Retry, RETRY, |_ctx| async {
-                Event::Retry
+            let dirs = self.config.application_dirs.clone();
+            subs.push(Sub::stream(SubKey::Retry, move |_ctx| async move {
+                if let Some(user_dir) = dirs.first()
+                    && let Err(error) = tokio::fs::create_dir_all(user_dir).await
+                {
+                    tracing::debug!(%error, dir = %user_dir.display(), "could not create applications directory");
+                }
+                let updates = Box::pin(glimpse_config::watch_all(dirs));
+                stream::unfold((updates, false), |(mut updates, mut warned)| async move {
+                    let mut changed = false;
+                    loop {
+                        let update = if changed {
+                            match tokio::time::timeout(Duration::from_millis(300), updates.next()).await {
+                                Ok(update) => update,
+                                Err(_) => return Some((Event::Retry, (updates, warned))),
+                            }
+                        } else {
+                            updates.next().await
+                        };
+                        match update {
+                            Some(glimpse_config::Update::Changed(_) | glimpse_config::Update::Rearmed) => changed = true,
+                            Some(glimpse_config::Update::Unavailable(reason)) => {
+                                if !warned {
+                                    tracing::warn!(reason, "applet entries are not being watched");
+                                    warned = true;
+                                }
+                            }
+                            None => return changed.then_some((Event::Retry, (updates, warned))),
+                        }
+                    }
+                })
             }));
         }
         subs
@@ -1047,6 +1118,7 @@ impl Service for Exec {
                         dev: None,
                         catalog_refused: false,
                         launch_failed: false,
+                        failed_at: None,
                         options,
                         spawn: self.next_spawn,
                         unit,
@@ -1058,6 +1130,7 @@ impl Service for Exec {
                         popover_own: false,
                         last_failed_reason,
                         catalog_misses: 0,
+                        missed_at: None,
                         resolving: false,
                         running_since: None,
                         reset_done: false,
@@ -1404,10 +1477,13 @@ impl Service for Exec {
                 spawn,
                 reason,
                 resolved,
+                catalog_refused,
             }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = None;
-                    state.launch_failed = true;
+                    state.launch_failed = !catalog_refused;
+                    state.catalog_refused = catalog_refused;
+                    state.failed_at = Some(Utc::now());
                     if let Some(entry) = resolved {
                         state.entry = Some(entry);
                     }
@@ -1482,10 +1558,18 @@ impl Service for Exec {
                     .filter(|s| s.spawn == spawn && s.origin == Origin::Spawned)
                 {
                     state.resolving = false;
-                    state.catalog_misses = match &resolved {
-                        Some(Err(_)) => state.catalog_misses.saturating_add(1),
-                        _ => 0,
-                    };
+                    if matches!(&resolved, Some(Err(_))) {
+                        let now = Utc::now();
+                        let missed_at = state.missed_at.get_or_insert(now);
+                        state.catalog_misses = if now >= *missed_at + chrono::Duration::seconds(1) {
+                            2
+                        } else {
+                            1
+                        };
+                    } else {
+                        state.catalog_misses = 0;
+                        state.missed_at = None;
+                    }
                 }
                 if let Some(Err(reason)) = &resolved
                     && self.slots.get(&slot).is_some_and(|s| s.catalog_misses >= 2)
@@ -1504,6 +1588,7 @@ impl Service for Exec {
                     state.public.tree = Arc::new(Tree::default());
                     state.last_failed_reason = Some(reason.clone());
                     state.catalog_refused = true;
+                    state.launch_failed = false;
                     state.public.status = Status::Failed(reason.clone());
                 } else if let Some(state) = self.slots.get(&slot)
                     && state.spawn == spawn
@@ -1521,6 +1606,7 @@ impl Service for Exec {
                         Some(Err(_)) => {
                             if let Some(state) = self.slots.get_mut(&slot) {
                                 state.catalog_refused = true;
+                                state.launch_failed = false;
                             }
                         }
                         _ => {}

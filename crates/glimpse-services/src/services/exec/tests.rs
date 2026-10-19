@@ -20,6 +20,44 @@ impl Catalog for FakeCatalog {
     }
 }
 
+struct DirectoryCatalog {
+    dirs: Vec<PathBuf>,
+    reads: std::sync::atomic::AtomicUsize,
+}
+
+impl Catalog for DirectoryCatalog {
+    fn resolve(&self, id: &str) -> Result<Entry, String> {
+        self.reads
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        DesktopCatalog.resolve_in(id, &self.dirs)
+    }
+}
+
+fn file_catalog(config: &Config) -> Arc<DirectoryCatalog> {
+    Arc::new(DirectoryCatalog {
+        dirs: config.application_dirs.clone(),
+        reads: std::sync::atomic::AtomicUsize::new(0),
+    })
+}
+
+fn write_entry(dir: &Path, entry: &Entry) -> PathBuf {
+    std::fs::create_dir_all(dir).expect("applications directory");
+    let path = dir.join("me.example.Test.desktop");
+    let exec = entry
+        .argv
+        .iter()
+        .map(|arg| {
+            gio::glib::shell_quote(arg)
+                .to_str()
+                .expect("UTF-8 argument")
+                .to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    std::fs::write(&path, format!("[Desktop Entry]\nType=Application\nName=Test applet\nExec={exec}\nImplements=me.aresa.Glimpse.Applet1;\n")).expect("desktop entry");
+    path
+}
+
 struct PairCatalog {
     bad: Entry,
     good: Entry,
@@ -153,6 +191,7 @@ fn configured() -> TestConfig {
     let state_dir = tempfile::tempdir().expect("state dir");
     let runtime_dir = tempfile::tempdir().expect("runtime dir");
     let config = Config {
+        application_dirs: vec![state_dir.path().join("applications")],
         state_base: Some(state_dir.path().to_path_buf()),
         runtime_base: Some(runtime_dir.path().to_path_buf()),
         panel: "me.aresa.TestPanel".to_owned(),

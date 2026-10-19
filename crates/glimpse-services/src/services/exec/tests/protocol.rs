@@ -296,14 +296,26 @@ async fn a_vanished_entry_stops_the_running_child() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1], 'w').write(str(os.getpid()))\n{LOOP}"
     ));
-    let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
-    let ((handle, _sender, cancel, task, _launcher), _config) = running(catalog.clone());
+    let test = configured();
+    let path = write_entry(&test.config.application_dirs[0], &entry);
+    let catalog = file_catalog(&test.config);
+    let (handle, _sender, cancel, task, _launcher) = running_with(test, catalog, None);
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
     let pid = file_lines(&output, 1).await[0].clone();
-    *catalog.0.lock().expect("catalog") = Err("not installed".to_owned());
-    let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
-    assert_eq!(failed.status, Status::Failed("not installed".to_owned()));
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    std::fs::remove_file(&path).expect("delete entry");
+    let started = Instant::now();
+    let failed = tokio::time::timeout(
+        Duration::from_secs(2),
+        status(&handle, 1, |s| matches!(s, Status::Failed(_))),
+    )
+    .await
+    .expect("deleted entry fails within two seconds");
+    assert!(started.elapsed() >= Duration::from_secs(1));
+    assert!(
+        matches!(failed.status, Status::Failed(reason) if reason.contains("no desktop entry") || reason.contains("not installed"))
+    );
     pid_gone(&pid).await;
     handle.detach(1).await.expect("detach");
     cancel.cancel();
