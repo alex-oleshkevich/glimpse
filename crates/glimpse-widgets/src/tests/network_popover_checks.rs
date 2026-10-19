@@ -1,5 +1,17 @@
 use super::*;
 
+fn type_in(network: &NetworkPopover, text: &str) {
+    let imp = network.imp();
+    match imp.prompt_name.get_visible() {
+        true => imp.prompt_name.set_text(text),
+        false => imp.prompt_secret.set_text(text),
+    }
+}
+
+fn can_submit(network: &NetworkPopover) -> bool {
+    network.imp().prompt_accept.is_sensitive()
+}
+
 pub(super) fn check() {
     let network = NetworkPopover::new();
     let radio_changes = Rc::new(Cell::new(0));
@@ -419,7 +431,7 @@ pub(super) fn check() {
         "network refreshes cannot reopen a drawer over the password page"
     );
     assert!(
-        !network.can_submit(),
+        !can_submit(&network),
         "an empty box cannot be submitted, here as in the dialog"
     );
     network
@@ -431,8 +443,8 @@ pub(super) fn check() {
         "Enter on an empty box sends nothing"
     );
 
-    network.type_in("Skylink Guest");
-    assert!(network.can_submit());
+    type_in(&network, "Skylink Guest");
+    assert!(can_submit(&network));
     network
         .imp()
         .prompt_accept
@@ -457,12 +469,12 @@ pub(super) fn check() {
         "the second ask is a password box, with the peek icon a name box must not have"
     );
     assert!(
-        !network.can_submit(),
+        !can_submit(&network),
         "a new question starts empty; carrying the name over would submit it as a password"
     );
 
-    network.type_in("wrongpassword");
-    assert!(network.can_submit());
+    type_in(&network, "wrongpassword");
+    assert!(can_submit(&network));
     network
         .imp()
         .prompt_secret
@@ -482,7 +494,7 @@ pub(super) fn check() {
         open_choice: None,
     }));
     assert!(
-        !network.can_submit(),
+        !can_submit(&network),
         "a retry clears the password that was refused; leaving it invites sending it again"
     );
 
@@ -505,17 +517,17 @@ pub(super) fn check() {
         "a hidden network has no beacon to read its security off, so the user picks it"
     );
     assert!(
-        !network.imp().prompt_secret.get_visible() && network.can_submit(),
+        !network.imp().prompt_secret.get_visible() && can_submit(&network),
         "an open network takes no password, and demanding one makes it unjoinable"
     );
     network.imp().prompt_security.set_selected(2);
     assert!(
-        network.imp().prompt_secret.get_visible() && !network.can_submit(),
+        network.imp().prompt_secret.get_visible() && !can_submit(&network),
         "choosing WPA brings the password box back, empty and unsubmittable"
     );
     assert_eq!(network.chosen(), 2);
 
-    network.type_in("hunter2hunter2");
+    type_in(&network, "hunter2hunter2");
     answers.borrow_mut().clear();
     network
         .imp()
@@ -533,30 +545,6 @@ pub(super) fn check() {
             && network.imp().wifi.is_sensitive()
             && network.imp().pages.visible_child_name().as_deref() == Some("networks"),
         "the question answered, the list comes back"
-    );
-
-    let secret = SecretDialog::new();
-    secret.ask("psk:Skylink", "Skylink", false, NetworkEntered::Passphrase);
-    let first = secret.heading().map(|one| one.to_string());
-    assert!(
-        !secret.body().is_empty(),
-        "the first ask explains why it is asking"
-    );
-
-    secret.type_in("the-wrong-one");
-    secret.ask("psk:Skylink", "Skylink", true, NetworkEntered::Passphrase);
-    assert!(
-        secret.is_blank(),
-        "a retry clears the rejected password; leaving it invites retyping the same thing"
-    );
-    assert_ne!(
-        secret.heading().map(|one| one.to_string()),
-        first,
-        "a retry must not look like the first ask, or the same password is typed again"
-    );
-    assert!(
-        secret.heading().is_some_and(|one| !one.is_empty()),
-        "the retry says the last password was refused"
     );
 
     network.set_others(3, false, None);

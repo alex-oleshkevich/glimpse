@@ -1,4 +1,5 @@
 use super::*;
+use crate::indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};
 
 pub(super) fn check() {
     let group = IndicatorGroup::new();

@@ -48,9 +48,7 @@ fn chip_at(chips: &NotificationChips, index: usize) -> gtk4::Box {
 #[test]
 #[ignore = "needs a display"]
 fn notification_chips_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let chips = NotificationChips::new();

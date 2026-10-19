@@ -206,9 +206,6 @@ pub use workspace_section::WorkspaceSection;
 pub use workspaces_popover::WorkspacesPopover;
 pub use world_clock::{WorldClock, Zone};
 
-#[cfg(test)]
-use indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};
-
 pub(crate) const TEXT_MAX_CHARS: usize = 128;
 
 pub(crate) fn replace_children(container: &gtk4::Box, child: Option<&gtk4::Widget>) {

@@ -6,9 +6,6 @@ use gtk4::{gdk, glib, subclass::prelude::*};
 
 use crate::{Notification, NotificationCard};
 
-#[cfg(test)]
-pub(crate) use imp::MAX_DEPTH;
-
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
 const ACTION_INVOKED: &str = "action-invoked";

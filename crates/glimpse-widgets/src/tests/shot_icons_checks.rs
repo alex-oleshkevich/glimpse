@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_icons() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
     let display = gdk::Display::default().expect("a display");
     let theme = gtk4::IconTheme::for_display(&display);
     for name in [

@@ -93,7 +93,7 @@ pub(super) fn check() {
         &head,
         gtk4::AccessibleState::Expanded
     ));
-    assert!(head.upcast_ref::<Row>().imp().chevron().get_visible());
+    assert!(head.upcast_ref::<Row>().imp().chevron.get().get_visible());
     assert!(row.find_property(concat!("ex", "clusive")).is_none());
     assert!(expandable.find_property(concat!("ex", "clusive")).is_none());
 

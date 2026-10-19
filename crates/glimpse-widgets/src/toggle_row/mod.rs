@@ -2,8 +2,6 @@ mod imp;
 
 use gtk4::glib;
 use gtk4::prelude::*;
-#[cfg(test)]
-use gtk4::subclass::prelude::*;
 
 pub use imp::ToggleControl;
 
@@ -22,11 +20,6 @@ impl Default for ToggleRow {
 impl ToggleRow {
     pub fn new() -> Self {
         glib::Object::new()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn knob(&self) -> gtk4::Switch {
-        self.imp().knob.get()
     }
 
     pub fn connect_toggled<F: Fn(&Self, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {

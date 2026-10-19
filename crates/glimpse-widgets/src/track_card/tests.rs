@@ -15,9 +15,7 @@ fn track(title: &str, artist: &str, playing: bool, can_play_pause: bool, can_nex
 #[test]
 #[ignore = "needs a display"]
 fn track_card_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
     let _styles = crate::Styles::install(adw::ColorScheme::Default);
 

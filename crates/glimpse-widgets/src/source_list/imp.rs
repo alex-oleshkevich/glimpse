@@ -1,6 +1,4 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
-#[cfg(test)]
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
@@ -12,8 +10,6 @@ use super::{CHANGED, Source};
 pub struct SourceList {
     pub sources: RefCell<Vec<Source>>,
     pub rows: RefCell<Vec<(Row, SliderRow)>>,
-    #[cfg(test)]
-    pub renders: Cell<u32>,
 }
 
 #[glib::object_subclass]

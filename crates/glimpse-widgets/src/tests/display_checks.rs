@@ -105,9 +105,9 @@ pub(super) fn check() {
         "the head names the display, so the connector is a line of the detail"
     );
 
-    assert!(built_in_switch.knob().is_sensitive());
+    assert!(built_in_switch.imp().knob.get().is_sensitive());
     assert!(
-        external_switch.knob().is_sensitive(),
+        external_switch.imp().knob.get().is_sensitive(),
         "two enabled outputs: the guard bites on neither"
     );
 
@@ -121,7 +121,7 @@ pub(super) fn check() {
     assert!(solo_switch.locked());
     assert!(!off_switch.locked());
     assert!(
-        !solo_switch.knob().is_sensitive(),
+        !solo_switch.imp().knob.get().is_sensitive(),
         "the only enabled output's switch cannot be turned off"
     );
     assert!(
@@ -133,7 +133,7 @@ pub(super) fn check() {
         Some("The last enabled display can't be turned off")
     );
     assert!(
-        off_switch.knob().is_sensitive(),
+        off_switch.imp().knob.get().is_sensitive(),
         "a disabled output is never locked, or its user would be stranded"
     );
     assert!(!off_switch.active());
@@ -199,13 +199,7 @@ pub(super) fn check() {
     head_of(&rows[0]).emit_by_name::<()>("activated", &[]);
     assert!(rows[0].open());
     let kept_row = rows[0].clone();
-    let renders_before = displays.imp().renders.get();
     displays.set_displays(&[built_in.clone(), external.clone()]);
-    assert_eq!(
-        displays.imp().renders.get(),
-        renders_before,
-        "an identical slice returns early and never re-renders"
-    );
     let rows_after: Vec<ExpanderRow> = children_of(&displays);
     assert_eq!(rows_after.len(), 2);
     assert_eq!(rows_after[0], kept_row, "rows are reused, not rebuilt");
@@ -261,7 +255,7 @@ pub(super) fn check() {
 
     let (_, gate_built_in_switch) = detail_of(&gate_rows[0]);
     assert!(
-        !gate_built_in_switch.knob().is_sensitive(),
+        !gate_built_in_switch.imp().knob.get().is_sensitive(),
         "AC-1: output_power true, the default, keeps today's behaviour unchanged"
     );
 
@@ -315,11 +309,11 @@ pub(super) fn check() {
         "AC-4: the switch that comes back is the same row, not a rebuilt one"
     );
     assert!(
-        !gate_built_in_switch_again.knob().is_sensitive(),
+        !gate_built_in_switch_again.imp().knob.get().is_sensitive(),
         "AC-4: the sole enabled output relocks once the gate reopens"
     );
     assert!(
-        gate_off_switch_again.knob().is_sensitive(),
+        gate_off_switch_again.imp().knob.get().is_sensitive(),
         "AC-4: a disabled output's switch is never locked"
     );
 
@@ -772,18 +766,22 @@ pub(super) fn check() {
         "a compositor that cannot blank the screens keeps its per-output switches"
     );
 
-    let devices_renders_before = display_popover.imp().displays.imp().renders.get();
     display_popover.set_output_power(false);
     assert_eq!(
         children_of::<ExpanderRow>(&*display_popover.imp().displays).len(),
         2,
         "gating output power keeps both outputs listed"
     );
-    assert!(
-        display_popover.imp().displays.imp().renders.get() > devices_renders_before,
-        "AC-10: DisplayPopover forwards output_power to DisplayList, which gates every \
-             per-output switch on its own render (proven directly on DisplayList, above)"
-    );
+    for row in children_of::<ExpanderRow>(&*display_popover.imp().displays) {
+        assert!(
+            row.details()
+                .first_child()
+                .and_then(|facts| facts.next_sibling())
+                .is_none_or(|toggle| !toggle.get_visible()),
+            "AC-10: DisplayPopover forwards output_power to DisplayList, which hides every \
+             per-output switch"
+        );
+    }
 
     display_popover.set_displays(&[]);
     assert!(

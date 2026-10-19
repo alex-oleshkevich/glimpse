@@ -10,8 +10,6 @@ fn png(width: i32, height: i32) -> Vec<u8> {
         .to_vec()
 }
 
-/// The clipboard caps an entry's *bytes*, which says nothing about its pixel count: a small
-/// compressed image can decode to an enormous bitmap. The decode has to be bounded too.
 #[test]
 fn a_large_image_is_scaled_during_decode_rather_than_after() {
     let (texture, source) = thumbnail(&png(4000, 3000), 48).expect("a thumbnail");
@@ -32,8 +30,6 @@ fn a_small_image_is_not_enlarged() {
     assert_eq!((texture.width(), texture.height()), (16, 16));
 }
 
-/// Another application chose these bytes. A picture that will not decode is not an error path:
-/// the entry stays restorable and the row falls back to its icon.
 #[test]
 fn bytes_that_are_not_an_image_yield_nothing_rather_than_panicking() {
     assert!(thumbnail(b"definitely not a png", 48).is_none());
@@ -48,8 +44,6 @@ fn a_square_source_larger_than_the_slot_is_scaled_and_not_cropped() {
     assert_eq!((cover.x, cover.y, cover.side), (0, 0, 100));
 }
 
-/// A video thumbnail is the common case, and the whole reason this exists: letterboxed inside
-/// a square slot it leaves the corners showing the popover behind it.
 #[test]
 fn a_wide_source_is_scaled_by_its_shorter_side_and_cropped_in_the_middle() {
     let cover = cover(1920, 1080, 100).expect("a cover");
@@ -79,8 +73,6 @@ fn a_tall_source_crops_vertically_instead() {
     assert_eq!(cover.y, 39);
 }
 
-/// Enlarging costs memory and buys nothing: `Gtk.Image` scales whatever it is given up to the
-/// slot anyway, and it looks no better for having been enlarged twice.
 #[test]
 fn a_source_smaller_than_the_slot_is_left_at_its_own_size() {
     let cover = cover(64, 64, 192).expect("a cover");

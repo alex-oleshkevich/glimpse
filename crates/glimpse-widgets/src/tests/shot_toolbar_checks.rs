@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_toolbar_widgets() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
 
     let toolbar = ShotToolbar::new();
     let imp = toolbar.imp();

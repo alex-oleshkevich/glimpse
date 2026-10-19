@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_region_widgets() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
 
     let region = ShotRegion::new();
     let imp = region.imp();

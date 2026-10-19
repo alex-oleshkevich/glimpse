@@ -134,7 +134,7 @@ pub(super) fn check() {
     assert!(
         dense_stack.is_collapsed()
             && shown(&dense_stack) == 1
-            && dense_stack.imp().strips.borrow().len() == crate::notification_stack::MAX_DEPTH
+            && dense_stack.imp().strips.borrow().len() == MAX_DEPTH
             && dense_chip.get_visible(),
         "a notification group is rendered by the collapsed stack widget"
     );

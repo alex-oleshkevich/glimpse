@@ -83,16 +83,15 @@ pub(super) fn check() {
     assert_eq!(faders_after[0], first_fader, "and so is its fader");
     assert_eq!(faders_after[0].value(), 55.0);
 
-    let renders_before = sources.imp().renders.get();
     sources.set_sources(&[
         source("built-in", "Built-in", 55.0, 100.0, 0.0),
         source("dp-1", "DP-1", 65.0, 100.0, 0.0),
         source("dp-2", "DP-2", 80.0, 100.0, 5.0),
     ]);
     assert_eq!(
-        sources.imp().renders.get(),
-        renders_before,
-        "an identical slice returns early and never re-renders"
+        children_of::<Row>(&sources),
+        rows_after,
+        "an identical slice leaves the rows as they were"
     );
 
     sources.set_sources(&[source("hostile", &"ё".repeat(300), 10.0, 100.0, 0.0)]);

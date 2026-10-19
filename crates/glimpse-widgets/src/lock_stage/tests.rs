@@ -36,9 +36,7 @@ fn prompt_focused(window: &gtk4::Window, stage: &LockStage) -> bool {
 #[test]
 #[ignore = "needs a display"]
 fn lock_stage_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let stage = LockStage::new();

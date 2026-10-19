@@ -22,6 +22,8 @@ use std::cell::{Cell, RefCell};
 
 use std::rc::Rc;
 
+const MAX_DEPTH: usize = 2;
+
 fn spec(label: &str) -> IndicatorSpec {
     IndicatorSpec {
         label: Some(label.to_owned()),
@@ -71,7 +73,7 @@ fn secondary_click(widget: &impl IsA<gtk4::Widget>) {
 #[test]
 #[ignore = "needs a display"]
 fn widgets() {
-    gtk4::init().expect("GTK display");
+    gtk4::init().expect("display");
     register_resources().expect("resources");
     let _styles = Styles::install(adw::ColorScheme::Default);
 
@@ -346,13 +348,10 @@ fn child_named<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>, class: &st
         .unwrap_or_else(|| panic!("no {class} below the widget"))
 }
 
-fn shot_display() -> bool {
-    if gtk4::init().is_err() {
-        return false;
-    }
+fn shot_display() {
+    gtk4::init().expect("display");
     register_resources().expect("resources");
     let _styles = Styles::install(adw::ColorScheme::Default);
-    true
 }
 
 fn inhibitor(id: u64, label: &str, can_release: bool) -> InhibitorEntry {

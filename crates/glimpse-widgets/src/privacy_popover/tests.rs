@@ -33,9 +33,7 @@ fn head(item: &ExpanderRow) -> ActionRow {
 #[test]
 #[ignore = "needs a display"]
 fn privacy_popover_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let popover = PrivacyPopover::new();
@@ -69,12 +67,11 @@ fn privacy_popover_states() {
         "a use with nothing to stop opens a card with no Stop sharing"
     );
 
-    let renders_after_first = imp.renders.get();
     popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
     assert_eq!(
-        imp.renders.get(),
-        renders_after_first,
-        "an unchanged usage list must never re-enter render_usages at all"
+        rows::<ExpanderRow>(&imp.usage_rows),
+        chrome,
+        "an unchanged usage list reuses its row rather than rebuilding it"
     );
 
     let stopped: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));

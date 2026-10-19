@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
@@ -50,10 +48,6 @@ pub struct PrintingPopover {
     pub printer_data: RefCell<Vec<Printer>>,
     pub job_held: RefCell<Vec<(String, ExpanderRow)>>,
     pub printer_held: RefCell<Vec<((String, bool), gtk4::Widget)>>,
-    #[cfg(test)]
-    pub renders: Cell<u32>,
-    #[cfg(test)]
-    pub printer_renders: Cell<u32>,
 }
 
 #[glib::object_subclass]

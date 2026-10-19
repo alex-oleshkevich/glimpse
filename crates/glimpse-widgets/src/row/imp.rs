@@ -133,11 +133,6 @@ impl Row {
         self.end.get()
     }
 
-    #[cfg(test)]
-    pub(crate) fn chevron(&self) -> gtk4::Image {
-        self.chevron.get()
-    }
-
     pub(crate) fn set_start(&self, widget: &impl IsA<gtk4::Widget>) {
         fill_slot(&self.start, widget);
         self.sync_lead();

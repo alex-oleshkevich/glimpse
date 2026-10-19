@@ -56,8 +56,6 @@ impl SourceList {
 
     fn render(&self) {
         let imp = self.imp();
-        #[cfg(test)]
-        imp.renders.set(imp.renders.get() + 1);
         let sources = imp.sources.borrow();
         let mut rows = imp.rows.borrow_mut();
 

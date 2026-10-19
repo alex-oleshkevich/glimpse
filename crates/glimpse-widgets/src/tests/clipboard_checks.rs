@@ -1,13 +1,9 @@
 use super::*;
 
-/// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these
-/// from running — which is exactly what happened while they were written.
 #[test]
 #[ignore = "needs a display"]
 fn clipboard_widgets() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     register_resources().expect("resources");
     let _styles = Styles::install(adw::ColorScheme::Default);
 
@@ -68,7 +64,6 @@ fn clipboard_widgets() {
     opened.set_open(false);
     assert!(!dimmed(clipboard.imp().shell.imp().header.upcast_ref()));
 
-    // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
     opened.set_open(true);
     let pin = |row: &ExpanderRow| {
         all_named(&row.details(), "clipboard-list__pin")

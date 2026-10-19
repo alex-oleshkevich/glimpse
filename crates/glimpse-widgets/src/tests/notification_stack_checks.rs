@@ -163,16 +163,16 @@ pub(super) fn check() -> [Notification; 4] {
     ]);
     assert_eq!(
         strips(&stack),
-        crate::notification_stack::MAX_DEPTH,
+        MAX_DEPTH,
         "the stack shows a fixed number of edges however many are behind the front card"
     );
 
     stack.set_items(&three);
-    assert_eq!(stack.imp().depth(), 0);
+    assert_eq!(stack.imp().visual_depth(), 0);
     stack.set_items(&four);
     assert_eq!(
-        stack.imp().depth(),
-        crate::notification_stack::MAX_DEPTH,
+        stack.imp().visual_depth(),
+        MAX_DEPTH,
         "the fourth notification is the point where decorative stack depth appears"
     );
 

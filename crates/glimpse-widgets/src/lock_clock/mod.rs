@@ -2,9 +2,6 @@ mod imp;
 
 use gtk4::{glib, subclass::prelude::*};
 
-#[cfg(test)]
-use gtk4::prelude::*;
-
 use std::cell::RefCell;
 use std::collections::HashSet;
 
