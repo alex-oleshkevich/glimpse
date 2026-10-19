@@ -1,6 +1,5 @@
 use super::*;
 
-/// `Duration::from_secs(0)` panics `tokio::time::interval`, so the floor is not a preference.
 #[test]
 fn a_poll_interval_under_the_floor_is_raised_to_it() {
     for (written, expected) in [(0, 600), (599, 600), (600, 600), (900, 900), (7200, 7200)] {
@@ -37,9 +36,6 @@ fn the_initial_snapshot_uses_the_configured_units() {
     assert_eq!(initial_state(&config).units, UnitSystem::Imperial);
 }
 
-/// The privacy property the lease design exists to give: until something asks, no request is
-/// made, so no coordinate leaves the machine. It says nothing about GeoClue, which the
-/// `geolocation` service runs on its own account.
 #[tokio::test]
 async fn nothing_watched_means_no_request_and_no_location_subscription() {
     let harness = harness().await;
@@ -70,8 +66,6 @@ async fn the_location_topic_is_subscribed_only_while_something_watches_here() {
     assert_eq!(harness.service.subscriptions().len(), 2);
 }
 
-/// A `Here` lease with no fix contributes no coordinate, so nothing is asked for and the
-/// service says which half is missing.
 #[tokio::test]
 async fn here_without_a_fix_asks_for_nothing_and_says_so() {
     let mut harness = harness().await;
@@ -114,8 +108,6 @@ async fn renewing_a_lease_does_not_duplicate_it() {
     assert_eq!(harness.service.watched.len(), 1);
 }
 
-/// A consumer renews on its own tick. If a renewal restarted the poll — `ctx.interval` starts
-/// at `Instant::now()` — the service would fetch at the renewal cadence instead of its own.
 #[tokio::test]
 async fn renewing_a_lease_does_not_restart_the_poll() {
     let mut harness = harness().await;
@@ -134,7 +126,6 @@ async fn renewing_a_lease_does_not_restart_the_poll() {
     assert_eq!(harness.service.generation, after_first);
 }
 
-/// Refusing a renewal at the cap would expire the very leases holding it full.
 #[tokio::test]
 async fn watching_past_the_cap_is_refused_but_a_renewal_at_the_cap_still_succeeds() {
     let mut harness = harness().await;
@@ -156,9 +147,6 @@ async fn watching_past_the_cap_is_refused_but_a_renewal_at_the_cap_still_succeed
     assert_eq!(harness.service.watched.len(), MOST_WATCHED);
 }
 
-/// Both no-fetch states are reachable — no http client, and a lone `here` lease with no fix —
-/// and in either one a sweep that only ran on `Fetched` would never run at all. The cap then
-/// counts dead registrations and refuses every later watch.
 #[tokio::test]
 async fn a_stale_lease_is_swept_by_a_watch_rather_than_only_by_a_fetch() {
     let mut harness = harness().await;
@@ -181,8 +169,6 @@ async fn a_stale_lease_is_swept_by_a_watch_rather_than_only_by_a_fetch() {
     assert_eq!(harness.service.watched.len(), 1);
 }
 
-/// A `here` lease with no fix resolves to no coordinate, so it changes the lease set without
-/// changing the request. Bumping the generation for it would refetch the same places.
 #[tokio::test]
 async fn watching_here_without_a_fix_does_not_restart_the_poll() {
     let mut harness = harness().await;

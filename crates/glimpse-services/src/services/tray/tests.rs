@@ -28,9 +28,6 @@ async fn tray() -> (
 async fn a_claim_that_failed_reaches_for_the_watcher_that_won_before_it_degrades() {
     let (mut tray, ctx, state, health) = tray().await;
 
-    // The claim's bus work runs off the handler — awaiting name requests, `ListNames` and a
-    // probe per candidate here would put every other tray event behind one hung application —
-    // so the handler's contract is the *outcome*, not the attempt.
     tray.handle(
         &ctx,
         Input::Event(Event::Claimed(Err("no bus in tests".to_owned()))),
@@ -42,7 +39,6 @@ async fn a_claim_that_failed_reaches_for_the_watcher_that_won_before_it_degrades
         "a taken name is not a verdict: the host registration has not been tried yet"
     );
 
-    // Only when nobody will have us as a host either is the tray actually out of options.
     tray.handle(
         &ctx,
         Input::Event(Event::Attached(Err("no bus in tests".to_owned()))),
@@ -60,7 +56,6 @@ async fn a_claim_that_failed_reaches_for_the_watcher_that_won_before_it_degrades
 async fn an_attach_that_answered_after_we_took_the_name_is_ignored() {
     let (mut tray, ctx, _state, health) = tray().await;
 
-    // The foreign watcher exited mid-attach and we won the name it freed.
     tray.handle(&ctx, Input::Event(Event::Claimed(Ok(()))))
         .await;
     assert_eq!(*health.borrow(), crate::ServiceState::Running);
@@ -125,8 +120,6 @@ async fn a_foreign_watchers_list_replaces_ours_and_drops_what_it_stopped_listing
         "hosting on someone else's watcher is a working tray, not a degraded one"
     );
 
-    // Nothing has answered a `GetAll` yet, so the bar stays empty: a key with no snapshot
-    // behind it would render as a blank chip that fills in a frame later.
     assert_eq!(*state.borrow(), TrayItems::default());
 
     tray.handle(

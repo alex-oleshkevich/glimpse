@@ -36,9 +36,6 @@ fn a_timed_entry_keeps_its_own_length_and_survives_a_missing_end() {
     );
 }
 
-/// RFC 5545 lets an entry carry DURATION instead of DTEND, and Apple and some CalDAV exports
-/// do. `icalendar` does not surface it, so without this every one of them rendered as an
-/// instant with no length at all.
 #[test]
 fn an_entry_with_a_duration_and_no_end_keeps_its_length() {
     let start = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now()));
@@ -71,10 +68,6 @@ fn an_entry_with_a_duration_and_no_end_keeps_its_length() {
     );
 }
 
-/// A surface draws one dot per day an entry covers, walking the days one at a time — so an
-/// entry claiming to last ten thousand years is not a long entry, it is a hang. Neither route
-/// into a length is trustworthy: `DURATION` is text off a feed, and a `DTEND` can name any
-/// year at all.
 #[test]
 fn an_entry_cannot_last_longer_than_the_widest_window() {
     let start = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now()));

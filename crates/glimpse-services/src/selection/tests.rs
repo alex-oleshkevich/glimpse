@@ -1,7 +1,5 @@
 use super::*;
 
-/// A torn-down source is rebuilt whenever the declared set changes. A backend that hands out
-/// its queue once leaves the clipboard deaf for the rest of the session.
 #[tokio::test]
 async fn every_subscription_gets_its_own_live_stream() {
     use futures_util::StreamExt as _;

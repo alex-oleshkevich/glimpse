@@ -146,8 +146,6 @@ async fn restoring_an_entry_hands_its_bytes_back_to_the_compositor() {
     assert_eq!(&*offered[0].data, b"take me back");
 }
 
-/// The compositor announces our own `offer` straight back, and nothing can tell it apart from
-/// anyone else's. Dedup is the whole guard.
 #[tokio::test]
 async fn the_echo_of_our_own_offer_does_not_grow_the_history() {
     let mut harness = harness().await;
@@ -260,9 +258,6 @@ async fn pinning_survives_a_clear_and_unpinning_gives_it_back() {
     assert!(!harness.state.borrow().entries[0].pinned);
 }
 
-/// Pinning first is the whole point: `clear` deliberately keeps pins for the viewer's own
-/// Clear action, and reusing it here left a pinned token resident after the feature was
-/// switched off to be rid of exactly that.
 #[tokio::test]
 async fn a_document_that_turns_the_clipboard_off_forgets_what_was_held() {
     let mut harness = harness().await;
@@ -296,9 +291,6 @@ async fn an_enabled_clipboard_declares_exactly_one_source() {
     assert_eq!(harness.service.subscriptions().len(), 1);
 }
 
-/// The projection is four assignments over three numeric fields of compatible types, so
-/// transposing two of them compiles and passes every other test in the crate. This is the one
-/// assertion that connects a written document to what the service actually does.
 #[tokio::test]
 async fn a_configured_limit_is_what_the_service_keeps() {
     let mut document = glimpse_config::Config::default();
@@ -324,8 +316,6 @@ async fn a_configured_limit_is_what_the_service_keeps() {
     assert_eq!(previews, ["four", "three", "two"]);
 }
 
-/// A zero cap otherwise refuses every capture through a `debug` line nobody reads, leaving an
-/// empty applet with nothing to explain it.
 #[test]
 fn the_document_limits_are_clamped_where_they_meet_the_service() {
     let mut document = glimpse_config::Config::default();
@@ -346,8 +336,6 @@ fn the_document_limits_are_clamped_where_they_meet_the_service() {
     assert_eq!(ceiling.limits.max_total_bytes, 1_048_576 * KIB);
 }
 
-/// Health outlived its subject: a complaint about a compositor we have stopped watching kept
-/// the applet explaining a failure the viewer had just switched off.
 #[tokio::test]
 async fn disabling_the_clipboard_retires_an_earlier_complaint() {
     let mut harness = harness().await;

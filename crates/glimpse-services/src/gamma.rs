@@ -1,3 +1,4 @@
+#[cfg(feature = "testing")]
 use std::sync::{Arc, Mutex};
 
 /// Applying a color temperature to every output.
@@ -13,14 +14,16 @@ pub trait Gamma: Send + 'static {
 }
 
 /// The mock beside the declaration, so the night light's whole state machine is testable without a
-/// compositor. Not `#[cfg(test)]`: `glimpse-sunset`'s own tests are a separate compilation unit.
+/// compositor.
 /// A clone shares the record, because the service takes its backend by value and a test still has
 /// to read what was applied to it.
+#[cfg(feature = "testing")]
 #[derive(Debug, Clone, Default)]
 pub struct FakeGamma {
     record: Arc<Mutex<Record>>,
 }
 
+#[cfg(feature = "testing")]
 #[derive(Debug, Default)]
 struct Record {
     applied: Vec<u32>,
@@ -28,6 +31,7 @@ struct Record {
     failure: Option<String>,
 }
 
+#[cfg(feature = "testing")]
 impl FakeGamma {
     pub fn applied(&self) -> Vec<u32> {
         self.record().applied.clone()
@@ -48,6 +52,7 @@ impl FakeGamma {
     }
 }
 
+#[cfg(feature = "testing")]
 impl Gamma for FakeGamma {
     fn apply(&mut self, kelvin: u32) -> Result<(), String> {
         let mut record = self.record();

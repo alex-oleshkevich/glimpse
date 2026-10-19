@@ -70,8 +70,6 @@ fn two_players_in_one_state_are_ordered_by_the_more_recently_active() {
     assert_eq!(ids(&arranged), ["spotify", "mpv"]);
 }
 
-/// Without the final tiebreak the order of two otherwise equal players comes out of whatever
-/// the bus listed, so the bar would pick a different one between two reads.
 #[test]
 fn players_equal_in_every_other_way_keep_a_stable_order() {
     let mut first = player("bbb", Playback::Playing, 5);
@@ -107,8 +105,6 @@ fn a_paused_player_with_a_real_track_is_kept() {
     assert_eq!(ids(&arrange(vec![paused])), ["spotify"]);
 }
 
-/// A phone that is genuinely paused on a track of its own has capabilities and a length, so it
-/// must survive the same test the phantom fails.
 #[test]
 fn a_phone_actually_holding_a_track_is_not_a_ghost() {
     let mut phone = player("kdeconnect.mpris_desktop_1", Playback::Paused, 5);
@@ -137,7 +133,6 @@ fn a_mirror_carrying_different_media_is_its_own_player() {
     assert_eq!(ids(&arranged), ["kdeconnect.mpris_desktop_1", "spotify"]);
 }
 
-/// Both are mirrors, so neither may delete the other and leave nothing behind.
 #[test]
 fn two_mirrors_of_each_other_do_not_both_disappear() {
     let arranged = arrange(vec![

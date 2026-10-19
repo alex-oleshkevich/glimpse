@@ -54,8 +54,6 @@ fn midday_is_day_and_the_hours_either_side_of_it_are_night() {
     );
 }
 
-/// The instant a night-light ramp is anchored on. Each of the three arms answers with a
-/// different event, and the last one has to leave today altogether.
 #[test]
 fn the_next_change_is_the_boundary_still_ahead() {
     let (sunrise, sunset) = crate::sun::events(&LONDON, midsummer()).expect("in range");
@@ -74,8 +72,6 @@ fn the_next_change_is_the_boundary_still_ahead() {
     assert!(tomorrow > sunset, "the boundary is always still ahead");
 }
 
-/// Neither event exists, so there is no instant to name. `None` is the answer rather than a
-/// missing one: above the polar circles the phase genuinely does not change today.
 #[test]
 fn a_polar_date_has_no_next_change() {
     assert_eq!(
@@ -86,8 +82,6 @@ fn a_polar_date_has_no_next_change() {
     );
 }
 
-/// The boundary is the whole of the function: a phase that is `Day` at every instant passes any
-/// test that only looks at midday.
 #[test]
 fn the_phase_flips_across_sunrise() {
     let (sunrise, _) = crate::sun::events(&LONDON, midsummer()).expect("in range");
@@ -104,8 +98,6 @@ fn the_phase_flips_across_sunrise() {
     );
 }
 
-/// All four combinations, because the sign test is the whole of the polar branch and having it
-/// backwards is invisible everywhere else.
 #[test]
 fn a_polar_date_reads_its_own_hemispheres_season() {
     let june = date(2026, 6, 21);
@@ -117,8 +109,6 @@ fn a_polar_date_reads_its_own_hemispheres_season() {
     assert_eq!(polar_phase(december, -78.0), SolarPhase::Day);
 }
 
-/// The branch `sunrise` cannot answer: neither event exists, so an instant that would be the
-/// middle of the night anywhere else has to come back `Day`.
 #[test]
 fn the_midnight_sun_is_day_at_two_in_the_morning() {
     assert_eq!(
@@ -169,8 +159,6 @@ async fn located(coordinates: Option<GeoCoordinates>) -> (Option<SolarStatus>, S
     (current_state, current_health)
 }
 
-/// The phase lands on the location rather than up to a tick later — the tick is not even
-/// declared until there are coordinates.
 #[tokio::test]
 async fn a_location_publishes_a_phase_without_waiting_for_a_tick() {
     let (state, health) = located(Some(LONDON)).await;

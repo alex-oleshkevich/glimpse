@@ -1,5 +1,5 @@
 use super::*;
-use crate::services::brightness::FakeBacklight;
+use crate::services::brightness::tests::FakeBacklight;
 
 fn entry(id: &str) -> Entry {
     Entry {

@@ -126,11 +126,6 @@ impl<S: Service> Live<S> {
                 .or_insert_with(|| (sub.start)(ctx));
         }
     }
-
-    #[cfg(test)]
-    fn len(&self) -> usize {
-        self.running.len()
-    }
 }
 
 #[cfg(test)]

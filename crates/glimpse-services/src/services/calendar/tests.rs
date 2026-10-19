@@ -70,8 +70,6 @@ fn document(poll_interval: u64, sources: Vec<CalendarSource>) -> glimpse_config:
     }
 }
 
-/// An iCalendar timestamp has no sub-second field, so an expectation built from `Utc::now()`
-/// carries precision the document cannot round-trip.
 fn whole_second() -> DateTime<Utc> {
     DateTime::from_timestamp(Utc::now().timestamp(), 0).expect("an instant in range")
 }
@@ -190,8 +188,6 @@ fn none(body: &str) {
     );
 }
 
-/// A fetch reaches the filesystem through tokio's blocking pool, which yielding does not
-/// advance: without waiting on real time the inbox is still empty when the assertion runs.
 #[derive(Default)]
 struct Observation {
     states: std::sync::Mutex<Vec<CalendarEvents>>,

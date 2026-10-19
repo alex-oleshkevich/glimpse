@@ -65,9 +65,6 @@ fn a_window_is_focusable_by_the_pid_of_the_process_that_owns_it() {
     );
 }
 
-/// `Snapshot.windows` is edited in place as windows come and go, so its order drifts over a
-/// session. Taking the first match would raise a different window of the same application at
-/// different moments; breaking the tie on the id is what makes it the same one every time.
 #[test]
 fn a_process_owning_several_windows_always_resolves_to_the_same_one() {
     let mut later = window(9, 1);
@@ -113,8 +110,6 @@ fn an_application_whose_window_belongs_to_another_process_is_found_by_its_app_id
     assert_eq!(app_window(&windows, &[]), None);
 }
 
-/// Both refusals reach the caller as `InvalidArgs`, which does not invite a retry: there is
-/// nothing to retry when no window belongs to the process.
 #[test]
 fn a_pid_with_no_window_is_refused_and_so_is_one_asked_before_the_first_snapshot() {
     let state = Snapshot {

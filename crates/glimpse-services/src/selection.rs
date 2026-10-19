@@ -1,7 +1,12 @@
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+#[cfg(feature = "testing")]
+use std::sync::Mutex;
 
-use futures_util::{Stream, stream};
+use futures_util::Stream;
+#[cfg(feature = "testing")]
+use futures_util::stream;
+#[cfg(feature = "testing")]
 use tokio::sync::mpsc;
 
 /// Watching the compositor's clipboard and taking it back.
@@ -67,14 +72,16 @@ impl std::fmt::Debug for Offer {
 }
 
 /// The mock beside the declaration, so the whole history state machine is testable without a
-/// compositor. Not `#[cfg(test)]`: `glimpse-panel`'s own tests are a separate compilation unit.
+/// compositor.
 /// A clone shares the record, because the service takes its backend by `Arc` and a test still has
 /// to read what was offered to it.
+#[cfg(feature = "testing")]
 #[derive(Clone, Default)]
 pub struct FakeSelection {
     record: Arc<Mutex<Record>>,
 }
 
+#[cfg(feature = "testing")]
 #[derive(Default)]
 struct Record {
     /// One per live `events()` call. A dropped stream's sender is swept on the next send, so a
@@ -85,6 +92,7 @@ struct Record {
     failure: Option<String>,
 }
 
+#[cfg(feature = "testing")]
 impl FakeSelection {
     pub fn capture(&self, mime: &str, data: &[u8]) {
         self.push(mime, data, false);
@@ -131,6 +139,7 @@ impl FakeSelection {
     }
 }
 
+#[cfg(feature = "testing")]
 impl Selection for FakeSelection {
     fn events(&self) -> Pin<Box<dyn Stream<Item = SelectionEvent> + Send>> {
         let (feed, events) = mpsc::unbounded_channel();

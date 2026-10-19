@@ -12,9 +12,9 @@ mod testing;
 
 pub use {
     context::Ctx,
-    gamma::{FakeGamma, Gamma},
+    gamma::Gamma,
     publisher::Publisher,
-    selection::{Capture, FakeSelection, Offer, Selection, SelectionEvent, is_sensitive},
+    selection::{Capture, Offer, Selection, SelectionEvent, is_sensitive},
     service::{
         CommandError, Input, NoConfig, Pending, Running, Service, ServiceEndpoint, ServiceRuntime,
         ServiceState,
@@ -22,3 +22,6 @@ pub use {
     services::*,
     subscription::Sub,
 };
+
+#[cfg(feature = "testing")]
+pub use {gamma::FakeGamma, selection::FakeSelection};

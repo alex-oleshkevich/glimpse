@@ -1,7 +1,5 @@
 use super::*;
 
-/// The pairs are written literally rather than built through `placed`, which is the function
-/// under test: a helper that called it would compare its output against itself.
 #[test]
 fn a_watch_on_coordinates_outside_their_ranges_is_refused() {
     for (latitude, longitude) in [(91.0, 0.0), (-91.0, 0.0), (0.0, 181.0), (0.0, -181.0)] {

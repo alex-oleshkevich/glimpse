@@ -29,8 +29,6 @@ fn more_actions_than_the_cap_are_trimmed_and_a_keyless_one_is_dropped() {
     );
 }
 
-/// The wire carries actions as one flat list of alternating key and label, so an odd length is
-/// a sender's mistake rather than a final action with no label.
 #[test]
 fn actions_arrive_as_pairs_and_an_odd_tail_is_dropped() {
     assert_eq!(
@@ -44,9 +42,6 @@ fn actions_arrive_as_pairs_and_an_odd_tail_is_dropped() {
     assert!(pairs(Vec::new()).is_empty());
 }
 
-/// `clean` spends the cap on content and then adds `…` as a marker, so an overflowing string
-/// is `cap + 1` characters. Asserting the raw length would pin the marker rather than the
-/// budget, and would move the day the marker changes.
 #[test]
 fn a_summary_from_a_sender_is_capped_and_says_that_it_was() {
     let long = record(1, incoming("Telegram", &"A".repeat(SUMMARY_MAX_CHARS * 2)));
@@ -58,8 +53,6 @@ fn a_summary_from_a_sender_is_capped_and_says_that_it_was() {
     );
 }
 
-/// A summary is somebody else's text and need not be ASCII. Capping by bytes would cut inside
-/// a character, which is a panic reachable by anyone who can send a notification.
 #[test]
 fn a_multi_byte_summary_is_capped_by_characters_rather_than_by_bytes() {
     let long = record(1, incoming("Telegram", &"é".repeat(SUMMARY_MAX_CHARS * 2)));
@@ -120,8 +113,6 @@ fn ids_are_handed_out_in_order_and_a_sender_naming_one_gets_it_back() {
     );
 }
 
-/// Zero means "new", so handing it out would make the next sender's replacement read as a
-/// fresh notification.
 #[test]
 fn the_id_counter_steps_over_zero_when_it_wraps() {
     let next = Ids(std::sync::Arc::new(std::sync::atomic::AtomicU32::new(

@@ -1,7 +1,5 @@
 use super::*;
 
-/// `Duration::from_secs(0)` makes `tokio::time::interval` panic, and every value between one
-/// and the floor is a request the provider would answer by blocking us.
 #[test]
 fn a_poll_interval_under_the_floor_is_raised_to_it() {
     assert_eq!(Config::from(&document(0, Vec::new())).poll_interval, 60);
@@ -9,8 +7,6 @@ fn a_poll_interval_under_the_floor_is_raised_to_it() {
     assert_eq!(Config::from(&document(900, Vec::new())).poll_interval, 900);
 }
 
-/// Two sources under one id would share a subscription key, so the second would never run
-/// while silently overwriting the first's events in the published map.
 #[test]
 fn two_sources_sharing_an_id_are_reduced_to_the_first() {
     let sources = vec![
@@ -57,8 +53,6 @@ fn a_uri_is_read_as_a_feed_a_path_or_nothing_at_all() {
     );
 }
 
-/// `webcal://` is what a provider's Subscribe button hands out, and it is https underneath.
-/// Refusing it made the most common way to get a feed URL the one shape that did not work.
 #[test]
 fn a_webcal_subscription_is_read_as_the_https_feed_it_is() {
     assert!(matches!(
@@ -85,8 +79,6 @@ fn a_webcal_subscription_is_read_as_the_https_feed_it_is() {
     assert_eq!(subscribed("wébcal://x"), "wébcal://x");
 }
 
-/// The whole point of the sidecar is that the secret URL stays out of `config.toml`, so a file
-/// holding one has to be told apart from a file holding a calendar.
 #[test]
 fn only_a_one_line_url_is_read_as_a_sidecar() {
     assert_eq!(

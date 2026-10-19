@@ -1,7 +1,5 @@
 use super::*;
 
-/// Without the threshold a fix that jitters by metres bumps the generation on every update and
-/// refetches for ever.
 #[tokio::test]
 async fn a_fix_that_moves_less_than_a_kilometre_does_not_refetch() {
     let mut harness = harness().await;
@@ -40,8 +38,6 @@ async fn a_fix_that_moves_less_than_a_kilometre_does_not_refetch() {
     assert!(harness.service.generation > first, "1.5 km is a move");
 }
 
-/// Each step is far below the threshold, so an implementation comparing against the fix it last
-/// *saw* would never move at all. Comparing against the one it last *accepted* crosses once.
 #[tokio::test]
 async fn drift_is_measured_from_the_fix_that_was_accepted() {
     let mut harness = harness().await;

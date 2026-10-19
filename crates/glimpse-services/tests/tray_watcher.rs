@@ -46,14 +46,10 @@ async fn settle(handle: &TrayHandle, ready: impl Fn(&ServiceState) -> bool) -> S
     handle.health().borrow().clone()
 }
 
-/// The claim happens in the `Watch::Names` source, which the runtime starts *after* `start`
-/// returns, so health reaches `Running` before the name is ours. Wait for the name itself.
 async fn claimed(bus: &PrivateBus) {
     owns(bus, WATCHER_NAME).await;
 }
 
-/// The alias is taken *after* the KDE name, so a test reaching for it has its own wait: the two
-/// are separate requests and owning one says nothing about the other.
 async fn owns(bus: &PrivateBus, name: &str) {
     let connection = bus.connection().await;
     let proxy = zbus::fdo::DBusProxy::new(&connection).await.unwrap();
@@ -73,8 +69,6 @@ async fn owns(bus: &PrivateBus, name: &str) {
     .unwrap_or_else(|_| panic!("the tray takes {name}"));
 }
 
-/// `Running` is set by the framework the moment `start` returns, so it says nothing about whether
-/// the host registration has happened. The incumbent's own flag is what does.
 async fn hosted(bus: &PrivateBus) {
     let connection = bus.connection().await;
     let proxy = watcher(&connection).await;
@@ -111,8 +105,6 @@ async fn the_service_takes_the_watcher_name_and_registers_itself_as_a_host() {
     assert_eq!(state, ServiceState::Running);
     claimed(&bus).await;
 
-    // Applications fall back to XEmbed while this is false, so items would never appear. It is
-    // registered *after* the name is taken, which is why holding the name is not enough to assert.
     hosted(&bus).await;
 
     let client = bus.connection().await;
@@ -131,10 +123,6 @@ async fn exactly_one_of_two_services_holds_the_name_and_the_other_hosts_on_it() 
     let (mut first, first_handle) = tray(&bus).await;
     let (mut second, second_handle) = tray(&bus).await;
 
-    // Which of the two wins is the bus's business, and the claim runs off the handler, so waiting
-    // on one of them in particular would be asserting an order nothing promises. The contract is
-    // that exactly one holds the name and *both* end up serving: the loser registers with the
-    // winner as a host rather than sitting over an empty bar until it exits.
     let probe = bus.connection().await;
     let dbus = zbus::fdo::DBusProxy::new(&probe).await.unwrap();
     let settled = tokio::time::timeout(Duration::from_secs(20), async {
@@ -246,8 +234,6 @@ async fn the_name_freeing_is_the_trigger_and_the_sweep_finds_what_registered_mea
     let (mut service, handle) = tray(&bus).await;
     hosted(&bus).await;
 
-    // An item holding a well-known name that never registered with *anyone*: the incumbent cannot
-    // list it, so hosting on the incumbent does not find it and only a sweep can.
     let item = FakeItem::start(bus.connection().await, Shape::Pixmap, "early")
         .await
         .unwrap();
@@ -272,7 +258,6 @@ async fn a_watcher_we_cannot_have_is_hosted_on_rather_than_waited_out() {
         .await
         .unwrap();
 
-    // The item registers with the watcher that exists, which is the incumbent and never us.
     let item = FakeItem::start(bus.connection().await, Shape::Pixmap, "theirs")
         .await
         .unwrap();
@@ -312,7 +297,6 @@ async fn an_item_whose_owner_vanishes_leaves_the_bar_without_unregistering() {
     second.register().await.unwrap();
     assert_eq!(items_settle(&handle, 2).await.len(), 2);
 
-    // Most applications never call UnregisterStatusNotifierItem; they just exit.
     drop(second);
 
     assert_eq!(
@@ -470,8 +454,6 @@ async fn commands_reach_the_application_and_the_menu_is_decoded_once_per_revisio
         Call::Activate(12, 34),
         Call::Scroll(-1, "vertical".to_owned()),
         Call::AboutToShow(0),
-        // `Event` is no_reply on purpose — awaiting a reply would block the click on whatever the
-        // application decides to do — so the arrival has to be waited for rather than assumed.
         Call::Event(1, "clicked".to_owned()),
     ] {
         tokio::time::timeout(Duration::from_secs(5), async {

@@ -15,8 +15,6 @@ async fn a_calendar_with_no_sources_publishes_an_empty_list_and_stays_healthy() 
     );
 }
 
-/// A feed URL is a bearer token: whoever holds it reads the calendar. It must not reach the
-/// health report, which every client can read.
 #[tokio::test]
 async fn a_source_that_cannot_be_read_degrades_without_naming_its_uri() {
     let uri = "file:///nonexistent/glimpse-test-secret-token.ics";
@@ -83,8 +81,6 @@ async fn a_directory_source_reads_the_ics_files_in_it() {
     assert!(summaries.contains("Holiday"));
 }
 
-/// The cap belongs to the payload, not to a source: capping each source first would publish
-/// more than the cap, and capping only the first would drop a whole calendar.
 #[test]
 fn the_cap_applies_to_the_merged_list_rather_than_to_each_source() {
     let base = now();
@@ -110,8 +106,6 @@ fn the_cap_applies_to_the_merged_list_rather_than_to_each_source() {
     );
 }
 
-/// A mark that outlives the truncation tells a surface a day is missing entries when it is
-/// not, and the placeholder it drives says so on every day from there on.
 #[tokio::test]
 async fn a_source_that_comes_back_under_the_cap_clears_its_mark() {
     let root = tempfile::tempdir().expect("a scratch directory");
@@ -145,8 +139,6 @@ async fn a_source_that_comes_back_under_the_cap_clears_its_mark() {
     );
 }
 
-/// A mark belongs to a source. Deleting the source and keeping the mark tells every surface
-/// that a month is missing when nothing is even configured.
 #[tokio::test]
 async fn removing_a_truncated_source_removes_its_mark() {
     let root = tempfile::tempdir().expect("a scratch directory");
@@ -189,9 +181,6 @@ async fn removing_a_truncated_source_removes_its_mark() {
     );
 }
 
-/// Truncation used to be silent, which a surface cannot tell apart from a quiet month: the
-/// list simply stopped and nothing said where. `truncated_from` is the start of the first
-/// entry that was dropped, so everything before it is known complete.
 #[tokio::test]
 async fn a_source_over_the_cap_says_where_its_list_stops() {
     let payload = crowd(EVENTS + 40).await;
@@ -209,8 +198,6 @@ async fn a_source_over_the_cap_says_where_its_list_stops() {
     );
 }
 
-/// The window is what a surface asked for, so a list that fits inside it is complete. Marking
-/// the horizon instead is what made every day past it read as one the daemon had skipped.
 #[tokio::test]
 async fn a_source_inside_the_cap_carries_no_mark_at_all() {
     let payload = crowd(12).await;
@@ -219,8 +206,6 @@ async fn a_source_inside_the_cap_carries_no_mark_at_all() {
     assert_eq!(payload.truncated_from, None);
 }
 
-/// A directory source declares no timer at all, so both reads here can only be the watch: the
-/// first is the leading read it opens with, the second the file arriving.
 #[tokio::test]
 async fn a_watched_directory_is_read_at_start_and_again_when_a_file_arrives() {
     let root = tempfile::tempdir().expect("a scratch directory");
@@ -255,11 +240,6 @@ async fn a_watched_directory_is_read_at_start_and_again_when_a_file_arrives() {
     assert!(arrived, "a file dropped in reached the topic");
 }
 
-/// Nothing polls a directory source any more, so a `directory` pointed at a feed would sit
-/// silent forever if its watch just gave up quietly.
-/// The whole local/remote split lives here, and every row is a source someone can write. A
-/// timer on a local file is the regression this guards: it is invisible in a short test,
-/// because the floor is a minute.
 #[test]
 fn only_a_source_that_reaches_the_network_is_given_a_timer() {
     let fresh = false;
@@ -335,9 +315,6 @@ fn only_a_source_that_reaches_the_network_is_given_a_timer() {
     }
 }
 
-/// Whether a source counts as remote decides whether it is given a timer, and for a sidecar
-/// that answer is only knowable by reading the file. Deciding it here rather than beside the
-/// fetch is what lets it be checked without a server.
 #[tokio::test]
 async fn a_sidecar_resolves_to_a_fetch_and_a_plain_file_does_not() {
     let root = tempfile::tempdir().expect("a scratch directory");
@@ -395,8 +372,6 @@ async fn a_directory_source_pointed_at_a_feed_says_so_instead_of_going_quiet() {
     );
 }
 
-/// A local `ical` source declares no timer at all, so the second read here can only be the
-/// watch on the file's own directory. Before the split it was polled like a remote feed.
 #[tokio::test]
 async fn a_local_ical_file_is_re_read_when_it_changes() {
     let root = tempfile::tempdir().expect("a scratch directory");
@@ -429,9 +404,6 @@ async fn a_local_ical_file_is_re_read_when_it_changes() {
     );
 }
 
-/// Both failures are true and both name the source, but only one says the path is wrong.
-/// The watch used to arrive second and overwrite the read, so a typo in `uri` reported that
-/// the directory was not being watched — correct, and no help at all.
 #[tokio::test]
 async fn a_directory_that_is_not_there_reports_the_read_rather_than_the_watch() {
     let root = tempfile::tempdir().expect("a scratch directory");

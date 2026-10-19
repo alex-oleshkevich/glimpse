@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+testing = []
+
 [dependencies]
 chrono-tz.workspace = true
 chrono.workspace = true
@@ -45,6 +48,7 @@ url.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]
+glimpse-services = { path = ".", features = ["testing"] }
 glimpse-dbus = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

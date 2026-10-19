@@ -27,8 +27,6 @@ fn decoded(text: &str) -> Vec<Forecast> {
         .forecasts()
 }
 
-/// One location returns an object and several return an array. A single watch is the common
-/// case, so the untagged enum is what makes the ordinary configuration work at all.
 #[test]
 fn one_place_and_several_places_both_decode() {
     assert_eq!(decoded(one_place()).len(), 1);
@@ -39,8 +37,6 @@ fn moment_of(epoch: i64) -> DateTime<Utc> {
     moment(epoch).expect("a representable instant")
 }
 
-/// The strip labels its first column "now". Legacy started at the hour *after* the current one
-/// by string-comparing timestamps, and lost it.
 #[test]
 fn the_hours_published_start_at_the_current_hour() {
     let read = readings(decoded(one_place()), moment_of(1757262000));
@@ -103,8 +99,6 @@ fn the_current_block_carries_the_provider_s_own_observation_time() {
     assert!(current.is_day);
 }
 
-/// A reading the provider did not send must not arrive as a plausible zero: 0% humidity and
-/// calm air are both real values, so `None` is the only honest way to say nothing came back.
 #[test]
 fn a_reading_the_provider_omitted_stays_absent_rather_than_becoming_zero() {
     let sparse = r#"{"latitude": 47.375, "longitude": 8.5, "utc_offset_seconds": 0,
@@ -122,7 +116,6 @@ fn a_reading_the_provider_omitted_stays_absent_rather_than_becoming_zero() {
     assert_eq!(current.apparent_temperature, None);
 }
 
-/// The provider really does answer 0 for some grid cells, so a zero has to survive as a zero.
 #[test]
 fn a_reading_the_provider_reports_as_zero_stays_zero() {
     let calm = r#"{"latitude": 52.23, "longitude": 21.01, "utc_offset_seconds": 0,
@@ -175,9 +168,6 @@ fn units_choose_the_triple_that_goes_together() {
     assert_eq!(units(UnitSystem::Imperial), ("fahrenheit", "mph", "inch"));
 }
 
-/// Only a missing temperature is worth dropping an hour over. A missing code reads as unknown
-/// and a missing day flag as daylight; dropping the hour instead loses the whole strip when a
-/// provider stops sending one companion array.
 #[test]
 fn an_hour_missing_only_its_companions_is_still_published() {
     let sparse = r#"{"latitude": 47.375, "longitude": 8.5, "utc_offset_seconds": 0,

@@ -7,8 +7,6 @@ use super::*;
 use crate::ServiceState;
 use crate::service::ServiceRuntime;
 
-/// Built literally rather than through `coordinates`, which is the function under test: a
-/// helper that called it would compare its output against itself and assert nothing.
 fn manual(latitude: f64, longitude: f64) -> Config {
     Config {
         provider: Provider::Manual(Some(GeoCoordinates {
@@ -44,8 +42,6 @@ fn geoclue_carries_no_coordinates() {
     assert_eq!(mapped.provider, Provider::Geoclue);
 }
 
-/// A pair the configuration accepts structurally but that names nowhere on Earth. The service
-/// reports it as degraded rather than guessing a location.
 #[test]
 fn coordinates_outside_their_ranges_are_refused() {
     for (latitude, longitude) in [
@@ -70,8 +66,6 @@ fn the_edges_of_the_ranges_are_inside_them() {
     assert_eq!(mapped.provider, manual(90.0, 180.0).provider);
 }
 
-/// A watch that has been torn down can still have an event waiting in the inbox behind the
-/// configuration that tore it down.
 #[tokio::test]
 async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
     let cancel = CancellationToken::new();

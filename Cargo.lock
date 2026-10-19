@@ -1543,6 +1543,7 @@ dependencies = [
  "glimpse-compositors",
  "glimpse-config",
  "glimpse-dbus",
+ "glimpse-services",
  "glimpse-utils",
  "icalendar",
  "ipp",

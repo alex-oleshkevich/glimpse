@@ -18,8 +18,6 @@ fn a_sender_naming_replaces_id_writes_over_the_notification_rather_than_sending_
     assert_eq!(first.summary, "Edited");
 }
 
-/// Newest first, so the bound has to drop from the far end. Truncating the wrong end would
-/// throw away exactly what just arrived, which no test of the length alone would catch.
 #[test]
 fn the_bound_drops_only_old_read_history() {
     let mut held = store(
