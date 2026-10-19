@@ -365,7 +365,7 @@ fn load_from(
             Ok(table) => table,
             Err(error) => return Err(ConfigError::parse(&path, &text, &error)),
         };
-        let text = if path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref()) {
+        let text = if Some(&path) == screenshot_file_in(user_dir, config_path).as_ref() {
             table.retain(|key, _| key == SCREENSHOT_TABLE);
             table.to_string()
         } else {

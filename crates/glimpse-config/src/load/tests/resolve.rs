@@ -168,6 +168,29 @@ fn the_screenshot_file_overrides_screenshot_keys_and_nothing_else() {
 }
 
 #[test]
+fn a_dropin_named_shot_toml_is_an_ordinary_dropin() {
+    let root = tempfile::tempdir().expect("a temporary directory");
+    let system = root.path().join("etc");
+    let user = root.path().join("config");
+    std::fs::create_dir_all(system.join(DROPIN_DIR)).expect("creates");
+    std::fs::create_dir_all(user.join(DROPIN_DIR)).expect("creates");
+    std::fs::write(
+        user.join(DROPIN_DIR).join(SCREENSHOT_FILE_NAME),
+        "[appearance]\ncolor-scheme = \"dark\"\n[screenshot]\nflash = false\n",
+    )
+    .expect("writes");
+
+    let loaded = load_from(&system, Some(&user), None).expect("the layers merge");
+
+    assert_eq!(
+        loaded.appearance.color_scheme,
+        crate::ColorScheme::Dark,
+        "a drop-in named shot.toml is read in full, not stripped to [screenshot]"
+    );
+    assert!(!loaded.screenshot.flash);
+}
+
+#[test]
 fn a_tilde_prefixed_path_expands_against_home() {
     let home = Path::new("/home/u");
     let resolved = expand_tilde(Path::new("~/wallpapers/city.jpg"), Some(home));
