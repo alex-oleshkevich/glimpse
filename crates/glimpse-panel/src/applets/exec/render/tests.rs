@@ -2,6 +2,178 @@ use super::*;
 use glimpse_services::{Op, WireNode};
 use serde_json::json;
 
+#[tokio::test]
+async fn failed_slot_refreshes_to_one_error_indicator() {
+    use crate::applet::Applet;
+    use glimpse_dbus::{Buses, notifications::NotificationsProvider};
+    use glimpse_services::{
+        ExecConfig, ExecDependencies, ExecEntry, ServiceRuntime, SystemdLauncher,
+    };
+    use tokio_util::sync::CancellationToken;
+
+    struct MissingCatalog;
+    impl glimpse_services::ExecCatalog for MissingCatalog {
+        fn resolve(&self, _id: &str) -> Result<ExecEntry, String> {
+            Err("not installed".into())
+        }
+    }
+
+    let dir = tempfile::tempdir().expect("test directories");
+    let cancel = CancellationToken::new();
+    let (mut runtime, handle) = ServiceRuntime::<glimpse_services::Exec>::new(
+        ExecConfig {
+            applets: std::collections::BTreeMap::from([(
+                "missing".into(),
+                glimpse_config::ExecAppletConfig {
+                    applet: "me.example.Missing".into(),
+                    options: Default::default(),
+                    env: Default::default(),
+                },
+            )]),
+            state_base: Some(dir.path().join("state")),
+            runtime_base: Some(dir.path().join("runtime")),
+            panel: "me.aresa.TestPanel".into(),
+        },
+        Buses::unavailable("test"),
+        cancel.clone(),
+    );
+    let task = tokio::spawn(async move {
+        runtime
+            .run(ExecDependencies {
+                catalog: Arc::new(MissingCatalog),
+                launcher: Arc::new(SystemdLauncher::new(None)),
+            })
+            .await;
+    });
+    let notifications = NotificationsProvider::unavailable("test");
+    let mut applet = super::super::Exec::start(
+        "missing",
+        handle.clone(),
+        notifications.handle(),
+        super::super::placement(
+            glimpse_config::Position::Top,
+            32,
+            None,
+            crate::components::panel::Zone::Start,
+        ),
+    );
+    let mut state = handle.subscribe();
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !state
+            .borrow()
+            .slots
+            .get(&applet.slot)
+            .is_some_and(|slot| matches!(slot.status, ExecStatus::Failed(_)))
+        {
+            state.changed().await.expect("slot status");
+        }
+    })
+    .await
+    .expect("failed slot");
+    let (sender, _receiver) = relm4::channel();
+    let ctx = crate::applet::Ctx::new("test".into(), None, sender);
+    applet.refresh(&ctx.opener());
+    let chips = applet.indicators();
+    assert_eq!(chips.len(), 1);
+    assert_eq!(chips[0].severity, Some(Severity::Error));
+    assert_eq!(chips[0].tooltip.as_deref(), Some("missing"));
+    assert!(
+        chips[0]
+            .icon
+            .as_ref()
+            .expect("error icon")
+            .equal(Some(&gio::ThemedIcon::new("dialog-error-symbolic")))
+    );
+    assert_eq!(applet.failure().as_deref(), Some("not installed"));
+    applet.refresh(&ctx.opener());
+    assert_eq!(applet.indicators().len(), 1);
+    handle.detach(applet.slot).await.expect("detach");
+    cancel.cancel();
+    task.await.expect("service stopped");
+}
+
+#[test]
+fn failed_status_always_shows_its_reason() {
+    for has_indicators in [false, true] {
+        assert_eq!(
+            failure(&ExecStatus::Failed("not installed".into()), has_indicators),
+            Some("not installed".into())
+        );
+    }
+}
+
+#[test]
+fn ended_status_shows_a_notice_only_without_indicators() {
+    assert_eq!(
+        failure(&ExecStatus::Ended, false),
+        Some(gettext("The applet stopped"))
+    );
+    assert_eq!(failure(&ExecStatus::Ended, true), None);
+}
+
+#[test]
+fn repeated_restarts_show_a_notice_only_without_indicators() {
+    for attempt in [0, 1, 2] {
+        for has_indicators in [false, true] {
+            assert_eq!(
+                failure(&ExecStatus::Restarting { attempt }, has_indicators),
+                None
+            );
+        }
+    }
+    for attempt in [3, 4, u32::MAX] {
+        assert_eq!(
+            failure(&ExecStatus::Restarting { attempt }, false),
+            Some(gettext("The applet keeps exiting. It restarts on its own."))
+        );
+        assert_eq!(failure(&ExecStatus::Restarting { attempt }, true), None);
+    }
+}
+
+#[test]
+fn starting_and_running_do_not_show_a_failure() {
+    for status in [ExecStatus::Starting, ExecStatus::Running] {
+        for has_indicators in [false, true] {
+            assert_eq!(failure(&status, has_indicators), None);
+        }
+    }
+}
+
+#[test]
+fn starting_and_early_restarts_are_in_flight_only_without_indicators() {
+    assert!(in_flight(&ExecStatus::Starting, false));
+    assert!(!in_flight(&ExecStatus::Starting, true));
+    for attempt in [0, 1, 2] {
+        assert!(in_flight(&ExecStatus::Restarting { attempt }, false));
+        assert!(!in_flight(&ExecStatus::Restarting { attempt }, true));
+    }
+}
+
+#[test]
+fn terminal_statuses_are_not_in_flight() {
+    for status in [
+        ExecStatus::Running,
+        ExecStatus::Ended,
+        ExecStatus::Failed("not installed".into()),
+        ExecStatus::Restarting { attempt: 3 },
+        ExecStatus::Restarting { attempt: u32::MAX },
+    ] {
+        for has_indicators in [false, true] {
+            assert!(!in_flight(&status, has_indicators));
+        }
+    }
+}
+
+#[test]
+fn failure_reason_is_capped_without_interpreting_markup() {
+    let reason = format!("<b>markup</b>{}", "é".repeat(987));
+    assert_eq!(reason.chars().count(), 1000);
+    let reason = failure(&ExecStatus::Failed(reason), false).expect("failure reason");
+    let shown = glimpse_utils::clean(&reason, 256);
+    assert_eq!(shown, format!("<b>markup</b>{}…", "é".repeat(243)));
+    assert_eq!(shown.chars().count(), 257);
+}
+
 #[test]
 fn keeps_newer_local_value_until_acknowledged() {
     assert!(keeps_newer_local_value(Some(5), Some(4)));

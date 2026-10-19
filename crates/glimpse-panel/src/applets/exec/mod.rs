@@ -2,7 +2,7 @@ mod dom;
 mod render;
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     rc::Rc,
     sync::Arc,
@@ -13,10 +13,10 @@ use gettextrs::gettext;
 use glimpse_config::Position;
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
-    Edge, ExecBarRequest as BarRequest, ExecHandle, ExecUserEvent as UserEvent, Orientation,
-    Placement, Tree, Zone,
+    Edge, ExecBarRequest as BarRequest, ExecHandle, ExecStatus, ExecUserEvent as UserEvent,
+    Orientation, Placement, Tree, Zone,
 };
-use glimpse_widgets::{IndicatorSpec, PopoverShell};
+use glimpse_widgets::{ActionRow, IndicatorSpec, Notice, PopoverShell, Row, Severity};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::{
@@ -69,6 +69,7 @@ pub struct Exec {
     slot: u64,
     placement: Placement,
     tree: Arc<Tree>,
+    status: ExecStatus,
     generation: u64,
     title: String,
     icon: Option<String>,
@@ -77,6 +78,9 @@ pub struct Exec {
     icons: HashMap<String, gio::Icon>,
     seq: Rc<RefCell<HashMap<dom::Key, u64>>>,
     dom: Option<dom::Dom>,
+    failure_notice: glib::WeakRef<Notice>,
+    restart_row: glib::WeakRef<Row>,
+    restarting: Rc<Cell<bool>>,
 }
 
 impl Exec {
@@ -105,6 +109,7 @@ impl Exec {
             slot,
             placement,
             tree: Arc::new(Tree::default()),
+            status: ExecStatus::Starting,
             generation: 0,
             title: name.to_owned(),
             icon: None,
@@ -113,6 +118,9 @@ impl Exec {
             icons: HashMap::new(),
             seq: Rc::new(RefCell::new(HashMap::new())),
             dom: None,
+            failure_notice: glib::WeakRef::new(),
+            restart_row: glib::WeakRef::new(),
+            restarting: Rc::new(Cell::new(false)),
         }
     }
 
@@ -150,9 +158,17 @@ impl Exec {
             self.icons.clear();
             self.seq.borrow_mut().clear();
         }
-        self.title = slot.title.clone();
+        let status_changed = self.status != slot.status;
+        self.status = slot.status.clone();
+        let title = if slot.title.is_empty() {
+            &slot.applet
+        } else {
+            &slot.title
+        };
+        let title_changed = self.title != *title;
+        self.title = title.clone();
         self.icon = slot.icon.clone();
-        if !unchanged {
+        if !unchanged || status_changed || title_changed {
             self.tree = slot.tree.clone();
             self.specs = render::indicators(&self.tree, &mut |name| {
                 render::cached_icon(&mut self.icons, name)
@@ -160,6 +176,38 @@ impl Exec {
             .into_iter()
             .map(|(_, spec)| spec)
             .collect();
+            if render::failure(&self.status, !self.specs.is_empty()).is_some() {
+                self.specs = vec![IndicatorSpec {
+                    icon: Some(render::cached_icon(
+                        &mut self.icons,
+                        "dialog-error-symbolic",
+                    )),
+                    severity: Some(Severity::Error),
+                    tooltip: Some(glimpse_utils::clean(&self.title, 256)),
+                    ..Default::default()
+                }];
+            }
+        }
+        if let Some(notice) = self.failure_notice.upgrade() {
+            if let Some(reason) = self.failure() {
+                notice.set_subtitle(Some(glimpse_utils::clean(&reason, 256)));
+                if let Some(row) = self.restart_row.upgrade() {
+                    row.set_visible(matches!(
+                        self.status,
+                        ExecStatus::Failed(_) | ExecStatus::Ended
+                    ));
+                    row.set_busy(self.restarting.get());
+                }
+            } else if render::in_flight(&self.status, self.has_indicators()) {
+                if let Some(row) = self.restart_row.upgrade() {
+                    row.set_visible(true);
+                    row.set_busy(true);
+                }
+            } else {
+                opener.close_popover();
+                self.failure_notice.set(None);
+                self.restart_row.set(None);
+            }
         }
         if let Some(dom) = &mut self.dom
             && (!dom.is_alive()
@@ -168,6 +216,17 @@ impl Exec {
         {
             self.dom = None;
         }
+    }
+
+    fn has_indicators(&self) -> bool {
+        render::first_child_of_kind(&self.tree, 0, |element| {
+            matches!(element, glimpse_services::Element::Indicator(_))
+        })
+        .is_some()
+    }
+
+    fn failure(&self) -> Option<String> {
+        render::failure(&self.status, self.has_indicators())
     }
 
     fn request(&self, request: &BarRequest, opener: &crate::applet::Opener) {
@@ -317,6 +376,58 @@ impl Applet for Exec {
     }
 
     fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
+        if let Some(reason) = self.failure() {
+            let shell = PopoverShell::new();
+            shell.set_icon_name(self.icon.as_deref());
+            shell.set_title(Some(glimpse_utils::clean(&self.title, 256)));
+            let notice = Notice::new();
+            notice.set_severity(Severity::Error);
+            notice.set_title(Some(gettext("Not running")));
+            notice.set_subtitle(Some(glimpse_utils::clean(&reason, 256)));
+            shell.body().append(&notice);
+            self.failure_notice.set(Some(&notice));
+            let restart = ActionRow::new();
+            let row = restart.upcast_ref::<Row>();
+            row.set_title(Some(gettext("Restart")));
+            row.set_visible(matches!(
+                self.status,
+                ExecStatus::Failed(_) | ExecStatus::Ended
+            ));
+            self.restart_row.set(Some(row));
+            let handle = self.handle.clone();
+            let slot = self.slot;
+            let report = self.report();
+            let restarting = Rc::clone(&self.restarting);
+            let opener = seat.opener();
+            restart.connect_activated(move |restart| {
+                let row = restart.upcast_ref::<Row>();
+                if restarting.get() || row.busy() {
+                    return;
+                }
+                restarting.set(true);
+                row.set_busy(true);
+                let restarting = Rc::clone(&restarting);
+                let opener = opener.clone();
+                let handle = handle.clone();
+                let report = report.clone();
+                relm4::spawn_local(async move {
+                    let outcome = handle.restart(slot).await;
+                    restarting.set(false);
+                    opener.wake();
+                    if let Err(error) = outcome {
+                        crate::applet::report_failure(
+                            "exec.restart",
+                            report,
+                            command_wording(&error),
+                            error,
+                        )
+                        .await;
+                    }
+                });
+            });
+            shell.body().append(&restart);
+            return Some(shell.upcast());
+        }
         render::first_child_of_kind(&self.tree, 0, |element| {
             matches!(element, glimpse_services::Element::Popover(_))
         })?;

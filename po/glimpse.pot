@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-16 20:41+0200\n"
+"POT-Creation-Date: 2026-10-18 21:41+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -368,7 +368,6 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:82
 #: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
 msgid "Muted"
 msgstr ""
@@ -848,15 +847,15 @@ msgstr ""
 msgid "Yesterday"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/command.rs:85
+#: crates/glimpse-panel/src/applets/command.rs:87
 msgid "Command"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/command.rs:87
+#: crates/glimpse-panel/src/applets/command.rs:89
 msgid "Could not run a command"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/command.rs:89
+#: crates/glimpse-panel/src/applets/command.rs:91
 msgid "{program} could not be started."
 msgstr ""
 
@@ -926,25 +925,47 @@ msgstr ""
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:94
-#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+#: crates/glimpse-panel/src/applets/exec/mod.rs:97
+#: crates/glimpse-panel/src/applets/exec/mod.rs:133
 msgid "External applet action failed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+#: crates/glimpse-panel/src/applets/exec/mod.rs:255
 msgid "The file did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+#: crates/glimpse-panel/src/applets/exec/mod.rs:274
 msgid "The link did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+#: crates/glimpse-panel/src/applets/exec/mod.rs:298
 msgid "The application did not start."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+#: crates/glimpse-panel/src/applets/exec/mod.rs:332
 msgid "External applet is not running."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:377
+msgid "Not running"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:383
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/render.rs:19
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:109
+msgid "The applet stopped"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/render.rs:21
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:127
+msgid "The applet keeps exiting. It restarts on its own."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
@@ -1813,13 +1834,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/session/render.rs:71
 msgid ""
 "This closes the current session. Applications may not shut down gracefully."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:75
-#: crates/glimpse-panel/src/applets/session/render.rs:77
-#: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
-msgid "Restart"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/session/render.rs:76
@@ -3092,7 +3106,7 @@ msgid "Locked by the hardware switch"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
 msgid "Mute"
 msgstr ""
@@ -3106,7 +3120,7 @@ msgstr ""
 msgid "Name this workspace"
 msgstr ""
 
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:409
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
 msgid "Unmute"
 msgstr ""

@@ -248,6 +248,10 @@ pub enum Command {
         handle: String,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
+    Restart {
+        slot: u64,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
     DevTree {
         handle: String,
         reply: oneshot::Sender<Result<Value, CommandError>>,
@@ -327,6 +331,12 @@ impl ServiceEndpoint<Exec> {
                 CommandError::Unavailable("`exec` stopped before answering".to_owned())
             })?
         }
+    }
+    pub fn restart(
+        &self,
+        slot: u64,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::Restart { slot, reply }))
     }
     pub fn restart_dev(
         &self,
@@ -1114,6 +1124,20 @@ impl Service for Exec {
                     tracing::info!(applet = %id, output = ?request.output, "dev applet waiting for its widget");
                     self.pending_dev.insert(id.clone(), request);
                     Ok(id.clone())
+                };
+                let _ = reply.send(result);
+            }
+            Input::Command(Command::Restart { slot, reply }) => {
+                let id = self.root(slot);
+                let result = match self.slots.get_mut(&id) {
+                    Some(state) if state.origin == Origin::Spawned => {
+                        if matches!(state.public.status, Status::Failed(_) | Status::Ended) {
+                            state.last_failed_reason = None;
+                            self.restart_slot(id);
+                        }
+                        Ok(())
+                    }
+                    _ => Err(CommandError::InvalidArgument("unknown applet".to_owned())),
                 };
                 let _ = reply.send(result);
             }
