@@ -4,6 +4,18 @@ The module `github.com/alex-oleshkevich/glimpse/sdk/sdk-go`, package `sdk`. It u
 standard library. Elements and their props are in [Elements](/applets/exec/reference/elements);
 this page covers how a Go applet is put together.
 
+::: tip Create an applet
+
+```sh
+glimpsectl applet new --language go --id me.aresa.GlimpseTodo --yes
+cd glimpse-todo
+just dev
+```
+
+[Start an applet](/applets/exec/start) explains each step and the files it creates.
+
+:::
+
 ```go
 package main
 

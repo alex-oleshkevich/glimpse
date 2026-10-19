@@ -1,9 +1,170 @@
 # Elements
 
-Every element an applet can draw, what each holds, and its props. The SDKs name them the same way:
-`actionrow` is `ActionRow` in TypeScript and Python, `sdk.ActionRow` in Go and `action_row()` in
-Rust. Props are camelCase here and in TypeScript, snake_case in Python and Rust (`class_name`,
-`on_toggle`), and Go struct fields (`ClassName`, `OnToggle`).
+Every element an applet can draw, what it is for, and its props. [Types](#types) covers how each SDK
+names things and the rules every element shares; the [parent table](#parent-table) says which
+element may hold which.
+
+## Types
+
+### Names, children and callbacks
+
+Element types are lowercase and props are camelCase; the tables on this page use these names, and
+each SDK spells them in its own style. This helper builds a section that holds one row per message,
+a toggle row and a button:
+
+::: code-group
+
+```tsx [TypeScript]
+const inbox = (messages: Message[]): Node => (
+    <Section
+        title="Inbox"
+        className="dim-label"
+    >
+        {messages.map((m) => (
+            <Row
+                key={m.id}
+                title={m.subject}
+            />
+        ))}
+        <ToggleRow
+            title="Do not disturb"
+            active={quiet}
+            onToggle={setQuiet}
+        />
+        <Button onClick={sync}>Sync now</Button>
+    </Section>
+);
+```
+
+```python [Python]
+def inbox(messages: list[Message]) -> W:
+    return Section(
+        [
+            Row(
+                key=m.id,
+                title=m.subject,
+            )
+            for m in messages
+        ],
+        ToggleRow(
+            title="Do not disturb",
+            active=quiet,
+            on_toggle=set_quiet,
+        ),
+        Button(
+            "Sync now",
+            on_click=sync,
+        ),
+        title="Inbox",
+        class_name="dim-label",
+    )
+```
+
+```go [Go]
+func inbox(messages []Message) sdk.Widget {
+	rows := make([]sdk.Widget, 0, len(messages))
+	for _, m := range messages {
+		rows = append(rows, sdk.Row(sdk.RowProps{
+			Key:   m.ID,
+			Title: m.Subject,
+		}))
+	}
+	return sdk.Section(
+		sdk.SectionProps{
+			Title:     "Inbox",
+			ClassName: "dim-label",
+		},
+		rows,
+		sdk.ToggleRow(sdk.ToggleRowProps{
+			Title:    "Do not disturb",
+			Active:   quiet,
+			OnToggle: setQuiet,
+		}),
+		sdk.Button(sdk.ButtonProps{OnClick: sync}, "Sync now"),
+	)
+}
+```
+
+```rust [Rust]
+fn inbox(messages: &[Message], quiet: bool) -> Widget<Msg> {
+    section()
+        .title("Inbox")
+        .class_name(ClassName::DimLabel)
+        .children(messages.iter().map(|m| {
+            row()
+                .key(m.id)
+                .title(&m.subject)
+        }))
+        .child(
+            toggle_row()
+                .title("Do not disturb")
+                .active(quiet)
+                .on_toggle(Msg::SetQuiet),
+        )
+        .child(
+            button()
+                .text("Sync now")
+                .on_click(|| Msg::Sync),
+        )
+        .into()
+}
+```
+
+:::
+
+- A child is an element or a list of elements. `key` keeps an element's identity when its list
+  reorders.
+- Where an SDK takes text as a child, text in a `label`, `indicator` or `button` becomes its `text`,
+  and text in any other element becomes a `label`.
+- An event prop takes a handler, called with the arguments its Type column shows, such as
+  `(active: boolean)`.
+- A prop left out takes its default. The Go SDK leaves out every zero field except the `value` of
+  `sliderrow` and `scale`, so a number prop whose zero is a real value is a pointer:
+  `Width: sdk.Ptr(48)`, `Level: sdk.Ptr(0.5)`.
+
+### Controlled inputs
+
+A control shows the value your applet passes. Update that value in the callback; if you do not, the
+next render puts the old value back. The controlled props are `togglerow.active`,
+`expanderrow.open`, `sliderrow.value`, `entry.value`, `scale.value`, `switch.active`,
+`togglebutton.active`, `checkbutton.active`, `dropdown.selected` and `choicelist.selected`.
+
+### Class names
+
+`className` takes one style class from this list:
+
+`dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`, `numeric`,
+`accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`, `column`,
+`network-popover__rule`, `bluetooth-popover`, `network-popover`.
+
+Its type is `ClassName` in every SDK. `addon`, `container`, `row`, `actionrow`, `togglerow`,
+`meterrow`, `expanderrow`, `end`, `start`, `sliderrow`, `factlist` and `swatch` take no
+`className`. There is no applet CSS.
+
+### Severity and tone
+
+| Type | Values | Used by |
+| --- | --- | --- |
+| `Severity` | `info`, `warning`, `error` | `indicator`, `notice` |
+| `RowTone` | `warning`, `error`, `destructive` | the `tone` of rows and `sliderrow` |
+| `Tone` | `accent`, `dim`, `success`, `warning`, `error` | `dots`, `calendar` events |
+
+A `Tone` is a named theme color, so it follows the light or dark theme. These and every other enum
+prop take one of the values their table lists, in the form the example above uses for `className`.
+
+### Text and values
+
+- Text props (titles, subtitles, labels, values, tooltips, counts, descriptions and placeholders) are
+  plain text, never markup. The panel drops control characters and bidi overrides, folds whitespace
+  into single spaces, trims the ends, and cuts the text at 256 characters with a trailing `…`. Text
+  that ends up empty counts as absent. `entry.value` keeps its spaces and holds up to 4096
+  characters.
+- An icon is a themed icon name matching `^[A-Za-z0-9_.-]+$`, such as `network-wireless-symbolic`,
+  never a path. Any other value is dropped.
+- A prop of the wrong type, or an enum string its table does not list, is dropped as if absent.
+- An array prop with more than 64 items, at any depth, rejects the whole render. `bars.values`,
+  `bars.tooltips` and `sparkline.values` may hold 366.
+- A parent with more than 200 children rejects the whole render.
 
 ## Parent table
 
@@ -14,10 +175,11 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | root | `indicator`, `popover` |
 | `popover` | at most one `addon`, and any body element |
 | `addon` | at most one of `readout`, `switch`, `container`, `swatch` |
-| `container` | at most one body element except `section` |
-| `section` | body elements except `section` |
-| `revealer` | any number of body elements except `section` |
-| `stack` | body elements except `section` |
+| `container` | at most one body element |
+| `section` | body elements |
+| `revealer` | body elements |
+| `stack` | body elements |
+| `box` | body elements |
 | `row` | at most one of `image`, `readout`, `spinner`, drawn at its end |
 | `actionrow` | at most one of `image`, `readout`, `spinner`, drawn at its end, and at most one `start` |
 | `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
@@ -26,565 +188,2029 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots`, `swatch` |
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |
-| `box` | body elements |
 | anything else | nothing |
 
-Body elements are `section`, `row`, `actionrow`, `togglerow`,
-`meterrow`, `expanderrow`, `sliderrow`, `entry`, `placeholder`, `box`,
-`container`,
-`label`, `image`, `button`, `switch`, `scale`, `spinner`, `separator`,
-`factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
-`togglebutton`, `checkbutton`, `revealer`, `stack`, `rangebar`, `bars`,
-`sparkline` and `unsupported`.
+Body elements are `section`, `row`, `actionrow`, `togglerow`, `meterrow`, `expanderrow`,
+`sliderrow`, `entry`, `placeholder`, `box`, `container`, `label`, `image`, `button`, `switch`,
+`scale`, `spinner`, `separator`, `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`,
+`dropdown`, `togglebutton`, `checkbutton`, `revealer`, `stack`, `rangebar`, `bars`, `sparkline` and
+`unsupported`.
 
-An array prop with more than 64 items, at any depth, rejects the commit. The `values` and
-`tooltips` props of `bars` and `sparkline` may hold 366.
-
-An unknown `type` is `unsupported`. Its name is the type string after text cleaning,
-capped at 64 characters. Markup in that name is kept literal.
-
-A child on a leaf is rejected, as are a `section` inside a `section` and any
-pair the table does not list.
+A `section` may sit in a `popover`, `box`, `container`, `revealer` or `stack`, but never anywhere
+under another `section`, however deep. A `type` the panel does not know becomes `unsupported`. A
+child the table does not list rejects the whole render.
 
 ## Elements
 
-`type` is one of the lowercase names below. Props use camelCase. Every element takes
-`className`, one class from this list, or the key is dropped. `addon`, `container`, `row`,
-`actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start`, `sliderrow` and
-`swatch` do not take `className`:
-
-`dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`,
-`numeric`, `accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`,
-`column`, `network-popover__rule`,
-`bluetooth-popover`, `network-popover`.
-
-There is no applet CSS.
-
-Unless a row below says otherwise:
-
-- Strings that are labels, titles, tooltips, subtitles, descriptions, counts or
-  placeholders go through text cleaning and a cap of 256 characters. Cleaning drops
-  control characters and bidi overrides, folds whitespace, trims, and appends `…` when
-  the cap cuts the string. An empty result removes the prop.
-- `icon` and `overlay` must match `^[A-Za-z0-9_.-]+$`. Anything else is dropped.
-- Strings that are row `value`s are cleaned and capped the same way.
-- An enum prop (`tone`, `typography`, `control`, `severity`) with any string its table
-  does not list is dropped, as if absent.
-- Booleans default to `false`, except `sensitive` and `bars.highlightLast`, which default to `true`.
-- A missing object defaults each prop as the tables say.
-- Inputs are controlled: pass the value, and update it from the callback, or the next render puts
-  the old value back.
-
 ### `indicator`
 
-The chip on the bar. Only under the root, so put indicators at the root of your tree. No children.
-A left click opens the popover and never reaches `onPress`; `onPress` gets `2` for a middle click,
-`3` for a right click, and the raw code for any other button. `severity` `warning` and `error` color
-the chip; `info` looks the same as none.
+The chip on the bar that shows your applet's state at a glance. A left click opens the popover.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `icon` | string | Icon name |
-| `text` | string | Chip label |
-| `tooltip` | string | |
-| `badge` | string | Cleaned and capped at 8 characters |
-| `overlay` | string | Icon name, drawn over the first icon |
-| `dot` | string | Dot color in CSS, for example `#e01b24`. A value that is not a color shows no dot |
-| `severity` | `info`, `warning`, `error` | |
-| `attention` | boolean | Shows a dot while no badge is visible |
-| `notice` | boolean | A rounded accent background behind icon and label |
-| `className` | class | |
-| `onPress` | boolean | |
-| `onScroll` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<Indicator
+    icon="mail-unread-symbolic"
+    badge="3"
+    tooltip="3 unread messages"
+/>
+```
+
+```python [Python]
+Indicator(
+    icon="mail-unread-symbolic",
+    badge="3",
+    tooltip="3 unread messages",
+)
+```
+
+```go [Go]
+sdk.Indicator(sdk.IndicatorProps{
+	Icon:    "mail-unread-symbolic",
+	Badge:   "3",
+	Tooltip: "3 unread messages",
+})
+```
+
+```rust [Rust]
+indicator()
+    .icon("mail-unread-symbolic")
+    .badge("3")
+    .tooltip("3 unread messages")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `icon` | string | | The chip's icon |
+| `text` | string, up to 32 characters shown | | A label beside the icon |
+| `tooltip` | string | | Text shown on hover |
+| `badge` | string, up to 8 characters | | A short count on the chip, such as `3`; it takes the attention dot's place |
+| `overlay` | string | | An icon drawn over the corner of `icon` |
+| `dot` | CSS color | | A dot in this color, such as `#e01b24` |
+| `severity` | `info`, `warning`, `error` | | `warning` and `error` color the icon and label; `info` looks like none |
+| `attention` | boolean | `false` | Marks the chip with a dot |
+| `notice` | boolean | `false` | A rounded accent background behind the icon and label |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onPress` | `(button: number)` | | Called on a click other than the left one, with `2` for middle, `3` for right, or the button's code |
+| `onScroll` | `(dx: number, dy: number)` | | Called once per scroll step: `dy` is `-1` up and `1` down, `dx` is `-1` left and `1` right |
 
 ### `popover`
 
-The card that opens on a left click. Under the root. `icon`, `title` and `subtitle` render the shell's header. The popover body
-scrolls past 60% of the monitor height.
+The card that opens from the indicator, with an optional header above its body. The body scrolls
+once it passes 60% of the monitor's height.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `className` | class | |
-| `icon` | string | Themed icon in the shell header |
-| `title` | string | Header title. The header is shown when this is set |
-| `subtitle` | string | Header subtitle |
-| `size` | `regular`, `wide` | Width of the card. Defaults to regular |
+::: code-group
 
-Children follow the parent table. The order of `children` is the order on screen.
+```tsx [TypeScript]
+<Popover
+    icon="mail-unread-symbolic"
+    title="Mail"
+    subtitle="3 unread"
+>
+    <Row
+        title="Lunch with Maya"
+        subtitle="Maya Lindqvist"
+    />
+</Popover>
+```
+
+```python [Python]
+Popover(
+    Row(
+        title="Lunch with Maya",
+        subtitle="Maya Lindqvist",
+    ),
+    icon="mail-unread-symbolic",
+    title="Mail",
+    subtitle="3 unread",
+)
+```
+
+```go [Go]
+sdk.Popover(
+	sdk.PopoverProps{
+		Icon:     "mail-unread-symbolic",
+		Title:    "Mail",
+		Subtitle: "3 unread",
+	},
+	sdk.Row(sdk.RowProps{
+		Title:    "Lunch with Maya",
+		Subtitle: "Maya Lindqvist",
+	}),
+)
+```
+
+```rust [Rust]
+popover()
+    .icon("mail-unread-symbolic")
+    .title("Mail")
+    .subtitle("3 unread")
+    .child(
+        row()
+            .title("Lunch with Maya")
+            .subtitle("Maya Lindqvist"),
+    )
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `title` | string | | The header's title; without it the header is hidden |
+| `subtitle` | string | | A line under the title |
+| `icon` | string | | The header's icon |
+| `size` | `regular`, `wide` | `regular` | The card's width |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `addon`
 
-One control in the popover header's end slot. At most one, under `popover`. Its one child is
-`readout`, `switch`, `container` or `swatch`. It does not take `className`.
+One control in the popover header's end, such as a power switch or a large reading. It takes no
+props.
+
+::: code-group
+
+```tsx [TypeScript]
+<Popover title="Wi-Fi">
+    <Addon>
+        <Switch
+            active={on}
+            onToggle={setOn}
+        />
+    </Addon>
+</Popover>
+```
+
+```python [Python]
+Popover(
+    Addon(
+        Switch(
+            active=on,
+            on_toggle=set_on,
+        )
+    ),
+    title="Wi-Fi",
+)
+```
+
+```go [Go]
+sdk.Popover(
+	sdk.PopoverProps{Title: "Wi-Fi"},
+	sdk.Addon(
+		sdk.AddonProps{},
+		sdk.Switch(sdk.SwitchProps{
+			Active:   on,
+			OnToggle: setOn,
+		}),
+	),
+)
+```
+
+```rust [Rust]
+popover()
+    .title("Wi-Fi")
+    .child(
+        addon().child(
+            switch()
+                .active(on)
+                .on_toggle(Msg::SetOn),
+        ),
+    )
+```
+
+:::
 
 ### `container`
 
-A sized, painted box around one child. Use it for a colored block or to fix a width. A body
-element. At most one child, any body element except `section`. It does not take
-`className`.
+A box of a set size and color around one element, for a colored tile or a fixed width.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `width` | number | Clamped to -1..=1024. -1 is the natural width |
-| `height` | number | Clamped to -1..=1024. -1 is the natural height |
-| `background` | paint | `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `light`, `dark` |
-| `color` | paint | The same paint names, applied to the text |
-| `align` | align | `fill`, `start`, `end`, `center`, `baseline`. Applied to the child |
+::: code-group
+
+```tsx [TypeScript]
+<Container
+    width={48}
+    height={48}
+    background="blue"
+    align="center"
+>
+    <Label text="21°" />
+</Container>
+```
+
+```python [Python]
+Container(
+    Label(text="21°"),
+    width=48,
+    height=48,
+    background="blue",
+    align="center",
+)
+```
+
+```go [Go]
+sdk.Container(
+	sdk.ContainerProps{
+		Width:      sdk.Ptr(48),
+		Height:     sdk.Ptr(48),
+		Background: "blue",
+		Align:      "center",
+	},
+	sdk.Label(sdk.LabelProps{Text: "21°"}),
+)
+```
+
+```rust [Rust]
+container()
+    .width(Some(48))
+    .height(Some(48))
+    .background(Paint::Blue)
+    .align(Align::Center)
+    .child(label().text("21°"))
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `width` | number, `-1..1024` | `-1` | The width in pixels; `-1` follows the child |
+| `height` | number, `-1..1024` | `-1` | The height in pixels; `-1` follows the child |
+| `background` | `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `light`, `dark` | | The fill color |
+| `color` | the same values as `background` | | The color of the text inside |
+| `align` | `fill`, `start`, `end`, `center`, `baseline` | `fill` | Where the child sits inside the box |
 
 ### `section`
 
-A titled group of body elements. A body element. It holds body elements except another
-`section`. `count` sits beside the title.
+A titled group of elements, such as the networks in range.
 
-| Prop | Type |
-| --- | --- |
-| `title` | string |
-| `count` | string |
-| `className` | class |
+::: code-group
+
+```tsx [TypeScript]
+<Section
+    title="Inbox"
+    count="3"
+>
+    <Row title="Lunch with Maya" />
+</Section>
+```
+
+```python [Python]
+Section(
+    Row(title="Lunch with Maya"),
+    title="Inbox",
+    count="3",
+)
+```
+
+```go [Go]
+sdk.Section(
+	sdk.SectionProps{
+		Title: "Inbox",
+		Count: "3",
+	},
+	sdk.Row(sdk.RowProps{Title: "Lunch with Maya"}),
+)
+```
+
+```rust [Rust]
+section()
+    .title("Inbox")
+    .count("3")
+    .child(row().title("Lunch with Maya"))
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `title` | string | | The heading above the group |
+| `count` | string | | Short text beside the title, such as `3` |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `row`
 
-Rows are the main building block of a popover. `row`, `actionrow`, `togglerow`, `meterrow` and
-`expanderrow` share the props in this table; `sliderrow` does not. A body element. A static row: it
-fires no events. At most one end child: `image`, `readout`
-or `spinner`.
+A line of information that does nothing when clicked: an icon, a title, a subtitle and a value.
+`actionrow`, `togglerow`, `meterrow` and `expanderrow` take these props too.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `icon` | string | Themed icon name |
-| `title` | string | |
-| `subtitle` | string | |
-| `value` | string | A short value at the end, such as `5 GHz` |
-| `tone` | `warning`, `error`, `destructive` | Absent is normal |
-| `inactive` | boolean | `false`. Fades the row |
-| `tooltip` | string | Plain text |
-| `typography` | `numeric`, `monospace` | Absent is default. `numeric` suits figures that change |
+::: code-group
 
-Inactive action, toggle and meter rows ignore input, are insensitive, leave Tab navigation and fade
-once. Use `subtitle` to say why a row is inactive. Updates from your applet still render.
+```tsx [TypeScript]
+<Row
+    icon="network-wireless-symbolic"
+    title="Lighthouse"
+    value="5 GHz"
+/>
+```
+
+```python [Python]
+Row(
+    icon="network-wireless-symbolic",
+    title="Lighthouse",
+    value="5 GHz",
+)
+```
+
+```go [Go]
+sdk.Row(sdk.RowProps{
+	Icon:  "network-wireless-symbolic",
+	Title: "Lighthouse",
+	Value: "5 GHz",
+})
+```
+
+```rust [Rust]
+row()
+    .icon("network-wireless-symbolic")
+    .title("Lighthouse")
+    .value("5 GHz")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `title` | string | | The main text |
+| `subtitle` | string | | A second line under the title |
+| `icon` | string | | An icon at the start |
+| `value` | string | | Short text at the end, such as `5 GHz` |
+| `tooltip` | string | | Text shown on hover |
+| `tone` | `warning`, `error`, `destructive` | | `warning` and `error` color the icon, subtitle and value; `destructive` colors the title red |
+| `typography` | `numeric`, `monospace` | | `numeric` gives every digit the same width, so changing figures stay put; `monospace` sets the row in a fixed-width font |
+| `inactive` | boolean | `false` | Fades the row |
 
 ### `actionrow`
 
-A row you click. A body element. At most one end child: `image`, `readout` or `spinner`, and at most one
-`start`.
-`onActivate` sends `[]` when the row is activated; inactive rows emit nothing.
+A row the user clicks to do something, such as Connect. It takes the [`row`](#row) props and these:
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `icon` | string | Themed icon name |
-| `title` | string | |
-| `subtitle` | string | |
-| `value` | string | |
-| `tone` | `warning`, `error`, `destructive` | Absent is normal |
-| `inactive` | boolean | `false`. Suppresses primary user input |
-| `tooltip` | string | Plain text |
-| `typography` | `numeric`, `monospace` | Absent is default |
-| `busy` | boolean | |
-| `onActivate` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<ActionRow
+    icon="view-refresh-symbolic"
+    title="Sync now"
+    busy={syncing}
+    onActivate={sync}
+/>
+```
+
+```python [Python]
+ActionRow(
+    icon="view-refresh-symbolic",
+    title="Sync now",
+    busy=syncing,
+    on_activate=sync,
+)
+```
+
+```go [Go]
+sdk.ActionRow(sdk.ActionRowProps{
+	Icon:       "view-refresh-symbolic",
+	Title:      "Sync now",
+	Busy:       syncing,
+	OnActivate: sync,
+})
+```
+
+```rust [Rust]
+action_row()
+    .icon("view-refresh-symbolic")
+    .title("Sync now")
+    .busy(syncing)
+    .on_activate(|| Msg::Sync)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `busy` | boolean | `false` | Shows a spinner at the end in place of the value |
+| `inactive` | boolean | `false` | Fades the row and ignores clicks |
+| `onActivate` | `()` | | Called when the user clicks the row |
 
 ### `togglerow`
 
-A row with a switch or a check box. It is controlled: pass `active` and update it in `onToggle`.
-A leaf. `control` selects a check or switch control. `onToggle` sends
-`[active]` with a `seq`; inactive rows emit nothing. The actual `active` value remains visible.
+A row with a switch or a check box, for a setting the user turns on and off. It takes the
+[`row`](#row) props and these:
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `icon` | string | Themed icon name |
-| `title` | string | |
-| `subtitle` | string | |
-| `value` | string | |
-| `tone` | `warning`, `error`, `destructive` | Absent is normal |
-| `inactive` | boolean | `false`. Suppresses primary user input |
-| `tooltip` | string | Plain text |
-| `typography` | `numeric`, `monospace` | Absent is default |
-| `busy` | boolean | |
-| `control` | `check`, `switch` | Absent is `switch` |
-| `active` | boolean | Controlled by `onToggle` |
-| `onToggle` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<ToggleRow
+    title="Do not disturb"
+    active={quiet}
+    onToggle={setQuiet}
+/>
+```
+
+```python [Python]
+ToggleRow(
+    title="Do not disturb",
+    active=quiet,
+    on_toggle=set_quiet,
+)
+```
+
+```go [Go]
+sdk.ToggleRow(sdk.ToggleRowProps{
+	Title:    "Do not disturb",
+	Active:   quiet,
+	OnToggle: setQuiet,
+})
+```
+
+```rust [Rust]
+toggle_row()
+    .title("Do not disturb")
+    .active(quiet)
+    .on_toggle(Msg::SetQuiet)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `active` | boolean | `false` | Whether the switch or check box is on |
+| `control` | `switch`, `check` | `switch` | Draws a switch or a check box |
+| `busy` | boolean | `false` | Shows a spinner at the end in place of the value |
+| `inactive` | boolean | `false` | Fades the row and ignores input |
+| `onToggle` | `(active: boolean)` | | Called when the user flips it, with the new state |
 
 ### `meterrow`
 
-A row with a level bar, such as disk use. A body element. At most one end child: `image`, `readout` or `spinner`.
-Its level is a fraction from `0` to `1`. No events.
+A row with a level bar, such as disk use. It takes the [`row`](#row) props and these:
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `icon` | string | Themed icon name |
-| `title` | string | |
-| `subtitle` | string | |
-| `value` | string | |
-| `tone` | `warning`, `error`, `destructive` | Absent is normal |
-| `inactive` | boolean | `false`. Suppresses primary user input |
-| `tooltip` | string | Plain text |
-| `typography` | `numeric`, `monospace` | Absent is default |
-| `busy` | boolean | |
-| `level` | number | Clamped to `0` to `1`. Absent or non-finite draws no bar |
+::: code-group
+
+```tsx [TypeScript]
+<MeterRow
+    icon="drive-harddisk-symbolic"
+    title="Home"
+    value="72%"
+    level={0.72}
+/>
+```
+
+```python [Python]
+MeterRow(
+    icon="drive-harddisk-symbolic",
+    title="Home",
+    value="72%",
+    level=0.72,
+)
+```
+
+```go [Go]
+sdk.MeterRow(sdk.MeterRowProps{
+	Icon:  "drive-harddisk-symbolic",
+	Title: "Home",
+	Value: "72%",
+	Level: sdk.Ptr(0.72),
+})
+```
+
+```rust [Rust]
+meter_row()
+    .icon("drive-harddisk-symbolic")
+    .title("Home")
+    .value("72%")
+    .level(Some(0.72))
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `level` | number, `0..1` | | How full the bar is; without it no bar is drawn |
+| `tone` | `warning`, `error`, `destructive` | | Also colors the bar |
+| `busy` | boolean | `false` | Shows a spinner at the end in place of the value |
 
 ### `expanderrow`
 
-A row that opens a drawer of rows below it. A body element. Its head may contain one `end` element with at most one
-`image`, `readout` or `spinner` child, and one `start` element. Its other children fill the drawer as
-listed in the parent table. `onToggle` sends `[open]` with a `seq` in every state.
-Expansion is inspection, so the head stays activatable when inactive. Every drawer participates
-in the accordion, so the panel closes other drawers when one opens. `inactive` never propagates to drawer children.
+A row that opens a drawer of more rows below it, such as the details of one network. Opening one
+drawer closes the others in the popover. It takes the [`row`](#row) props and these:
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `icon` | string | Themed icon name |
-| `title` | string | |
-| `subtitle` | string | |
-| `value` | string | |
-| `tone` | `warning`, `error`, `destructive` | Absent is normal |
-| `inactive` | boolean | `false`. Fades the head; expansion remains available |
-| `tooltip` | string | Plain text |
-| `typography` | `numeric`, `monospace` | Absent is default |
-| `busy` | boolean | |
-| `open` | boolean | Controlled by `onToggle` |
-| `tint` | boolean | `false`. Tone colors the whole head and drawer card |
-| `titleLines` | number | `1`. Non-finite, non-integer or less than 1 becomes 1; greater than 4 becomes 4 |
-| `onToggle` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<ExpanderRow
+    title="Lighthouse"
+    subtitle="Connected"
+    open={expanded}
+    onToggle={setExpanded}
+>
+    <Row
+        title="Signal"
+        value="82%"
+    />
+</ExpanderRow>
+```
+
+```python [Python]
+ExpanderRow(
+    Row(
+        title="Signal",
+        value="82%",
+    ),
+    title="Lighthouse",
+    subtitle="Connected",
+    open=expanded,
+    on_toggle=set_expanded,
+)
+```
+
+```go [Go]
+sdk.ExpanderRow(
+	sdk.ExpanderRowProps{
+		Title:    "Lighthouse",
+		Subtitle: "Connected",
+		Open:     expanded,
+		OnToggle: setExpanded,
+	},
+	sdk.Row(sdk.RowProps{
+		Title: "Signal",
+		Value: "82%",
+	}),
+)
+```
+
+```rust [Rust]
+expander_row()
+    .title("Lighthouse")
+    .subtitle("Connected")
+    .open(expanded)
+    .on_toggle(Msg::SetExpanded)
+    .child(
+        row()
+            .title("Signal")
+            .value("82%"),
+    )
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `open` | boolean | `false` | Whether the drawer is open |
+| `titleLines` | number, `1..4` | `1` | How many lines the title may wrap onto |
+| `tint` | boolean | `false` | `tone` colors the whole head and the open card, not only its text |
+| `busy` | boolean | `false` | Shows a spinner at the end of the head in place of the value |
+| `inactive` | boolean | `false` | Fades the head; the drawer still opens |
+| `onToggle` | `(open: boolean)` | | Called when the drawer opens or closes, with the new state, also when the panel closes it because another drawer opened |
 
 ### `end`
 
-A slot at the end of an `expanderrow` head. Only under `expanderrow`. It takes no props and holds at most one `image`,
-`readout` or `spinner`, drawn in the head's end slot. No events.
+Puts one image, readout or spinner at the end of an expander row's head, such as a device's battery
+level. It has no props, and an empty `end` draws nothing.
+
+::: code-group
+
+```tsx [TypeScript]
+<ExpanderRow
+    icon="audio-headphones-symbolic"
+    title="AirPods Pro"
+>
+    <End>
+        <Readout
+            value="80"
+            unit="%"
+        />
+    </End>
+</ExpanderRow>
+```
+
+```python [Python]
+ExpanderRow(
+    End(
+        Readout(
+            value="80",
+            unit="%",
+        )
+    ),
+    icon="audio-headphones-symbolic",
+    title="AirPods Pro",
+)
+```
+
+```go [Go]
+sdk.ExpanderRow(
+	sdk.ExpanderRowProps{
+		Icon:  "audio-headphones-symbolic",
+		Title: "AirPods Pro",
+	},
+	sdk.End(
+		sdk.EndProps{},
+		sdk.Readout(sdk.ReadoutProps{
+			Value: "80",
+			Unit:  "%",
+		}),
+	),
+)
+```
+
+```rust [Rust]
+expander_row()
+    .icon("audio-headphones-symbolic")
+    .title("AirPods Pro")
+    .child(
+        end().child(
+            readout()
+                .value("80")
+                .unit("%"),
+        ),
+    )
+```
+
+:::
 
 ### `start`
 
-A slot for the leading control of a row. Under `sliderrow`, `actionrow` or `expanderrow`. It takes no props and holds at most one
-`image`, `button`, `readout`, `spinner`, `dots` or `swatch`. Under `sliderrow` it is drawn left of the
-scale; under a row it takes the icon's place, centered, and hides `icon`. Empty slots are hidden.
-No events.
+Puts one control at the start of a row, such as a mute button beside a volume slider. In a slider
+row it sits left of the slider; in an action or expander row it takes the place of the icon. It has
+no props, and an empty `start` draws nothing.
+
+::: code-group
+
+```tsx [TypeScript]
+<SliderRow
+    title="Volume"
+    value={volume}
+    onChange={setVolume}
+>
+    <Start>
+        <Button
+            icon="audio-volume-high-symbolic"
+            tooltip="Mute"
+            onClick={toggleMute}
+        />
+    </Start>
+</SliderRow>
+```
+
+```python [Python]
+SliderRow(
+    Start(
+        Button(
+            icon="audio-volume-high-symbolic",
+            tooltip="Mute",
+            on_click=toggle_mute,
+        )
+    ),
+    title="Volume",
+    value=volume,
+    on_change=set_volume,
+)
+```
+
+```go [Go]
+sdk.SliderRow(
+	sdk.SliderRowProps{
+		Title:    "Volume",
+		Value:    volume,
+		OnChange: setVolume,
+	},
+	sdk.Start(
+		sdk.StartProps{},
+		sdk.Button(sdk.ButtonProps{
+			Icon:    "audio-volume-high-symbolic",
+			Tooltip: "Mute",
+			OnClick: toggleMute,
+		}),
+	),
+)
+```
+
+```rust [Rust]
+slider_row()
+    .title("Volume")
+    .value(volume)
+    .on_change(Msg::Volume)
+    .child(
+        start().child(
+            button()
+                .icon("audio-volume-high-symbolic")
+                .tooltip("Mute")
+                .on_click(|| Msg::ToggleMute),
+        ),
+    )
+```
+
+:::
 
 ### `sliderrow`
 
-A row with a slider. It does not take the shared row props. Holds at most one `start`. `onMove`
-sends `[value]` during a drag with `seq: null`; `onChange` sends `[value]` once at drag end or on a
-keyboard step, with a `seq`, so update `value` there.
-Bounds: `min` `0`, `max` `1`, `step` `0.01`; a `step` that is not greater than `0`
-becomes `0.01`; `min >= max` resets both to `0` and `1`. A non-finite number is dropped and
-takes its default. `value` is clamped to `min` to `max`; a missing `value` is `min`. A `set`
-of `value` that arrives during a drag is dropped; the release wins, and a later `set` applies normally.
-Turning `inactive` on during a drag cancels it without a final `onChange`. Inactive rows
-suppress `onMove` and `onChange`. Only the scale is insensitive and faded;
-the start slot's owner controls its sensitivity. Backend `set` updates still render.
+A row with a slider, for a level the user drags, such as volume or brightness. A `start` child adds
+a control to its left.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `title` | string | Accessible name of the value control |
-| `subtitle` | string | Plain text, cleaned and capped at 256 characters |
-| `value` | number | `min`. Controlled by `onChange` |
-| `min` | number | `0` |
-| `max` | number | `1` |
-| `step` | number | `0.01`. Keyboard step |
-| `tone` | `warning`, `error`, `destructive` | Absent is normal |
-| `inactive` | boolean | `false`. Disables scale input |
-| `tooltip` | string | Plain text |
-| `onMove` | boolean | |
-| `onChange` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<SliderRow
+    title="Brightness"
+    value={brightness}
+    onChange={setBrightness}
+/>
+```
+
+```python [Python]
+SliderRow(
+    title="Brightness",
+    value=brightness,
+    on_change=set_brightness,
+)
+```
+
+```go [Go]
+sdk.SliderRow(sdk.SliderRowProps{
+	Title:    "Brightness",
+	Value:    brightness,
+	OnChange: setBrightness,
+})
+```
+
+```rust [Rust]
+slider_row()
+    .title("Brightness")
+    .value(brightness)
+    .on_change(Msg::Brightness)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `value` | `min..max` | `min` | Where the slider's knob sits |
+| `min` | number below `max` | `0` | The value at the slider's left end |
+| `max` | number above `min` | `1` | The value at the slider's right end |
+| `step` | number above `0` | `0.01` | How far one arrow key press moves the knob |
+| `title` | string | | Names the slider for screen readers; it is not drawn |
+| `subtitle` | string | | A line of text under the slider |
+| `tooltip` | string | | Text shown on hover |
+| `tone` | `warning`, `error`, `destructive` | | Colors the row to flag the level |
+| `inactive` | boolean | `false` | Fades the slider and stops it from moving |
+| `onMove` | `(value: number)` | | Called while the user drags, with the current value |
+| `onChange` | `(value: number)` | | Called once when a drag ends or a key moves the knob, with the new value |
 
 ### `entry`
 
-A text field. A leaf. `value` is not text-cleaned. Control characters and bidi overrides are stripped
-in place, the rest is kept, including leading and trailing spaces, and the result is
-capped at 4096 characters with no ellipsis.
+A one-line text field, for a name, a search or a new item.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `placeholder` | string | absent. This one is text-cleaned |
-| `value` | string | `""` |
-| `className` | class | |
-| `onChange` | boolean | |
-| `onSubmit` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<Entry
+    placeholder="Add a task"
+    value={draft}
+    onChange={setDraft}
+    onSubmit={addTask}
+/>
+```
+
+```python [Python]
+Entry(
+    placeholder="Add a task",
+    value=draft,
+    on_change=set_draft,
+    on_submit=add_task,
+)
+```
+
+```go [Go]
+sdk.Entry(sdk.EntryProps{
+	Placeholder: "Add a task",
+	Value:       draft,
+	OnChange:    setDraft,
+	OnSubmit:    addTask,
+})
+```
+
+```rust [Rust]
+entry()
+    .placeholder("Add a task")
+    .value(draft)
+    .on_change(Msg::Draft)
+    .on_submit(Msg::AddTask)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `value` | string, up to 4096 characters, spaces kept | `""` | The text in the field |
+| `placeholder` | string | | Hint text shown while the field is empty |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onChange` | `(value: string)` | | Called on every edit, with the whole text |
+| `onSubmit` | `(value: string)` | | Called when the user presses Enter, with the whole text |
 
 ### `placeholder`
 
-An empty state: an icon, a title and a line of explanation. A leaf.
+An empty state: an icon, a title and a line of explanation, centered, for a list with nothing in it.
 
-| Prop | Type |
-| --- | --- |
-| `icon` | string |
-| `title` | string |
-| `description` | string |
-| `className` | class |
+::: code-group
+
+```tsx [TypeScript]
+<Placeholder
+    icon="bluetooth-disabled-symbolic"
+    title="No devices"
+    description="Paired devices show up here"
+/>
+```
+
+```python [Python]
+Placeholder(
+    icon="bluetooth-disabled-symbolic",
+    title="No devices",
+    description="Paired devices show up here",
+)
+```
+
+```go [Go]
+sdk.Placeholder(sdk.PlaceholderProps{
+	Icon:        "bluetooth-disabled-symbolic",
+	Title:       "No devices",
+	Description: "Paired devices show up here",
+})
+```
+
+```rust [Rust]
+placeholder()
+    .icon("bluetooth-disabled-symbolic")
+    .title("No devices")
+    .description("Paired devices show up here")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `icon` | string | | An icon above the title |
+| `title` | string | | The main line, such as what is missing |
+| `description` | string | | A smaller line under the title |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `box`
 
-Lays out body elements in a row or a column. A body element. Holds body elements.
+Lays out its children in a row or a column, such as a set of buttons side by side.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `orientation` | `horizontal`, `vertical` | `horizontal` |
-| `spacing` | number | `0`, clamped to `0` to `24` |
-| `homogeneous` | boolean | `false` |
-| `halign`, `valign` | `fill`, `start`, `end`, `center`, `baseline` | absent, so the widget's own align is left alone |
-| `hexpand`, `vexpand` | boolean | `false` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Box
+    spacing={6}
+    halign="center"
+>
+    <Button
+        icon="media-skip-backward-symbolic"
+        tooltip="Previous"
+        onClick={previous}
+    />
+    <Button
+        icon="media-playback-pause-symbolic"
+        tooltip="Pause"
+        onClick={pause}
+    />
+</Box>
+```
+
+```python [Python]
+Box(
+    Button(
+        icon="media-skip-backward-symbolic",
+        tooltip="Previous",
+        on_click=previous,
+    ),
+    Button(
+        icon="media-playback-pause-symbolic",
+        tooltip="Pause",
+        on_click=pause,
+    ),
+    spacing=6,
+    halign="center",
+)
+```
+
+```go [Go]
+sdk.Box(
+	sdk.BoxProps{
+		Spacing: 6,
+		Halign:  "center",
+	},
+	sdk.Button(sdk.ButtonProps{
+		Icon:    "media-skip-backward-symbolic",
+		Tooltip: "Previous",
+		OnClick: previous,
+	}),
+	sdk.Button(sdk.ButtonProps{
+		Icon:    "media-playback-pause-symbolic",
+		Tooltip: "Pause",
+		OnClick: pause,
+	}),
+)
+```
+
+```rust [Rust]
+bx().spacing(6)
+    .halign(Align::Center)
+    .child(
+        button()
+            .icon("media-skip-backward-symbolic")
+            .tooltip("Previous")
+            .on_click(|| Msg::Previous),
+    )
+    .child(
+        button()
+            .icon("media-playback-pause-symbolic")
+            .tooltip("Pause")
+            .on_click(|| Msg::Pause),
+    )
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `orientation` | `horizontal`, `vertical` | `horizontal` | Lines the children up side by side or one under another |
+| `spacing` | `0..24` | `0` | Pixels between children |
+| `homogeneous` | boolean | `false` | Gives every child the same size |
+| `halign` | `fill`, `start`, `end`, `center`, `baseline` | `fill` | Where the box sits across the width it is given |
+| `valign` | `fill`, `start`, `end`, `center`, `baseline` | `fill` | Where the box sits across the height it is given |
+| `hexpand` | boolean | `false` | Takes any spare width |
+| `vexpand` | boolean | `false` | Takes any spare height |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `label`
 
-Plain text. A leaf. The words are the `text` prop, plain text, never markup.
+A piece of plain text, such as a caption or a status line. Every label is about 48 characters wide at most.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `text` | string | absent |
-| `wrap` | boolean | `false` |
-| `xalign` | number | absent. When set, clamped to `0` to `1` |
-| `ellipsize` | `none`, `start`, `middle`, `end` | absent |
-| `lines` | number | `0`, meaning no extra line limit. Rounded and clamped to `0` to `8` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Label
+    text="Last synced 5 minutes ago"
+    className="dim-label"
+    wrap
+/>
+```
+
+```python [Python]
+Label(
+    text="Last synced 5 minutes ago",
+    class_name="dim-label",
+    wrap=True,
+)
+```
+
+```go [Go]
+sdk.Label(sdk.LabelProps{
+	Text:      "Last synced 5 minutes ago",
+	ClassName: "dim-label",
+	Wrap:      true,
+})
+```
+
+```rust [Rust]
+label()
+    .text("Last synced 5 minutes ago")
+    .class_name(ClassName::DimLabel)
+    .wrap(true)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `text` | string | | The words shown, never read as markup |
+| `wrap` | boolean | `false` | Breaks long text onto more lines |
+| `lines` | `0..8` | `0` | With `wrap`, the most lines shown before the text is cut with `…`; `0` shows every line |
+| `ellipsize` | `none`, `start`, `middle`, `end` | `end` | Without `wrap`, where text that does not fit is cut with `…` |
+| `xalign` | `0..1` | `0.5` | Horizontal position of the text: `0` left, `0.5` centered, `1` right |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `image`
 
-A themed icon. A leaf. `icon` is a themed name, never a path.
-When set, `tooltip` also provides the accessible name.
+A themed icon on its own, such as a weather symbol. It shows an icon from the icon theme, never a
+file.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `icon` | string | absent |
-| `tooltip` | string | absent |
-| `pixelSize` | number | absent. When set, rounded and clamped to `8` to `64` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Image
+    icon="weather-clear-symbolic"
+    pixelSize={32}
+    tooltip="Clear sky"
+/>
+```
+
+```python [Python]
+Image(
+    icon="weather-clear-symbolic",
+    pixel_size=32,
+    tooltip="Clear sky",
+)
+```
+
+```go [Go]
+sdk.Image(sdk.ImageProps{
+	Icon:      "weather-clear-symbolic",
+	PixelSize: sdk.Ptr(32),
+	Tooltip:   "Clear sky",
+})
+```
+
+```rust [Rust]
+image()
+    .icon("weather-clear-symbolic")
+    .pixel_size(Some(32))
+    .tooltip("Clear sky")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `icon` | string | | The icon name |
+| `pixelSize` | `8..64` | the theme's size | The icon's size in pixels |
+| `tooltip` | string | | Text shown on hover, also read by screen readers |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `swatch`
 
-A leaf: a chip filled with `color`. Only in `addon` and `start`.
+A chip filled with one color, such as a preview of a color temperature.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `color` | string | absent, an empty chip. A CSS color: `#e0563f`, `rgb(224 86 63)`, a name; capped at 256 characters; one that does not parse draws nothing |
-| `tooltip` | string | absent |
-| `size` | `regular`, `large` | `regular`. `large` is the addon's hero size |
+::: code-group
+
+```tsx [TypeScript]
+<Addon>
+    <Swatch
+        color="#e0563f"
+        size="large"
+        tooltip="Night light color"
+    />
+</Addon>
+```
+
+```python [Python]
+Addon(
+    Swatch(
+        color="#e0563f",
+        size="large",
+        tooltip="Night light color",
+    )
+)
+```
+
+```go [Go]
+sdk.Addon(
+	sdk.AddonProps{},
+	sdk.Swatch(sdk.SwatchProps{
+		Color:   "#e0563f",
+		Size:    "large",
+		Tooltip: "Night light color",
+	}),
+)
+```
+
+```rust [Rust]
+addon().child(
+    swatch()
+        .color("#e0563f")
+        .size(SwatchSize::Large)
+        .tooltip("Night light color"),
+)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `color` | CSS color, up to 256 characters | | The fill, such as `#e0563f`, `rgb(224 86 63)` or `orange`. Without a color, or with one that does not parse, the chip is empty |
+| `size` | `regular`, `large` | `regular` | `large` is the bigger chip for the popover header |
+| `tooltip` | string | | Text shown on hover |
 
 ### `button`
 
-A push button with `text`, `icon` or both. A leaf. The label is the `text` prop.
-Give an icon-only button a `tooltip`; it also provides the accessible name.
+A push button with text, an icon or both, for a single action.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `text` | string | absent |
-| `icon` | string | absent |
-| `tooltip` | string | absent |
-| `sensitive` | boolean | `true` |
-| `className` | class | |
-| `onClick` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<Button
+    icon="view-refresh-symbolic"
+    tooltip="Refresh"
+    onClick={refresh}
+/>
+```
+
+```python [Python]
+Button(
+    icon="view-refresh-symbolic",
+    tooltip="Refresh",
+    on_click=refresh,
+)
+```
+
+```go [Go]
+sdk.Button(sdk.ButtonProps{
+	Icon:    "view-refresh-symbolic",
+	Tooltip: "Refresh",
+	OnClick: refresh,
+})
+```
+
+```rust [Rust]
+button()
+    .icon("view-refresh-symbolic")
+    .tooltip("Refresh")
+    .on_click(|| Msg::Refresh)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `text` | string | | The button's label |
+| `icon` | string | | An icon, before the text when both are set |
+| `tooltip` | string | `text` | Text shown on hover, also read by screen readers; give an icon-only button one |
+| `sensitive` | boolean | `true` | `false` grays the button out and ignores clicks |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onClick` | `()` | | Called when the user clicks the button |
 
 ### `switch`
 
-An on/off switch. Most often it sits in an `addon`; in a list, use a `togglerow`. A leaf.
+An on and off switch on its own, such as one in the popover header. In a list, a `togglerow` gives
+the switch a title.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `active` | boolean | `false` |
-| `sensitive` | boolean | `true` |
-| `className` | class | |
-| `onToggle` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<Switch
+    active={enabled}
+    onToggle={setEnabled}
+/>
+```
+
+```python [Python]
+Switch(
+    active=enabled,
+    on_toggle=set_enabled,
+)
+```
+
+```go [Go]
+sdk.Switch(sdk.SwitchProps{
+	Active:   enabled,
+	OnToggle: setEnabled,
+})
+```
+
+```rust [Rust]
+switch()
+    .active(enabled)
+    .on_toggle(Msg::Enabled)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `active` | boolean | `false` | Whether the switch is on |
+| `sensitive` | boolean | `true` | `false` grays the switch out and ignores clicks |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onToggle` | `(active: boolean)` | | Called when the user flips the switch, with the new state |
 
 ### `scale`
 
-A bare slider. Prefer a `sliderrow` in a list. A leaf. `min` must be less than `max`. When a set breaks that, both return to `0` and
-`1` and `value` is clamped into the range. `value` is also clamped when the range is
-already valid.
+A bare slider with no title or row around it. In a list, a `sliderrow` gives it a row.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `value` | number | `0` |
-| `min` | number | `0` |
-| `max` | number | `1` |
-| `step` | number | `0`. A negative step becomes `0` |
-| `sensitive` | boolean | `true` |
-| `className` | class | |
-| `onChange` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<Scale
+    value={opacity}
+    min={0}
+    max={100}
+    step={5}
+    onChange={setOpacity}
+/>
+```
+
+```python [Python]
+Scale(
+    value=opacity,
+    min=0,
+    max=100,
+    step=5,
+    on_change=set_opacity,
+)
+```
+
+```go [Go]
+sdk.Scale(sdk.ScaleProps{
+	Value:    opacity,
+	Min:      0,
+	Max:      100,
+	Step:     5,
+	OnChange: setOpacity,
+})
+```
+
+```rust [Rust]
+scale()
+    .value(opacity)
+    .min(0.0)
+    .max(100.0)
+    .step(5.0)
+    .on_change(Msg::Opacity)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `value` | number, clamped to `min..max` | `0` | Where the slider's knob sits |
+| `min` | number below `max` | `0` | The value at the slider's left end |
+| `max` | number above `min` | `1` | The value at the slider's right end |
+| `step` | number, `0` or more | `0` | How far one arrow key press moves the knob; `0` moves it a hundredth of the range |
+| `sensitive` | boolean | `true` | `false` grays the slider out and ignores input |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onChange` | `(value: number)` | | Called each time the user moves the knob, with the new value |
 
 ### `spinner`
 
-A busy spinner. A leaf. No props besides `className`.
+A spinning busy indicator, for work in progress.
+
+::: code-group
+
+```tsx [TypeScript]
+<Spinner />
+```
+
+```python [Python]
+Spinner()
+```
+
+```go [Go]
+sdk.Spinner(sdk.SpinnerProps{})
+```
+
+```rust [Rust]
+spinner()
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `factlist`
 
-Label and value pairs. A leaf. No events.
+A list of label and value pairs, such as a connection's details.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `facts` | array of `{label, value, warning?}` | At most 64 items |
+::: code-group
+
+```tsx [TypeScript]
+<FactList
+    facts={[
+        { label: "IP address", value: "192.168.1.24" },
+        { label: "Signal", value: "Weak", warning: true },
+    ]}
+/>
+```
+
+```python [Python]
+FactList(
+    facts=[
+        {"label": "IP address", "value": "192.168.1.24"},
+        {"label": "Signal", "value": "Weak", "warning": True},
+    ]
+)
+```
+
+```go [Go]
+sdk.FactList(sdk.FactListProps{Facts: []sdk.Fact{
+	{
+		Label: "IP address",
+		Value: "192.168.1.24",
+	},
+	{
+		Label:   "Signal",
+		Value:   "Weak",
+		Warning: true,
+	},
+}})
+```
+
+```rust [Rust]
+fact_list().facts([
+    Fact::new("IP address", "192.168.1.24"),
+    Fact::new("Signal", "Weak").warning(true),
+])
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `facts` | array of `{label, value, warning?}`, `0..64` items | | One row per fact, the label at the start and the value at the end. `warning` colors that row as a warning |
 
 ### `choicelist`
 
-A visible list of up to 64 choices, one selected, each with an optional detail and icon. A leaf.
-`selected` and `onSelect` use the index. `onSelect` sends `[index]`, a number, with a `seq`.
+A list of choices with a check mark on the selected one, for picking one option while seeing them
+all, such as a power profile.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `choices` | array of `{label, detail?, icon?, warning?}` | At most 64 items |
-| `selected` | number | |
-| `className` | class | |
-| `onSelect` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<ChoiceList
+    choices={[
+        { label: "Balanced" },
+        {
+            label: "Power saver",
+            detail: "Dims the screen and slows the processor",
+        },
+    ]}
+    selected={profile}
+    onSelect={setProfile}
+/>
+```
+
+```python [Python]
+ChoiceList(
+    choices=[
+        {"label": "Balanced"},
+        {
+            "label": "Power saver",
+            "detail": "Dims the screen and slows the processor",
+        },
+    ],
+    selected=profile,
+    on_select=set_profile,
+)
+```
+
+```go [Go]
+sdk.ChoiceList(sdk.ChoiceListProps{
+	Choices: []sdk.Choice{
+		{Label: "Balanced"},
+		{
+			Label:  "Power saver",
+			Detail: "Dims the screen and slows the processor",
+		},
+	},
+	Selected: sdk.Ptr(profile),
+	OnSelect: setProfile,
+})
+```
+
+```rust [Rust]
+choice_list()
+    .choices([
+        Choice::new("Balanced"),
+        Choice::new("Power saver")
+            .detail("Dims the screen and slows the processor"),
+    ])
+    .selected(Some(profile))
+    .on_select(Msg::Profile)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `choices` | array of `{label, detail?, icon?, warning?}`, `0..64` items | | One row per choice: `label` is its title, `detail` a line under it, `icon` an icon before it, and `warning` colors it as a warning |
+| `selected` | index | | Which choice is checked; absent or out of range checks none |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onSelect` | `(index: number)` | | Called when the user picks a choice, with its index |
 
 ### `readout`
 
-A large value with a unit, for an `addon`, a row's end or a `start` slot. A leaf.
+A large value with a smaller unit beside it, such as a temperature.
 
-| Prop | Type |
-| --- | --- |
-| `value` | string |
-| `unit` | string |
-| `className` | class |
+::: code-group
+
+```tsx [TypeScript]
+<Readout
+    value="21"
+    unit="°C"
+/>
+```
+
+```python [Python]
+Readout(
+    value="21",
+    unit="°C",
+)
+```
+
+```go [Go]
+sdk.Readout(sdk.ReadoutProps{
+	Value: "21",
+	Unit:  "°C",
+})
+```
+
+```rust [Rust]
+readout()
+    .value("21")
+    .unit("°C")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `value` | string | | The number or word in large type |
+| `unit` | string | | The smaller text after it |
+| `className` | class | | A style class from [Class names](#class-names) |
 
 ### `notice`
 
-A highlighted message with a severity. A leaf. `onActivate` makes it a button.
+A highlighted message, such as a warning the user should see first. With `onActivate` it becomes a
+button with a chevron.
 
-| Prop | Type |
-| --- | --- |
-| `icon` | string |
-| `title` | string |
-| `subtitle` | string |
-| `severity` | `info`, `warning` or `error` |
-| `className` | class |
-| `onActivate` | boolean |
+::: code-group
+
+```tsx [TypeScript]
+<Notice
+    icon="battery-caution-symbolic"
+    title="Battery low"
+    subtitle="12% left"
+    severity="warning"
+    onActivate={openPowerSettings}
+/>
+```
+
+```python [Python]
+Notice(
+    icon="battery-caution-symbolic",
+    title="Battery low",
+    subtitle="12% left",
+    severity="warning",
+    on_activate=open_power_settings,
+)
+```
+
+```go [Go]
+sdk.Notice(sdk.NoticeProps{
+	Icon:       "battery-caution-symbolic",
+	Title:      "Battery low",
+	Subtitle:   "12% left",
+	Severity:   "warning",
+	OnActivate: openPowerSettings,
+})
+```
+
+```rust [Rust]
+notice()
+    .icon("battery-caution-symbolic")
+    .title("Battery low")
+    .subtitle("12% left")
+    .severity(Severity::Warning)
+    .on_activate(|| Msg::OpenPowerSettings)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `title` | string | | The message |
+| `subtitle` | string | | A smaller line under the title |
+| `icon` | string | | An icon before the text |
+| `severity` | `info`, `warning`, `error` | `info` | Colors the notice; `info` is the plain style |
+| `className` | class | | A style class from [Class names](#class-names) |
+| `onActivate` | `()` | | Makes the notice clickable, with a chevron, and is called when the user clicks it |
 
 ### `calendar`
 
-A month grid. A leaf. `today` and `selected` are `YYYY-MM-DD`; a date that is not a real day is dropped.
-`onMonth` sends `[year, month]` when the user pages to another month, and `onSelect`
-sends `["YYYY-MM-DD"]`. Neither fires for a state set by the applet. Each event marks a day with up to three tone dots.
+A month grid the user pages through and picks a day from, with colored dots on the days that have
+events.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `year` | number | Clamped to `1` to `9999`. With `month`, the month shown |
-| `month` | number | Clamped to `1` to `12` |
-| `selected` | date | Absent clears the selection |
-| `today` | date | |
-| `events` | array of `{date, colors}` | At most 64 items. `colors` holds at most 64 tones from `accent`, `dim`, `success`, `warning`, `error`; the widget draws the first three |
-| `className` | class | |
-| `onMonth` | boolean | |
-| `onSelect` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<Calendar
+    year={year}
+    month={month}
+    today="2026-10-18"
+    selected={day}
+    events={[{ date: "2026-10-21", colors: ["accent"] }]}
+    onMonth={showMonth}
+    onSelect={setDay}
+/>
+```
+
+```python [Python]
+Calendar(
+    year=year,
+    month=month,
+    today="2026-10-18",
+    selected=day,
+    events=[{"date": "2026-10-21", "colors": ["accent"]}],
+    on_month=show_month,
+    on_select=set_day,
+)
+```
+
+```go [Go]
+sdk.Calendar(sdk.CalendarProps{
+	Year:     year,
+	Month:    month,
+	Today:    "2026-10-18",
+	Selected: day,
+	Events: []sdk.CalendarEvent{{
+		Date:   "2026-10-21",
+		Colors: []sdk.Tone{"accent"},
+	}},
+	OnMonth:  showMonth,
+	OnSelect: setDay,
+})
+```
+
+```rust [Rust]
+calendar()
+    .year(year)
+    .month(month)
+    .today("2026-10-18")
+    .selected(day)
+    .events([CalendarEvent::new("2026-10-21").color(Tone::Accent)])
+    .on_month(Msg::Month)
+    .on_select(Msg::Day)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `year` | number, `1..9999` | | With `month`, the month the grid shows |
+| `month` | number, `1..12` | | With `year`, the month the grid shows |
+| `today` | `YYYY-MM-DD` | | The day marked as today. The grid's today button pages to it and selects it |
+| `selected` | `YYYY-MM-DD` | | The highlighted day. Absent, no day is highlighted |
+| `events` | array of `{date, colors?}`, first 3 tones shown | | Marks each date with colored dots |
+| `className` | class | | A style class for the grid |
+| `onMonth` | `(year: number, month: number)` | | Called when the user pages to another month |
+| `onSelect` | `(date: string)` | | Called when the user picks a day, with it as `YYYY-MM-DD` |
 
 ### `dots`
 
-A row of dots for a status at a glance. A leaf. One tone in `colors` draws one dot, in order.
-For example, `[success, error]` draws a success dot, then an error dot.
+A short row of colored dots, for a status at a glance, such as which of three devices are
+connected.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `colors` | array of tone | Up to 64 tones: `accent`, `dim`, `success`, `warning`, `error`. A tone is a named theme color, so the dots change with the theme |
-| `uniform` | boolean | Draw every dot in the faded text color instead of `colors` |
-| `size` | number | Dot diameter in pixels, 2 to 16. Defaults to 4 |
-| `max` | number | How many dots to show, 1 to 3. Defaults to 3. Extra `colors` are ignored, so at most 3 dots ever show |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Dots colors={["success", "error"]} />
+```
+
+```python [Python]
+Dots(
+    colors=[
+        "success",
+        "error",
+    ]
+)
+```
+
+```go [Go]
+sdk.Dots(sdk.DotsProps{Colors: []sdk.Tone{"success", "error"}})
+```
+
+```rust [Rust]
+dots().colors([Tone::Success, Tone::Error])
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `colors` | array of `accent`, `dim`, `success`, `warning`, `error` | | One dot per tone, in order |
+| `max` | number, `1..3` | `3` | The most dots shown; tones past it are not drawn |
+| `size` | number, `2..16` | `4` | Dot diameter in pixels |
+| `uniform` | boolean | `false` | Draws every dot in the faded text color instead of its tone |
+| `className` | class | | A style class for the dots |
 
 ### `dropdown`
 
-A compact choice from up to 64 strings. A leaf. `selected` is the index. `onSelect` sends `[index]`, a number, with a `seq`.
+A compact button that opens a list and shows the chosen option, for picking one of a few named
+choices.
 
-| Prop | Type | Notes |
-| --- | --- | --- |
-| `options` | array of string | At most 64 items |
-| `selected` | number | |
-| `className` | class | |
-| `onSelect` | boolean | |
+::: code-group
+
+```tsx [TypeScript]
+<DropDown
+    options={["Celsius", "Fahrenheit"]}
+    selected={unit}
+    onSelect={setUnit}
+/>
+```
+
+```python [Python]
+DropDown(
+    options=[
+        "Celsius",
+        "Fahrenheit",
+    ],
+    selected=unit,
+    on_select=set_unit,
+)
+```
+
+```go [Go]
+sdk.DropDown(sdk.DropDownProps{
+	Options:  []string{"Celsius", "Fahrenheit"},
+	Selected: sdk.Ptr(unit),
+	OnSelect: setUnit,
+})
+```
+
+```rust [Rust]
+drop_down()
+    .options(["Celsius", "Fahrenheit"])
+    .selected(Some(unit))
+    .on_select(Msg::Unit)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `options` | array of string | | The choices in the list, in order |
+| `selected` | number | | The index of the option shown on the button |
+| `className` | class | | A style class for the button |
+| `onSelect` | `(index: number)` | | Called when the user picks an option, with its index |
 
 ### `togglebutton`
 
-A button that stays pressed. A leaf. `onToggle` sends `[active]` with a `seq`.
+A button that stays pressed in until it is clicked again, for an on and off choice that reads
+better as a button than as a switch.
 
-| Prop | Type |
-| --- | --- |
-| `label` | string |
-| `icon` | string |
-| `active` | boolean |
-| `className` | class |
-| `onToggle` | boolean |
+::: code-group
+
+```tsx [TypeScript]
+<ToggleButton
+    label="Mute"
+    active={muted}
+    onToggle={setMuted}
+/>
+```
+
+```python [Python]
+ToggleButton(
+    label="Mute",
+    active=muted,
+    on_toggle=set_muted,
+)
+```
+
+```go [Go]
+sdk.ToggleButton(sdk.ToggleButtonProps{
+	Label:    "Mute",
+	Active:   muted,
+	OnToggle: setMuted,
+})
+```
+
+```rust [Rust]
+toggle_button()
+    .label("Mute")
+    .active(muted)
+    .on_toggle(Msg::Mute)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `label` | string | | The button's text, and its accessible name |
+| `icon` | string | | A themed icon on the button; the accessible name when there is no `label` |
+| `active` | boolean | `false` | Whether the button is pressed in |
+| `className` | class | | A style class for the button |
+| `onToggle` | `(active: boolean)` | | Called when the user clicks the button, with the new state |
 
 ### `checkbutton`
 
-A check box with a label. A leaf. `onToggle` sends `[active]` with a `seq`.
+A check box with a label, for an option the user ticks on or off.
 
-| Prop | Type |
-| --- | --- |
-| `label` | string |
-| `active` | boolean |
-| `className` | class |
-| `onToggle` | boolean |
+::: code-group
+
+```tsx [TypeScript]
+<CheckButton
+    label="Show seconds"
+    active={seconds}
+    onToggle={setSeconds}
+/>
+```
+
+```python [Python]
+CheckButton(
+    label="Show seconds",
+    active=seconds,
+    on_toggle=set_seconds,
+)
+```
+
+```go [Go]
+sdk.CheckButton(sdk.CheckButtonProps{
+	Label:    "Show seconds",
+	Active:   seconds,
+	OnToggle: setSeconds,
+})
+```
+
+```rust [Rust]
+check_button()
+    .label("Show seconds")
+    .active(seconds)
+    .on_toggle(Msg::Seconds)
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `label` | string | | The text beside the box, and its accessible name |
+| `active` | boolean | `false` | Whether the box is ticked |
+| `className` | class | | A style class for the check box |
+| `onToggle` | `(active: boolean)` | | Called when the user ticks or clears the box, with the new state |
 
 ### `revealer`
 
-Shows or hides its children with a transition. Holds any number of body children, including none.
+Shows or hides its children with an animation, for content that appears on demand, such as extra
+details under a row.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `revealed` | boolean | `false` |
-| `transition` | `slide-down`, `crossfade` or `none` | `slide-down` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Revealer revealed={details}>
+    <Row
+        title="Channel"
+        value="36"
+    />
+</Revealer>
+```
+
+```python [Python]
+Revealer(
+    Row(
+        title="Channel",
+        value="36",
+    ),
+    revealed=details,
+)
+```
+
+```go [Go]
+sdk.Revealer(
+	sdk.RevealerProps{Revealed: details},
+	sdk.Row(sdk.RowProps{
+		Title: "Channel",
+		Value: "36",
+	}),
+)
+```
+
+```rust [Rust]
+revealer()
+    .revealed(details)
+    .child(
+        row()
+            .title("Channel")
+            .value("36"),
+    )
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `revealed` | boolean | `false` | Whether the children are shown |
+| `transition` | `slide-down`, `crossfade`, `none` | `slide-down` | The animation that shows and hides them |
+| `className` | class | | A style class for the revealer |
 
 ### `stack`
 
-Holds any number of body children. Children are addressed by index, in order, and the
-child at `visible` is shown.
+Holds several children and shows one at a time, for switching between views in the same space.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `visible` | number | `0` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Stack visible={page}>
+    <Label text="Today" />
+    <Label text="This week" />
+</Stack>
+```
+
+```python [Python]
+Stack(
+    Label(text="Today"),
+    Label(text="This week"),
+    visible=page,
+)
+```
+
+```go [Go]
+sdk.Stack(sdk.StackProps{Visible: page},
+	sdk.Label(sdk.LabelProps{Text: "Today"}),
+	sdk.Label(sdk.LabelProps{Text: "This week"}),
+)
+```
+
+```rust [Rust]
+stack()
+    .visible(page)
+    .child(label().text("Today"))
+    .child(label().text("This week"))
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `visible` | number | `0` | The index of the child shown. An index with no child keeps the current one |
+| `className` | class | | A style class for the stack |
 
 ### `rangebar`
 
-A range from `low` to `high` on a `min` to `max` scale, with an optional `now` marker, such as a
-day's temperatures. A leaf. Non-finite numbers are dropped; `min` must be below
-`max` or the scale is `0` to `1`; `low`, `high` and `now` are clamped into it and `high`
-is raised to `low`.
+A bar that marks a span on a scale, with an optional marker for the current value, such as
+today's low and high temperature and the temperature now.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `min` | number | `0` |
-| `max` | number | `1` |
-| `low` | number | `0` |
-| `high` | number | `0` |
-| `now` | number | absent |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<RangeBar
+    min={-5}
+    max={25}
+    low={8}
+    high={17}
+    now={12}
+/>
+```
+
+```python [Python]
+RangeBar(
+    min=-5,
+    max=25,
+    low=8,
+    high=17,
+    now=12,
+)
+```
+
+```go [Go]
+sdk.RangeBar(sdk.RangeBarProps{
+	Min:  -5,
+	Max:  25,
+	Low:  8,
+	High: 17,
+	Now:  sdk.Ptr(12.0),
+})
+```
+
+```rust [Rust]
+range_bar()
+    .min(-5.0)
+    .max(25.0)
+    .low(8.0)
+    .high(17.0)
+    .now(Some(12.0))
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `min` | number | `0` | The value at the start of the scale |
+| `max` | number above `min`, else the scale is `0..1` | `1` | The value at the end of the scale |
+| `low` | number | `0`, clamped to `min..max` | Where the marked span starts |
+| `high` | number | `0`, clamped to `low..max` | Where the marked span ends |
+| `now` | number, `min..max` | | Draws a marker at this value |
+| `className` | class | | A style class for the bar |
 
 ### `bars`
 
-A small bar chart of up to 366 values. A leaf. One bar per value, scaled to the largest value or to `maximum`. A `null`, negative or
-non-finite value is no data and draws a faint tick. A series longer than the width is bucketed by
-its maximum. `tooltips` is parallel to `values` and gives the hover text of each bar. The
-widget keeps the newest 366 values.
+A small bar chart, for a history of amounts, such as data used per day.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `values` | array of number or `null` | At most 366 items |
-| `maximum` | number | absent: the largest value. Dropped unless above `0` |
-| `highlightLast` | boolean | `true`: older bars are dimmed |
-| `label` | string | Accessible label |
-| `tooltips` | array of string or `null` | At most 366 items, parallel to `values` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Bars
+    values={usage}
+    label="Data used per day"
+/>
+```
+
+```python [Python]
+Bars(
+    values=usage,
+    label="Data used per day",
+)
+```
+
+```go [Go]
+sdk.Bars(sdk.BarsProps{
+	Values: usage,
+	Label:  "Data used per day",
+})
+```
+
+```rust [Rust]
+bars()
+    .values(usage)
+    .label("Data used per day")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `values` | array of number or `null`, up to 366 | | One bar per value. A `null` or negative value draws a faint tick. When there are more values than pixels, neighbors merge into one bar showing their largest |
+| `tooltips` | array of string or `null`, up to 366 | | The hover text of the bar at the same index |
+| `maximum` | number, above `0` | the largest value | The value a full-height bar stands for |
+| `highlightLast` | boolean | `true` | Dims every bar but the last |
+| `label` | string | | The chart's accessible name |
+| `className` | class | | A style class for the chart |
 
 ### `sparkline`
 
-A small line chart of up to 366 values. A leaf. A line through the values, scaled to their range. A `null` value breaks the line and
-keeps its place on the horizontal axis; an isolated value is a dot. The widget keeps the newest
-366 values.
+A small line chart, for a trend over time, such as processor load.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `values` | array of number or `null` | At most 366 items |
-| `fill` | boolean | `false`: shade the area under the line |
-| `showLast` | boolean | `false`: dot on the last value |
-| `label` | string | Accessible label |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Sparkline
+    values={load}
+    fill
+    showLast
+    label="Processor load"
+/>
+```
+
+```python [Python]
+Sparkline(
+    values=load,
+    fill=True,
+    show_last=True,
+    label="Processor load",
+)
+```
+
+```go [Go]
+sdk.Sparkline(sdk.SparklineProps{
+	Values:   load,
+	Fill:     true,
+	ShowLast: true,
+	Label:    "Processor load",
+})
+```
+
+```rust [Rust]
+sparkline()
+    .values(load)
+    .fill(true)
+    .show_last(true)
+    .label("Processor load")
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `values` | array of number or `null`, up to 366 | | The points of the line, scaled from the lowest to the highest value. A `null` leaves a gap; a value alone between gaps is a dot |
+| `fill` | boolean | `false` | Shades the area under the line |
+| `showLast` | boolean | `false` | Puts a dot on the last value |
+| `label` | string | | The chart's accessible name |
+| `className` | class | | A style class for the chart |
 
 ### `separator`
 
-A line between groups. A leaf.
+A thin line between groups of content.
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `orientation` | `horizontal`, `vertical` | `horizontal` |
-| `className` | class | |
+::: code-group
+
+```tsx [TypeScript]
+<Separator />
+```
+
+```python [Python]
+Separator()
+```
+
+```go [Go]
+sdk.Separator(sdk.SeparatorProps{})
+```
+
+```rust [Rust]
+separator()
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `orientation` | `horizontal`, `vertical` | `horizontal` | The direction of the line |
+| `className` | class | | A style class for the line |
 
 ### `unsupported`
 
-Any other `type`. No children. The name shown is the cleaned type string. Its props are
-not stored.
+What the panel draws for a `type` it does not know: a faded row with a warning icon, titled
+"Unsupported:" and the type name cut to 64 characters, and the subtitle "This applet asked for an
+element glimpse does not render". The SDKs have no builder for it, and it takes no props.

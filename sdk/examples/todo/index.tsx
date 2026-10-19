@@ -1,171 +1,148 @@
 import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  Button,
-  copy,
-  Entry,
-  Indicator,
-  notify,
-  Popover,
-  run,
-  Section,
-  ToggleRow,
-  useEffect,
-  useOptions,
-  usePlacement,
-  useState,
-  useStateDir,
+    Button,
+    copy,
+    Entry,
+    Indicator,
+    Popover,
+    run,
+    Section,
+    notify,
+    ToggleRow,
+    useEffect,
+    useOptions,
+    usePlacement,
+    useState,
+    useStateDir,
 } from "glimpse-sdk";
 
-type Item = {
-  id: string;
-  title: string;
-  done: boolean;
-  due: string | null;
-};
+const ICON = "view-list-symbolic";
+const NAME = "Todo";
+
+type Item = { id: string; title: string; done: boolean; due: string | null };
 
 function loadItems(stateDir: string): { items: Item[]; failed: boolean } {
-  if (!stateDir) return { items: [], failed: false };
-  try {
-    const raw = readFileSync(join(stateDir, "todo.json"), "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed) || !parsed.every(isItem)) {
-      return { items: [], failed: true };
+    if (!stateDir) return { items: [], failed: false };
+    try {
+        const raw = readFileSync(join(stateDir, "todo.json"), "utf8");
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed) || !parsed.every(isItem)) {
+            return { items: [], failed: true };
+        }
+        return { items: parsed, failed: false };
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+            return { items: [], failed: false };
+        }
+        return { items: [], failed: true };
     }
-    return { items: parsed, failed: false };
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { items: [], failed: false };
-    }
-    return { items: [], failed: true };
-  }
 }
 
 function isItem(value: unknown): value is Item {
-  if (typeof value !== "object" || value === null) return false;
-  const item = value as Record<string, unknown>;
-  return typeof item.id === "string" &&
-    typeof item.title === "string" &&
-    typeof item.done === "boolean" &&
-    (item.due === null || typeof item.due === "string");
+    if (typeof value !== "object" || value === null) return false;
+    const item = value as Record<string, unknown>;
+    return (
+        typeof item.id === "string" &&
+        typeof item.title === "string" &&
+        typeof item.done === "boolean" &&
+        (item.due === null || typeof item.due === "string")
+    );
 }
 
 function today(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function splitDraft(text: string): { title: string; due: string | null } {
-  const trimmed = text.trim();
-  const match = /^(.*\S)\s+(\d{4}-\d{2}-\d{2})$/.exec(trimmed);
-  if (!match) return { title: trimmed, due: null };
-  return { title: match[1], due: match[2] };
+    const trimmed = text.trim();
+    const match = /^(.*\S)\s+(\d{4}-\d{2}-\d{2})$/.exec(trimmed);
+    if (!match) return { title: trimmed, due: null };
+    return { title: match[1], due: match[2] };
 }
 
-function Todo() {
-  const stateDir = useStateDir();
-  const options = useOptions();
-  const placement = usePlacement();
-  const configured = options.title;
-  const title = typeof configured === "string" && configured.trim() !== ""
-    ? configured
-    : "Todo";
-  const [loaded] = useState(() => loadItems(stateDir));
-  const [items, setItems] = useState<Item[]>(loaded.items);
-  const [draft, setDraft] = useState("");
-  const [showDone, setShowDone] = useState(false);
+function App() {
+    const stateDir = useStateDir();
+    const options = useOptions();
+    const placement = usePlacement();
+    const configured = options.title;
+    const title = typeof configured === "string" && configured.trim() !== "" ? configured : NAME;
+    const [loaded] = useState(() => loadItems(stateDir));
+    const [items, setItems] = useState<Item[]>(loaded.items);
+    const [draft, setDraft] = useState("");
+    const [showDone, setShowDone] = useState(false);
 
-  useEffect(() => {
-    if (!stateDir || loaded.failed && items === loaded.items) return;
-    const target = join(stateDir, "todo.json");
-    const temp = `${target}.${process.pid}.tmp`;
-    try {
-      writeFileSync(temp, JSON.stringify(items));
-      renameSync(temp, target);
-    } catch (error) {
-      rmSync(temp, { force: true });
-      notify({ summary: "Could not save Todo items", body: String(error) });
-    }
-  }, [items, stateDir, loaded]);
+    useEffect(() => {
+        if (!stateDir || (loaded.failed && items === loaded.items)) return;
+        const target = join(stateDir, "todo.json");
+        const temp = `${target}.${process.pid}.tmp`;
+        try {
+            writeFileSync(temp, JSON.stringify(items));
+            renameSync(temp, target);
+        } catch (error) {
+            rmSync(temp, { force: true });
+            notify({ summary: "Could not save Todo items", body: String(error) });
+        }
+    }, [items, stateDir, loaded]);
 
-  const open = items.filter((item) => !item.done);
-  const day = today();
-  const overdue = open.some((item) => item.due !== null && item.due < day);
-  const vertical = placement?.orientation === "vertical";
-  const visible = showDone ? items : open;
+    const open = items.filter((item) => !item.done);
+    const day = today();
+    const overdue = open.some((item) => item.due !== null && item.due < day);
+    const vertical = placement?.orientation === "vertical";
+    const visible = showDone ? items : open;
 
-  return (
-    <>
-      <Indicator
-        icon="view-list-symbolic"
-        tooltip={title}
-        badge={String(open.length)}
-        dot={overdue ? "#e01b24" : undefined}
-      >
-        {vertical ? null : title}
-      </Indicator>
-      <Popover
-        icon="view-list-symbolic"
-        title={title}
-        subtitle={`${open.length} open`}
-      >
-        <Section title={title} count={String(open.length)}>
-          {visible.map((item) => (
-            <ToggleRow
-              key={item.id}
-              title={item.title}
-              subtitle={item.due ?? undefined}
-              control="check"
-              active={item.done}
-              onToggle={() => {
-                setItems(items.map((candidate) =>
-                  candidate.id === item.id
-                    ? { ...candidate, done: !candidate.done }
-                    : candidate
-                ));
-              }}
-            />
-          ))}
-        </Section>
-        <Entry
-          placeholder="Add a task"
-          value={draft}
-          onChange={setDraft}
-          onSubmit={(value) => {
-            const parsed = splitDraft(value);
-            if (parsed.title === "") return;
-            setItems([
-              ...items,
-              {
-                id: crypto.randomUUID(),
-                title: parsed.title,
-                done: false,
-                due: parsed.due,
-              },
-            ]);
-            setDraft("");
-          }}
-        />
-        <ToggleRow title="Show done" active={showDone} onToggle={setShowDone} />
-        <Button
-          onClick={() => {
-            copy(
-              items.map((
-                item,
-              ) => (item.due ? `${item.title} ${item.due}` : item.title))
-                .join(
-                  "\n",
-                ),
-            );
-          }}
-        >
-          Copy all
-        </Button>
-      </Popover>
-    </>
-  );
+    return (
+        <>
+            <Indicator icon={ICON} tooltip={title} badge={String(open.length)} dot={overdue ? "#e01b24" : undefined}>
+                {vertical ? null : title}
+            </Indicator>
+            <Popover icon={ICON} title={title} subtitle={`${open.length} open`}>
+                <Section title={title} count={String(open.length)}>
+                    {visible.map((item) => (
+                        <ToggleRow
+                            key={item.id}
+                            title={item.title}
+                            subtitle={item.due ?? undefined}
+                            control="check"
+                            active={item.done}
+                            onToggle={(done) =>
+                                setItems(
+                                    items.map((candidate) =>
+                                        candidate.id === item.id ? { ...candidate, done } : candidate,
+                                    ),
+                                )
+                            }
+                        />
+                    ))}
+                </Section>
+                <Entry
+                    placeholder="Add a task"
+                    value={draft}
+                    onChange={setDraft}
+                    onSubmit={(value) => {
+                        const parsed = splitDraft(value);
+                        if (parsed.title === "") return;
+                        setItems([
+                            ...items,
+                            { id: crypto.randomUUID(), title: parsed.title, done: false, due: parsed.due },
+                        ]);
+                        setDraft("");
+                    }}
+                />
+                <ToggleRow title="Show done" active={showDone} onToggle={setShowDone} />
+                <Button
+                    onClick={() =>
+                        copy(items.map((item) => (item.due ? `${item.title} ${item.due}` : item.title)).join("\n"))
+                    }
+                >
+                    Copy all
+                </Button>
+            </Popover>
+        </>
+    );
 }
 
-await run(<Todo />);
+await run(<App />);

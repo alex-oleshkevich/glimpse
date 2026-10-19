@@ -41,6 +41,8 @@ name, description, icon and directory.
 | `devconfig.toml` | `options` and `env` for development runs |
 | `justfile` | `dev`, `build`, `test`, `lint`, `package`, `install` |
 | `pyproject.toml`, `go.mod` or `Cargo.toml` | The project and its SDK dependency |
+| `test_applet.py` (Python) | A test that builds the applet and checks its indicator |
+| `README.md`, `.gitignore` | How to run and package the project, and the files git ignores |
 
 ## Run it in the panel
 
@@ -54,6 +56,126 @@ terminal open: your applet's errors print there, and Ctrl C removes it from the 
 puts it in the right zone instead.
 
 ## Change it
+
+The generated applet:
+
+::: code-group
+
+```python [Python]
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.14"
+# dependencies = ["glimpse-applet-sdk>=0.13"]
+# ///
+from glimpse_sdk import BaseApplet, Context, Indicator, Popover, Row, Section, State, W
+
+
+class App(BaseApplet[State]):
+    state = State()
+
+    def build(self, ctx: Context) -> list[W]:
+        return [
+            Indicator(
+                icon="application-x-addon-symbolic",
+                tooltip="Glimpse Todo",
+                children=["Glimpse Todo"],
+            ),
+            Popover(
+                icon="application-x-addon-symbolic",
+                title="Glimpse Todo",
+                children=[
+                    Section(
+                        title="Glimpse Todo",
+                        children=[Row(title="It works")],
+                    )
+                ],
+            ),
+        ]
+
+
+if __name__ == "__main__":
+    App.main()
+```
+
+```go [Go]
+package main
+
+import sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
+
+type state struct{}
+
+type app struct {
+	sdk.Applet[state]
+}
+
+func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
+	return []sdk.Widget{
+		sdk.Indicator(
+			sdk.IndicatorProps{
+				Icon: "application-x-addon-symbolic",
+				Tooltip: "Glimpse Todo",
+			},
+			"Glimpse Todo",
+		),
+		sdk.Popover(
+			sdk.PopoverProps{
+				Icon: "application-x-addon-symbolic",
+				Title: "Glimpse Todo",
+			},
+			sdk.Section(
+				sdk.SectionProps{
+					Title: "Glimpse Todo",
+				},
+				sdk.Row(sdk.RowProps{
+					Title: "It works",
+				}),
+			),
+		),
+	}
+}
+
+func main() {
+	sdk.Main(&app{})
+}
+```
+
+```rust [Rust]
+use glimpse_sdk::*;
+use std::process::ExitCode;
+
+struct App;
+
+enum Msg {}
+
+impl glimpse_sdk::App for App {
+    type Msg = Msg;
+
+    fn update(&mut self, _ctx: &Ctx, msg: Msg) {
+        match msg {}
+    }
+
+    fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
+        vec![
+            indicator()
+                .icon("application-x-addon-symbolic")
+                .tooltip("Glimpse Todo")
+                .text("Glimpse Todo")
+                .into(),
+            popover()
+                .icon("application-x-addon-symbolic")
+                .title("Glimpse Todo")
+                .child(section().title("Glimpse Todo").child(row().title("It works")))
+                .into(),
+        ]
+    }
+}
+
+fn main() -> ExitCode {
+    run(App)
+}
+```
+
+:::
 
 Rename the row. Saving rebuilds the applet and restarts it in the bar.
 
