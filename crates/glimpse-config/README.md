@@ -72,10 +72,12 @@ document rather than reaching the night light as an indistinguishable "not set".
 
 ## Writing
 
-`write_table` edits only the named TOML table while preserving comments, ordering, quoting, CRLF
-and the config path's symlink. It refuses an invalid document, a dangling symlink, a read-only file
-or a table value. Before replacing the target, it compares mtime, size and inode and retries a
-concurrent edit against a fresh read, up to three times.
+`write_table` edits only the named TOML table — setting the given values and removing the given
+keys — while preserving comments, ordering, quoting, CRLF and the config path's symlink. It
+refuses an invalid document, a dangling symlink, a read-only file or a table value. Before
+replacing the target, it compares mtime, size and inode and retries a concurrent edit against a
+fresh read, up to three times. `shadowing_dropin` names the user `config.d` file that sets a key a
+write to `config.toml` could not override.
 
 ## Themes
 

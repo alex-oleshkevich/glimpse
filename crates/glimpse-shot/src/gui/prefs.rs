@@ -77,7 +77,7 @@ fn flush(path: &Path, pending: &RefCell<toml_edit::Table>) -> Result<(), ConfigE
     if values.is_empty() {
         return Ok(());
     }
-    glimpse_config::write_table(path, TABLE, &values)?;
+    glimpse_config::write_table(path, TABLE, &values, &[])?;
     pending.borrow_mut().clear();
     Ok(())
 }
