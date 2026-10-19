@@ -142,3 +142,91 @@ fn next_and_prev_wrap() {
     assert_eq!(stepped(1, LayoutRef::Next, 2), Some(0));
     assert_eq!(stepped(0, LayoutRef::Prev, 2), Some(1));
 }
+
+fn keyboard() -> (Keyboard, Ctx<Keyboard>, impl Sized) {
+    use glimpse_dbus::Buses;
+    use tokio::sync::{mpsc, watch};
+    use tokio_util::sync::CancellationToken;
+
+    use crate::service::{NoConfig, ServiceRuntime, ServiceState};
+
+    let cancel = CancellationToken::new();
+    let (_runtime, compositor) = ServiceRuntime::<crate::services::Compositor>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        cancel.clone(),
+    );
+    let (events, inbox) = mpsc::channel(32);
+    let (health, _health_rx) = watch::channel(ServiceState::Starting);
+    let (published, _state) = watch::channel(KeyboardLayouts::default());
+    let ctx = Ctx::<Keyboard>::new(
+        events,
+        &cancel,
+        published,
+        health,
+        Buses::unavailable("no bus in tests"),
+    );
+    let service = Keyboard {
+        backend: Backend::Unsupported,
+        layouts: ctx.publisher(),
+        compositor,
+        state: BackendLayouts::default(),
+        config: Config {
+            remember: Remember::Global,
+            labels: BTreeMap::new(),
+        },
+        store: HashMap::new(),
+        focused: None,
+        attempt: 0,
+        fetch_failed: false,
+    };
+    (service, ctx, (inbox, cancel.drop_guard()))
+}
+
+fn fetch_attempt(service: &Keyboard) -> u64 {
+    service
+        .subscriptions()
+        .iter()
+        .find_map(|sub| match sub.key() {
+            Watch::Fetch { attempt } => Some(*attempt),
+            _ => None,
+        })
+        .expect("a fetch is always declared")
+}
+
+async fn changed(service: &mut Keyboard, ctx: &Ctx<Keyboard>) {
+    service
+        .handle(
+            ctx,
+            Input::Event(Event::Changed(Change::KeyboardLayoutSwitched {
+                idx: 0,
+                name: None,
+            })),
+        )
+        .await;
+}
+
+#[tokio::test]
+async fn a_failed_first_fetch_is_retried_on_the_next_change() {
+    let (mut service, ctx, _guard) = keyboard();
+    let before = fetch_attempt(&service);
+    service
+        .handle(&ctx, Input::Event(Event::FetchFailed("down".to_owned())))
+        .await;
+
+    changed(&mut service, &ctx).await;
+
+    assert_ne!(fetch_attempt(&service), before);
+}
+
+#[tokio::test]
+async fn changes_while_the_first_fetch_is_in_flight_do_not_restart_it() {
+    let (mut service, ctx, _guard) = keyboard();
+    let before = fetch_attempt(&service);
+
+    for _ in 0..5 {
+        changed(&mut service, &ctx).await;
+    }
+
+    assert_eq!(fetch_attempt(&service), before);
+}

@@ -15,7 +15,7 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 | --- | --- |
 | `lib.rs` | `detect_compositor()`, `Compositor`, `Capabilities` |
 | `model.rs` | `Snapshot` and everything in it, the id and target types, the text caps |
-| `event.rs` | `Event` and `Resync` |
+| `event.rs` | `Event`, `Resync`, and the line loop both backends' event streams share |
 | `error.rs` | `CompositorError` |
 | `keyboard.rs` | `layout_code()` — the short badge a panel renders, and the table behind it |
 | `niri/` | the JSON protocol, action shapes, event decoding |
@@ -100,9 +100,9 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 | Output disabled | `current_mode: null`, no `enabled` field | `"disabled": true` |
 | Refresh rate | integer mHz | float Hz |
 | Output geometry / transform | `logical` is size after scaling; transform is a name (`"Normal"`) | pixels divided by `scale` here to match; transform is an integer (`0`) — `Logical` carries no shared `transform` field until something needs rotation |
-| Keyboard layouts | `{names, current_idx}` gives descriptions ("Polish") | codes from `j/getoption input:kb_layout` ("pl"), matched to `j/devices`; `KeyboardLayouts` fills both `names` and `codes` on both backends |
+| Keyboard layouts | `{names, current_idx}` gives descriptions ("Polish") | codes and the active index from `j/devices` (`layout`, `active_layout_index`); `KeyboardLayouts` fills both `names` and `codes` on both backends |
 | Event granularity | per-field events | mostly `Resync` — the payload is rarely enough to rebuild a record; niri emits one too, for its own missing output event |
-| Monitor toggle | stateless | `keyword monitor <name>,disable` **discards the mode**, so it is cached to restore |
+| Monitor toggle | stateless | disabling sends the monitor's `disable` rule (a Lua config refuses `keyword` and takes the `eval` form); enabling sends a plain `reload`, so Hyprland re-applies its own monitor rules and also drops other runtime monitor and keyword changes |
 | Concurrent requests | accepted freely | backlog is tiny and `connect` answers `EAGAIN`; `snapshot()`'s five `j/` requests retry with a short backoff |
 
 ## Tests

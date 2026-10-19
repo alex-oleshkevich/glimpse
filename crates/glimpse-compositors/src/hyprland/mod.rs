@@ -2,24 +2,23 @@ mod event;
 #[cfg(test)]
 mod testing;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
-use futures_util::stream::{self, BoxStream, StreamExt};
+use futures_util::stream::BoxStream;
 use serde::Deserialize;
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
 use crate::error::CompositorError;
-use crate::event::Event;
+use crate::event::{Event, LineDecoder, line_events};
 use crate::model::{
     KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Rect, Snapshot, Window, WindowId,
     WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_edid_str,
     capped_name_str, capped_title_str, fill_window_outputs, is_built_in,
 };
-use event::{EventState, address, layout_index};
+use event::{EventState, address};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: true,
@@ -31,26 +30,19 @@ pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
 const CONTROL_SOCKET: &str = ".socket.sock";
 const EVENT_SOCKET: &str = ".socket2.sock";
 
-/// The monitor-config cache is shared across clones on purpose: `keyword monitor <name>,disable`
-/// discards the mode, so the only way back to it is to have remembered it, and a service clones
-/// this handle for every command it hands to a task.
 #[derive(Debug, Clone)]
 pub struct Hyprland {
     dir: PathBuf,
-    disabled: Arc<Mutex<HashMap<String, MonitorConfig>>>,
 }
 
 impl Hyprland {
     pub fn at(dir: impl Into<PathBuf>) -> Self {
-        Self {
-            dir: dir.into(),
-            disabled: Arc::default(),
-        }
+        Self { dir: dir.into() }
     }
 
     pub(crate) async fn snapshot(&self) -> Result<Snapshot, CompositorError> {
         let (monitors, workspaces, clients, active, layouts) = tokio::try_join!(
-            self.json::<Vec<WireMonitor>>("j/monitors"),
+            self.json::<Vec<WireMonitor>>("j/monitors all"),
             self.json::<Vec<WireWorkspace>>("j/workspaces"),
             self.json::<Vec<WireClient>>("j/clients"),
             self.json::<Value>("j/activewindow"),
@@ -61,7 +53,7 @@ impl Hyprland {
             .iter()
             .find(|monitor| monitor.focused)
             .map(|monitor| monitor.name.clone());
-        let active_workspaces: HashMap<u64, bool> = monitors
+        let active_workspaces: HashMap<i64, bool> = monitors
             .iter()
             .filter_map(|monitor| {
                 let workspace = monitor.active_workspace.as_ref()?;
@@ -82,6 +74,7 @@ impl Hyprland {
 
         let workspaces: Vec<Workspace> = workspaces
             .into_iter()
+            .filter(|workspace| !workspace.name.starts_with("special:"))
             .map(|workspace| workspace.into_model(&active_workspaces))
             .collect();
         let mut windows: Vec<Window> = clients
@@ -106,30 +99,16 @@ impl Hyprland {
     }
 
     pub(crate) async fn events(&self) -> Result<BoxStream<'static, Event>, CompositorError> {
-        // Read before subscribing: Hyprland never announces the configured layouts, so without
-        // this every `activelayout` line would arrive with nothing to resolve its index against.
-        let codes = self.keyboard_layouts().await.unwrap_or_default().codes;
-
         let path = self.dir.join(EVENT_SOCKET);
         let stream = connect(&path).await?;
 
-        let start = (
-            BufReader::new(stream).lines(),
-            EventState::new(codes),
-            VecDeque::new(),
-        );
-        Ok(
-            stream::unfold(start, |(mut lines, mut state, mut pending)| async move {
-                loop {
-                    if let Some(event) = pending.pop_front() {
-                        return Some((event, (lines, state, pending)));
-                    }
-                    let line = lines.next_line().await.ok()??;
-                    pending.extend(state.decode(&line));
-                }
-            })
-            .boxed(),
-        )
+        Ok(line_events(
+            BufReader::new(stream),
+            EventDecoder {
+                state: EventState::new(),
+                hyprland: self.clone(),
+            },
+        ))
     }
 
     pub(crate) async fn switch_keyboard_layout(
@@ -140,7 +119,8 @@ impl Hyprland {
     }
 
     pub(crate) async fn focus_workspace(&self, to: WorkspaceTarget) -> Result<(), CompositorError> {
-        self.dispatch(&workspace_command(&to)).await
+        let selector = self.resolve_selector(&to).await?;
+        self.dispatch(&workspace_command(&selector)).await
     }
 
     pub(crate) async fn rename_workspace(
@@ -148,7 +128,8 @@ impl Hyprland {
         id: WorkspaceId,
         name: Option<&str>,
     ) -> Result<(), CompositorError> {
-        self.dispatch(&rename_command(id, name)).await
+        let selector = self.resolve_id_selector(id).await?;
+        self.dispatch(&rename_command(&selector, name)).await
     }
 
     pub(crate) async fn focus_window(&self, to: WindowTarget) -> Result<(), CompositorError> {
@@ -160,7 +141,9 @@ impl Hyprland {
         id: WorkspaceId,
         connector: &str,
     ) -> Result<(), CompositorError> {
-        self.dispatch(&move_to_output_command(id, connector)).await
+        let selector = self.resolve_id_selector(id).await?;
+        self.dispatch(&move_to_output_command(&selector, connector))
+            .await
     }
 
     pub(crate) async fn reorder_workspace(
@@ -176,7 +159,32 @@ impl Hyprland {
         window: WindowId,
         to: &WorkspaceTarget,
     ) -> Result<(), CompositorError> {
-        self.dispatch(&move_window_command(window, to)).await
+        let selector = self.resolve_selector(to).await?;
+        self.dispatch(&move_window_command(window, &selector)).await
+    }
+
+    async fn resolve_selector(&self, to: &WorkspaceTarget) -> Result<String, CompositorError> {
+        match plain_selector(to) {
+            Some(selector) => Ok(selector),
+            None => match to {
+                WorkspaceTarget::Id(id) => self.resolve_id_selector(*id).await,
+                _ => unreachable!("plain_selector only defers a negative id"),
+            },
+        }
+    }
+
+    async fn resolve_id_selector(&self, id: WorkspaceId) -> Result<String, CompositorError> {
+        let signed = id.0 as i64;
+        if signed >= 0 {
+            return Ok(signed.to_string());
+        }
+        let workspaces = self.json::<Vec<WireWorkspace>>("j/workspaces").await?;
+        let name = workspaces
+            .iter()
+            .find(|workspace| workspace.id == signed)
+            .map(|workspace| workspace.name.clone())
+            .ok_or_else(|| CompositorError::Refused(format!("unknown workspace {signed}")))?;
+        Ok(format!("name:{name}"))
     }
 
     pub(crate) async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
@@ -192,29 +200,26 @@ impl Hyprland {
         connector: &str,
         on: bool,
     ) -> Result<(), CompositorError> {
-        if !on {
-            // Remembered before the disable, because afterwards Hyprland no longer reports it.
-            if let Ok(monitors) = self.json::<Vec<WireMonitor>>("j/monitors").await
-                && let Some(monitor) = monitors.iter().find(|monitor| monitor.name == connector)
-                && let Ok(mut cache) = self.disabled.lock()
-            {
-                cache.insert(connector.to_owned(), monitor.config());
+        match on {
+            true => self.dispatch("reload").await,
+            false => {
+                self.dispatch_monitor(
+                    &format!("keyword monitor {connector},disable"),
+                    &disable_eval(connector),
+                )
+                .await
             }
-            return self
-                .dispatch(&format!("keyword monitor {connector},disable"))
-                .await;
         }
+    }
 
-        let remembered = self
-            .disabled
-            .lock()
-            .ok()
-            .and_then(|mut cache| cache.remove(connector));
-        let args = match remembered {
-            Some(config) => config.keyword_args(connector),
-            None => format!("{connector},preferred,auto,1"),
-        };
-        self.dispatch(&format!("keyword monitor {args}")).await
+    async fn dispatch_monitor(&self, keyword: &str, eval: &str) -> Result<(), CompositorError> {
+        match self.dispatch(keyword).await {
+            Ok(()) => Ok(()),
+            Err(CompositorError::Refused(reason)) if reason.contains("non-legacy") => {
+                self.dispatch(eval).await
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {
@@ -234,27 +239,25 @@ impl Hyprland {
     }
 
     async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
-        let (configured, devices) = tokio::try_join!(
-            self.json::<WireOption>("j/getoption input:kb_layout"),
-            self.json::<WireDevices>("j/devices"),
-        )?;
+        let devices = self.json::<WireDevices>("j/devices").await?;
+        let Some(keyboard) = devices.main_keyboard() else {
+            return Ok(KeyboardLayouts::default());
+        };
 
-        let codes: Vec<String> = configured
-            .str
+        let codes: Vec<String> = keyboard
+            .layout
             .split(',')
             .map(str::trim)
             .filter(|code| !code.is_empty())
             .map(ToOwned::to_owned)
             .collect();
-        let active = devices.active_keymap();
-        let current = active
-            .as_deref()
-            .and_then(|keymap| layout_index(&codes, keymap));
+        let current = keyboard
+            .active_layout_index
+            .and_then(|index| usize::try_from(index).ok())
+            .filter(|index| *index < codes.len());
 
-        // Hyprland names only the layout in use, so the rest keep their codes rather than have a
-        // description invented for them.
         let mut names = codes.clone();
-        if let (Some(index), Some(keymap)) = (current, active) {
+        if let (Some(index), Some(keymap)) = (current, keyboard.active_keymap.clone()) {
             names[index] = keymap;
         }
 
@@ -291,15 +294,40 @@ impl Hyprland {
             .map_err(|error| CompositorError::connect(&path, error))?;
         stream.flush().await.map_err(CompositorError::protocol)?;
 
-        let mut reply = String::new();
+        let mut bytes = Vec::new();
         stream
-            .read_to_string(&mut reply)
+            .read_to_end(&mut bytes)
             .await
             .map_err(CompositorError::protocol)?;
+        let reply = String::from_utf8_lossy(&bytes).into_owned();
 
         match reply.is_empty() {
             true => Err(CompositorError::Closed),
             false => Ok(reply),
+        }
+    }
+}
+
+struct EventDecoder {
+    state: EventState,
+    hyprland: Hyprland,
+}
+
+impl LineDecoder for EventDecoder {
+    async fn decode(&mut self, line: &str) -> Vec<Event> {
+        if EventState::is_layout_event(line) {
+            let mut events = Vec::new();
+            if let Ok(layouts) = self.hyprland.keyboard_layouts().await
+                && let Some(idx) = layouts.current
+            {
+                events.push(Event::KeyboardLayoutSwitched {
+                    idx,
+                    name: layouts.names.get(idx).cloned(),
+                });
+            }
+            events
+        } else {
+            self.state.decode(line)
         }
     }
 }
@@ -333,34 +361,16 @@ pub(crate) fn from_env() -> Option<Hyprland> {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
-struct MonitorConfig {
-    width: u32,
-    height: u32,
-    refresh_hz: f64,
-    x: i32,
-    y: i32,
-    scale: f64,
-    transform: u32,
+fn lua_string(value: &str) -> String {
+    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
 }
 
-impl MonitorConfig {
-    /// Restores the mode `keyword monitor <name>,disable` threw away. A zero size means the monitor
-    /// was already off when it was cached, and `preferred` is the only honest answer.
-    fn keyword_args(&self, connector: &str) -> String {
-        if self.width == 0 || self.height == 0 {
-            return format!("{connector},preferred,auto,1");
-        }
-
-        let mut args = format!(
-            "{connector},{}x{}@{:.3},{}x{},{}",
-            self.width, self.height, self.refresh_hz, self.x, self.y, self.scale
-        );
-        if self.transform != 0 {
-            args.push_str(&format!(",transform,{}", self.transform));
-        }
-        args
-    }
+fn disable_eval(connector: &str) -> String {
+    format!(
+        "eval hl.monitor({{ output = {}, disabled = true }})",
+        lua_string(connector)
+    )
 }
 
 fn scaled(pixels: u32, scale: f64) -> u32 {
@@ -376,24 +386,17 @@ fn mhz(refresh_hz: f64) -> Option<u32> {
 }
 
 #[derive(Deserialize)]
-struct WireOption {
-    #[serde(default)]
-    str: String,
-}
-
-#[derive(Deserialize)]
 struct WireDevices {
     #[serde(default)]
     keyboards: Vec<WireKeyboard>,
 }
 
 impl WireDevices {
-    fn active_keymap(&self) -> Option<String> {
+    fn main_keyboard(&self) -> Option<&WireKeyboard> {
         self.keyboards
             .iter()
             .find(|keyboard| keyboard.main)
             .or_else(|| self.keyboards.first())
-            .and_then(|keyboard| keyboard.active_keymap.clone())
     }
 }
 
@@ -402,12 +405,16 @@ struct WireKeyboard {
     #[serde(default)]
     main: bool,
     #[serde(default)]
+    layout: String,
+    #[serde(default)]
+    active_layout_index: Option<u32>,
+    #[serde(default)]
     active_keymap: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct WireActiveWorkspace {
-    id: u64,
+    id: i64,
 }
 
 #[derive(Deserialize)]
@@ -435,8 +442,6 @@ struct WireMonitor {
     #[serde(default = "one")]
     scale: f64,
     #[serde(default)]
-    transform: u32,
-    #[serde(default)]
     focused: bool,
     #[serde(default)]
     disabled: bool,
@@ -449,18 +454,6 @@ fn one() -> f64 {
 }
 
 impl WireMonitor {
-    fn config(&self) -> MonitorConfig {
-        MonitorConfig {
-            width: self.width,
-            height: self.height,
-            refresh_hz: self.refresh_rate,
-            x: self.x,
-            y: self.y,
-            scale: self.scale,
-            transform: self.transform,
-        }
-    }
-
     fn into_model(self) -> Output {
         let enabled = !self.disabled;
         let current_mode = enabled.then(|| {
@@ -495,7 +488,7 @@ impl WireMonitor {
 
 #[derive(Deserialize)]
 struct WireWorkspace {
-    id: u64,
+    id: i64,
     #[serde(default)]
     name: String,
     #[serde(default)]
@@ -505,9 +498,9 @@ struct WireWorkspace {
 }
 
 impl WireWorkspace {
-    fn into_model(self, active: &HashMap<u64, bool>) -> Workspace {
+    fn into_model(self, active: &HashMap<i64, bool>) -> Workspace {
         Workspace {
-            id: WorkspaceId(self.id),
+            id: WorkspaceId(self.id as u64),
             idx: None,
             name: capped_name_str(&self.name),
             output: self.monitor,
@@ -521,7 +514,7 @@ impl WireWorkspace {
 
 #[derive(Deserialize)]
 struct WireWorkspaceRef {
-    id: u64,
+    id: i64,
 }
 
 #[derive(Deserialize)]
@@ -565,7 +558,9 @@ impl WireClient {
             title: capped_title_str(&self.title),
             app_id: capped_app_id_str(&self.class),
             pid: (self.pid > 0).then_some(self.pid),
-            workspace_id: self.workspace.map(|workspace| WorkspaceId(workspace.id)),
+            workspace_id: self
+                .workspace
+                .map(|workspace| WorkspaceId(workspace.id as u64)),
             // Hyprland reports focus per monitor, never on the client, so the snapshot fills this
             // in from `j/activewindow` rather than from here.
             is_focused: false,
@@ -588,28 +583,28 @@ fn layout_command(to: LayoutTarget) -> String {
     format!("dispatch switchxkblayout all {target}")
 }
 
-fn workspace_selector(to: &WorkspaceTarget) -> String {
+fn plain_selector(to: &WorkspaceTarget) -> Option<String> {
     match to {
-        WorkspaceTarget::Next => "+1".to_owned(),
-        WorkspaceTarget::Prev => "-1".to_owned(),
-        WorkspaceTarget::Id(id) => id.0.to_string(),
-        WorkspaceTarget::Index(index) => index.to_string(),
-        WorkspaceTarget::Name(name) => format!("name:{name}"),
+        WorkspaceTarget::Next => Some("+1".to_owned()),
+        WorkspaceTarget::Prev => Some("-1".to_owned()),
+        WorkspaceTarget::Id(id) if (id.0 as i64) >= 0 => Some(id.0.to_string()),
+        WorkspaceTarget::Id(_) => None,
+        WorkspaceTarget::Index(index) => Some(index.to_string()),
+        WorkspaceTarget::Name(name) => Some(format!("name:{name}")),
     }
 }
 
-fn workspace_command(to: &WorkspaceTarget) -> String {
-    format!("dispatch workspace {}", workspace_selector(to))
+fn workspace_command(selector: &str) -> String {
+    format!("dispatch workspace {selector}")
 }
 
-fn move_to_output_command(id: WorkspaceId, connector: &str) -> String {
-    format!("dispatch moveworkspacetomonitor {} {connector}", id.0)
+fn move_to_output_command(selector: &str, connector: &str) -> String {
+    format!("dispatch moveworkspacetomonitor {selector} {connector}")
 }
 
-fn move_window_command(window: WindowId, to: &WorkspaceTarget) -> String {
+fn move_window_command(window: WindowId, selector: &str) -> String {
     format!(
-        "dispatch movetoworkspacesilent {},address:0x{:x}",
-        workspace_selector(to),
+        "dispatch movetoworkspacesilent {selector},address:0x{:x}",
         window.0
     )
 }
@@ -630,10 +625,10 @@ fn window_command(to: WindowTarget) -> String {
     }
 }
 
-fn rename_command(id: WorkspaceId, name: Option<&str>) -> String {
+fn rename_command(selector: &str, name: Option<&str>) -> String {
     match name {
-        Some(name) => format!("dispatch renameworkspace {} {name}", id.0),
-        None => format!("dispatch renameworkspace {}", id.0),
+        Some(name) => format!("dispatch renameworkspace {selector} {name}"),
+        None => format!("dispatch renameworkspace {selector}"),
     }
 }
 

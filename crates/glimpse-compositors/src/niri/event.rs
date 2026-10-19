@@ -1,8 +1,9 @@
 use std::collections::HashSet;
+use std::future::Future;
 
 use serde::{Deserialize, Deserializer};
 
-use crate::event::{Event, Resync};
+use crate::event::{Event, LineDecoder, Resync};
 use crate::keyboard::layout_code;
 use crate::model::{
     Cast, CastKind, CastTarget, KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId,
@@ -79,9 +80,12 @@ impl EventState {
                 cast: cast.into_model(),
             }],
             Wire::CastStopped { stream_id } => vec![Event::CastStopped(stream_id)],
-            // Niri reloads its own configuration without restarting, and the layout list is the one
-            // thing in this snapshot that a reload can change under us.
-            Wire::ConfigLoaded { failed: false } => vec![Event::Resync(Resync::Keyboard)],
+            // Niri reloads its own configuration without restarting, which can change the layout
+            // list and an output's scale or mode, and niri sends no output event for either.
+            Wire::ConfigLoaded { failed: false } => vec![
+                Event::Resync(Resync::Keyboard),
+                Event::Resync(Resync::Outputs),
+            ],
             Wire::ConfigLoaded { failed: true } => Vec::new(),
         }
     }
@@ -103,6 +107,12 @@ impl EventState {
             ],
             false => vec![Event::WorkspacesChanged(workspaces)],
         }
+    }
+}
+
+impl LineDecoder for EventState {
+    fn decode(&mut self, line: &str) -> impl Future<Output = Vec<Event>> + Send {
+        std::future::ready(self.decode(line))
     }
 }
 

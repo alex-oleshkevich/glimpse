@@ -693,14 +693,20 @@ async fn screencasts_report_the_full_set_changes_and_stops() {
 }
 
 #[tokio::test]
-async fn a_successful_config_reload_asks_for_a_keyboard_resync() {
+async fn a_successful_config_reload_asks_for_a_keyboard_and_output_resync() {
     let events = events_from(vec![
         json!({ "ConfigLoaded": { "failed": true } }),
         json!({ "ConfigLoaded": { "failed": false } }),
     ])
     .await;
 
-    assert_eq!(events, [Event::Resync(Resync::Keyboard)]);
+    assert_eq!(
+        events,
+        [
+            Event::Resync(Resync::Keyboard),
+            Event::Resync(Resync::Outputs),
+        ]
+    );
 }
 
 #[tokio::test]

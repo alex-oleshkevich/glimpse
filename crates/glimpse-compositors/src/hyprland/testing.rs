@@ -14,6 +14,19 @@ impl FakeHyprland {
         respond: impl Fn(&str) -> String + Send + Sync + 'static,
         events: Vec<String>,
     ) -> Self {
+        Self::spawn_raw(
+            move |command| respond(command).into_bytes(),
+            events
+                .into_iter()
+                .map(|line| format!("{line}\n").into_bytes())
+                .collect(),
+        )
+    }
+
+    pub fn spawn_raw(
+        respond: impl Fn(&str) -> Vec<u8> + Send + Sync + 'static,
+        events: Vec<Vec<u8>>,
+    ) -> Self {
         let temp = tempfile::tempdir().expect("a temporary directory");
         let dir = temp.path().to_path_buf();
 
@@ -29,7 +42,7 @@ impl FakeHyprland {
                         return;
                     };
                     let command = String::from_utf8_lossy(&command[..read]).into_owned();
-                    let _ = stream.write_all(respond(command.trim()).as_bytes()).await;
+                    let _ = stream.write_all(&respond(command.trim())).await;
                 });
             }
         });
@@ -41,11 +54,7 @@ impl FakeHyprland {
                 let events = events.clone();
                 tokio::spawn(async move {
                     for line in events {
-                        if stream
-                            .write_all(format!("{line}\n").as_bytes())
-                            .await
-                            .is_err()
-                        {
+                        if stream.write_all(&line).await.is_err() {
                             return;
                         }
                     }

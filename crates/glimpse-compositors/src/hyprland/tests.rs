@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use futures_util::StreamExt;
 use serde_json::json;
 
@@ -9,30 +11,40 @@ use crate::model::{Cast, CastKind, CastTarget, WindowId};
 fn snapshot_server() -> FakeHyprland {
     FakeHyprland::spawn(
         |command| match command {
-            "j/monitors" => json!([
+            "j/monitors all" => json!([
                 { "id": 0, "name": "eDP-1", "description": "Samsung 14\"", "make": "Samsung",
                   "model": "ATNA60CL10", "width": 2880, "height": 1800,
                   "refreshRate": 120.001, "x": 0, "y": 0, "scale": 1.25, "transform": 0,
-                  "focused": true, "disabled": false, "activeWorkspace": { "id": 5 } },
-                { "id": 1, "name": "DP-3", "description": "", "disabled": true }
+                  "focused": true, "disabled": false, "activeWorkspace": { "id": 5, "name": "5" },
+                  "specialWorkspace": { "id": -98, "name": "special:magic" } },
+                { "id": 1, "name": "DP-3", "description": "", "width": 0, "height": 0,
+                  "refreshRate": 60.0, "x": 2880, "y": 0, "scale": 1, "transform": 0,
+                  "focused": false, "disabled": true,
+                  "activeWorkspace": { "id": -1337, "name": "chat" } }
             ])
             .to_string(),
             "j/workspaces" => json!([
                 { "id": 5, "name": "5", "monitor": "eDP-1", "lastwindow": "0x9" },
-                { "id": 6, "name": "chat", "monitor": "DP-3", "lastwindow": "0x0" }
+                { "id": -1337, "name": "chat", "monitor": "DP-3", "lastwindow": "0x0" },
+                { "id": -98, "name": "special:magic", "monitor": "eDP-1", "lastwindow": "0x0" }
             ])
             .to_string(),
             "j/clients" => json!([
                 { "address": "0x9", "title": "a terminal", "class": "foot", "pid": 4265,
-                  "workspace": { "id": 5 }, "floating": false, "urgent": false,
-                  "monitor": 0, "at": [0, 0], "size": [2880, 1800] }
+                  "workspace": { "id": 5, "name": "5" }, "floating": false, "urgent": false,
+                  "monitor": 0, "at": [0, 0], "size": [2880, 1800] },
+                { "address": "0xa", "title": "a chat", "class": "foot", "pid": 4266,
+                  "workspace": { "id": -1337, "name": "chat" }, "floating": false,
+                  "urgent": false, "monitor": 1, "at": [2880, 0], "size": [800, 600] }
             ])
             .to_string(),
             "j/activewindow" => json!({ "address": "0x9" }).to_string(),
-            "j/getoption input:kb_layout" => json!({ "str": "pl,ru" }).to_string(),
             "j/devices" => json!({ "keyboards": [
-                { "main": false, "active_keymap": "English (US)" },
-                { "main": true, "active_keymap": "Russian" }
+                { "main": false, "layout": "us", "active_layout_index": 0,
+                  "active_keymap": "English (US)" },
+                { "main": true, "layout": "us,gb,us", "variant": ",,intl",
+                  "active_layout_index": 2,
+                  "active_keymap": "English (US, intl., with dead keys)" }
             ] })
             .to_string(),
             other => panic!("the fake was asked for {other}"),
@@ -68,9 +80,23 @@ async fn a_snapshot_reads_every_part_of_the_model() {
     assert_eq!(snapshot.windows[0].output.as_deref(), Some("eDP-1"));
     assert_eq!(snapshot.workspaces[0].name.as_deref(), Some("5"));
     assert!(snapshot.workspaces[0].is_active && snapshot.workspaces[0].is_focused);
-    assert!(!snapshot.workspaces[1].is_active);
+    assert!(
+        snapshot.workspaces[1].is_active && !snapshot.workspaces[1].is_focused,
+        "chat is the active workspace of the unfocused DP-3"
+    );
     assert_eq!(snapshot.workspaces[0].active_window_id, Some(WindowId(9)));
     assert_eq!(snapshot.workspaces[1].active_window_id, None);
+    assert_eq!(
+        snapshot.workspaces.len(),
+        2,
+        "the special workspace is not an ordinary pager workspace"
+    );
+    assert_eq!(snapshot.workspaces[1].id, WorkspaceId((-1337_i64) as u64));
+    assert_eq!(snapshot.workspaces[1].name.as_deref(), Some("chat"));
+    assert_eq!(
+        snapshot.windows[1].workspace_id,
+        Some(WorkspaceId((-1337_i64) as u64))
+    );
 }
 
 #[tokio::test]
@@ -98,9 +124,8 @@ async fn an_empty_title_is_absent_rather_than_an_empty_string() {
     let server = FakeHyprland::spawn(
         |command| match command {
             "j/clients" => json!([{ "address": "0x1", "title": "", "class": "" }]).to_string(),
-            "j/monitors" | "j/workspaces" => "[]".to_owned(),
+            "j/monitors all" | "j/workspaces" => "[]".to_owned(),
             "j/activewindow" => "{}".to_owned(),
-            "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
             "j/devices" => json!({ "keyboards": [] }).to_string(),
             other => panic!("the fake was asked for {other}"),
         },
@@ -161,9 +186,12 @@ async fn both_names_and_codes_are_populated() {
         .await
         .expect("snapshot");
 
-    assert_eq!(snapshot.keyboard.codes, ["pl", "ru"]);
-    assert_eq!(snapshot.keyboard.names, ["pl", "Russian"]);
-    assert_eq!(snapshot.keyboard.current, Some(1));
+    assert_eq!(snapshot.keyboard.codes, ["us", "gb", "us"]);
+    assert_eq!(
+        snapshot.keyboard.names,
+        ["us", "gb", "English (US, intl., with dead keys)"]
+    );
+    assert_eq!(snapshot.keyboard.current, Some(2));
 }
 
 #[tokio::test]
@@ -208,11 +236,11 @@ async fn a_missing_socket_names_the_path_it_tried() {
 #[test]
 fn every_addon_serializes_to_the_dispatch_hyprland_expects() {
     assert_eq!(
-        move_to_output_command(WorkspaceId(4), "DP-3"),
+        move_to_output_command("4", "DP-3"),
         "dispatch moveworkspacetomonitor 4 DP-3"
     );
     assert_eq!(
-        move_window_command(WindowId(0x5b), &WorkspaceTarget::Id(WorkspaceId(4))),
+        move_window_command(WindowId(0x5b), "4"),
         "dispatch movetoworkspacesilent 4,address:0x5b",
         "the silent form is what keeps focus where the user left it"
     );
@@ -263,7 +291,7 @@ async fn screenshotting_a_window_is_unavailable_rather_than_dispatched() {
 async fn a_window_s_rect_is_relative_to_its_own_monitors_origin_not_the_layout() {
     let server = FakeHyprland::spawn(
         |command| match command {
-            "j/monitors" => json!([
+            "j/monitors all" => json!([
                 { "id": 0, "name": "eDP-1", "width": 2880, "height": 1800,
                   "refreshRate": 120.0, "x": 100, "y": 50, "scale": 1.0, "transform": 0,
                   "focused": true, "disabled": false }
@@ -278,7 +306,6 @@ async fn a_window_s_rect_is_relative_to_its_own_monitors_origin_not_the_layout()
             ])
             .to_string(),
             "j/activewindow" => "{}".to_owned(),
-            "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
             "j/devices" => json!({ "keyboards": [] }).to_string(),
             other => panic!("the fake was asked for {other}"),
         },
@@ -340,24 +367,34 @@ fn every_target_serializes_to_the_command_hyprland_expects() {
     );
 
     assert_eq!(
-        workspace_command(&WorkspaceTarget::Id(WorkspaceId(5))),
-        "dispatch workspace 5"
+        plain_selector(&WorkspaceTarget::Id(WorkspaceId(5))).as_deref(),
+        Some("5")
     );
     assert_eq!(
-        workspace_command(&WorkspaceTarget::Index(3)),
-        "dispatch workspace 3"
+        plain_selector(&WorkspaceTarget::Index(3)).as_deref(),
+        Some("3")
     );
     assert_eq!(
-        workspace_command(&WorkspaceTarget::Name("chat".to_owned())),
+        plain_selector(&WorkspaceTarget::Name("chat".to_owned())).as_deref(),
+        Some("name:chat")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Next).as_deref(),
+        Some("+1")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Prev).as_deref(),
+        Some("-1")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64))),
+        None,
+        "a bare negative selector would read as a relative move"
+    );
+    assert_eq!(workspace_command("5"), "dispatch workspace 5");
+    assert_eq!(
+        workspace_command("name:chat"),
         "dispatch workspace name:chat"
-    );
-    assert_eq!(
-        workspace_command(&WorkspaceTarget::Next),
-        "dispatch workspace +1"
-    );
-    assert_eq!(
-        workspace_command(&WorkspaceTarget::Prev),
-        "dispatch workspace -1"
     );
 
     assert_eq!(
@@ -371,51 +408,28 @@ fn every_target_serializes_to_the_command_hyprland_expects() {
     );
 
     assert_eq!(
-        rename_command(WorkspaceId(3), Some("chat")),
+        rename_command("3", Some("chat")),
         "dispatch renameworkspace 3 chat"
     );
-    assert_eq!(
-        rename_command(WorkspaceId(3), None),
-        "dispatch renameworkspace 3"
-    );
+    assert_eq!(rename_command("3", None), "dispatch renameworkspace 3");
 }
 
 #[test]
-fn a_remembered_monitor_config_restores_its_mode() {
-    let config = MonitorConfig {
-        width: 2880,
-        height: 1800,
-        refresh_hz: 120.001,
-        x: 100,
-        y: 0,
-        scale: 1.25,
-        transform: 0,
-    };
+fn the_lua_disable_form_quotes_the_connector() {
     assert_eq!(
-        config.keyword_args("eDP-1"),
-        "eDP-1,2880x1800@120.001,100x0,1.25"
-    );
-
-    let rotated = MonitorConfig {
-        transform: 3,
-        ..config
-    };
-    assert_eq!(
-        rotated.keyword_args("eDP-1"),
-        "eDP-1,2880x1800@120.001,100x0,1.25,transform,3"
-    );
-
-    assert_eq!(
-        MonitorConfig::default().keyword_args("DP-3"),
-        "DP-3,preferred,auto,1"
+        disable_eval("DP-3"),
+        "eval hl.monitor({ output = \"DP-3\", disabled = true })"
     );
 }
 
 async fn events_from(lines: &[&str]) -> Vec<Event> {
     let server = FakeHyprland::spawn(
         |command| match command {
-            "j/getoption input:kb_layout" => json!({ "str": "pl,ru" }).to_string(),
-            "j/devices" => json!({ "keyboards": [] }).to_string(),
+            "j/devices" => json!({ "keyboards": [
+                { "main": true, "layout": "us,gb,us", "variant": ",,intl",
+                  "active_layout_index": 1, "active_keymap": "English (UK)" }
+            ] })
+            .to_string(),
             other => panic!("the fake was asked for {other}"),
         },
         lines.iter().map(|line| (*line).to_owned()).collect(),
@@ -504,19 +518,25 @@ async fn screencasts_keep_privacy_active_until_every_client_stops() {
 }
 
 #[tokio::test]
-async fn a_layout_switch_resolves_a_display_name_to_a_configured_code() {
+async fn a_layout_switch_takes_its_index_from_devices_not_the_display_name() {
     let events = events_from(&[
-        "activelayout>>AT Translated Set 2, keyboard,Russian",
-        "activelayout>>kbd,Klingon",
+        "activelayout>>AT Translated Set 2, keyboard,English (UK)",
+        "activelayout>>kbd,English (US, intl., with dead keys)",
     ])
     .await;
 
     assert_eq!(
         events,
-        [Event::KeyboardLayoutSwitched {
-            idx: 1,
-            name: Some("Russian".to_owned()),
-        }]
+        [
+            Event::KeyboardLayoutSwitched {
+                idx: 1,
+                name: Some("English (UK)".to_owned()),
+            },
+            Event::KeyboardLayoutSwitched {
+                idx: 1,
+                name: Some("English (UK)".to_owned()),
+            },
+        ]
     );
 }
 
@@ -528,9 +548,8 @@ async fn a_title_containing_a_comma_does_not_shift_the_other_fields() {
                                     "title": "a, b, c\u{2068}spoof\u{2069}",
                                     "class": "foot" }])
             .to_string(),
-            "j/monitors" | "j/workspaces" => "[]".to_owned(),
+            "j/monitors all" | "j/workspaces" => "[]".to_owned(),
             "j/activewindow" => "{}".to_owned(),
-            "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
             "j/devices" => json!({ "keyboards": [] }).to_string(),
             other => panic!("the fake was asked for {other}"),
         },
@@ -544,4 +563,183 @@ async fn a_title_containing_a_comma_does_not_shift_the_other_fields() {
 
     assert_eq!(snapshot.windows[0].title.as_deref(), Some("a, b, cspoof"));
     assert_eq!(snapshot.windows[0].app_id.as_deref(), Some("foot"));
+}
+
+#[tokio::test]
+async fn a_negative_workspace_id_is_dispatched_by_name() {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            sink.lock().expect("lock").push(command.to_owned());
+            match command {
+                "j/workspaces" => json!([
+                    { "id": -1337, "name": "chat", "monitor": "eDP-1", "lastwindow": "0x0" }
+                ])
+                .to_string(),
+                _ => "ok".to_owned(),
+            }
+        },
+        Vec::new(),
+    );
+
+    Hyprland::at(&server.dir)
+        .focus_workspace(WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64)))
+        .await
+        .expect("dispatched");
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        ["j/workspaces", "dispatch workspace name:chat"]
+    );
+}
+
+fn monitor_server(reply: &'static str) -> (FakeHyprland, Arc<Mutex<Vec<String>>>) {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            sink.lock().expect("lock").push(command.to_owned());
+            match command {
+                _ if command.starts_with("keyword ") => reply.to_owned(),
+                "reload" => reply.to_owned(),
+                _ => "ok".to_owned(),
+            }
+        },
+        Vec::new(),
+    );
+    (server, received)
+}
+
+#[tokio::test]
+async fn a_lua_config_refusal_retries_the_monitor_disable_through_eval() {
+    let (server, received) =
+        monitor_server("keyword can't work with non-legacy parsers. Use eval.");
+
+    Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", false)
+        .await
+        .expect("disabled through eval");
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        [
+            "keyword monitor DP-3,disable",
+            "eval hl.monitor({ output = \"DP-3\", disabled = true })",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_legacy_config_never_sees_the_eval_form() {
+    let (server, received) = monitor_server("ok");
+
+    Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", false)
+        .await
+        .expect("disabled");
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        ["keyword monitor DP-3,disable"]
+    );
+}
+
+#[tokio::test]
+async fn a_refused_disable_is_an_error() {
+    let (server, _received) = monitor_server("invalid monitor syntax");
+
+    let outcome = Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", false)
+        .await;
+
+    assert!(matches!(outcome, Err(CompositorError::Refused(_))));
+}
+
+#[tokio::test]
+async fn enabling_a_monitor_sends_only_a_reload() {
+    let (server, received) = monitor_server("ok");
+
+    Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", true)
+        .await
+        .expect("enabled");
+
+    assert_eq!(*received.lock().expect("lock"), ["reload"]);
+}
+
+#[tokio::test]
+async fn a_refused_reload_carries_hyprland_s_text() {
+    let (server, _received) = monitor_server("config error: bad rule");
+
+    let outcome = Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", true)
+        .await;
+
+    assert!(matches!(
+        outcome,
+        Err(CompositorError::Refused(reason)) if reason == "config error: bad rule"
+    ));
+}
+
+#[tokio::test]
+async fn a_non_utf8_title_is_decoded_lossily_and_the_snapshot_continues() {
+    let server = FakeHyprland::spawn_raw(
+        |command| match command {
+            "j/clients" => {
+                b"[{\"address\":\"0x1\",\"title\":\"bad \xff title\",\"class\":\"foot\"}]".to_vec()
+            }
+            "j/monitors all" | "j/workspaces" => b"[]".to_vec(),
+            "j/activewindow" => b"{}".to_vec(),
+            "j/devices" => b"{\"keyboards\":[]}".to_vec(),
+            other => panic!("the fake was asked for {other}"),
+        },
+        Vec::new(),
+    );
+
+    let snapshot = Hyprland::at(&server.dir)
+        .snapshot()
+        .await
+        .expect("snapshot");
+
+    assert_eq!(
+        snapshot.windows[0].title.as_deref(),
+        Some("bad \u{fffd} title")
+    );
+}
+
+#[tokio::test]
+async fn a_non_utf8_event_byte_does_not_end_the_stream() {
+    let server = FakeHyprland::spawn_raw(
+        |command| match command {
+            "j/devices" => b"{\"keyboards\":[]}".to_vec(),
+            other => panic!("the fake was asked for {other}"),
+        },
+        vec![
+            b"windowtitlev2>>9,bad \xff title\n".to_vec(),
+            b"closewindow>>0x4\n".to_vec(),
+        ],
+    );
+
+    let events: Vec<Event> = Hyprland::at(&server.dir)
+        .events()
+        .await
+        .expect("subscribed")
+        .collect()
+        .await;
+
+    assert_eq!(
+        events,
+        [
+            Event::Resync(Resync::Structure),
+            Event::WindowClosed(WindowId(4)),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn only_the_second_title_event_asks_for_a_resync() {
+    let events = events_from(&["windowtitle>>9", "windowtitlev2>>9,a title"]).await;
+
+    assert_eq!(events, [Event::Resync(Resync::Structure)]);
 }

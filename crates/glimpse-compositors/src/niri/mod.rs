@@ -2,12 +2,12 @@ mod event;
 #[cfg(test)]
 mod testing;
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use futures_util::stream::{self, BoxStream, StreamExt};
+use futures_util::stream::BoxStream;
 use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use rustix::fd::OwnedFd;
 use rustix::fs::inotify;
@@ -17,7 +17,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use tokio::net::UnixStream;
 
 use crate::error::CompositorError;
-use crate::event::Event;
+use crate::event::{Event, line_events};
 use crate::model::{
     LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
     WorkspaceId, WorkspaceTarget, capped_edid_str, fill_window_outputs, is_built_in,
@@ -80,19 +80,7 @@ impl Niri {
         let reply = next_line(&mut lines).await?;
         unwrap_reply(&reply)?;
 
-        let start = (lines, EventState::default(), VecDeque::new());
-        Ok(
-            stream::unfold(start, |(mut lines, mut state, mut pending)| async move {
-                loop {
-                    if let Some(event) = pending.pop_front() {
-                        return Some((event, (lines, state, pending)));
-                    }
-                    let line = lines.next_line().await.ok()??;
-                    pending.extend(state.decode(&line));
-                }
-            })
-            .boxed(),
-        )
+        Ok(line_events(lines.into_inner(), EventState::default()))
     }
 
     pub(crate) async fn switch_keyboard_layout(
