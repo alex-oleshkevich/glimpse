@@ -106,10 +106,6 @@ sdk-test:
 sdk-publish *ARGS: sdk-test
     npm publish "$@"
 
-[doc("search crates.io before writing something by hand")]
-search QUERY:
-    cargo search "{{ QUERY }}" --limit 20
-
 [doc("validate the shipped systemd units")]
 check-units:
     GLIMPSE_BINARIES="{{ binaries }}" scripts/check-units.sh
@@ -144,16 +140,9 @@ run-notifications *ARGS:
 run-weather *ARGS:
     cargo run -p glimpse-weather -- "$@"
 
-[doc("run the color picker: pick a color from the screen and print it")]
-run-picker *ARGS:
-    cargo run -p glimpse-lens --bin glimpse-lens -- --tool picker "$@"
-
+[doc("run the lens tool; --tool picker|ruler picks the tool")]
 run-lens *ARGS:
-    cargo run -p glimpse-lens --bin glimpse-lens -- "$@"
-
-[doc("run the screen ruler: measure distances on the screen and print each segment")]
-run-ruler *ARGS:
-    cargo run -p glimpse-lens --bin glimpse-lens -- --tool ruler "$@"
+    cargo run -p glimpse-lens -- "$@"
 
 [doc("run the desktop settings provider")]
 run-settings-daemon *ARGS:
@@ -178,10 +167,6 @@ click *ARGS:
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:
     cargo run -q -p glimpse-widgets --example preview -- {{ BLUEPRINT }} {{ ARGS }}
-
-[doc("nested niri in a window; run the panel inside it for a fast dev loop")]
-nested:
-    niri
 
 [doc("two fake tray items on whatever bus DBUS_SESSION_BUS_ADDRESS names")]
 fake-tray:
@@ -255,22 +240,18 @@ docs-video: docs-sandbox-build
 
 [doc("record the release video in the same sandbox into var/release-video; --reuse renders the last recording again")]
 release-video *ARGS: docs-sandbox-build
-    cargo build -q -p glimpse-lens
     cargo build -q --release -p glimpse-shot
-    cargo build -q -p glimpse-wayland --example click
     target/debug/glimpsectl idle inhibit -- scripts/release-video.py {{ ARGS }}
 
 [private]
 docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") (build-crate "glimpse-lens") (build-crate "glimpse-shot") fake-tray-build click-build
 
-[doc("build the fake tray example the screenshots and fake-tray use")]
+[private]
 fake-tray-build:
     cargo build -q -p glimpse-dbus --features testing --example fake-tray
 
 [private]
 click-build:
-    cargo build -q -p glimpse-lens
-    cargo build -q --release -p glimpse-shot
     cargo build -q -p glimpse-wayland --example click
 
 [doc("lint and build the documentation site into website/.vitepress/dist")]
@@ -306,7 +287,8 @@ package-aur: package-binary
 
 [doc("render dist/PKGBUILD for the AUR: VERSION and the released tarball's b2sum")]
 release-pkgbuild VERSION B2SUM:
-    scripts/release-pkgbuild.sh "$@"
+    mkdir -p dist
+    scripts/render-pkgbuild.sh --release {{ quote(VERSION) }} {{ quote(B2SUM) }} > dist/PKGBUILD
 
 # ---------------------------------------------------------------- clean
 
@@ -321,7 +303,7 @@ clean-crate CRATE:
 # ---------------------------------------------------------------- install
 
 [doc("install binaries and data, honours PREFIX and DESTDIR")]
-install: build-release build-translations
+install: build-release-binaries build-translations
     GLIMPSE_BINARIES="{{ binaries }}" scripts/install.sh
 
 [doc("remove installed files")]

@@ -21,7 +21,7 @@ sudo nixos-rebuild switch
 
 ```sh [From source]
 git pull
-just build-release build-translations
+just build-release-binaries build-translations
 sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 

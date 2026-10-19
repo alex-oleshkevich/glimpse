@@ -46,7 +46,7 @@ just verify
 Build as yourself, then copy the files as root:
 
 ```sh
-just build-release build-translations
+just build-release-binaries build-translations
 sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 
