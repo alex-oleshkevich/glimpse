@@ -9,6 +9,8 @@ A separate binary from the panel so that restarting the panel does not black the
 - One background surface per output, redrawn across hotplug and scale changes
 - A single image, with an optional dark variant
 - Follows `appearance.color-scheme` to swap between them
+- Serves the wallpaper portal: an accepted image is copied under `state_dir()/wallpaper/` and
+  written as `[wallpaper] image`, with the change announced by a notification that can undo it
 
 ## Rules
 

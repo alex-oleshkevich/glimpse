@@ -1,5 +1,6 @@
 mod app;
 mod cli;
+mod portal;
 mod resolve;
 mod surface;
 use anyhow::Result;
@@ -30,6 +31,14 @@ fn run(cli: &Cli) -> Result<()> {
 
     if RELM_THREADS.set(4).is_err() {
         tracing::warn!("RELM_THREADS already initialized");
+    }
+
+    let portal_config = cli.config.config.clone();
+    if let Err(error) = std::thread::Builder::new()
+        .name("glimpse-wallpaper-portal".into())
+        .spawn(move || portal::run(portal_config))
+    {
+        tracing::warn!(%error, "cannot start the wallpaper portal");
     }
 
     let app_id =

@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=me.aresa.Glimpse.Wallpaper.Portal
+Exec=/usr/bin/glimpse-wallpaper
+SystemdService=glimpse-wallpaper.service
