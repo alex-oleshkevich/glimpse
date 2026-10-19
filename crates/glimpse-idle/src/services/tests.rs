@@ -256,7 +256,11 @@ async fn reconfigure_waits_for_a_full_queue_and_applies_the_newest_config() {
     )
     .await
     .unwrap();
-    let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(RecordingRunner::default()));
+    let (actor, handle) = Actor::new(
+        one_listener_config(),
+        false,
+        Arc::new(RecordingRunner::default()),
+    );
     while handle
         .command_tx
         .try_send(Event::RegistryChanged(false))

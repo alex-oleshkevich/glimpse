@@ -47,7 +47,8 @@ rustPlatform.buildRustPackage {
       install -Dm644 "$unit" "$target"
       substituteInPlace "$target" \
         --replace-fail /usr/bin/glimpse "$out/bin/glimpse" \
-        --replace-quiet /bin/kill "${coreutils}/bin/kill"
+        --replace-quiet /bin/kill "${coreutils}/bin/kill" \
+        --replace-quiet /usr/bin/test "${coreutils}/bin/test"
     done
     for target in data/systemd/*.target; do
       install -Dm644 "$target" "$out/lib/systemd/user/$(basename "$target")"
