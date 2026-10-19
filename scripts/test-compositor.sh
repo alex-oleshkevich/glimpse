@@ -5,7 +5,7 @@ crate="${1:-}"
 filter="${2:-}"
 
 if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
-    echo "test-compositor: neither WAYLAND_DISPLAY nor DISPLAY is set; every GTK test would return early and pass without running" >&2
+    echo "test-compositor: neither WAYLAND_DISPLAY nor DISPLAY is set; every GTK test would fail at gtk4::init" >&2
     exit 1
 fi
 
