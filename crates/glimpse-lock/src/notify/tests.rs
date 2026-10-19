@@ -33,7 +33,10 @@ async fn restore_with(int: i64) -> Option<Notice> {
             let _ = stream.write_all(reply.as_bytes()).await;
         }
     });
-    restore_notice(&Hyprland::at(dir.path())).await
+    restore_notice(&glimpse_compositors::Compositor::Hyprland(
+        glimpse_compositors::Hyprland::at(dir.path()),
+    ))
+    .await
 }
 
 #[tokio::test]

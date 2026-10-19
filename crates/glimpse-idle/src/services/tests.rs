@@ -5,14 +5,19 @@ use glimpse_dbus::idle::{IdleInhibitorRecord, IdleInhibitorSource, InhibitionTar
 
 use super::*;
 
-struct NoopRunner;
+#[derive(Clone, Default)]
+struct RecordingRunner(Arc<std::sync::Mutex<Vec<String>>>);
 
-impl crate::idle::CommandRunner for NoopRunner {
+impl crate::idle::CommandRunner for RecordingRunner {
     fn run<'a>(
         &'a self,
-        _command: &'a str,
+        command: &'a str,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
-        Box::pin(async {})
+        let commands = self.0.clone();
+        let command = command.to_owned();
+        Box::pin(async move {
+            commands.lock().unwrap().push(command);
+        })
     }
 }
 
@@ -54,7 +59,8 @@ async fn settle() {
 #[tokio::test(start_paused = true)]
 async fn watch_registry_forwards_shared_registry_changes_into_the_actor() {
     let (shared_registry, any_idle_target_rx, _generation_rx) = SharedRegistry::new();
-    let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(NoopRunner));
+    let runner = RecordingRunner::default();
+    let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(runner.clone()));
     let actor_cancel = CancellationToken::new();
     let actor_task = tokio::spawn(actor.run(actor_cancel.clone()));
     let registry_cancel = CancellationToken::new();
@@ -80,7 +86,7 @@ async fn watch_registry_forwards_shared_registry_changes_into_the_actor() {
         .await;
     settle().await;
     assert!(
-        handle.snapshot().fired_listeners.is_empty(),
+        runner.0.lock().unwrap().is_empty(),
         "an idle-targeting record inserted into SharedRegistry must reach the actor through \
              watch_registry and suppress a respecting listener"
     );
@@ -90,8 +96,8 @@ async fn watch_registry_forwards_shared_registry_changes_into_the_actor() {
         .await;
     settle().await;
     assert_eq!(
-        handle.snapshot().fired_listeners,
-        vec![0],
+        *runner.0.lock().unwrap(),
+        vec!["idle".to_string()],
         "releasing the last idle-targeting record must reach the actor through \
              watch_registry and fire the suppressed listener"
     );
@@ -250,7 +256,7 @@ async fn reconfigure_waits_for_a_full_queue_and_applies_the_newest_config() {
     )
     .await
     .unwrap();
-    let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(NoopRunner));
+    let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(RecordingRunner::default()));
     while handle
         .command_tx
         .try_send(Event::RegistryChanged(false))

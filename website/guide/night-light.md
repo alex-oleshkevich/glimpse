@@ -61,6 +61,6 @@ changed, the `serving` line says why.
 
 ::: tip If the screen never warms
 Your compositor has to let clients set the display gamma, and only one program can do that at a
-time. Stop wlsunset, gammastep or hyprsunset if one is running, then check
-`glimpsectl night-light status`.
+time. Stop wlsunset or gammastep if one is running, then check `glimpsectl night-light status`.
+hyprsunset does not block glimpse, but it tints on top of glimpse, so the screen shows both.
 :::

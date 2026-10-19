@@ -50,3 +50,19 @@ fn blank_screens_is_niri_only_and_output_power_is_on_both() {
     assert!(niri.output_power && hyprland.output_power);
     assert!(niri.blank_screens && !hyprland.blank_screens);
 }
+
+#[tokio::test]
+async fn a_compositor_without_the_restore_option_allows_a_restarted_locker() {
+    assert!(
+        Compositor::Unsupported
+            .allows_session_lock_restore()
+            .await
+            .unwrap()
+    );
+    assert!(
+        Compositor::Niri(Niri::at("/nonexistent"))
+            .allows_session_lock_restore()
+            .await
+            .unwrap()
+    );
+}

@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
+use tokio::sync::OnceCell;
 
 use crate::error::CompositorError;
 use crate::event::{Event, LineDecoder, line_events};
@@ -29,11 +30,19 @@ pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
 
 const CONTROL_SOCKET: &str = ".socket.sock";
 const EVENT_SOCKET: &str = ".socket2.sock";
+const DIALECT_PROBE: &str = "eval return 1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Dialect {
+    Legacy,
+    Lua,
+}
 
 #[derive(Debug, Clone)]
 pub struct Hyprland {
     dir: PathBuf,
     shared: Arc<Shared>,
+    dialect: Arc<OnceCell<Dialect>>,
 }
 
 impl Hyprland {
@@ -41,10 +50,11 @@ impl Hyprland {
         Self {
             dir: dir.into(),
             shared: Arc::default(),
+            dialect: Arc::default(),
         }
     }
 
-    pub fn from_env() -> Option<Self> {
+    pub(crate) fn from_env() -> Option<Self> {
         let signature = std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE")?;
         match signature.is_empty() {
             true => None,
@@ -52,7 +62,7 @@ impl Hyprland {
         }
     }
 
-    pub async fn allow_session_lock_restore(&self) -> Result<bool, CompositorError> {
+    pub(crate) async fn allow_session_lock_restore(&self) -> Result<bool, CompositorError> {
         #[derive(Deserialize)]
         struct Reading {
             int: i64,
@@ -149,7 +159,8 @@ impl Hyprland {
 
     pub(crate) async fn focus_workspace(&self, to: WorkspaceTarget) -> Result<(), CompositorError> {
         let selector = self.resolve_selector(&to).await?;
-        self.dispatch(&workspace_command(&selector)).await
+        let dialect = self.dialect().await?;
+        self.dispatch(&workspace_command(dialect, &selector)).await
     }
 
     pub(crate) async fn rename_workspace(
@@ -158,11 +169,14 @@ impl Hyprland {
         name: Option<&str>,
     ) -> Result<(), CompositorError> {
         let selector = self.resolve_id_selector(id).await?;
-        self.dispatch(&rename_command(&selector, name)).await
+        let dialect = self.dialect().await?;
+        self.dispatch(&rename_command(dialect, &selector, name))
+            .await
     }
 
     pub(crate) async fn focus_window(&self, to: WindowTarget) -> Result<(), CompositorError> {
-        self.dispatch(&window_command(to)).await
+        let dialect = self.dialect().await?;
+        self.dispatch(&window_command(dialect, to)).await
     }
 
     async fn resolve_selector(&self, to: &WorkspaceTarget) -> Result<String, CompositorError> {
@@ -270,6 +284,19 @@ impl Hyprland {
         serde_json::from_str(&reply).map_err(CompositorError::protocol)
     }
 
+    async fn dialect(&self) -> Result<Dialect, CompositorError> {
+        self.dialect
+            .get_or_try_init(|| async {
+                let reply = self.control(DIALECT_PROBE).await?;
+                Ok(match reply.trim() {
+                    "ok" => Dialect::Lua,
+                    _ => Dialect::Legacy,
+                })
+            })
+            .await
+            .copied()
+    }
+
     async fn dispatch(&self, command: &str) -> Result<(), CompositorError> {
         let reply = self.control(command).await?;
         match reply.trim() {
@@ -343,7 +370,11 @@ async fn connect(path: &std::path::Path) -> Result<UnixStream, CompositorError> 
 }
 
 fn lua_string(value: &str) -> String {
-    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    let escaped = value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r");
     format!("\"{escaped}\"")
 }
 
@@ -577,22 +608,49 @@ fn plain_selector(to: &WorkspaceTarget) -> Option<String> {
     }
 }
 
-fn workspace_command(selector: &str) -> String {
-    format!("dispatch workspace {selector}")
-}
-
-fn window_command(to: WindowTarget) -> String {
-    match to {
-        WindowTarget::Next => "dispatch cyclenext".to_owned(),
-        WindowTarget::Prev => "dispatch cyclenext prev".to_owned(),
-        WindowTarget::Id(id) => format!("dispatch focuswindow address:0x{:x}", id.0),
+fn workspace_command(dialect: Dialect, selector: &str) -> String {
+    match dialect {
+        Dialect::Legacy => format!("dispatch workspace {selector}"),
+        Dialect::Lua => format!(
+            "dispatch hl.dsp.focus({{ workspace = {} }})",
+            lua_string(selector)
+        ),
     }
 }
 
-fn rename_command(selector: &str, name: Option<&str>) -> String {
-    match name {
-        Some(name) => format!("dispatch renameworkspace {selector} {name}"),
-        None => format!("dispatch renameworkspace {selector}"),
+fn window_command(dialect: Dialect, to: WindowTarget) -> String {
+    match (dialect, to) {
+        (Dialect::Legacy, WindowTarget::Next) => "dispatch cyclenext".to_owned(),
+        (Dialect::Legacy, WindowTarget::Prev) => "dispatch cyclenext prev".to_owned(),
+        (Dialect::Legacy, WindowTarget::Id(id)) => {
+            format!("dispatch focuswindow address:0x{:x}", id.0)
+        }
+        (Dialect::Lua, WindowTarget::Next) => "dispatch hl.dsp.window.cycle_next()".to_owned(),
+        (Dialect::Lua, WindowTarget::Prev) => {
+            "dispatch hl.dsp.window.cycle_next({ next = false })".to_owned()
+        }
+        (Dialect::Lua, WindowTarget::Id(id)) => {
+            format!(
+                "dispatch hl.dsp.focus({{ window = \"address:0x{:x}\" }})",
+                id.0
+            )
+        }
+    }
+}
+
+fn rename_command(dialect: Dialect, selector: &str, name: Option<&str>) -> String {
+    match (dialect, name) {
+        (Dialect::Legacy, Some(name)) => format!("dispatch renameworkspace {selector} {name}"),
+        (Dialect::Legacy, None) => format!("dispatch renameworkspace {selector}"),
+        (Dialect::Lua, Some(name)) => format!(
+            "dispatch hl.dsp.workspace.rename({{ workspace = {}, name = {} }})",
+            lua_string(selector),
+            lua_string(name)
+        ),
+        (Dialect::Lua, None) => format!(
+            "dispatch hl.dsp.workspace.rename({{ workspace = {} }})",
+            lua_string(selector)
+        ),
     }
 }
 

@@ -93,6 +93,13 @@ impl Compositor {
             .keyboard_layouts())
     }
 
+    pub async fn allows_session_lock_restore(&self) -> Result<bool, CompositorError> {
+        match self {
+            Self::Hyprland(backend) => backend.allow_session_lock_restore().await,
+            Self::Niri(_) | Self::Unsupported => Ok(true),
+        }
+    }
+
     pub async fn snapshot(&self) -> Result<Snapshot, CompositorError> {
         delegate!(self, "cannot read compositor state", |backend| backend
             .snapshot())

@@ -8,9 +8,8 @@ use glimpse_dbus::idle::{
 use glimpse_dbus::login1::{Login1ManagerProxy, current_uid};
 use zbus::message::Header;
 
-use super::{Health, SharedRegistry, unix_now};
+use super::{Health, SharedRegistry, WHY_CAP, unix_now};
 
-const REASON_CAP: usize = 240;
 const MAX_SLEEP_SECS: u64 = 30;
 
 pub struct Idle1Server {
@@ -109,7 +108,7 @@ impl Idle1Server {
                     .await;
                 return Err(zbus::fdo::Error::Failed(glimpse_utils::clean(
                     &error.to_string(),
-                    REASON_CAP,
+                    WHY_CAP,
                 )));
             }
         };

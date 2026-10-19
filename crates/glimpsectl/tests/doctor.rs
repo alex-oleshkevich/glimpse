@@ -325,9 +325,11 @@ async fn restore_lock(int: i64) -> glimpsectl::commands::doctor::SessionLock {
             let _ = stream.write_all(reply.as_bytes()).await;
         }
     });
-    glimpsectl::commands::doctor::session_lock(&glimpse_compositors::Hyprland::at(dir.path()))
-        .await
-        .unwrap()
+    glimpsectl::commands::doctor::session_lock(&glimpse_compositors::Compositor::Hyprland(
+        glimpse_compositors::Hyprland::at(dir.path()),
+    ))
+    .await
+    .unwrap()
 }
 
 #[tokio::test]

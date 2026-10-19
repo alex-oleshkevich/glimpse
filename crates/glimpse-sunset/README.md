@@ -62,9 +62,11 @@ in the machine's own zone.
   binary fails on the name without ever touching the running one's outputs. The object is exported *before* the name is requested, or
   a `Get` in between finds a name with no object behind it, and the name is taken through
   `glimpse_dbus::own_name`'s `DoNotQueue`, since plain `request_name` lets a duplicate steal it.
-- **Gamma control is exclusive — one client at a time.** A user already running `wlsunset`,
-  `gammastep` or `hyprsunset` makes every output answer `failed`, reported as `degraded: another
-  gamma client holds the outputs`; it does not retry in a spin, the next scheduled tick tries again.
+- **Gamma control is exclusive — one client at a time.** A user already running `wlsunset` or
+  `gammastep` makes every output answer `failed`, reported as `degraded: another gamma client holds
+  the outputs`; it does not retry in a spin, the next scheduled tick tries again. `hyprsunset` does
+  not take gamma control: it drives Hyprland's CTM protocol (`hyprland_ctm_control_manager_v1`), which
+  tints on top of this ramp.
 - **A `wl_output` is bound only after a roundtrip has drained the queue** — nothing reads the socket
   while the light is handed back all day under `automatic`, so binding straight from the `Global`
   event binds outputs long gone and niri kills the connection with a protocol error.

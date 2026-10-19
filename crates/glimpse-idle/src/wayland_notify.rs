@@ -221,11 +221,6 @@ fn sync_notifications(
 ) {
     clear_notifications(backend);
 
-    if !state.enabled {
-        backend.generation = Some(state.generation);
-        return;
-    }
-
     for listener in &state.listeners {
         backend
             .notifications

@@ -134,6 +134,40 @@ async fn inhibit_with_idle_and_suspend_flags_lands_a_matching_record() {
     assert_eq!(record.bus_name, client.unique_name().unwrap().as_str());
 }
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_handle_longer_than_255_bytes_is_refused_without_a_record_or_an_object() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
+    let client = bus.connection().await;
+    let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
+
+    let full = format!("/req/{}", "a".repeat(251));
+    assert_eq!(full.len(), 256);
+    let handle = ObjectPath::try_from(full.as_str()).unwrap();
+    let error = proxy
+        .inhibit(&handle, "org.test.App", "", 8, HashMap::new())
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(
+            &error,
+            zbus::Error::MethodError(name, _, _)
+                if name.as_str() == "org.freedesktop.DBus.Error.LimitsExceeded"
+        ),
+        "unexpected error: {error:?}"
+    );
+    assert!(
+        registry
+            .read(|registry| registry.snapshot().is_empty())
+            .await,
+        "a refused handle leaves no record"
+    );
+    assert!(
+        request_is_gone(&client, &handle).await,
+        "a refused handle leaves no Request object"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn close_releases_the_record_and_a_second_close_does_not_crash_the_server() {
     let bus = PrivateBus::start();
     let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
@@ -548,6 +582,67 @@ async fn create_monitor_serves_a_session_that_closes_and_query_end_is_accepted()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_reused_monitor_session_handle_is_refused_without_a_state_change() {
+    use futures_util::StreamExt as _;
+
+    let bus = PrivateBus::start();
+    let (_login1_conn, _app, _registry, _fake) = start_server(&bus).await;
+    let client = bus.connection().await;
+    let proxy = PortalMonitorTestProxy::new(&client).await.unwrap();
+
+    let handle = ObjectPath::try_from("/req/monitor_dup").unwrap();
+    let session = ObjectPath::try_from("/session/monitor_dup").unwrap();
+    assert_eq!(
+        proxy
+            .create_monitor(&handle, &session, "org.first.App", "")
+            .await
+            .unwrap(),
+        0
+    );
+
+    let rule = zbus::MatchRule::builder()
+        .msg_type(zbus::message::Type::Signal)
+        .interface("org.freedesktop.impl.portal.Inhibit")
+        .unwrap()
+        .member("StateChanged")
+        .unwrap()
+        .path(OBJECT_PATH)
+        .unwrap()
+        .build();
+    let mut signals = zbus::MessageStream::for_match_rule(rule, &client, None)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        proxy
+            .create_monitor(&handle, &session, "org.second.App", "")
+            .await
+            .unwrap(),
+        2,
+        "a session path already in use must answer PORTAL_RESPONSE_OTHER"
+    );
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(300), signals.next())
+            .await
+            .is_err(),
+        "a refused CreateMonitor must not emit StateChanged"
+    );
+
+    let session_proxy = PortalSessionTestProxy::builder(&client)
+        .destination("me.aresa.Glimpse.Idle.Portal")
+        .unwrap()
+        .path(session.clone())
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    session_proxy
+        .close()
+        .await
+        .expect("the first session still answers and closes");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn app_id_and_reason_are_clamped_to_their_own_caps() {
     let bus = PrivateBus::start();
     let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
@@ -580,7 +675,7 @@ async fn app_id_and_reason_are_clamped_to_their_own_caps() {
     assert!(record.why.ends_with('…'));
 }
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_second_acquisition_attempt_degrades_health_but_keeps_serving() {
+async fn a_name_owned_by_another_process_is_unsupported_naming_the_owner_but_keeps_serving() {
     let bus = PrivateBus::start();
     let first = bus.connection().await;
     let (first_registry, _any_idle_target, _generation) = SharedRegistry::new();
@@ -609,8 +704,12 @@ async fn a_second_acquisition_attempt_degrades_health_but_keeps_serving() {
     .await;
 
     let health = second_health.snapshot();
-    assert_eq!(health.portal.kind, glimpse_dbus::idle::HealthKind::Degraded);
-    assert_eq!(health.portal.message, "Bus name already owned");
+    let comm = std::fs::read_to_string("/proc/self/comm").unwrap();
+    assert_eq!(
+        health.portal.kind,
+        glimpse_dbus::idle::HealthKind::Unsupported
+    );
+    assert_eq!(health.portal.message, format!("served by {}", comm.trim()));
 
     assert!(
         second

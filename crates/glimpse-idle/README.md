@@ -9,7 +9,7 @@ tolerates.
 ## Contents
 
 - `main.rs` — `run(cli) -> anyhow::Result<()>`; `main` maps the outcome to an `ExitCode`
-- `errors.rs` — exit codes and the single `downcast_ref` mapping an error to one
+- `errors.rs` — `exit` maps every error to `Exit::Failed`; success is `Exit::Ok`
 - `cli.rs` — argument surface, flattening shared structs from `glimpse-utils`
 - `services.rs` — composition root: takes `me.aresa.Glimpse.Idle`, serves `Idle1Server`, starts
   every other task, wires config reloads into the actor
@@ -135,13 +135,10 @@ an already-removed path, so a double `Close()` — or one racing a removal — c
 `ObjectServer::at` reports a path already in use as `Ok(false)`, not an `Err`, so `Inhibit` matches
 on the bool rather than the result before trusting its own registration.
 
-- `MAX_INHIBITORS_PER_BUS` (32) narrows `MAX_INHIBITORS_TOTAL` (128) per client; both bound only
-  bus-identified records.
-- `RATE_BURST` (5) / `RATE_REFILL_PER_SEC` (1.0) bound a token bucket per bus name against
-  Inhibit/UnInhibit churn; a record with no bus name is never rate-limited.
-- `clamp_label(text, cap)` truncates a caller-supplied `who`/`why` through `glimpse_utils::clean`,
-  the same function the client side of this wire contract uses. The cap is per field (`IDENTIFIER`
-  = 120, `REASON` = 240); a resolved `process_name` is clamped the same way, since
-  `/proc/<pid>/comm` is attacker-controlled.
+- `MAX_INHIBITORS_TOTAL` (128) caps every record; `MAX_INHIBITORS_PER_BUS` (32) caps the records
+  one bus name or app id owns.
+- A caller-supplied `who` and `why` pass through `glimpse_utils::clean` capped at
+  `inhibitors::WHO_CAP` (120) and `inhibitors::WHY_CAP` (240). A resolved `process_name` is capped
+  with `WHO_CAP` too, since `/proc/<pid>/comm` is attacker-controlled.
 - `Registry::release_record` is the one path that removes a record from every secondary map and
   drops its `logind_fd`; every release trigger must go through it, or an outbound inhibit fd leaks.

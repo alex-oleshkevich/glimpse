@@ -145,7 +145,6 @@ async fn battery_change_resumes_fired_listener_before_switching_and_clears_fired
 
     let state = handle.snapshot();
     assert_eq!(state.power_source, PowerSource::Battery);
-    assert!(state.fired_listeners.is_empty());
     assert_eq!(
         *commands.0.lock().unwrap(),
         vec!["ac-idle".to_string(), "ac-resume".to_string()]
@@ -183,8 +182,6 @@ async fn in_flight_command_does_not_block_next_transition() {
         .await;
     settle().await;
 
-    assert!(handle.snapshot().fired_listeners.is_empty());
-
     runner.release.notify_waiters();
     settle().await;
     cancel.cancel();
@@ -220,7 +217,6 @@ async fn config_change_resumes_fired_listener_before_replacing_policy() {
         *commands.0.lock().unwrap(),
         vec!["ac-idle".to_string(), "ac-resume".to_string()]
     );
-    assert!(handle.snapshot().fired_listeners.is_empty());
 
     cancel.cancel();
     let _ = task.await;
@@ -254,7 +250,6 @@ async fn disabled_config_reports_disabled_health_and_runs_nothing() {
         .await;
     settle().await;
     assert!(commands.0.lock().unwrap().is_empty());
-    assert!(handle.snapshot().fired_listeners.is_empty());
 
     cancel.cancel();
     let _ = task.await;
@@ -284,7 +279,6 @@ async fn stale_generation_listener_event_is_ignored() {
         .await;
     settle().await;
 
-    assert!(handle.snapshot().fired_listeners.is_empty());
     assert!(commands.0.lock().unwrap().is_empty());
 
     cancel.cancel();
@@ -333,7 +327,6 @@ async fn editing_the_inactive_profile_does_not_disturb_the_active_policy() {
         .await;
     settle().await;
     assert_eq!(handle.snapshot().generation, 0);
-    assert_eq!(handle.snapshot().fired_listeners, vec![0]);
 
     let mut next_config = test_config();
     next_config.profiles.battery.listeners[0].timeout = 999;
@@ -344,11 +337,6 @@ async fn editing_the_inactive_profile_does_not_disturb_the_active_policy() {
     assert_eq!(
         state.generation, 0,
         "an unrelated profile edit must not bump the generation"
-    );
-    assert_eq!(
-        state.fired_listeners,
-        vec![0],
-        "the fired listener must not be disturbed"
     );
     assert_eq!(
         *commands.0.lock().unwrap(),
@@ -382,7 +370,6 @@ async fn respecting_listener_does_not_fire_while_an_idle_target_inhibitor_exists
         .await;
     settle().await;
 
-    assert!(handle.snapshot().fired_listeners.is_empty());
     assert!(commands.0.lock().unwrap().is_empty());
 
     cancel.cancel();
@@ -410,12 +397,10 @@ async fn releasing_the_last_idle_target_fires_a_suppressed_listener_immediately(
         })
         .await;
     settle().await;
-    assert!(handle.snapshot().fired_listeners.is_empty());
 
     handle.send(Event::RegistryChanged(false)).await;
     settle().await;
 
-    assert_eq!(handle.snapshot().fired_listeners, vec![0]);
     assert_eq!(*commands.0.lock().unwrap(), vec!["ac-idle".to_string()]);
 
     cancel.cancel();
@@ -441,16 +426,10 @@ async fn a_fired_listener_stays_fired_when_a_new_inhibitor_appears() {
         })
         .await;
     settle().await;
-    assert_eq!(handle.snapshot().fired_listeners, vec![0]);
 
     handle.send(Event::RegistryChanged(true)).await;
     settle().await;
 
-    assert_eq!(
-        handle.snapshot().fired_listeners,
-        vec![0],
-        "fired stays sticky across a new inhibitor appearing"
-    );
     assert_eq!(
         *commands.0.lock().unwrap(),
         vec!["ac-idle".to_string()],
@@ -485,7 +464,6 @@ async fn non_respecting_listener_fires_regardless_of_registry_state() {
         .await;
     settle().await;
 
-    assert_eq!(handle.snapshot().fired_listeners, vec![0]);
     assert_eq!(*commands.0.lock().unwrap(), vec!["ac-idle".to_string()]);
 
     cancel.cancel();
@@ -513,7 +491,6 @@ async fn a_stale_generation_suppressed_entry_cannot_fire_under_a_new_policy() {
         })
         .await;
     settle().await;
-    assert!(handle.snapshot().fired_listeners.is_empty());
 
     handle.send(Event::OnBattery(true)).await;
     settle().await;
@@ -523,7 +500,7 @@ async fn a_stale_generation_suppressed_entry_cannot_fire_under_a_new_policy() {
     settle().await;
 
     assert!(
-        handle.snapshot().fired_listeners.is_empty(),
+        commands.0.lock().unwrap().is_empty(),
         "a suppression from the old generation must not fire the new policy's same-index listener"
     );
     assert!(commands.0.lock().unwrap().is_empty());
@@ -551,12 +528,10 @@ async fn backend_reset_resumes_fired_listeners_and_lets_the_next_idle_fire() {
         })
         .await;
     settle().await;
-    assert_eq!(handle.snapshot().fired_listeners, vec![0]);
 
     handle.send(Event::BackendReset).await;
     settle().await;
 
-    assert!(handle.snapshot().fired_listeners.is_empty());
     assert_eq!(handle.snapshot().generation, 0);
     assert_eq!(
         *commands.0.lock().unwrap(),
@@ -571,7 +546,6 @@ async fn backend_reset_resumes_fired_listeners_and_lets_the_next_idle_fire() {
         .await;
     settle().await;
 
-    assert_eq!(handle.snapshot().fired_listeners, vec![0]);
     assert_eq!(
         *commands.0.lock().unwrap(),
         vec![

@@ -13,6 +13,7 @@ const BUS_NAME: &str = "me.aresa.Glimpse.Idle.Portal";
 const OBJECT_PATH: &str = "/org/freedesktop/portal/desktop";
 const PORTAL_RESPONSE_SUCCESS: u32 = 0;
 const PORTAL_RESPONSE_OTHER: u32 = 2;
+const MAX_HANDLE_LEN: usize = 255;
 const SESSION_RUNNING: u32 = 1;
 
 pub struct PortalInhibit {
@@ -36,6 +37,11 @@ impl PortalInhibit {
         #[zbus(connection)] conn: &Connection,
         #[zbus(header)] header: Header<'_>,
     ) -> zbus::fdo::Result<()> {
+        if handle.as_str().len() > MAX_HANDLE_LEN {
+            return Err(zbus::fdo::Error::LimitsExceeded(format!(
+                "portal request handle is longer than {MAX_HANDLE_LEN} bytes"
+            )));
+        }
         let sender = header
             .sender()
             .map(|name| name.as_str().to_owned())
@@ -151,9 +157,12 @@ impl PortalInhibit {
         let session = PortalSession {
             handle: owned.clone(),
         };
-        if let Err(error) = conn.object_server().at(owned.clone(), session).await {
-            tracing::warn!(%error, session = %owned, "portal monitor session path already taken");
-            return Ok(PORTAL_RESPONSE_OTHER);
+        match conn.object_server().at(owned.clone(), session).await {
+            Ok(true) => {}
+            other => {
+                tracing::warn!(?other, session = %owned, "portal monitor session path already taken");
+                return Ok(PORTAL_RESPONSE_OTHER);
+            }
         }
         tracing::info!(%app_id, session = %owned, "portal monitor session created");
 
@@ -264,7 +273,9 @@ pub async fn start(
                 %error,
                 "me.aresa.Glimpse.Idle.Portal already owned; running in degraded mode"
             );
-            health.degraded(Backend::Portal, "Bus name already owned");
+            health
+                .name_taken(&connection, Backend::Portal, BUS_NAME)
+                .await;
         }
     }
 }

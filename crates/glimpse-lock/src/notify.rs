@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use gettextrs::gettext;
-use glimpse_compositors::Hyprland;
+use glimpse_compositors::{Compositor, detect_compositor};
 use glimpse_dbus::DEADLINE;
 use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use tokio::sync::mpsc;
@@ -78,12 +78,12 @@ async fn post(proxy: &FreedesktopNotificationsProxy<'_>, notice: Notice) -> Resu
     }
 }
 
-pub async fn restore_notice(hyprland: &Hyprland) -> Option<Notice> {
-    match hyprland.allow_session_lock_restore().await {
+pub async fn restore_notice(compositor: &Compositor) -> Option<Notice> {
+    match compositor.allows_session_lock_restore().await {
         Ok(true) => None,
         Ok(false) => Some(Notice::RestoreDisabled),
         Err(error) => {
-            tracing::warn!(%error, "could not read misc:allow_session_lock_restore");
+            tracing::warn!(%error, "could not read the session lock restore option");
             None
         }
     }
@@ -91,14 +91,12 @@ pub async fn restore_notice(hyprland: &Hyprland) -> Option<Notice> {
 
 pub fn spawn() -> mpsc::UnboundedSender<Notice> {
     let (notices, mut receiver) = mpsc::unbounded_channel::<Notice>();
-    if let Some(hyprland) = Hyprland::from_env() {
-        let notices = notices.clone();
-        relm4::spawn(async move {
-            if let Some(notice) = restore_notice(&hyprland).await {
-                let _ = notices.send(notice);
-            }
-        });
-    }
+    let restore = notices.clone();
+    relm4::spawn(async move {
+        if let Some(notice) = restore_notice(&detect_compositor()).await {
+            let _ = restore.send(notice);
+        }
+    });
     relm4::spawn(async move {
         let mut proxy = None;
         while let Some(notice) = receiver.recv().await {

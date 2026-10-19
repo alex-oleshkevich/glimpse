@@ -90,25 +90,20 @@ impl ScreenSaverServer {
             .sender()
             .map(|name| name.as_str().to_owned())
             .unwrap_or_default();
-        let bus_name_for_request = bus_name.clone();
         self.registry
-            .mutate(move |registry| -> Result<(), String> {
+            .mutate(move |registry| {
                 match registry.lookup_by_cookie(cookie) {
-                    Some(id) if registry.record_is_owned_by(id, &bus_name_for_request) => {
+                    Some(id) if registry.record_is_owned_by(id, &bus_name) => {
                         registry.release_record(id);
                     }
                     Some(_) => {
-                        tracing::debug!(cookie, bus_name = %bus_name_for_request, "UnInhibit for another client's cookie")
+                        tracing::debug!(cookie, bus_name = %bus_name, "UnInhibit for another client's cookie")
                     }
                     None => tracing::debug!(cookie, "UnInhibit for an unknown cookie"),
                 }
-                Ok(())
             })
-            .await
-            .inspect_err(|reason| {
-                tracing::warn!(%bus_name, reason, "rejecting ScreenSaver UnInhibit");
-            })
-            .map_err(zbus::fdo::Error::LimitsExceeded)
+            .await;
+        Ok(())
     }
 }
 
@@ -160,7 +155,9 @@ pub async fn start(connection: Connection, registry: Arc<SharedRegistry>, health
                 %error,
                 "org.freedesktop.ScreenSaver already owned; running in degraded mode"
             );
-            health.degraded(Backend::ScreenSaver, "Bus name already owned");
+            health
+                .name_taken(&connection, Backend::ScreenSaver, BUS_NAME)
+                .await;
         }
     }
 }

@@ -61,7 +61,14 @@ impl Health {
         );
     }
 
-    pub fn set(&self, backend: Backend, next: BackendHealth) {
+    pub async fn name_taken(&self, connection: &zbus::Connection, backend: Backend, name: &str) {
+        match owner_comm(connection, name).await {
+            Some(comm) => self.unsupported(backend, format!("served by {comm}")),
+            None => self.degraded(backend, "Bus name already owned"),
+        }
+    }
+
+    fn set(&self, backend: Backend, next: BackendHealth) {
         let changed = {
             let mut held = self.held();
             let slot = match backend {
@@ -83,6 +90,7 @@ impl Health {
         }
     }
 
+    #[cfg(test)]
     pub fn kind(&self, backend: Backend) -> HealthKind {
         let held = self.held();
         match backend {
@@ -98,6 +106,20 @@ impl Health {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+}
+
+async fn owner_comm(connection: &zbus::Connection, name: &str) -> Option<String> {
+    let dbus = zbus::fdo::DBusProxy::new(connection).await.ok()?;
+    let bus_name = zbus::names::BusName::try_from(name).ok()?;
+    let owner = dbus.get_name_owner(bus_name).await.ok()?;
+    let pid = dbus
+        .get_connection_unix_process_id(zbus::names::BusName::from(owner))
+        .await
+        .ok()?;
+    let comm = tokio::fs::read_to_string(format!("/proc/{pid}/comm"))
+        .await
+        .ok()?;
+    Some(glimpse_utils::clean(&comm, super::WHO_CAP))
 }
 
 #[cfg(test)]

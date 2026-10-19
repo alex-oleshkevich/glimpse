@@ -58,7 +58,14 @@ impl Registry {
             let count = self
                 .records
                 .values()
-                .filter(|internal| internal.record.owned_by(owner))
+                .filter(|internal| {
+                    if owner.is_empty() {
+                        internal.record.source.kind == SourceKind::Portal
+                            && internal.record.source.app_id.is_empty()
+                    } else {
+                        internal.record.owned_by(owner)
+                    }
+                })
                 .count();
             if count >= Self::MAX_INHIBITORS_PER_BUS {
                 return Err(format!(

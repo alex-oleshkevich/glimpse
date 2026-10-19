@@ -14,7 +14,7 @@ its config; they also reread it on their own when the file changes.
 | --- | --- | --- |
 | `glimpse-panel.service` | `me.aresa.GlimpsePanel.AppletHost` | On failure |
 | `glimpse-wallpaper.service` | None | On failure |
-| `glimpse-lock.service` | None | Always, no start limit |
+| `glimpse-lock.service` | None | Always, no start limit; skipped while the Wayland display socket is missing |
 | `glimpse-notifications.service` | `me.aresa.Glimpse.Notifications`, `org.freedesktop.Notifications` | On failure |
 | `glimpse-idle.service` | `me.aresa.Glimpse.Idle`, `me.aresa.Glimpse.Idle.Portal`, `org.freedesktop.ScreenSaver` | On failure |
 | `glimpse-settings-daemon.service` | `me.aresa.Glimpse.Settings` | On failure |

@@ -104,6 +104,6 @@ The session menu offers `Suspend...`, `Restart...`, and `Power Off...`, and ever
 confirmation. Configuration edits apply live while the screen is locked; only `pam-service` waits
 for a restart.
 
-## Let Hyprland accept a restarted lock screen
+## Let the compositor accept a restarted lock screen
 
-If the lock screen crashes or restarts while the screen is locked, Hyprland refuses the new lock unless `misc:allow_session_lock_restore` is on, and the session stays stuck on its lock-dead screen. In `hyprland.conf`, set `misc { allow_session_lock_restore = true }`. In `hyprland.lua`, set `hl.config({ misc = { allow_session_lock_restore = true } })`.
+If the lock screen crashes or restarts while the screen is locked, the compositor refuses the new lock unless `misc:allow_session_lock_restore` is on, and the session stays stuck on its lock-dead screen. In the hyprlang config, set `misc { allow_session_lock_restore = true }`. In the Lua config, set `hl.config({ misc = { allow_session_lock_restore = true } })`.

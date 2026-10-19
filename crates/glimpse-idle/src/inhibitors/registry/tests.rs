@@ -162,6 +162,39 @@ fn a_portal_app_id_counts_against_the_per_source_cap_like_a_bus_name() {
 }
 
 #[test]
+fn portal_records_with_an_empty_app_id_share_one_per_source_cap() {
+    let mut r = Registry::default();
+    for n in 0..Registry::MAX_INHIBITORS_PER_BUS {
+        let id = r.mint_id();
+        let record = IdleInhibitorRecord {
+            source: IdleInhibitorSource::portal(format!("/req/{id}"), ""),
+            ..test_record(id, &format!(":1.{n}"), false)
+        };
+        r.insert(record, None);
+    }
+
+    assert!(r.check_capacity(Some("")).is_err());
+    assert!(r.check_capacity(Some("org.polite.App")).is_ok());
+}
+
+#[test]
+fn an_empty_owner_does_not_count_non_portal_or_named_records() {
+    let mut r = Registry::default();
+    for n in 0..Registry::MAX_INHIBITORS_PER_BUS {
+        let id = r.mint_id();
+        r.insert(test_record(id, &format!(":1.{n}"), false), None);
+        let id = r.mint_id();
+        let record = IdleInhibitorRecord {
+            source: IdleInhibitorSource::portal(format!("/req/{id}"), "org.named.App"),
+            ..test_record(id, "", false)
+        };
+        r.insert(record, None);
+    }
+
+    assert!(r.check_capacity(Some("")).is_ok());
+}
+
+#[test]
 fn check_capacity_enforces_per_bus_limit_independently_per_bus_name() {
     let mut r = Registry::default();
     for _ in 0..Registry::MAX_INHIBITORS_PER_BUS {

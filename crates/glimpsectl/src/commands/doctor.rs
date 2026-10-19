@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use glimpse_compositors::Hyprland;
+use glimpse_compositors::{Compositor, detect_compositor};
 use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, HealthKind, Idle1Proxy};
 use glimpse_dbus::night_light::{GLIMPSE_NIGHT_LIGHT_BUS_NAME, NightLight1Proxy};
 use glimpse_dbus::notifications::{GLIMPSE_NOTIFICATIONS_BUS_NAME, Notifications1Proxy};
@@ -20,10 +20,9 @@ pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
     let session = within(Connection::session()).await;
     let configuration = configuration(config);
     let providers = providers(&session).await;
-    let session_lock = match Hyprland::from_env() {
-        Some(hyprland) => session_lock(&hyprland).await,
-        None => None,
-    };
+    let session_lock = session_lock(&detect_compositor())
+        .await
+        .filter(|lock| !lock.enabled);
     let components = match &session {
         Ok(connection) => super::status::rows(connection).await,
         Err(error) => Err(anyhow::anyhow!(error.to_string())),
@@ -77,8 +76,8 @@ pub struct SessionLock {
     pub fix: &'static str,
 }
 
-pub async fn session_lock(hyprland: &Hyprland) -> Option<SessionLock> {
-    let enabled = match within(hyprland.allow_session_lock_restore()).await {
+pub async fn session_lock(compositor: &Compositor) -> Option<SessionLock> {
+    let enabled = match within(compositor.allows_session_lock_restore()).await {
         Ok(enabled) => enabled,
         Err(error) => {
             tracing::warn!(%error, "could not read {RESTORE_OPTION}");

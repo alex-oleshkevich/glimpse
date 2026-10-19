@@ -32,7 +32,6 @@ pub struct State {
     pub enabled: bool,
     pub power_source: PowerSource,
     pub listeners: Vec<ActiveListener>,
-    pub fired_listeners: Vec<usize>,
     pub generation: u64,
 }
 
@@ -223,13 +222,11 @@ impl Actor {
         if !self.fired.remove(&id) {
             return;
         }
-        self.publish_fired();
         self.spawn_command(id, listener.on_resume);
     }
 
     fn fire(&mut self, id: usize, on_idle: String) {
         self.fired.insert(id);
-        self.publish_fired();
         self.spawn_command(id, on_idle);
     }
 
@@ -250,7 +247,6 @@ impl Actor {
         self.resume_fired_before_replace();
         self.fired.clear();
         self.suppressed.clear();
-        self.publish_fired();
     }
 
     fn resume_fired_before_replace(&mut self) {
@@ -296,18 +292,6 @@ impl Actor {
             .cloned()
     }
 
-    fn publish_fired(&self) {
-        let fired = sorted(&self.fired);
-        self.state_tx.send_if_modified(|state| {
-            if state.fired_listeners == fired {
-                false
-            } else {
-                state.fired_listeners = fired;
-                true
-            }
-        });
-    }
-
     fn sync_command_locks(&mut self, listeners: &[ActiveListener]) {
         self.command_locks
             .retain(|id, _| listeners.iter().any(|listener| listener.id == *id));
@@ -332,7 +316,6 @@ fn state_for_config(config: &Idle, power_source: PowerSource, generation: u64) -
         enabled: config.enabled,
         power_source,
         listeners: effective_listeners(config, power_source),
-        fired_listeners: vec![],
         generation,
     }
 }

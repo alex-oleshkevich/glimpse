@@ -71,11 +71,16 @@ impl SimpleComponent for App {
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
 
-        tracing::info!(
-            "the backdrop surface is visible only where niri places it; add \
-             `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
-             to show it in the Overview"
-        );
+        let backdrop = glimpse_compositors::detect_compositor()
+            .capabilities()
+            .overview_backdrop;
+        if backdrop {
+            tracing::info!(
+                "the backdrop surface is visible only where niri places it; add \
+                 `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
+                 to show it in the Overview"
+            );
+        }
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let dark = adw::StyleManager::default().is_dark();
@@ -85,9 +90,7 @@ impl SimpleComponent for App {
             styles,
             surfaces: Vec::new(),
             dark,
-            backdrop: glimpse_compositors::detect_compositor()
-                .capabilities()
-                .overview_backdrop,
+            backdrop,
             missing_warned: MissingWarned::default(),
         };
         model.reload_styles();

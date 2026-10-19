@@ -105,12 +105,6 @@ pub(super) async fn open_regular(source: &Path) -> Result<tokio::fs::File, Rejec
 }
 
 async fn copy_file(source: &Path, dir: &Path) -> Result<PathBuf, Reject> {
-    let metadata = tokio::fs::metadata(source)
-        .await
-        .map_err(|_| Reject::Unreadable)?;
-    if !metadata.is_file() {
-        return Err(Reject::Unreadable);
-    }
     let input = open_regular(source).await?;
     tokio::fs::create_dir_all(dir)
         .await

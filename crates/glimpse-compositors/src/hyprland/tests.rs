@@ -426,27 +426,39 @@ fn every_target_serializes_to_the_command_hyprland_expects() {
         None,
         "a bare negative selector would read as a relative move"
     );
-    assert_eq!(workspace_command("5"), "dispatch workspace 5");
     assert_eq!(
-        workspace_command("name:chat"),
+        workspace_command(Dialect::Legacy, "5"),
+        "dispatch workspace 5"
+    );
+    assert_eq!(
+        workspace_command(Dialect::Legacy, "name:chat"),
         "dispatch workspace name:chat"
     );
 
     assert_eq!(
-        window_command(WindowTarget::Id(WindowId(0x5591_e8b2_f5a0))),
+        window_command(
+            Dialect::Legacy,
+            WindowTarget::Id(WindowId(0x5591_e8b2_f5a0))
+        ),
         "dispatch focuswindow address:0x5591e8b2f5a0"
     );
-    assert_eq!(window_command(WindowTarget::Next), "dispatch cyclenext");
     assert_eq!(
-        window_command(WindowTarget::Prev),
+        window_command(Dialect::Legacy, WindowTarget::Next),
+        "dispatch cyclenext"
+    );
+    assert_eq!(
+        window_command(Dialect::Legacy, WindowTarget::Prev),
         "dispatch cyclenext prev"
     );
 
     assert_eq!(
-        rename_command("3", Some("chat")),
+        rename_command(Dialect::Legacy, "3", Some("chat")),
         "dispatch renameworkspace 3 chat"
     );
-    assert_eq!(rename_command("3", None), "dispatch renameworkspace 3");
+    assert_eq!(
+        rename_command(Dialect::Legacy, "3", None),
+        "dispatch renameworkspace 3"
+    );
 }
 
 #[test]
@@ -665,6 +677,135 @@ async fn a_negative_workspace_id_is_dispatched_by_name() {
         *received.lock().expect("lock"),
         ["j/workspaces", "dispatch workspace name:chat"]
     );
+}
+
+fn dispatch_server(lua: bool) -> (FakeHyprland, Arc<Mutex<Vec<String>>>) {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let respond = move |command: &str| {
+        sink.lock().expect("lock").push(command.to_owned());
+        match command {
+            "j/workspaces" => json!([
+                { "id": -1337, "name": "chat", "monitor": "eDP-1", "lastwindow": "0x0" }
+            ])
+            .to_string(),
+            _ => "ok".to_owned(),
+        }
+    };
+    let server = match lua {
+        true => FakeHyprland::spawn_lua(respond, Vec::new()),
+        false => FakeHyprland::spawn(respond, Vec::new()),
+    };
+    (server, received)
+}
+
+async fn drive_every_dispatch(hyprland: &Hyprland) {
+    hyprland
+        .focus_workspace(WorkspaceTarget::Index(2))
+        .await
+        .expect("index");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Next)
+        .await
+        .expect("next");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Prev)
+        .await
+        .expect("prev");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Name("chat".to_owned()))
+        .await
+        .expect("name");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64)))
+        .await
+        .expect("negative id");
+    hyprland
+        .rename_workspace(WorkspaceId(3), Some("mail"))
+        .await
+        .expect("rename");
+    hyprland
+        .rename_workspace(WorkspaceId(3), None)
+        .await
+        .expect("clear");
+    hyprland
+        .rename_workspace(WorkspaceId(3), Some("a \"b\"\nc\\d"))
+        .await
+        .expect("hostile name");
+    hyprland
+        .focus_window(WindowTarget::Id(WindowId(0x5591_e8b2_f5a0)))
+        .await
+        .expect("address");
+    hyprland
+        .focus_window(WindowTarget::Next)
+        .await
+        .expect("cycle next");
+    hyprland
+        .focus_window(WindowTarget::Prev)
+        .await
+        .expect("cycle prev");
+}
+
+#[tokio::test]
+async fn a_legacy_config_gets_the_legacy_dispatchers() {
+    let (server, received) = dispatch_server(false);
+
+    drive_every_dispatch(&Hyprland::at(&server.dir)).await;
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        [
+            "dispatch workspace 2",
+            "dispatch workspace e+1",
+            "dispatch workspace e-1",
+            "dispatch workspace name:chat",
+            "j/workspaces",
+            "dispatch workspace name:chat",
+            "dispatch renameworkspace 3 mail",
+            "dispatch renameworkspace 3",
+            "dispatch renameworkspace 3 a \"b\"\nc\\d",
+            "dispatch focuswindow address:0x5591e8b2f5a0",
+            "dispatch cyclenext",
+            "dispatch cyclenext prev",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_lua_config_gets_the_hl_dsp_forms() {
+    let (server, received) = dispatch_server(true);
+
+    drive_every_dispatch(&Hyprland::at(&server.dir)).await;
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        [
+            "dispatch hl.dsp.focus({ workspace = \"2\" })",
+            "dispatch hl.dsp.focus({ workspace = \"e+1\" })",
+            "dispatch hl.dsp.focus({ workspace = \"e-1\" })",
+            "dispatch hl.dsp.focus({ workspace = \"name:chat\" })",
+            "j/workspaces",
+            "dispatch hl.dsp.focus({ workspace = \"name:chat\" })",
+            "dispatch hl.dsp.workspace.rename({ workspace = \"3\", name = \"mail\" })",
+            "dispatch hl.dsp.workspace.rename({ workspace = \"3\" })",
+            "dispatch hl.dsp.workspace.rename({ workspace = \"3\", name = \"a \\\"b\\\"\\nc\\\\d\" })",
+            "dispatch hl.dsp.focus({ window = \"address:0x5591e8b2f5a0\" })",
+            "dispatch hl.dsp.window.cycle_next()",
+            "dispatch hl.dsp.window.cycle_next({ next = false })",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_lua_refusal_carries_hyprland_s_text() {
+    let server = FakeHyprland::spawn_lua(|_| "error: no such workspace".to_owned(), Vec::new());
+
+    let failure = Hyprland::at(&server.dir)
+        .focus_workspace(WorkspaceTarget::Index(2))
+        .await
+        .expect_err("refused");
+
+    assert!(matches!(failure, CompositorError::Refused(reason) if reason.contains("no such")));
 }
 
 fn monitor_server(reply: &'static str) -> (FakeHyprland, Arc<Mutex<Vec<String>>>) {

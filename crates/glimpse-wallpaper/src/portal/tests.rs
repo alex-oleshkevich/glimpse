@@ -2,7 +2,7 @@ use super::*;
 use glimpse_dbus::testing::PrivateBus;
 use gtk4::gdk_pixbuf::{Colorspace, Pixbuf};
 use std::time::Duration;
-use validate::{Reject, bounded, open_regular};
+use validate::{Reject, bounded};
 use zbus::zvariant::Value;
 
 fn options(pairs: &[(&str, &str)]) -> HashMap<String, OwnedValue> {
@@ -184,7 +184,7 @@ fn mkfifo(path: &Path) {
 }
 
 #[test]
-fn a_fifo_is_refused_without_opening_it() {
+fn a_fifo_is_refused_without_blocking() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let fifo = dir.path().join("pipe.png");
     mkfifo(&fifo);
@@ -195,22 +195,6 @@ fn a_fifo_is_refused_without_opening_it() {
     });
     runtime.shutdown_background();
     assert_eq!(outcome.ok(), Some(Err(Reject::Unreadable)));
-}
-
-#[test]
-fn a_fifo_that_passes_the_path_check_is_refused_at_open() {
-    let dir = tempfile::tempdir().expect("a temporary directory");
-    let fifo = dir.path().join("pipe.png");
-    mkfifo(&fifo);
-    let runtime = tokio::runtime::Runtime::new().expect("a runtime");
-    let outcome = runtime.block_on(async {
-        tokio::time::timeout(Duration::from_secs(5), open_regular(&fifo)).await
-    });
-    runtime.shutdown_background();
-    assert_eq!(
-        outcome.ok().map(|opened| opened.map(|_| ())),
-        Some(Err(Reject::Unreadable))
-    );
 }
 
 #[tokio::test]
