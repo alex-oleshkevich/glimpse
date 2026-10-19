@@ -50,8 +50,8 @@ fn release_record_removes_from_every_secondary_map() {
     r.insert(record, None);
     assert_eq!(r.release_record(id), Some(id));
     assert_eq!(r.lookup_by_cookie(cookie), None);
-    assert!(!r.has_bus_name_entry(":1.1"));
-    assert_eq!(r.count(), 0);
+    assert!(!r.bus_name_to_ids.contains_key(":1.1"));
+    assert_eq!(r.records.len(), 0);
 }
 
 #[test]
@@ -101,8 +101,8 @@ fn bus_name_to_ids_tracks_multiple_records_and_release_by_bus_name_clears_them()
         },
         None,
     );
-    assert_eq!(r.ids_for_bus_name(":1.5"), [id1, id2]);
-    assert_eq!(r.count(), 2);
+    assert_eq!(r.bus_name_to_ids[":1.5"], [id1, id2]);
+    assert_eq!(r.records.len(), 2);
 
     let released = r.release_by_bus_name(":1.5");
     assert_eq!(released.len(), 2);
@@ -111,10 +111,10 @@ fn bus_name_to_ids_tracks_multiple_records_and_release_by_bus_name_clears_them()
     assert_eq!(r.lookup_by_cookie(cookie1), None);
     assert_eq!(r.lookup_by_cookie(cookie2), None);
     assert!(
-        !r.has_bus_name_entry(":1.5"),
+        !r.bus_name_to_ids.contains_key(":1.5"),
         "the bus-name key itself must be removed, not left behind as an empty Vec"
     );
-    assert_eq!(r.count(), 0);
+    assert_eq!(r.records.len(), 0);
     assert!(r.release_by_bus_name(":1.5").is_empty());
 }
 

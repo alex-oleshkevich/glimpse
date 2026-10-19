@@ -80,7 +80,7 @@ impl CommandRunner for ShellRunner {
 
 #[derive(Clone)]
 pub struct Handle {
-    command_tx: mpsc::Sender<Event>,
+    pub(crate) command_tx: mpsc::Sender<Event>,
     state_rx: watch::Receiver<State>,
 }
 
@@ -95,11 +95,6 @@ impl Handle {
 
     pub async fn send(&self, event: Event) {
         let _ = self.command_tx.send(event).await;
-    }
-
-    #[cfg(test)]
-    pub fn try_send(&self, event: Event) -> Result<(), mpsc::error::TrySendError<Event>> {
-        self.command_tx.try_send(event)
     }
 }
 

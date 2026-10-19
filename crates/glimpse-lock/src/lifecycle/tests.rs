@@ -18,7 +18,7 @@ fn started(settings: Settings, locked_hint: bool) -> (Lifecycle, Vec<Effect>) {
 fn locked(settings: Settings) -> Lifecycle {
     let (mut machine, _) = started(settings, false);
     machine.handle(Input::LockRequested);
-    let generation = machine.generation();
+    let generation = machine.generation;
     machine.handle(Input::Locked(generation));
     machine.handle(Input::Painted(generation));
     machine

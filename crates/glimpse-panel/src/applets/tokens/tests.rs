@@ -26,8 +26,6 @@ fn an_unclosed_brace_is_text() {
     assert_eq!(render("{id} {unclosed", facts), "42 {unclosed");
 }
 
-/// A resolved value is compositor- or calendar-supplied text, so a token inside one must stay
-/// text rather than become a second round of substitution.
 #[test]
 fn a_token_inside_a_resolved_value_is_not_substituted() {
     assert_eq!(render("{name}", facts), "{id}");

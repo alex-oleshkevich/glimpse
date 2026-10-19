@@ -195,23 +195,6 @@ impl Registry {
             None => tracing::debug!(id, "set_process_name for an id no longer in the registry"),
         }
     }
-
-    #[cfg(test)]
-    fn ids_for_bus_name(&self, bus_name: &str) -> &[u64] {
-        self.bus_name_to_ids
-            .get(bus_name)
-            .map_or(&[], Vec::as_slice)
-    }
-
-    #[cfg(test)]
-    fn has_bus_name_entry(&self, bus_name: &str) -> bool {
-        self.bus_name_to_ids.contains_key(bus_name)
-    }
-
-    #[cfg(test)]
-    fn count(&self) -> usize {
-        self.records.len()
-    }
 }
 
 #[cfg(test)]

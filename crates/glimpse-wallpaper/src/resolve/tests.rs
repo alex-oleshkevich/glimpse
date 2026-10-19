@@ -4,13 +4,8 @@ use glimpse_config::{Backdrop, BackdropOutput};
 
 use super::*;
 
-/// Serializes every test that installs a thread-local default subscriber. `tracing`'s
-/// process-wide max-level hint is rebuilt whenever a dispatcher is set or dropped, so two of
-/// these tests racing on different threads can transiently filter each other's events out.
 static LOG_CAPTURE: Mutex<()> = Mutex::new(());
 
-/// Captures what this module logs on this thread. `set_default` is thread-local, so a test
-/// running on its own thread reports only its own lines into this buffer.
 #[derive(Clone, Default)]
 struct Logged(Arc<Mutex<Vec<u8>>>);
 

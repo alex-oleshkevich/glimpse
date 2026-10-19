@@ -50,21 +50,6 @@ fn name_or_index_prefers_the_name_and_never_renders_empty() {
 }
 
 #[test]
-fn a_longer_token_is_not_eaten_by_a_shorter_one_it_contains() {
-    let unnamed = Facts {
-        name: None,
-        ..niri()
-    };
-
-    assert_eq!(
-        render("{name-or-index}", &unnamed),
-        "3",
-        "the shorter token is a prefix of the longer one, so the order of the replacements \
-             is what keeps the longer one whole"
-    );
-}
-
-#[test]
 fn a_window_numbers_itself_by_position_without_losing_the_text_around_it() {
     let window = Facts {
         index: Some(2),
@@ -126,8 +111,6 @@ fn workspace_name_is_the_only_way_to_name_the_workspace_while_showing_windows() 
     );
 }
 
-/// A workspace or window name is compositor-supplied text, so a token inside one must stay
-/// text rather than become a second round of substitution.
 #[test]
 fn a_token_inside_a_compositor_supplied_name_is_not_substituted() {
     let hostile = Facts {
@@ -140,10 +123,4 @@ fn a_token_inside_a_compositor_supplied_name_is_not_substituted() {
     assert_eq!(render("{name}", &hostile), "{id}");
     assert_eq!(render("{workspace-name}", &hostile), "{index}");
     assert_eq!(render("{name-or-index}", &hostile), "{id}");
-}
-
-#[test]
-fn text_around_a_token_survives() {
-    assert_eq!(render("ws {index}", &niri()), "ws 3");
-    assert_eq!(render("", &niri()), "");
 }

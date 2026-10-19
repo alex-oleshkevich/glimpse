@@ -26,8 +26,6 @@ fn an_empty_history_takes_no_room_on_the_bar() {
     assert!(shown(0, true, false));
 }
 
-/// Without this the warning is unreachable: nothing is ever captured, so the count stays zero,
-/// so the chip stays hidden, so the popover that would explain it can never be opened.
 #[test]
 fn a_clipboard_that_cannot_be_watched_is_still_reachable() {
     assert!(
@@ -42,8 +40,6 @@ fn a_tooltip_without_a_template_is_absent_rather_than_empty() {
     assert_eq!(filled(Some("{count} items"), 4).as_deref(), Some("4 items"));
 }
 
-/// An unknown token is left as written rather than swallowed, so a typo in the document is
-/// visible on the bar instead of silently producing an empty chip.
 #[test]
 fn an_unknown_token_survives_into_the_label() {
     assert_eq!(

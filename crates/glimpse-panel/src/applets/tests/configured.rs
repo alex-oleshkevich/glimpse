@@ -34,10 +34,6 @@ fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
     assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
 }
 
-/// The shipped defaults name applets in a panel zone and carry no `[applets.<name>]` table for
-/// them, so every applet on a default bar is built by `from_name` rather than found in the
-/// map. That path invents a config, and an invented config that kept `Regional::default()`
-/// would silently ignore an explicit `hour-format`.
 #[test]
 fn an_applet_with_no_table_of_its_own_still_carries_the_document_s_regional() {
     let twelve = Regional {

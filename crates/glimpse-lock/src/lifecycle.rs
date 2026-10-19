@@ -128,11 +128,6 @@ impl Lifecycle {
         }
     }
 
-    #[cfg(test)]
-    pub fn generation(&self) -> u64 {
-        self.generation
-    }
-
     pub fn is_idle(&self) -> bool {
         self.phase == Phase::Idle
     }

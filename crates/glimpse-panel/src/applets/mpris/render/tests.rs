@@ -3,13 +3,10 @@ use glimpse_services::PlayerCapabilities;
 
 use super::*;
 
-/// Seconds after the instant the fixture's position was read, so a test can say "half a
-/// minute later" without composing a wall-clock time that may not exist.
 fn at(seconds: i64) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap() + chrono::TimeDelta::seconds(seconds)
 }
 
-/// One player with every field filled, so a test overrides only what it is about.
 pub(in crate::applets::mpris) fn player() -> PlayerStatus {
     PlayerStatus {
         id: "spotify".to_owned(),
@@ -64,14 +61,11 @@ fn a_rate_other_than_one_advances_at_that_rate() {
     assert_eq!(position(&player, at(30)), 120_000_000);
 }
 
-/// A player that stops emitting anything would otherwise count past the end of its own track
-/// and show a negative remaining time.
 #[test]
 fn position_never_runs_past_the_length() {
     assert_eq!(position(&player(), at(3600)), 305_000_000);
 }
 
-/// A live stream has no end to count towards, so nothing may clamp against it.
 #[test]
 fn a_stream_with_no_length_keeps_counting() {
     let mut player = player();
@@ -115,7 +109,6 @@ fn every_placeholder_is_replaced_by_name() {
     );
 }
 
-/// A video has no artist, and a format naming one must not leave its separator behind.
 #[test]
 fn a_placeholder_with_nothing_behind_it_renders_as_nothing() {
     let mut player = player();
@@ -139,8 +132,6 @@ fn a_label_of_nothing_but_separators_is_no_label_at_all() {
     );
 }
 
-/// The cap counts characters, not bytes: a byte slice through a multi-byte title panics, and
-/// track titles are chosen by whatever is playing.
 #[test]
 fn the_cap_counts_characters_and_marks_what_it_cut() {
     assert_eq!(

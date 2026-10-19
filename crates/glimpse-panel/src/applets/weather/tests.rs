@@ -84,8 +84,6 @@ fn a_fixed_place_the_provider_never_serves_is_reported_on_the_tick_and_not_befor
     );
 }
 
-/// The flag is the tick's to set. A snapshot arriving must not decide it, or the ordinary gap
-/// between taking the name and the first fetch would flash a warning on every panel start.
 #[test]
 fn a_snapshot_does_not_decide_whether_a_place_is_unserved() {
     let mut applet = applet();
@@ -157,8 +155,6 @@ fn reading() -> PlaceWeather {
     }
 }
 
-/// A fresh panel shows nothing rather than a placeholder, and the group hides itself. A `here`
-/// place with no fix and a place with no reading are the same absence.
 #[test]
 fn a_place_with_no_current_reading_renders_no_chip() {
     let mut applet = applet();
@@ -196,8 +192,6 @@ fn the_chip_reads_the_one_rounding_site_and_carries_a_symbolic_icon() {
     );
 }
 
-/// The icon is a `gio::Icon` built per condition change, not per render: `indicators` is a
-/// pull the runtime makes after every input.
 #[test]
 fn the_icon_is_rebuilt_only_when_the_condition_changes() {
     let mut applet = applet();
@@ -222,8 +216,6 @@ fn the_icon_is_rebuilt_only_when_the_condition_changes() {
     assert!(!first.equal(Some(&changed)));
 }
 
-/// A warning standing is what the bar is for. It takes the icon and the colour, and the
-/// temperature stays, so the chip does not stop being a weather chip.
 #[test]
 fn an_alert_takes_the_chips_icon_and_its_color() {
     let mut applet = applet();
