@@ -8,8 +8,8 @@ When this file and the code disagree, the code is right.
 ## The standard layout
 
 Every popover is a `$PopoverShell` with an addon and a body. The shell is the composition; an applet chooses
-what fills the body and almost never anything else. Read this before drawing a new one — eight
-popovers already agree on it and a ninth that does not is a finding, not a style.
+what fills the body and almost never anything else. Read this before drawing a new one — every
+popover agrees on it, and one that does not is a finding, not a style.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -19,13 +19,13 @@ popovers already agree on it and a ninth that does not is a finding, not a style
 │          Gtk.Box .column                        │  body, inside scroller
 │                                                 │
 │            $Section   TITLE   count  [trail]    │    section__header
-│              $Row   check icon lead  title   ›  │
-│                                      subtitle   │
-│              $Row   …                           │
+│              $Row   icon  title       value  ✓  │
+│                           subtitle              │
+│              $ExpanderRow  …                 ›  │
 │                                                 │
 │            $Section   TITLE                     │
 │              $Row   …                           │
-│              $Row   view-more-symbolic "N more" │
+│              $ExpanderRow "N more"           ›  │
 │                                                 │
 └─────────────────────────────────────────────────┘
 ```
@@ -34,15 +34,15 @@ The three composed widgets, each a row of slots left to right, `hexpand` marked:
 
 ```
 $Hero      [icon] [title / subtitle]──►──[slot]
-$Row       [check] [icon] [lead] [title / subtitle]──►──[value] [trail]
+$Row       [icon] [start] [title / subtitle]──►──[value] [spinner] [end] [check] [chevron]
 $Section   header( [title]──►──[count] [trail] )  content  [placeholder]
 ```
 
 - **A slot with nothing visible in it renders nothing.** `header` starts `visible: false`, and
-  `PopoverShell` watches `notify::visible` on body children so the scroller follows their visibility.
-- **`.column` is what carries the width floor** — `min-width: var(--gl-popover-min-width)`, 27rem in
-  `:root`. Put it on the content box, or on the single `$Section` when there is no box
-  (`KeyboardPopover`). Overriding the token per popover is the supported way to be narrower.
+  `PopoverShell` watches each body child's `visible` so the scroller follows it.
+- **The width floor is `.applet-popover`'s** — `min-width: var(--applet-popover-width)`, 27rem in
+  `:root`, and `.popover-shell .column` repeats it. `size: wide` on the `$PopoverShell` swaps in
+  `--applet-popover-width-wide`, as `NotificationsPopover` does.
   **Never write a `width-request`** — `.claude/rules/ui.md` forbids it,
   and one smaller than the floor is silently inert.
 
@@ -92,15 +92,15 @@ The outer `Gtk.Widget` + `BinLayout` is not decoration: subclassing `Gtk.Widget`
 
 ## The five ways content varies
 
-Pick one. They compose badly — a drawer beside an inline expansion moves on both axes at once.
+Pick one per list; they all grow downwards, so they compose without moving the card sideways.
 
 | Situation | Shape | Worked example |
 | --- | --- | --- |
-| A list, flat | `$Section`s in one `.column`, a `$Row` each | `BluetoothPopover`, `KeyboardPopover` |
-| A row has detail | an `$Expandable` per item: the `$Row` or `$SplitRow` head, then `[details]` | `WorkspacesPopover` windows |
-| More than fits | a `Gtk.Revealer drawer` **beside** the column, `transition-type: slide_right`, holding a vertical `Gtk.Separator` and a `.drawer-page` | `CalendarPopover` |
-| Empty has variants | a `Gtk.Stack` in `$Section`'s `[placeholder]` slot, one `$Placeholder` per page | `CalendarPopover` `nothing` / `truncated` |
-| One question owns the card | a `Gtk.Stack` **around** the `.column`, `vhomogeneous: false`, the other page carrying the question | `BluetoothPopover` pairing prompts |
+| A list, flat | `$Section`s in one `.column`, a `$Row` each | `KeyboardPopover`, `PlacesPopover` |
+| A row has detail | an `$ExpanderRow` per item: its head, then its `details()` box | `RemovablePopover`, `PowerPopover` |
+| More than fits | an `$ExpanderRow` "N more" whose drawer holds the same row widget; `EventList` carries its own "N more" row | `RemovablePopover`, `CalendarPopover` |
+| Empty or partial | a `$Placeholder` or a label in `$Section`'s `[placeholder]` slot | `NetworkPopover` `looking`, `CalendarPopover` `truncated` |
+| One question owns the card | a `Gtk.Stack` **around** the `.column`, `vhomogeneous: false`, the other page carrying the question | `BluetoothPopover`, `NetworkPopover` |
 
 - **An open detail dims everything it is read against. This is not optional, and it is not the
   popover's code.** Opening an `Expandable` tells its `PopoverShell`, which closes every unrelated
@@ -108,24 +108,18 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
   rows, other sections' content — derived from the tree on each change, so nothing lists what dims
   and a widget added later is covered. The open card takes `.open` and `.card` and keeps full
   weight; its head never moves, because only paint changes. **Section headers and separators stay
-  lit**: they are the frame, not content. A `SplitRow` is one leaf, so its own divider is not frame.
+  lit**: they are the frame, not content.
 - **A press on anything dimmed closes the detail and does nothing else.** The shell's capture-phase
   click claims it before any row sees it, so reaching past an open card never fires the row under
   the pointer. Inside the card, and on its own head, presses go through — and so does a press on
-  another card's opener (a `SplitRow`'s chevron, a plain `Row` head), which switches cards in one
-  click. Hover is suppressed on dimmed rows except those openers, so what still works looks it.
-  Scrollbars are neither dimmed nor outside.
-- **Not yet moved:** a popover still on `crate::drawer::holder` writes its own recede loop and has
-  none of the above. The trap there is a list with nothing open in it — `ForecastList::reveal(None)`
-  *clears* receding, so a popover whose open item lives elsewhere must dim that list explicitly.
-- **The overflow row is a `$Row` with `view-more-symbolic`**, inside the section it belongs to, and
-  it toggles — `crate::drawer::toggle`, never `set_reveal_child` at a call site. A list that stops
-  overflowing must close its drawer rather than leave it open on nothing.
-- **Detail unfolds downwards, overflow slides sideways.** Height is the free axis; width is not. A
-  drawer is only safe because its width is known before it opens, which is why neither stack in the
-  table is a second revealer.
-- **Build the panel on first open, not at construction.** Fourteen devices would otherwise carry
-  fourteen row boxes nobody asked to see.
+  another card's opener (an `$ExpanderRow` head, or anything carrying `expandable__opener`), which
+  switches cards in one click. Hover is suppressed on dimmed rows except those openers, so what
+  still works looks it. Scrollbars are neither dimmed nor outside.
+- **The overflow row sits inside the section it belongs to.** A list that stops overflowing hides
+  it rather than leave it open on nothing.
+- **Detail and overflow unfold downwards.** Height is the free axis; width is not.
+- **Build a detail on first open, not at construction.** Fourteen devices would otherwise carry
+  fourteen detail boxes nobody asked to see.
 
 ## Typical widget composition
 
@@ -137,8 +131,12 @@ $PopoverShell
 ├── [addon]   a Gtk.Switch or a $Readout, in the header beside icon · title/subtitle
 ├──           Gtk.Box .column
 │              ├── $Section    title · count · [trail] · content · [placeholder]
-│              │    ├── $Row           the unit of every list
-│              │    ├── $SplitRow      a $Row plus a trailing button, divided by a hairline
+│              │    ├── $Row           the unit of every list, a readout
+│              │    ├── $ActionRow     a $Row whose body is a command
+│              │    ├── $ToggleRow     a $Row carrying a switch
+│              │    ├── $SliderRow     a value set by dragging
+│              │    ├── $MeterRow      a value read as a bar
+│              │    ├── $ExpanderRow   an $ActionRow head over a details box
 │              │    ├── $Notice        an inline banner carrying a severity
 │              │    └── $Placeholder   the empty state, wording in the .blp
 │              └── $Section …
@@ -148,8 +146,8 @@ The domain lists drop into a `$Section` in place of loose rows, and each owns it
 
 | List | Rows it builds | Declared in |
 | --- | --- | --- |
-| `$EventList` | `$EventRow` | `calendar_popover`, `next_event_popover` |
-| `$WorldClock` | `$ClockRow` | `calendar_popover` |
+| `$EventList` | its own event rows plus "N more" | `calendar_popover`, `next_event_popover` |
+| `$WorldClock` | its own zone rows | `calendar_popover` |
 | `$ForecastStrip` | `$ForecastHour` | `weather_popover` |
 | `$ForecastList` | `$ForecastDay` → `$RangeBar` | `weather_popover` |
 | `$WorkspaceList` | `$WorkspaceSection` → `$Section` | `workspaces_popover` |
@@ -161,24 +159,21 @@ The domain lists drop into a `$Section` in place of loose rows, and each owns it
 | `$Pager` | `$PagerItem` | built from Rust, by the pager applet |
 
 - **Declare what is fixed, build what is computed.** A list whose children come from the data is a
-  named empty `Gtk.Box` in the `.blp` that Rust reconciles into; `$Section connected` holding
-  `Gtk.Box connected_rows` is the shape. Do not build the section from Rust to save the box.
-- **Reach for `$Row` before anything else.** `$SwitchRow` when the row carries a switch; `$SplitRow`
-  only when a row needs a second, separately activatable target; `$Placeholder` only for an empty
-  list, never as a "no value yet" filler.
+  named empty `Gtk.Box` in the `.blp` that Rust reconciles into; `$Section layouts` holding
+  `Gtk.Box rows` in `KeyboardPopover` is the shape. Do not build the section from Rust to save the
+  box.
+- **Reach for `$Row` before anything else.** `$ActionRow` when clicking the row does something;
+  `$ToggleRow` when it carries a switch; `$Placeholder` only for an empty list, never as a "no value
+  yet" filler.
 - **`$Notice` never reports a failed command.** That is a notification's job, and `spawn_reported`
   already posts one — a banner beside the row repeats it and is still there on the next open. Use
   `$Notice` only for standing content the viewer must act on, such as a weather advisory, or for the
   one condition a notification cannot carry: the notification provider itself being down.
-- **A row highlights only if clicking its body does something**, and the two ways of honouring that
-  are not interchangeable. A pure readout takes `set_activatable(false)`, which drops `can-target`
-  and so makes the row unreachable by pointer, focus and tooltip alike. A row carrying a **control**
-  must never use it — `can-target` is inherited by the whole subtree, so the control would stop
-  responding too. Put the behaviour in a widget instead: `$SwitchRow`'s body flips its own knob, and
-  the knob's notify is the single emitter, so neither can double the other. A shared rule about a
-  *class* of rows belongs in `glimpse-widgets`, never re-implemented per applet.
-- **`$ChoiceList` has no caller.** It is exported and tested and nothing builds one; do not take its
-  existence as a pattern to follow.
+- **A row highlights only if clicking its body does something.** A readout is a `$Row`; a command
+  is an `$ActionRow`, which carries `row--interactive`; a switch is a `$ToggleRow`, whose body and
+  knob share one `toggled` emitter, so neither can double the other. A control never sits inside a
+  row that claims the click — `SourceList` parents each `SliderRow` beside its row, not inside it. A
+  shared rule about a *class* of rows belongs in `glimpse-widgets`, never re-implemented per applet.
 
 ## Animation
 
@@ -203,19 +198,18 @@ What actually moves:
 
 | Motion | How | Where |
 | --- | --- | --- |
-| The popover fading in | `adw::TimedAnimation` on the catcher slot's `opacity`, 150ms, `Easing::EaseOutCubic` | `applet/catcher.rs` |
-| A drawer opening sideways | `Gtk.Revealer`, `transition-type: slide_right` | calendar, workspaces |
-| A detail unfolding under its row | `$Expandable`'s own `Gtk.Revealer`, `SlideDown`; the row and details become one `.card` | `WorkspacesPopover` |
-| A drawer page changing | `Gtk.Stack`, `transition-type: crossfade` **plus `interpolate-size: true`** | calendar |
-| A chevron turning | `transform: rotate(…)` on the image, transitioned | `.split-row__detail` 90°, `.tray-strip__chevron` 180° |
-| Everything but the open row dimming | `opacity` on `.receded`, set by `PopoverShell`; the fade rides the permanent `.recedes` marker | `WorkspacesPopover` |
+| The popover fading in | `adw::TimedAnimation` driving `shade` on the body and arrow, `glimpse_widgets::duration_ms()`, `Easing::EaseOutCubic` | `applet/catcher.rs` |
+| A detail unfolding under its row | `$Expandable`'s own `Gtk.Revealer`, `SlideDown`; the row and details become one `.card` | every `$ExpanderRow` |
+| A page changing | `Gtk.Stack`, `transition-type: crossfade` **plus `interpolate-size: true`** | `$Calendar` |
+| A chevron turning | `transform: rotate(…)` on the image, transitioned | `.row__chevron` 90°, `.tray-strip__chevron` 180° |
+| Everything but the open row dimming | `opacity` on `.receded`, set by `PopoverShell`; the fade rides the permanent `.recedes` marker | every `PopoverShell` |
 | A notification popup arriving | `opacity` + `transform: translate` by `--gl-popup-motion` | `glimpse-notifications` |
 
 - **The fade is driven from the tick callback, not from `open`.** It starts once the body has been
   measured and placed, so the first frame the viewer sees is already in the right position; a fade
   begun at open would play against a body that is still being placed.
 - **Closing animates from the *current* opacity**, not from 1. `Catcher::close` reads
-  `slot.opacity()` into `set_value_from`, so dismissing a popover mid-open reverses from where it
+  `body.opacity()` into `set_value_from`, so dismissing a popover mid-open reverses from where it
   got to rather than snapping to full and falling.
 - **`interpolate-size: true` is not optional on a stack that animates.** Without it the stack
   requests the height of its tallest page and the popover jumps to that size before the crossfade
@@ -225,19 +219,20 @@ What actually moves:
 - **A notification's direction comes from its edge.** `animation_class(edge)` picks
   `notification-popup__entry--top` or `--bottom`, so a card enters from the screen edge it lives on
   rather than always from above.
-- **`ANIMATION_MILLIS` in `glimpse-notifications` is 150 because `--gl-duration` is.** They are two
-  independent numbers that have to be changed together; nothing checks it.
+- **An animation driven from Rust reads `glimpse_widgets::duration_ms()`**, the Rust side of
+  `--gl-duration` scaled by the animation speed, and never writes a number of its own.
 
 ## What opens it, and what closes it
 
 The runtime does. `HostInput::Pressed` delivers the press to `handle` **and then**, for
-`Button::Left`, calls `show_popover` — which calls `applet.popover(&seat)` if nothing of this
-applet's is open, and `catcher.close()` if something is. Left click is therefore a toggle the applet
-does not implement and must not duplicate: an applet that also acts on
+`Button::Left`, calls `toggle_popover` — which calls `catcher.close()` if this applet's popover is
+up, and otherwise `show_popover`, which calls `applet.popover(&seat)`. Left click is therefore a
+toggle the applet does not implement and must not duplicate: an applet that also acts on
 `Input::Pointer(Pointer::Press(Button::Left))` fires its action every time the popover opens.
 
-`Opener::open_popover` is how an applet drives that itself: the pager wires its click inside
-`view()`, and bluetooth raises a pairing question that arrived while nothing was open.
+`Opener` is how an applet drives that itself: the pager calls `toggle_popover` from a click it wires
+inside `view()`, and bluetooth and network call `open_popover` for a question that arrived while
+nothing was open.
 
 Dismissal is a click anywhere outside the popover body, caught by a `GestureClick` on the catcher
 window. It reaches the runtime as `HostInput::PopoverDismissed`, which drops the runtime's handle.
@@ -246,12 +241,13 @@ window. It reaches the runtime as `HostInput::PopoverDismissed`, which drops the
 
 **One `Catcher` per bar**, built in `Panel::init` and shared by every applet in every zone. So one
 popover is open at a time per monitor, and opening a second replaces the first. A bare layer-shell
-window covering the whole monitor at `Layer::Top`, exclusive zone 0, catches outside clicks; the
-body sits above it on a `Layer::Top` surface sized to itself, with an arrow drawn by a `DrawingArea`
-and a 150ms `adw::TimedAnimation` on opacity.
+window covering the whole monitor at `Layer::Top` catches outside clicks; the body sits above it on
+a `Layer::Top` surface sized to itself, with a `PopoverArrow` and an `adw::TimedAnimation` fade.
 
-**`KeyboardMode::None`.** A popover receives no key events at all — no focus, no `Escape`, no
-type-ahead. Do not design a surface that needs typing; it will silently not work.
+**`KeyboardMode::None` until the applet asks.** A popover receives no key events — no focus, no
+`Escape`, no type-ahead — until its applet calls `opener.typing(true)`, which switches the surface
+to `KeyboardMode::Exclusive`; `Catcher::open` and `Catcher::close` reset it. The clipboard and
+workspace-name applets type this way, and network does while its password page is up.
 
 **The arrow points at `anchor()`.** The default is the applet's whole `IndicatorGroup`; override
 `anchor()` to return a child instead, as the pager does to point at the workspace strip. The runtime
@@ -275,13 +271,15 @@ last chip on the bar sits flush against the edge. That is the design, not a clip
 
 ```rust
 fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
-    let shown = WeatherPopover::new();                     // 1. build fresh
+    let shown = WorkspacesPopover::new();                  // 1. build fresh
 
-    let caller = seat.caller();                            // 2. wire
-    shown.connect_activated(move |id| caller.call::<FocusWorkspace>(/* … */));
-
-    let opener = seat.opener();
-    shown.connect_day_selected(move |_, _| opener.wake());
+    let compositor = self.compositor.clone();              // 2. wire
+    shown.connect_activated(move |id| {
+        let compositor = compositor.clone();
+        spawn_command("compositor.focus_workspace", async move {
+            compositor.focus_workspace(WorkspaceRef::Id { id }).await
+        });
+    });
 
     self.shown.set(Some(&shown));                          // 3. hold weakly
     self.refresh();                                        // 4. dress, then hand over
@@ -289,15 +287,18 @@ fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
 }
 ```
 
+Step 2 is `pager::Pager`'s; a signal that changes what the applet renders captures `seat.opener()`
+instead and wakes it — see the wake loop below.
+
 **Every open builds a new widget.** Nothing is cached and nothing is reused. State that must survive
 an open/close cycle belongs to the applet — `Clock::range`, `NextEvent::chosen` — not to the widget.
 
 **A fresh widget is not a fresh popover, and the framework cannot make it one.** The widget is new;
 the applet's fields are not, and `popover()` re-dresses the new widget from them, so anything that
-*selects or expands* something comes back. Reset it explicitly at the top of `popover()`: `Clock`
-sets `self.range = None` and `open_on(today)`, `Bluetooth` clears `selected` and `expanded`. The
-symptom when you forget is a popover that opens with a device already unfolded, under a row the user
-did not press this time.
+*selects or expands* something comes back. Reset it explicitly in `popover()`: `Clock` sets
+`self.range = None` and calls `open_on(today)`, `Bluetooth` resets `expanded` and `nearby_toggled`.
+The symptom when you forget is a popover that opens with a section already unfolded, under a row the
+user did not press this time.
 
 **An open detail survives its own action and closes only when that action succeeds.** Pressing a row
 inside a detail leaves the detail standing: it is the only place progress can be shown, and a
@@ -315,9 +316,9 @@ label saying "Connecting…" beside a spinner that already says it is read twice
 stopped collapsing on click the two sat directly above each other. The render types carry `busy` so
 the decision stays in `render.rs` and the widget only draws it.
 
-`Seat` is not `Ctx`. It hands out two things and nothing else: `seat.caller()` for commands and
-`seat.opener()` for wakes. Both are `Clone + 'static`, which is what lets a signal closure capture
-one; `&Ctx` is neither and cannot be captured.
+`Seat` is not `Ctx`. It hands out one thing: `seat.opener()`, for wakes and for opening and closing.
+`Opener` is `Clone + 'static`, which is what lets a signal closure capture it; `&Ctx` is neither and
+cannot be captured. Commands need no seat: the closure captures a cloned service handle.
 
 ## `dress` and the weak reference
 
@@ -328,7 +329,7 @@ catcher's child and the runtime's `Option<gtk4::Widget>`, and both go on dismiss
 **Never hold a strong reference.** It keeps the widget alive past dismissal, and the next open builds
 a second one while the first is still being dressed.
 
-**One method computes the chips and dresses the popover.** Every applet with a popover has it:
+**One method computes the chips and dresses the popover.** `idle::Idle`'s is the shape:
 
 ```rust
 fn refresh(&mut self) {
@@ -358,15 +359,15 @@ let opener = seat.opener();
 shown.connect_month_shown(move |_, _, _| opener.wake());
 ```
 
-**`Input::Woken` must be matched.** An applet whose `handle` matches only `Topic` and `Tick` and
-returns on everything else swallows the wake and the popover never updates. Both spellings in the
-tree are explicit: `Input::Tick | Input::Woken => {}` followed by a `refresh`, and a `matches!` on
-the pair.
+**`Input::Woken` must be matched.** An applet whose `handle` matches only `Tick` and returns on
+everything else swallows the wake and the popover never updates. Both spellings in the tree are
+explicit: `idle::Idle` matches `Input::Woken` and `Input::Tick` before its `refresh`, and
+`clock::Clock` uses a `matches!` on the pair.
 
-Commands from a popover go through `seat.caller()`, which is the same fire-and-forget
-`Caller::call::<C>` as `ctx.call` — the reply is discarded and the topic reconciles. `WorkspacesPopover`
-sends `FocusWorkspace` and `FocusWindow` this way, and emits **ids** rather than capturing widgets,
-because a row is rebuilt whenever the list changes.
+Commands from a popover are spawned on a cloned service handle, exactly as from `handle`; the
+snapshot carries the result back as a wake. `WorkspacesPopover` emits workspace and window **ids**
+rather than capturing widgets, because a row is rebuilt whenever the list changes, and `pager::Pager`
+turns them into `focus_workspace` and `focus_window`.
 
 ## Dialogs and prompts
 
@@ -376,8 +377,8 @@ out and leaves the hero insensitive, so the surface carries one question and not
 else to press. A view over a popover is not a shape this shell has; a stack also needs no dismissal
 guard on `Catcher`.
 
-**The two prompts that need typing keep the dialog.** The catcher is `KeyboardMode::None`, so
-`RequestPin` and `RequestPasskey` cannot be answered in a popover at all. `render::typed` makes the
+**The two prompts that need typing keep the dialog.** `RequestPin` and `RequestPasskey` are answered
+in `App`'s `PairingDialog`, not on the popover's page. `render::typed` makes the
 split inside the watch and **narrows the type while it is there**, handing `App` a `PairingEntry`
 rather than a `Prompt` — so the dialog has no case to refuse and a prompt the popover renders never
 reaches `App`, and therefore never trips `close_popovers` on its way past, which would close the
@@ -390,7 +391,7 @@ answer the prompt — the chip stays in its acquiring state and pressing it re-o
 BlueZ's own agent timeout is the backstop.
 
 **A confirmation is the same page.** `Confirmation::Forget` renders through the same `Ask` with a
-destructive accept, so `App` no longer owns a confirmation dialog at all — one page serves both
+destructive accept, so `App` owns no confirmation dialog at all — one page serves both
 questions and the applet routes the single `answered` signal by what `render::asked` says is on it.
 Two consequences follow. **A dismissed popover must answer a confirmation**, because that state is
 glimpse's own and nothing outside will ever retire it — unlike a pairing prompt, which BlueZ cancels.
@@ -398,7 +399,8 @@ And because one card serves two questions, `Ask` carries a **key**; when it chan
 bounced insensitive for an instant, which cancels any press already in flight so a click meant for
 one question cannot answer the other.
 
-**`App` owns the one dialog that is left**, pairing it with **its `SignalHandlerId`**.
+**`App` owns the dialogs that are left** — `PairingDialog` and `SecretDialog` — pairing each with
+**its `SignalHandlerId`**.
 
 **The host is the component root, and it is invisible.** `App`'s `view!` is an
 `adw::ApplicationWindow` declared `set_visible: false`. Panels are not its children; it exists only
@@ -427,52 +429,27 @@ its own belongs on its row, not in a notification.
 
 ## Size
 
-**Nothing in the panel scrolls.** `PopoverShell` does not, and the catcher does not cap the height
-against the work area. The crate's one `Gtk.ScrolledWindow` is `NotificationsPopover`'s `scroller`,
-and it does not scroll either: `propagate-natural-height: true` with no `max-content-height` asks
-for the full height of its child. Do not read it as the escape hatch. A popover is bounded because
+**The height cap is a backstop.** `PopoverShell`'s `scroller` propagates its natural height until
+the body reaches 60% of the monitor's height (`body_cap`), and only then shows a scrollbar. Do not
+read it as the escape hatch: a card that scrolls has lost its shape. A popover is bounded because
 the applet bounds it:
 
 - counts come from the config — `upcoming`, `horizon`, `days`, `hours`
-- `EventList` moves the remainder behind a "N more events" row that toggles a drawer
-
-A surface that can grow with the data and has no cap will run off the monitor.
+- `EventList` moves the remainder behind a "N more" row that unfolds in place
 
 **Growth has a direction, and only one of them is free.** Height already varies with the data — a
 device list, a scan's results — and has never caused a placement bug, because a popover grows away
 from the bar. Width is the constrained axis: a card that grows sideways near an output edge leaves
 the screen, and re-placing it slides the row out from under the pointer that just opened it. **A
-detail therefore unfolds under its own row, not beside the list.** Each item is an `Expandable`,
-reconciled by key like any row; the popovers still on `crate::drawer::holder` are being moved one at
-a time, by the checklist below.
+detail therefore unfolds under its own row, not beside the list.** Each item is an `$ExpanderRow`,
+reconciled by key like any row (`by_key`).
 
-**A drawer is what is left when the content is not a row's own detail.** `CalendarPopover`'s month
-overflow still slides one out, because what it reveals belongs to the whole popover rather than to a
-line in it. Weather had one for a day's facts and those facts belong to the day, which is why it lost
-the drawer rather than kept it — the same reason `WorkspacesPopover`'s window list moved off the side
-drawer it was first built with: a workspace's windows are that row's own detail, not overflow.
-
-## Moving a popover onto `Expandable`
-
-One popover per change, verified live before the next. `WorkspacesPopover` is the finished example.
-
-1. **Holders become `Expandable::new(&head)`.** `drawer::head::<T>(&holder)` becomes
-   `holder.head::<T>()`, `drawer::panel(&holder)` becomes `holder.details::<T>()` /
-   `set_details`, and `by_key`'s widget type becomes `Expandable`.
-2. **Delete the open state.** The `opened`/`open` cell, `toggle_detail`, `reveal`, `close_drawer`
-   and the recede loop all go, and so does the `split.connect_details(... toggle ...)` wiring — the
-   head toggles its own `Expandable`. What stays is data: fill the details on the head's signal
-   (lazily, the first time) and refresh the one that is `expanded()` when new state arrives.
-3. **Delete the card styling.** No `.detail-card` on the details box and no `OPEN` class on the
-   head — `expandable.open` and `expandable.card` carry both, and the chevron rotation is shared.
-4. **Keep what is not a row's detail.** An overflow drawer, a sideways page, an audio slider — none
-   of them are `Expandable`s.
-5. **A forced close is `set_expanded(false)`** — a detail that closes on success, a device that
-   vanished. Removing an open `Expandable` from the tree releases the shell's dimming by itself.
-6. **Tests assert on the `Expandable`**, not the head: `.open`, `.card` and `.receded` sit on it,
-   and `PopoverShell::dismiss_from(&widget)` is the headless stand-in for a press.
-7. **Convert the popover's board** in `var/widget_examples/` to `$Expandable { … [details] … }` in
-   the same change, and drop any `expander` / `open` / `receded` classes it baked in.
+- **The head toggles its own `Expandable`.** The applet keeps no open flag; it fills the details on
+  first open and refreshes the one that is `expanded()` when new state arrives.
+- **A forced close is `set_expanded(false)`** — a detail that closes on success, a device that
+  vanished. Removing an open `Expandable` from the tree releases the shell's dimming by itself.
+- **Tests assert on the `Expandable`**, not the head: `.open`, `.card` and `.receded` sit on it,
+  and `PopoverShell::dismiss_from(&widget)` is the headless stand-in for a press.
 
 ## A popover's width is a promise
 
@@ -481,14 +458,13 @@ The card is as wide as the widest label's **natural** request. `ellipsize: end` 
 `clean(name, 24)` still asks for twenty-four characters. `max-width-chars` is the only lever that
 caps the request while still letting the label fill a wider allocation.
 
-Measured on `BluetoothPopover`, September 2026: the card sits at **450px** and every content
-scenario must land on it — bare, long name, opened, long hero, long value, scanning, and each prompt
-page. An uncapped hero subtitle, a long `Services` value or a peer-supplied code each widened it;
-`Hero`'s title and subtitle cap at 24, `Row`'s value at 18, and `prompt_code` at 16, which is what
-holds it. A 32-character code measured **912** before that last cap existed — twice the card — and
-the assertion is what caught it. Assert it: `measure(Horizontal, -1).1` against a floor taken from
-the same probe is one line, and it is the only thing standing between a stable card and one that
-resizes while it is being read. A `Gtk.Stack` swapping a page answers the same question the same
+Every content scenario of a popover must land on one width — bare, long name, opened, long hero,
+long value, scanning, and each prompt page. An uncapped hero subtitle, a long value or a
+peer-supplied code each widens the card; `Hero`'s title and subtitle and `Row`'s title and subtitle
+cap at 24, `Row`'s value at 16, and `BluetoothPopover`'s `prompt_code` at 16, which is what holds
+it. Assert it: `measure(gtk4::Orientation::Horizontal, -1).1` against a floor taken from the same
+probe is one line, as `bluetooth_popover_checks.rs` does, and it is the only thing standing between
+a stable card and one that resizes while it is being read. A `Gtk.Stack` swapping a page answers the same question the same
 way: `hhomogeneous` is left at its default, so the card takes the wider of the two pages once rather
 than resizing when one replaces the other.
 
@@ -501,17 +477,16 @@ a discussion, and `just preview` is faster than the panel for it.
   `overflow: hidden`, a fixed `width-request`, a bar across the top and a chip at its right edge.
   A card that runs past that frame is a card that would run off a real screen, which is the whole
   point — a candidate that looks fine floating on a checkerboard can still be broken.
-- **Drive it with the fixtures that already run for every example.** An `$Expandable` needs none —
-  it toggles itself, and its `PopoverShell` dims and dismisses as it does on the bar. `expanders`
-  binds every `.expander` row to its next-sibling `Gtk.Revealer`; `drawer_nav` binds `nav__<page>` rows, but
-  only to the *first* `Gtk.Revealer` holding a `Gtk.Stack`, so a board with several frames can only
-  make one of them live.
+- **Drive it with the fixtures that already run for every example**, listed in `docs/preview.md`.
+  An `$Expandable` needs none to toggle — it toggles itself, and its `PopoverShell` dims and
+  dismisses as it does on the bar; the `expanded` fixture opens one carrying `state__open`, and
+  `actions` logs a row carrying `action__<name>`.
 - **Iterate in `var/widget_examples/_shared.css`**, which hot-reloads, then port the settled values
   into `glimpse.css`. Keep the board on the same numbers afterwards, or the example stops being
   evidence of what ships.
-- **Synthetic clicks cannot reach a preview**, but the keyboard can: focus the window with
-  `niri msg action focus-window --id`, then `wtype -k Tab` to walk and `wtype -k space` to activate.
-  `Return` does not activate a `$Row`; space does.
+- **Synthetic clicks cannot reach a preview**, but the keyboard can — only inside a nested niri,
+  never on the user's session (`docs/live-testing.md`). `Tab` walks and `space` activates;
+  `Return` does not activate an `$ActionRow`.
 
 ## What belongs to the widget
 
@@ -521,11 +496,10 @@ reach back across the boundary:
 
 - **Every user-visible string is formatted by the applet**, because what an event's time says
   depends on `now`. The widget owns structure and no content.
-- **Except placeholder wordings, which live in the template.** Nothing in this tree translates a
-  Rust string reaching a label — writing "Nothing scheduled" from Rust is the bug both popovers were
-  fixed for.
+- **Except fixed wordings, which live in the template.** A placeholder such as "Nothing scheduled"
+  is `_("…")` in the `.blp`; a string the applet formats is marked with `gettext` in Rust.
 - **Formatting lives in a `render.rs` beside the applet** — `weather/render.rs`,
-  `next_event/render.rs`, `clock/popover.rs` — pure functions over `now` and the payload, tested
+  `next_event/render.rs`, `clock/popover.rs` — pure functions over `now` and the snapshot, tested
   headlessly with no GTK. The applet module is then wiring, and the tests do not need a display.
 
 ## Pitfalls
@@ -547,10 +521,11 @@ so the second `dress` wrote into a widget the catcher never received. `glib::Wea
 **Picking a day or a page changes nothing.** Either the signal was wired without `opener.wake()`, or
 `handle` drops `Input::Woken` through a fall-through arm.
 
-**`Escape` does not close it and nothing can be typed into it.** `KeyboardMode::None`, deliberately.
-Dismissal is a click outside.
+**`Escape` does not close it and nothing can be typed into it.** `KeyboardMode::None` until the applet
+calls `opener.typing(true)`. Dismissal is a click outside.
 
-**The popover runs off the bottom of the screen.** Nothing scrolls and nothing caps. Cap the list.
+**The popover scrolls, or grows towards the far edge of the screen.** The applet handed over an
+unbounded list and hit `PopoverShell`'s height cap. Cap the list.
 
 **Opening one applet's popover closed another's.** One catcher per bar. That is the design, not a
 defect.
@@ -558,7 +533,7 @@ defect.
 **A dialog is up and nothing anywhere is clickable — not the dialog's buttons, not the popover's
 rows, though both still highlight under the pointer.** The catcher is a layer surface at
 `Layer::Top` anchored to all four edges, so it sits *above* every ordinary toplevel — including the
-`adw::AlertDialog` presented on the panel's host window, which therefore never sees the press. The
+dialog presented on the panel's host window, which therefore never sees the press. The
 other half is GTK's: that dialog is modal within the application, so its grab swallows the presses
 the catcher does get. **Close every popover before presenting a dialog** — `App` sends
 `panel::Input::ClosePopover` to each panel, and `Catcher::close` tears down properly on its own,
@@ -566,8 +541,8 @@ because `finish_close` unmaps the window and `release` runs the dismissal callba
 waiting on.
 
 **The detail page is missing, or half of it is off the screen.** Placement was computed once, at
-open, against a body that has since grown. The catcher re-places on measurement changes now; if a
-surface resizes outside that path it has the same bug.
+open, against a body that has since grown. The catcher re-places on measurement changes; a surface
+that resizes outside that path has the same bug.
 
 **The row you clicked slides away as it opens.** The card grew on the constrained axis and was
 re-placed under the pointer. Grow down.
