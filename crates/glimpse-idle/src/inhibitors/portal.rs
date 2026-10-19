@@ -87,7 +87,16 @@ impl PortalInhibit {
             handle: owned_handle.clone(),
         };
         match conn.object_server().at(owned_handle.clone(), request).await {
-            Ok(true) => {}
+            Ok(true) => {
+                if self
+                    .registry
+                    .read(|registry| registry.can_release(id).is_none())
+                    .await
+                {
+                    remove_requests(conn.object_server(), vec![owned_handle.to_string()]).await;
+                    return Ok(());
+                }
+            }
             other => {
                 tracing::warn!(
                     ?other,

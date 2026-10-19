@@ -29,6 +29,7 @@ const SCREENSHOT_DEADLINE: Duration = Duration::from_secs(2);
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     output_power: true,
     blank_screens: true,
+    overview_backdrop: true,
 };
 
 /// Niri answers one request per connection and then closes it, so there is no connection to hold —
@@ -113,7 +114,13 @@ impl Niri {
         connector: &str,
         on: bool,
     ) -> Result<(), CompositorError> {
-        self.request(&output_request(connector, on)).await.map(drop)
+        let reply = self.request(&output_request(connector, on)).await?;
+        match reply.get("OutputConfigChanged").and_then(Value::as_str) {
+            Some("OutputWasMissing") => Err(CompositorError::Refused(format!(
+                "unknown output {connector}"
+            ))),
+            _ => Ok(()),
+        }
     }
 
     pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {

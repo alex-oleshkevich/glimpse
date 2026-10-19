@@ -28,12 +28,14 @@ use futures_util::stream::BoxStream;
 pub struct Capabilities {
     pub output_power: bool,
     pub blank_screens: bool,
+    pub overview_backdrop: bool,
 }
 
 impl Capabilities {
     pub const NONE: Self = Self {
         output_power: false,
         blank_screens: false,
+        overview_backdrop: false,
     };
 }
 

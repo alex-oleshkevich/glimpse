@@ -23,8 +23,7 @@ pub trait ProviderError: Sized {
     fn call(reason: String) -> Self;
     fn named(name: &str, reason: String) -> Option<Self>;
 
-    fn typed(error: &zbus::Error) -> Option<Self> {
-        let _ = error;
+    fn typed(_error: &zbus::Error) -> Option<Self> {
         None
     }
 }

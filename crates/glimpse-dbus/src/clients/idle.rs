@@ -266,14 +266,6 @@ impl Follow for IdleProviderState {
     fn reason(&self) -> Option<&str> {
         self.reason.as_deref()
     }
-
-    fn follow(
-        connection: zbus::Connection,
-        updates: watch::Sender<Self>,
-        current: Arc<RwLock<Option<Self::Proxy>>>,
-    ) -> impl Future<Output = ()> + Send {
-        follow_provider(connection, updates, current)
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -308,6 +300,12 @@ impl ProviderError for IdleProviderError {
     fn typed(error: &zbus::Error) -> Option<Self> {
         matches!(error, zbus::Error::FDO(error) if matches!(**error, zbus::fdo::Error::UnknownObject(_)))
             .then_some(Self::UnknownObject)
+    }
+}
+
+impl IdleProvider {
+    pub fn start(connection: zbus::Connection) -> Self {
+        Self::spawn(|updates, current| follow_provider(connection, updates, current))
     }
 }
 

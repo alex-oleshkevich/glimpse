@@ -1,13 +1,9 @@
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
-use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 use zbus::zvariant::{OwnedValue, Type, Value};
 
 use super::follower::{
     Changes, Follow, Provider, ProviderError, ProviderHandle, Snapshots, call, changes,
-    follow_snapshots,
 };
 
 pub const GLIMPSE_NIGHT_LIGHT_BUS_NAME: &str = "me.aresa.Glimpse.NightLight";
@@ -183,14 +179,6 @@ impl Follow for NightLightProviderState {
 
     fn reason(&self) -> Option<&str> {
         self.unavailable.as_deref()
-    }
-
-    fn follow(
-        connection: zbus::Connection,
-        updates: watch::Sender<Self>,
-        current: Arc<RwLock<Option<Self::Proxy>>>,
-    ) -> impl Future<Output = ()> + Send {
-        follow_snapshots(connection, updates, current)
     }
 }
 

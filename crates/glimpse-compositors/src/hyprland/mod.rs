@@ -4,6 +4,7 @@ mod testing;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use futures_util::stream::BoxStream;
 use serde::Deserialize;
@@ -18,11 +19,12 @@ use crate::model::{
     WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_edid_str,
     capped_name_str, capped_title_str, fill_window_outputs, is_built_in,
 };
-use event::{EventState, address};
+use event::{EventState, Shared, address};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     output_power: true,
     blank_screens: false,
+    overview_backdrop: false,
 };
 
 const CONTROL_SOCKET: &str = ".socket.sock";
@@ -31,11 +33,15 @@ const EVENT_SOCKET: &str = ".socket2.sock";
 #[derive(Debug, Clone)]
 pub struct Hyprland {
     dir: PathBuf,
+    shared: Arc<Shared>,
 }
 
 impl Hyprland {
     pub fn at(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
+        Self {
+            dir: dir.into(),
+            shared: Arc::default(),
+        }
     }
 
     pub fn from_env() -> Option<Self> {
@@ -99,6 +105,7 @@ impl Hyprland {
             .filter_map(|client| client.into_model(&monitor_origins))
             .map(|window| Window {
                 is_focused: Some(window.id) == focused_window,
+                is_urgent: self.shared.is_urgent(window.id),
                 ..window
             })
             .collect();
@@ -111,18 +118,19 @@ impl Hyprland {
             keyboard: layouts,
             focused_window,
             focused_output,
-            casts: Vec::new(),
+            casts: self.shared.casts(),
         })
     }
 
     pub(crate) async fn events(&self) -> Result<BoxStream<'static, Event>, CompositorError> {
         let path = self.dir.join(EVENT_SOCKET);
         let stream = connect(&path).await?;
+        self.shared.reset();
 
         Ok(line_events(
             BufReader::new(stream),
             EventDecoder {
-                state: EventState::new(),
+                state: EventState::new(self.shared.clone()),
                 hyprland: self.clone(),
             },
         ))
@@ -132,7 +140,11 @@ impl Hyprland {
         &self,
         to: LayoutTarget,
     ) -> Result<(), CompositorError> {
-        self.dispatch(&layout_command(to)).await
+        let reply = self.control(&layout_command(to)).await?;
+        match reply.trim() {
+            "ok" | "" => Ok(()),
+            refusal => Err(CompositorError::Refused(refusal.to_owned())),
+        }
     }
 
     pub(crate) async fn focus_workspace(&self, to: WorkspaceTarget) -> Result<(), CompositorError> {
@@ -468,10 +480,14 @@ struct WireWorkspace {
 
 impl WireWorkspace {
     fn into_model(self, active: &HashMap<i64, bool>) -> Workspace {
+        let name = match self.name == self.id.to_string() {
+            true => None,
+            false => capped_name_str(&self.name),
+        };
         Workspace {
             id: WorkspaceId(self.id as u64),
             idx: None,
-            name: capped_name_str(&self.name),
+            name,
             output: self.monitor,
             is_active: active.contains_key(&self.id),
             is_focused: active.get(&self.id).copied().unwrap_or(false),
@@ -499,8 +515,6 @@ struct WireClient {
     workspace: Option<WireWorkspaceRef>,
     #[serde(default)]
     floating: bool,
-    #[serde(default)]
-    urgent: bool,
     #[serde(default)]
     monitor: Option<i64>,
     #[serde(default)]
@@ -534,7 +548,7 @@ impl WireClient {
             // in from `j/activewindow` rather than from here.
             is_focused: false,
             is_floating: self.floating,
-            is_urgent: self.urgent,
+            is_urgent: false,
             layout_order: None,
             size: self.size,
             rect,
@@ -549,13 +563,13 @@ fn layout_command(to: LayoutTarget) -> String {
         LayoutTarget::Prev => "prev".to_owned(),
         LayoutTarget::Index(index) => index.to_string(),
     };
-    format!("dispatch switchxkblayout all {target}")
+    format!("switchxkblayout all {target}")
 }
 
 fn plain_selector(to: &WorkspaceTarget) -> Option<String> {
     match to {
-        WorkspaceTarget::Next => Some("+1".to_owned()),
-        WorkspaceTarget::Prev => Some("-1".to_owned()),
+        WorkspaceTarget::Next => Some("e+1".to_owned()),
+        WorkspaceTarget::Prev => Some("e-1".to_owned()),
         WorkspaceTarget::Id(id) if (id.0 as i64) >= 0 => Some(id.0.to_string()),
         WorkspaceTarget::Id(_) => None,
         WorkspaceTarget::Index(index) => Some(index.to_string()),

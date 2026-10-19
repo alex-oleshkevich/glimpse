@@ -1,12 +1,9 @@
 use super::follower::{
     Changes, Follow, Provider, ProviderError, ProviderHandle, REASON, Snapshots, call, changes,
-    follow_snapshots,
 };
 use super::{epoch, optional_clean};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 
 /// Urgency as the freedesktop specification defines it. Internally tagged for the same reason
@@ -296,14 +293,6 @@ impl Follow for NotificationsProviderState {
 
     fn reason(&self) -> Option<&str> {
         self.unavailable.as_deref()
-    }
-
-    fn follow(
-        connection: zbus::Connection,
-        updates: watch::Sender<Self>,
-        current: Arc<RwLock<Option<Self::Proxy>>>,
-    ) -> impl Future<Output = ()> + Send {
-        follow_snapshots(connection, updates, current)
     }
 }
 

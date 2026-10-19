@@ -21,34 +21,32 @@ pub enum Geolocation {
     },
 }
 
+pub(super) fn latitude_in_range(value: f64) -> Result<f64, &'static str> {
+    (-90.0..=90.0)
+        .contains(&value)
+        .then_some(value)
+        .ok_or("latitude is degrees north of the equator, between -90 and 90")
+}
+
+pub(super) fn longitude_in_range(value: f64) -> Result<f64, &'static str> {
+    (-180.0..=180.0)
+        .contains(&value)
+        .then_some(value)
+        .ok_or("longitude is degrees east of Greenwich, between -180 and 180")
+}
+
 fn latitude<'de, D>(deserializer: D) -> Result<f64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let value = f64::deserialize(deserializer)?;
-    (-90.0..=90.0)
-        .contains(&value)
-        .then_some(value)
-        .ok_or_else(|| {
-            D::Error::custom(
-                "geolocation.latitude is degrees north of the equator, between -90 and 90",
-            )
-        })
+    latitude_in_range(f64::deserialize(deserializer)?).map_err(D::Error::custom)
 }
 
 fn longitude<'de, D>(deserializer: D) -> Result<f64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let value = f64::deserialize(deserializer)?;
-    (-180.0..=180.0)
-        .contains(&value)
-        .then_some(value)
-        .ok_or_else(|| {
-            D::Error::custom(
-                "geolocation.longitude is degrees east of Greenwich, between -180 and 180",
-            )
-        })
+    longitude_in_range(f64::deserialize(deserializer)?).map_err(D::Error::custom)
 }
 
 #[cfg(test)]

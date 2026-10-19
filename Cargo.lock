@@ -1674,6 +1674,7 @@ dependencies = [
  "colorchoice-clap",
  "futures-util",
  "gettext-rs",
+ "glimpse-compositors",
  "glimpse-config",
  "glimpse-dbus",
  "glimpse-utils",

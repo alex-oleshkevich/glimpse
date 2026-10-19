@@ -82,7 +82,7 @@ async fn a_snapshot_reads_every_part_of_the_model() {
         "Hyprland reports both at and size for every window, unlike a tiled niri window"
     );
     assert_eq!(snapshot.windows[0].output.as_deref(), Some("eDP-1"));
-    assert_eq!(snapshot.workspaces[0].name.as_deref(), Some("5"));
+    assert_eq!(snapshot.workspaces[0].name, None);
     assert!(snapshot.workspaces[0].is_active && snapshot.workspaces[0].is_focused);
     assert!(
         snapshot.workspaces[1].is_active && !snapshot.workspaces[1].is_focused,
@@ -101,6 +101,18 @@ async fn a_snapshot_reads_every_part_of_the_model() {
         snapshot.windows[1].workspace_id,
         Some(WorkspaceId((-1337_i64) as u64))
     );
+}
+
+#[test]
+fn a_workspace_named_after_its_id_is_unnamed_and_any_other_name_is_kept() {
+    let active = HashMap::new();
+    let numbered: WireWorkspace =
+        serde_json::from_value(json!({"id": 5, "name": "5"})).expect("workspace");
+    let named: WireWorkspace =
+        serde_json::from_value(json!({"id": 5, "name": "web"})).expect("workspace");
+
+    assert_eq!(numbered.into_model(&active).name, None);
+    assert_eq!(named.into_model(&active).name.as_deref(), Some("web"));
 }
 
 #[tokio::test]
@@ -350,19 +362,43 @@ async fn power_off_monitors_is_unavailable_and_sends_nothing() {
     assert_eq!(received.lock().expect("lock").as_deref(), None);
 }
 
+#[tokio::test]
+async fn a_layout_switch_is_a_request_rather_than_a_dispatch() {
+    let received: Arc<Mutex<Option<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            *sink.lock().expect("lock") = Some(command.to_owned());
+            "ok".to_owned()
+        },
+        Vec::new(),
+    );
+
+    Hyprland::at(&server.dir)
+        .switch_keyboard_layout(LayoutTarget::Next)
+        .await
+        .expect("switched");
+
+    assert_eq!(
+        received.lock().expect("lock").as_deref(),
+        Some("switchxkblayout all next"),
+        "switchxkblayout is a top-level request; a dispatch of it is an invalid dispatcher"
+    );
+}
+
 #[test]
 fn every_target_serializes_to_the_command_hyprland_expects() {
     assert_eq!(
         layout_command(LayoutTarget::Index(2)),
-        "dispatch switchxkblayout all 2"
+        "switchxkblayout all 2"
     );
     assert_eq!(
         layout_command(LayoutTarget::Next),
-        "dispatch switchxkblayout all next"
+        "switchxkblayout all next"
     );
     assert_eq!(
         layout_command(LayoutTarget::Prev),
-        "dispatch switchxkblayout all prev"
+        "switchxkblayout all prev"
     );
 
     assert_eq!(
@@ -379,11 +415,11 @@ fn every_target_serializes_to_the_command_hyprland_expects() {
     );
     assert_eq!(
         plain_selector(&WorkspaceTarget::Next).as_deref(),
-        Some("+1")
+        Some("e+1")
     );
     assert_eq!(
         plain_selector(&WorkspaceTarget::Prev).as_deref(),
-        Some("-1")
+        Some("e-1")
     );
     assert_eq!(
         plain_selector(&WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64))),

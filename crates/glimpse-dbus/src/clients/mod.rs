@@ -25,7 +25,6 @@ pub(crate) async fn retry_after_failure(
         Ok(false) => {
             while let Some(owner) = owners.next().await {
                 if let Ok(args) = owner.args()
-                    && args.name().as_str() == name.as_str()
                     && args.new_owner().is_some()
                 {
                     return true;

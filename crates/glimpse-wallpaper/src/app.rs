@@ -42,7 +42,7 @@ pub struct App {
     styles: Styles,
     surfaces: Vec<SurfaceState>,
     dark: bool,
-    on_niri: bool,
+    backdrop: bool,
     missing_warned: MissingWarned,
 }
 
@@ -85,7 +85,9 @@ impl SimpleComponent for App {
             styles,
             surfaces: Vec::new(),
             dark,
-            on_niri: std::env::var_os("NIRI_SOCKET").is_some(),
+            backdrop: glimpse_compositors::detect_compositor()
+                .capabilities()
+                .overview_backdrop,
             missing_warned: MissingWarned::default(),
         };
         model.reload_styles();
@@ -94,7 +96,7 @@ impl SimpleComponent for App {
             &mut model.missing_warned,
             &model.config,
             model.dark,
-            model.on_niri,
+            model.backdrop,
         );
         model
             .styles
@@ -137,7 +139,7 @@ impl SimpleComponent for App {
             &mut self.missing_warned,
             &self.config,
             self.dark,
-            self.on_niri,
+            self.backdrop,
         );
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
@@ -194,10 +196,10 @@ fn watch_scheme(sender: ComponentSender<App>) {
     });
 }
 
-fn wants_role(role: Role, on_niri: bool) -> bool {
+fn wants_role(role: Role, backdrop: bool) -> bool {
     match role {
         Role::Wallpaper => true,
-        Role::Backdrop => on_niri,
+        Role::Backdrop => backdrop,
     }
 }
 
@@ -206,7 +208,7 @@ fn reconcile_surfaces(
     missing_warned: &mut MissingWarned,
     config: &Config,
     dark: bool,
-    on_niri: bool,
+    backdrop: bool,
 ) {
     let mut existing: HashMap<Key, SurfaceState> = surfaces
         .drain(..)
@@ -220,7 +222,7 @@ fn reconcile_surfaces(
         };
 
         for role in [Role::Wallpaper, Role::Backdrop] {
-            if !wants_role(role, on_niri) {
+            if !wants_role(role, backdrop) {
                 continue;
             }
             let Some(intent) =
