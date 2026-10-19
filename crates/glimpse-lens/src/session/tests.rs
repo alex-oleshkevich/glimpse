@@ -91,6 +91,19 @@ fn the_first_point_anchors_and_each_later_one_confirms_a_segment_and_chains_on()
 }
 
 #[test]
+fn a_second_press_on_the_anchor_pixel_confirms_no_segment() {
+    let mut chain = Chain::default();
+    chain.place(0, (100, 100));
+    chain.place(0, (300, 100));
+    chain.place(0, (300, 100));
+    assert_eq!(chain.confirmed().len(), 1);
+    assert_eq!(
+        crate::measure::last_distance(&chain.confirmed()).as_deref(),
+        Some("200")
+    );
+}
+
+#[test]
 fn leaving_an_output_drops_its_anchor_but_keeps_what_was_confirmed() {
     let mut chain = Chain::default();
     chain.place(0, (0, 0));
@@ -178,6 +191,68 @@ fn the_readout_sits_under_the_lens_and_flips_above_it_near_the_bottom_edge() {
         pill_origin((995.0, 300.0), 88.0, pill, area),
         (880.0, 398.0)
     );
+}
+
+fn one_lens_surface() -> Surfaces {
+    gtk4::init().expect("GTK initializes");
+    let monitor = gdk::Display::default()
+        .expect("display")
+        .monitors()
+        .iter::<gdk::Monitor>()
+        .flatten()
+        .next()
+        .expect("monitor");
+    let surfaces = Rc::new(vec![surface(
+        &monitor,
+        Frame {
+            connector: String::new(),
+            width: 400,
+            height: 300,
+            pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
+            alpha: false,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
+        },
+        Settings {
+            radius: 106.0,
+            zoom: 1,
+        },
+    )]);
+    surfaces[0].lens.allocate(400, 300, -1, None);
+    surfaces
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn shift_scroll_keeps_the_axis_lock_on_the_readout() {
+    let surfaces = one_lens_surface();
+    let chain: Shared = Rc::new(RefCell::new(Chain {
+        segments: Vec::new(),
+        anchor: Some((0, (100, 100))),
+    }));
+    surfaces[0].lens.point(300.0, 120.0);
+    let (px, _) = surfaces[0].lens.pixel();
+    let radius = Cell::new(106.0);
+
+    resize(&surfaces, 0, &chain, &radius, -1.0, true);
+
+    assert_eq!(
+        surfaces[0].lines[0].text().as_str(),
+        format!("Δx {}  Δy 0", i64::from(px) - 100)
+    );
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn shift_scroll_without_an_anchor_reads_the_pointer() {
+    let surfaces = one_lens_surface();
+    let chain: Shared = Rc::new(RefCell::new(Chain::default()));
+    surfaces[0].lens.point(300.0, 120.0);
+    let (px, py) = surfaces[0].lens.pixel();
+    let radius = Cell::new(106.0);
+
+    resize(&surfaces, 0, &chain, &radius, -1.0, true);
+
+    assert_eq!(surfaces[0].lines[0].text().as_str(), format!("{px}, {py}"));
 }
 
 #[test]
