@@ -156,9 +156,8 @@ fn portal_share_result_names_the_absolute_file_written_from_a_relative_directory
 #[test]
 #[ignore = "needs a display"]
 fn a_cancelled_run_answers_once_as_cancelled_and_stays_off_the_app() {
-    if gtk4::init().is_err() || adw::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
+    adw::init().expect("libadwaita");
     assert!(glimpse_widgets::register_resources().is_ok());
     let app = adw::Application::builder()
         .application_id("me.aresa.Glimpse.Shot.Test")

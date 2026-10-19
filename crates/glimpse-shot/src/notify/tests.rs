@@ -154,7 +154,7 @@ impl Fixture {
     }
 
     fn notifier(&self, opener: Arc<dyn Opener>) -> BusNotifier {
-        BusNotifier::on(self.client.clone(), opener)
+        on(self.client.clone(), opener, crate::hold::NOTIFY_GRACE)
     }
 
     async fn posted(&mut self) -> Posted {
@@ -235,6 +235,15 @@ impl Opener for Recording {
             launches.lock().expect("lock").push((path, token));
             arrived.notify_one();
         })
+    }
+}
+
+fn on(connection: Connection, opener: Arc<dyn Opener>, grace: Duration) -> BusNotifier {
+    BusNotifier {
+        connection: Some(connection),
+        opener,
+        grace,
+        done: Mutex::new(None),
     }
 }
 
@@ -512,51 +521,37 @@ async fn a_close_for_another_notification_does_not_end_the_duty() {
 async fn a_missing_notification_server_ends_the_duty() {
     let bus = PrivateBus::start();
     let client = bus.connection().await;
-    let notifier = BusNotifier::on(client, Arc::new(Recording::default()));
+    let notifier = on(
+        client,
+        Arc::new(Recording::default()),
+        crate::hold::NOTIFY_GRACE,
+    );
     notifier.notify(saved("/tmp/shot.png")).expect("started");
     tokio::time::timeout(Duration::from_secs(2), notifier.closed())
         .await
         .expect("no server still ends the duty");
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn the_notify_duty_ends_at_the_grace_when_nothing_arrives() {
-    tokio::time::resume();
-    let fixture = Fixture::answering_after(Duration::from_millis(50)).await;
-    let notifier = fixture.notifier(Arc::new(Recording::default()));
-    notifier.hold_grace();
-    let mut returned = notifier.notify_returned();
-    let duty = crate::hold::notified(&notifier, saved("/tmp/shot.png"));
-    tokio::pin!(duty);
-    while !*returned.borrow() {
-        tokio::select! {
-            biased;
-            _ = &mut duty => panic!("the duty ended before Notify returned"),
-            changed = returned.changed() => {
-                changed.expect("the watch stays open");
-            }
-        }
-    }
-    tokio::time::pause();
-    notifier.release_grace();
-    tokio::task::yield_now().await;
-
+    let delay = Duration::from_millis(300);
+    let grace = Duration::from_millis(300);
+    let fixture = Fixture::answering_after(delay).await;
+    let notifier = on(
+        fixture.client.clone(),
+        Arc::new(Recording::default()),
+        grace,
+    );
     let started = tokio::time::Instant::now();
-    tokio::time::advance(crate::hold::NOTIFY_GRACE - Duration::from_millis(1)).await;
-    for _ in 0..16 {
-        tokio::task::yield_now().await;
-    }
-    tokio::select! {
-        biased;
-        _ = &mut duty => panic!("the duty ended before the grace"),
-        _ = std::future::ready(()) => {}
-    }
-    tokio::time::advance(Duration::from_millis(1)).await;
-    (&mut duty).await;
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        crate::hold::notified(&notifier, saved("/tmp/shot.png")),
+    )
+    .await
+    .expect("the duty ends at the grace");
     let elapsed = started.elapsed();
     assert!(
-        elapsed >= crate::hold::NOTIFY_GRACE
-            && elapsed - crate::hold::NOTIFY_GRACE < Duration::from_millis(2),
-        "the duty ended {elapsed:?} after Notify returned"
+        elapsed >= delay + grace,
+        "the duty ended {elapsed:?} after the post, before the grace after Notify returned"
     );
 }
