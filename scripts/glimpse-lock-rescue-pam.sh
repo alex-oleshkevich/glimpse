@@ -20,8 +20,8 @@ session   required   pam_permit.so
 PAM
 
 sudo install -o root -g root -m 0644 "$tmp" "$target"
-sudo faillock --user alex --reset || true
+sudo faillock --user "$USER" --reset || true
 
 echo "Temporary pam_permit rescue installed for glimpse-lock."
 echo "Unlock now, then restore the real PAM file with:"
-echo "  sudo cp -a $backup $target"
+echo "  $(dirname "$0")/glimpse-lock-restore-pam.sh"
