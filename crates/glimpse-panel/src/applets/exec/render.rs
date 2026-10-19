@@ -1,6 +1,8 @@
 use crate::applet::{Button, Direction, Pointer};
+use gettextrs::gettext;
 use glimpse_services::{
-    Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, IndicatorProps, Tree,
+    Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, ExecStatus, IndicatorProps,
+    Tree,
 };
 use glimpse_widgets::{IndicatorSpec, Severity};
 use gtk4::prelude::*;
@@ -10,6 +12,28 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 const CHIP_TEXT_CAP: usize = 32;
+
+pub fn failure(status: &ExecStatus, has_indicators: bool) -> Option<String> {
+    match status {
+        ExecStatus::Failed(reason) => Some(reason.clone()),
+        ExecStatus::Ended if !has_indicators => Some(gettext("The applet stopped")),
+        ExecStatus::Restarting { attempt } if *attempt >= 3 && !has_indicators => {
+            Some(gettext("The applet keeps exiting. It restarts on its own."))
+        }
+        _ => None,
+    }
+}
+
+pub fn in_flight(status: &ExecStatus, has_indicators: bool) -> bool {
+    if has_indicators {
+        return false;
+    }
+    match status {
+        ExecStatus::Starting => true,
+        ExecStatus::Restarting { attempt } => *attempt < 3,
+        _ => false,
+    }
+}
 
 pub fn indicators(
     tree: &Tree,

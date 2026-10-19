@@ -350,6 +350,22 @@ fn dev_request(entry: Entry) -> DevRequest {
     }
 }
 
+#[tokio::test]
+async fn restart_command_starts_a_failed_slot() {
+    let (_dir, entry, _output) = script(LOOP);
+    let catalog = FakeCatalog(Arc::new(Mutex::new(Err("not installed".to_owned()))));
+    let ((handle, _sender, cancel, task, _launcher), _config) = running(catalog.clone());
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+    *catalog.0.lock().expect("catalog") = Ok(entry);
+    handle.restart(1).await.expect("restart");
+    assert_eq!(handle.snapshot().slots[&1].status, Status::Starting);
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
 mod dev;
 mod lifecycle;
 mod protocol;

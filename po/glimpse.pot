@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-18 20:13+0200\n"
+"POT-Creation-Date: 2026-10-19 12:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -873,7 +873,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/display/indicator.rs:250
 #: crates/glimpse-panel/src/applets/display/indicator.rs:272
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:218
 msgid "The compositor is unavailable."
 msgstr ""
 
@@ -925,25 +925,47 @@ msgstr ""
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:94
-#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+#: crates/glimpse-panel/src/applets/exec/mod.rs:98
+#: crates/glimpse-panel/src/applets/exec/mod.rs:135
 msgid "External applet action failed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+#: crates/glimpse-panel/src/applets/exec/mod.rs:263
 msgid "The file did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+#: crates/glimpse-panel/src/applets/exec/mod.rs:282
 msgid "The link did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+#: crates/glimpse-panel/src/applets/exec/mod.rs:306
 msgid "The application did not start."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+#: crates/glimpse-panel/src/applets/exec/mod.rs:340
 msgid "External applet is not running."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:385
+msgid "Not running"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:391
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/render.rs:19
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:109
+msgid "The applet stopped"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/render.rs:21
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:127
+msgid "The applet keeps exiting. It restarts on its own."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
@@ -1814,13 +1836,6 @@ msgid ""
 "This closes the current session. Applications may not shut down gracefully."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:75
-#: crates/glimpse-panel/src/applets/session/render.rs:77
-#: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
-msgid "Restart"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/session/render.rs:76
 msgid "Restart this computer?"
 msgstr ""
@@ -2075,12 +2090,12 @@ msgid ""
 "{condition}, {temperature}, feels like {feels-like}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:212
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
 #: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
 msgid "Could not rename the workspace"
 msgstr ""
 
