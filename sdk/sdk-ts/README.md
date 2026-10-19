@@ -39,7 +39,7 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
   `ToggleRow`, `MeterRow`, `ExpanderRow`, `SliderRow`, `Start`, `End`, `Entry`, `Placeholder`,
   `Box`, `Label`, `Image`, `Button`, `Switch`, `Scale`, `Spinner`, `Separator`, `FactList`,
   `ChoiceList`, `Readout`, `Notice`, `Calendar`, `Dots`, `DropDown`, `ToggleButton`,
-  `CheckButton`, `Revealer`, `Stack`, `RangeBar`, `Bars` and `Sparkline`.
+  `CheckButton`, `Revealer`, `Stack`, `RangeBar`, `Bars`, `Sparkline` and `Swatch`.
 - Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopover`,
   `useAppletName`, `useStateDir` and `usePersistentState`. `useStateDir` returns the applet's
   private, persistent directory. `usePersistentState(key, initial)` works like `useState`: it

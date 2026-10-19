@@ -10,6 +10,12 @@ button or a terminal.
 | [Ruler](/ecosystem/ruler) | Measures distances on screen in pixels | `glimpse-lens --tool ruler` |
 | [Magnifier](/ecosystem/lens) | Freezes the screen and zooms in under the pointer | `glimpse-lens` |
 
+<ThemeImage
+  light="/screenshots/ecosystem/shot-editor-light.png"
+  dark="/screenshots/ecosystem/shot-editor-dark.png"
+  alt="The glimpse-shot editor over a frozen screen: a toolbar at the top, a weather panel circled in red with an arrow and a label, one row boxed in yellow and numbered, and the media title in the bar blurred"
+/>
+
 The screenshot tool, the color picker and the ruler print plain text or JSON and report what
 happened in their exit code, so scripts and AI agents can drive them too.
 

@@ -241,6 +241,30 @@ async fn options_change_does_not_respawn() {
 }
 
 #[tokio::test]
+async fn env_change_respawns_with_the_new_env() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.env', 'w').write(os.environ.get('MARK', ''))\n{LOOP}"
+    ));
+    let ((handle, sender, cancel, task, _launcher), mut config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let before = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    file_contains(&output, "\"t\":\"hello\"").await;
+    config
+        .applets
+        .get_mut("test")
+        .expect("config")
+        .env
+        .insert("MARK".to_owned(), "changed".to_owned());
+    sender.try_send(Input::Config(config)).expect("queued");
+    next_generation(&handle, 1, before.generation).await;
+    file_contains(&output.with_extension("env"), "changed").await;
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn options_changed_while_starting_follow_hello() {
     let (_dir, entry, output) = script(
         "import time\ntime.sleep(0.3)\nsend('{\"t\":\"hello\",\"v\":1}')\nopen(sys.argv[1], 'w').write(r.readline())\ntime.sleep(5)\n",
