@@ -54,8 +54,9 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 
 ## Testing
 
+- Tests live in a sibling `tests.rs` / `tests/*.rs` behind `#[cfg(test)] mod tests;`, never inline.
 - GTK tests are `#[ignore]`d and only prove anything run one per process: `just test-crate-compositor
-  <crate>` or `just test-one <crate> tests::<name>`. Add widget assertions to the end of `widgets()`.
+  <crate>` or `just test-one <crate> tests::<name>`.
 - Never test against `~/.config/glimpse`: pass `--config`, give a test panel a fresh
   `GLIMPSE_PANEL_APP_ID`, kill it by pid — never `pkill -x glimpse-panel`.
 
