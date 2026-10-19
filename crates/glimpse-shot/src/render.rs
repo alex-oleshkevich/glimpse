@@ -16,6 +16,22 @@ pub struct Png {
     pub height: u32,
 }
 
+pub struct Rendered {
+    texture: gdk::Texture,
+    width: u32,
+    height: u32,
+}
+
+impl Rendered {
+    pub fn encode(self) -> Png {
+        Png {
+            bytes: self.texture.save_to_png_bytes().to_vec(),
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
+
 type Tiles = HashMap<(i32, i32, i32, i32), Option<gdk::MemoryTexture>>;
 type Strokes = HashMap<MarkId, (Mark, Option<(Rect<BufferPx>, gdk::MemoryTexture)>)>;
 
@@ -203,6 +219,10 @@ fn frame_of(doc: &Document) -> &Frame {
 }
 
 pub fn export(doc: &Document, factor: f64) -> Result<Png> {
+    render(doc, factor).map(Rendered::encode)
+}
+
+pub fn render(doc: &Document, factor: f64) -> Result<Rendered> {
     gtk4::init().context("no Wayland session to render in")?;
     let frame = frame_of(doc);
     let crop = within_frame(doc.exported_rect(), frame);
@@ -228,8 +248,8 @@ pub fn export(doc: &Document, factor: f64) -> Result<Png> {
         Some(&graphene::Rect::new(0.0, 0.0, width as f32, height as f32)),
     );
     renderer.unrealize();
-    Ok(Png {
-        bytes: texture.save_to_png_bytes().to_vec(),
+    Ok(Rendered {
+        texture,
         width,
         height,
     })
