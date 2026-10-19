@@ -441,8 +441,6 @@ pub struct Network {
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
     agent_enabled: bool,
-    #[cfg(test)]
-    register_attempts: std::cell::Cell<u32>,
     agent: bool,
     secret: Option<(Request, oneshot::Sender<Answer>)>,
 }
@@ -669,8 +667,6 @@ impl Service for Network {
             scans: 0,
             deadline: None,
             agent_enabled: dependencies.agent,
-            #[cfg(test)]
-            register_attempts: std::cell::Cell::new(0),
             agent: false,
             secret: None,
         }
@@ -877,9 +873,6 @@ impl Network {
         if !self.agent_enabled {
             return;
         }
-        #[cfg(test)]
-        self.register_attempts.set(self.register_attempts.get() + 1);
-
         let Ok(connection) = ctx.system_bus().cloned() else {
             return;
         };

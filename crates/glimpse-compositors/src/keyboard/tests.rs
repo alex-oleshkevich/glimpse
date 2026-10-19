@@ -34,8 +34,6 @@ fn an_empty_name_does_not_panic() {
     assert_eq!(layout_code(""), "");
 }
 
-/// The shipped file and the compiled-in copy are the same bytes, so this is really a check that
-/// `include_str!` still points at the file the packaging installs.
 #[test]
 fn the_built_in_table_parses_and_covers_the_common_layouts() {
     let built_in = parse(BUILT_IN).expect("the shipped table is valid JSON");
@@ -57,7 +55,6 @@ fn a_file_on_disk_replaces_the_built_in_table() {
     assert_eq!(codes.get("russian"), None, "the file replaces, not extends");
 }
 
-/// The whole point of the search order: a user's copy is consulted before the installed one.
 #[test]
 fn the_user_copy_wins_over_the_installed_one() {
     let user = tempfile::tempdir().expect("a temporary directory");
@@ -87,7 +84,6 @@ fn a_missing_file_falls_through_to_the_next_path() {
     assert_eq!(codes.get("english").map(String::as_str), Some("SHIPPED"));
 }
 
-/// A typo in a hand-edited file must not leave every layout unnamed.
 #[test]
 fn a_malformed_file_falls_back_to_the_built_in_table() {
     let dir = tempfile::tempdir().expect("a temporary directory");

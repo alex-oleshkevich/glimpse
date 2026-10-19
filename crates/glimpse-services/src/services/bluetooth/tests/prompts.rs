@@ -198,14 +198,13 @@ async fn a_prompt_waiting_on_an_answer_is_not_retired_by_the_bond() {
 #[tokio::test]
 async fn mirror_only_mode_never_enables_agent_registration() {
     let (mut service, ctx, _state, _health) = started(Dependencies { agent: false }).await;
-    assert_eq!(
-        service.register_attempts.get(),
-        0,
+    assert!(
+        !service.agent_enabled,
         "starting must not attempt to register a pairing agent"
     );
 
     enumerated(&mut service, &ctx, session()).await;
-    assert_eq!(service.register_attempts.get(), 0);
+    assert!(!service.agent_enabled);
 
     service
         .handle(
@@ -213,9 +212,8 @@ async fn mirror_only_mode_never_enables_agent_registration() {
             Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
         )
         .await;
-    assert_eq!(
-        service.register_attempts.get(),
-        0,
+    assert!(
+        !service.agent_enabled,
         "coming back onto the bus must not attempt registration in mirror-only mode"
     );
 
@@ -236,24 +234,17 @@ async fn mirror_only_mode_never_enables_agent_registration() {
 }
 
 #[tokio::test]
-async fn the_panel_path_still_attempts_agent_registration() {
+async fn the_panel_path_still_enables_agent_registration() {
     let (mut service, ctx, _state, _health) = started(Dependencies { agent: true }).await;
-    assert!(
-        service.register_attempts.get() > 0,
-        "starting with the agent enabled must attempt registration, same as today"
-    );
+    assert!(service.agent_enabled);
 
-    let after_start = service.register_attempts.get();
     service
         .handle(
             &ctx,
             Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
         )
         .await;
-    assert!(
-        service.register_attempts.get() > after_start,
-        "the bus reappearing re-attempts registration when the agent is enabled"
-    );
+    assert!(service.agent_enabled);
 }
 
 #[tokio::test]

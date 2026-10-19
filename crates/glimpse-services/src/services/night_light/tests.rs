@@ -156,15 +156,12 @@ async fn far_from_the_boundary_each_phase_holds_its_own_temperature() {
     );
     assert!(!harness.state.borrow().active());
 
-    // Tomorrow's sunrise, because `solar` never reports a boundary that has already passed.
     harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
     harness.settle(at(23, 0)).await;
     assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
     assert!(harness.state.borrow().active());
 }
 
-/// The property the whole `next_change` design exists for: the ramp arrives exactly as the
-/// phase flips, so the two never disagree about what the screen should look like.
 #[tokio::test]
 async fn the_ramp_settles_at_the_target_at_the_boundary() {
     let mut harness = harness(config(Schedule::Automatic)).await;
@@ -317,9 +314,6 @@ async fn a_soft_ramp_asks_to_be_woken_faster_than_a_minute() {
     );
 }
 
-/// A summer night above fifty degrees is shorter than a generous transition, so the two ramps
-/// overlap. Reading only the boundary ahead still answers at every instant — the screen simply
-/// never reaches the full temperature, which is the honest result rather than a glitch.
 #[tokio::test]
 async fn a_night_shorter_than_the_transition_never_reaches_full_temperature() {
     let mut harness = harness(Config {
@@ -429,9 +423,6 @@ async fn a_failing_backend_degrades_and_a_later_success_clears_it() {
     assert!(matches!(&*harness.health.borrow(), ServiceState::Running));
 }
 
-/// Measured against a live compositor: a second gamma client takes the outputs and, on leaving,
-/// hands them back to nobody. Re-applying every tick is what brings them back; suppressing the
-/// call while the temperature had not moved left the screen neutral for as long as it did not.
 #[tokio::test]
 async fn the_temperature_is_reapplied_every_tick_so_stolen_outputs_come_back() {
     let mut harness = harness(config(Schedule::Automatic)).await;
@@ -871,7 +862,6 @@ async fn a_temperature_is_refused_under_automatic_with_no_fix() {
     assert!(harness.gamma.applied().is_empty());
 }
 
-/// The window crosses midnight, which is the case a same-day comparison gets backwards.
 #[test]
 fn an_overnight_window_is_night_on_both_sides_of_midnight() {
     let start = NaiveTime::from_hms_opt(22, 0, 0).expect("a real time");
@@ -901,8 +891,6 @@ fn a_manual_boundary_is_always_still_ahead() {
     assert!(next.is_some_and(|next| next > now));
 }
 
-/// A zero-length night is a document saying "never", and reading it as "always" would tint the
-/// screen around the clock.
 #[test]
 fn a_window_with_matching_ends_is_never_night() {
     let noon = NaiveTime::from_hms_opt(12, 0, 0).expect("a real time");

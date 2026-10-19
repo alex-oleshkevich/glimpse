@@ -73,7 +73,7 @@ A binary that constructs one of these must have called `register_resources()` fi
    also closes when its content goes away — a list that stops overflowing must not leave its drawer
    standing open on nothing. Assert both directions: firing the trigger twice opens then closes.
    **A row's own detail is an `Expandable`**, never a hand-built holder: it owns the revealer, its
-   head (`Row` click or `SplitRow` chevron) toggles it, and `expanded` is the one state. Focus —
+   head (`Row` click or a chevron) toggles it, and `expanded` is the one state. Focus —
    one open at a time, everything else `.receded`, a press on anything dimmed closing it — belongs
    to the enclosing `PopoverShell` and is derived from the tree, so a widget holding `Expandable`s
    writes no open-state, accordion or recede code at all.
@@ -98,8 +98,8 @@ A binary that constructs one of these must have called `register_resources()` fi
 
 - Colours come from libadwaita semantic variables, in `data/themes/<theme>/panel.css`, never as hex
   in Rust. Blueprint for structure, CSS for appearance, Rust for behaviour.
-- There is no `stale` or `degraded` rendering. `IndicatorState` was removed; a widget renders what it
-  is given and empty when it is given nothing.
+- There is no `stale` or `degraded` rendering; a widget renders what it is given and empty when it
+  is given nothing.
 - Tests need a display and one thread — see the `testing` skill.
 
 ## Definition of done

@@ -88,8 +88,6 @@ impl PrintingPopover {
 
     fn render_jobs(&self) {
         let imp = self.imp();
-        #[cfg(test)]
-        imp.renders.set(imp.renders.get() + 1);
         let jobs = imp.job_data.borrow();
         reconcile::by_key(
             &*imp.job_rows,
@@ -105,8 +103,6 @@ impl PrintingPopover {
 
     fn render_printers(&self) {
         let imp = self.imp();
-        #[cfg(test)]
-        imp.printer_renders.set(imp.printer_renders.get() + 1);
         let printers = imp.printer_data.borrow();
         reconcile::by_key(
             &*imp.printer_rows,

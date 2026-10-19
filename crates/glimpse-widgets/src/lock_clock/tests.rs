@@ -1,4 +1,5 @@
 use super::*;
+use gtk4::prelude::*;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -46,9 +47,7 @@ fn a_non_english_date_shows_the_plain_day() {
 #[test]
 #[ignore = "needs a display"]
 fn lock_clock_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
     unsafe {
         gettextrs::setlocale(gettextrs::LocaleCategory::LcTime, "C");

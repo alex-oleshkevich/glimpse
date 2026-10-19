@@ -1,7 +1,6 @@
 # Exporting an Interface
 
-The server half of zbus. The provider binaries own their names on the session bus, and those are *owned services*
-in the sense of `specs/001_architecture.md` — there is no backing daemon, so the provider is the store.
+The server half of zbus. The provider binaries own their names on the session bus, and those are *owned services*: there is no backing daemon, so the provider is the store.
 
 | Name | Object path | Interface |
 | --- | --- | --- |
@@ -186,7 +185,7 @@ conn.request_name(name).await?;                      // then
 
 `NameTaken` is **not** fatal. Another notification daemon — dunst, mako, a Plasma session — already
 owns the name. The affected service publishes `degraded` and the rest of the process runs normally.
-This is the packaging conflict `specs/009_systemd.md` describes, and reporting it on
+This is a packaging conflict, and reporting it on
 `system.services` rather than only in the log is what makes it diagnosable.
 
 Track `NameLost` for the whole process lifetime, not just at startup. Requesting with
@@ -215,4 +214,4 @@ same code path.
 An exported interface is testable without a session bus. Build a peer-to-peer connection pair, or
 point a `Builder::address` at a private bus started for the test. Because a service receives its
 `Connection` rather than opening one, the test injects a fixture connection the same way a service
-test injects a mock `WaylandEdge`.
+test injects a fixture connection.

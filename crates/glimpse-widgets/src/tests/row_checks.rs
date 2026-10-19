@@ -162,7 +162,7 @@ fn action() {
     assert_eq!(row.css_name().as_str(), "listrow");
     assert!(row.is_focusable());
     assert!(row.has_css_class("row--interactive"));
-    assert!(!row.upcast_ref::<Row>().imp().chevron().get_visible());
+    assert!(!row.upcast_ref::<Row>().imp().chevron.get().get_visible());
     let hits = Rc::new(Cell::new(0u32));
     row.connect_activated({
         let hits = hits.clone();
@@ -192,10 +192,13 @@ fn toggle() {
     window.present();
     while gtk4::glib::MainContext::default().iteration(false) {}
     assert_eq!(row.css_name().as_str(), "listrow");
-    assert!(!row.knob().can_target());
-    assert!(!row.knob().can_focus());
+    assert!(!row.imp().knob.get().can_target());
+    assert!(!row.imp().knob.get().can_focus());
     let end = row.upcast_ref::<Row>().imp().end();
-    assert_eq!(row.knob().parent().as_ref(), Some(end.upcast_ref()));
+    assert_eq!(
+        row.imp().knob.get().parent().as_ref(),
+        Some(end.upcast_ref())
+    );
     let hits = Rc::new(RefCell::new(Vec::new()));
     row.connect_toggled({
         let hits = hits.clone();
@@ -232,7 +235,7 @@ fn toggle() {
     let check = child_named::<gtk4::Image>(&row, "row__check");
     assert!(check.get_visible());
     assert!(row.has_css_class("row--on"));
-    assert!(!row.knob().get_visible());
+    assert!(!row.imp().knob.get().get_visible());
     row.set_active(false);
     assert!(!check.get_visible());
     assert!(!row.has_css_class("row--on"));
@@ -318,7 +321,7 @@ fn roles() {
     );
     assert_ne!(
         gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
-        Some(toggle.knob().upcast_ref())
+        Some(toggle.imp().knob.get().upcast_ref())
     );
     window.close();
 }

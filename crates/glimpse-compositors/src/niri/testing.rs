@@ -4,8 +4,6 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 
-/// A stand-in niri: one connection per request, a reply line chosen by `respond`, and any further
-/// lines it returns written in order — which is what an `EventStream` subscription looks like.
 pub struct FakeNiri {
     _dir: tempfile::TempDir,
     pub socket: PathBuf,
@@ -44,7 +42,6 @@ impl FakeNiri {
         Self { _dir: dir, socket }
     }
 
-    /// Accepts a connection and drops it without replying.
     pub fn silent() -> Self {
         Self::spawn(|_| Vec::new())
     }

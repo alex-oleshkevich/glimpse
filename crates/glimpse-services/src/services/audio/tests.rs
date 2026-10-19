@@ -149,9 +149,6 @@ async fn gone_degrades_and_bumps_the_generation_so_the_subscription_key_changes(
     );
 }
 
-/// `run` checks the client before resolving an id, so a full dispatch only ever answers
-/// `Refused` once a client exists — unconstructible headlessly. This exercises the resolver
-/// `run` itself calls for that answer.
 #[tokio::test]
 async fn device_index_is_none_for_a_device_absent_from_the_current_snapshot() {
     let (mut service, _ctx, _state, _health) = harness().await;
@@ -183,11 +180,6 @@ async fn app_role_is_none_for_an_app_absent_from_the_current_snapshot() {
     );
 }
 
-/// The window this guards: before the very first `pulse::Event` of any kind arrives,
-/// `current` is `AudioState::default()` and `client` is `None`. A command issued in exactly
-/// that window must read as "audio is not connected yet", not as "no such device" — the id
-/// resolver would find nothing in an empty snapshot either way, so the client must be checked
-/// first or a disconnection hides behind a no-such-device message.
 #[tokio::test]
 async fn a_command_before_any_event_has_arrived_is_unavailable_not_refused() {
     let (mut service, ctx, _state, _health) = harness().await;
@@ -261,10 +253,7 @@ async fn set_app_volume_scales_each_stream_against_the_group_max() {
 async fn ready(service: &mut Audio, ctx: &Ctx<Audio>) -> mpsc::Receiver<pulse::Request> {
     let (tx, rx) = mpsc::channel(1);
     service
-        .handle(
-            ctx,
-            Input::Event(pulse::Event::Ready(pulse::Client::new(tx))),
-        )
+        .handle(ctx, Input::Event(pulse::Event::Ready(pulse::Client { tx })))
         .await;
     rx
 }

@@ -685,11 +685,6 @@ impl FakeItem {
         AyatanaItem::new_status(&self.emitter()?, status).await
     }
 
-    pub async fn set_icon_name(&self, name: &str) -> zbus::Result<()> {
-        self.state.lock().expect("lock poisoned").icon_name = name.to_owned();
-        AyatanaItem::new_icon(&self.emitter()?).await
-    }
-
     pub async fn set_title(&self, title: &str) -> zbus::Result<()> {
         self.state.lock().expect("lock poisoned").title = title.to_owned();
         AyatanaItem::new_title(&self.emitter()?).await

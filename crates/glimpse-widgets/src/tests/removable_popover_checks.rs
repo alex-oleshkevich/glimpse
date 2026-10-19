@@ -2,14 +2,10 @@ use super::*;
 
 use crate::removable_popover::RemovableDevice;
 
-/// Separate from `widgets()` for the same reason as `places_popover_widgets`: one failure
-/// earlier in that function must not hide every assertion written after it.
 #[test]
 #[ignore = "needs a display"]
 fn removable_popover_widgets() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     register_resources().expect("resources");
     let _styles = Styles::install(adw::ColorScheme::Default);
 

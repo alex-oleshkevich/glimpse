@@ -26,8 +26,6 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.tray" describe />
 
-<AppletShot name="tray" />
-
 ## places
 
 <ConfigTable path="applets.places" describe />

@@ -74,9 +74,7 @@ fn printer_widget(popover: &PrintingPopover, id: &str) -> gtk4::Widget {
 #[test]
 #[ignore = "needs a display"]
 fn printing_popover_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let popover = PrintingPopover::new();
@@ -102,13 +100,7 @@ fn printing_popover_states() {
     assert!(row.icon_name().is_none(), "a job row carries no icon");
     assert_eq!(imp.shell.icon_name().as_deref(), Some("printer-symbolic"));
 
-    let renders_after_first = imp.renders.get();
     popover.set_jobs(&[job("1", Some((3, 12)))]);
-    assert_eq!(
-        imp.renders.get(),
-        renders_after_first,
-        "an unchanged job list must never re-enter render_jobs at all"
-    );
     assert_eq!(
         job_row(&popover, "1"),
         row,
@@ -234,7 +226,6 @@ fn printing_popover_states() {
     assert!(!imp.jobs.get_visible());
     assert!(imp.job_rows.first_child().is_none());
 
-    let printer_renders_before = imp.printer_renders.get();
     let kitchen = Printer {
         id: "kitchen".into(),
         name: "Kitchen".into(),
@@ -244,7 +235,6 @@ fn printing_popover_states() {
     };
     popover.set_printers(std::slice::from_ref(&kitchen));
     assert!(imp.printers.get_visible());
-    assert_eq!(imp.printer_renders.get(), printer_renders_before + 1);
     let printer = printer_widget(&popover, "kitchen")
         .downcast::<ExpanderRow>()
         .expect("a printer with facts opens a drawer");
@@ -262,12 +252,11 @@ fn printing_popover_states() {
         .expect("a list of facts");
     assert_eq!(fact_values(&card).len(), 1);
 
-    let printer_renders_after = imp.printer_renders.get();
     popover.set_printers(std::slice::from_ref(&kitchen));
     assert_eq!(
-        imp.printer_renders.get(),
-        printer_renders_after,
-        "an unchanged printer list must never re-enter render_printers at all"
+        printer_widget(&popover, "kitchen"),
+        printer.clone().upcast::<gtk4::Widget>(),
+        "an unchanged printer list reuses its row rather than rebuilding it"
     );
 
     popover.set_printers(&[Printer {

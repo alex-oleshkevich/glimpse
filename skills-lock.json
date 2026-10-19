@@ -6,18 +6,6 @@
       "sourceType": "local",
       "computedHash": "39b9df25ef5b7db9c8c3bc260c55f0f454478d327e48074e6b6740589772a87d"
     },
-    "arch-btw": {
-      "source": "iuliandita/skills",
-      "sourceType": "github",
-      "skillPath": "skills/arch-btw/SKILL.md",
-      "computedHash": "9e5db480836a017b34a33b4c1221265975fcfede2fc500cbd67b6160874cbb6e"
-    },
-    "build-acceleration": {
-      "source": "mohitmishra786/low-level-dev-skills",
-      "sourceType": "github",
-      "skillPath": "skills/build-systems/build-acceleration/SKILL.md",
-      "computedHash": "c93105065a73e1043091d263d6cc81d37eb2a316ba0949131ec3c9de4d6bb010"
-    },
     "cargo-workflows": {
       "source": "mohitmishra786/low-level-dev-skills",
       "sourceType": "github",
@@ -58,24 +46,6 @@
       "sourceType": "github",
       "skillPath": "skills/debuggers/gdb/SKILL.md",
       "computedHash": "2a05cf6a724c6d4cc6b1390d7472dd26c25ff1bb12340c0ea30f50a5f355ef82"
-    },
-    "insta-snapshots": {
-      "source": "oxc-project/oxc",
-      "sourceType": "github",
-      "skillPath": ".agents/skills/insta-snapshots/SKILL.md",
-      "computedHash": "c8400c9cb84529ef6f943e42a9ca422ac3602e0273d3e179685189e6d5c1ea79"
-    },
-    "property-based-testing": {
-      "source": "trailofbits/skills",
-      "sourceType": "github",
-      "skillPath": "plugins/property-based-testing/skills/property-based-testing/SKILL.md",
-      "computedHash": "ddde371888a75d492f6b296c3f33c0aa92e7722c82b547acbf53369f64b97449"
-    },
-    "ratatui-tui": {
-      "source": "blacktop/dotfiles",
-      "sourceType": "github",
-      "skillPath": "ai/skills/ratatui-tui/SKILL.md",
-      "computedHash": "519ad8e9d88e2cd5e8a9754874b078860524146050f80f1236203c7e140b61bd"
     },
     "relm4-app": {
       "source": "anson2251/relm4-app-skill",

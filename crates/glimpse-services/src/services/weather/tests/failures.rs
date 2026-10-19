@@ -130,8 +130,6 @@ async fn an_unresolved_only_place_degrades_without_echoing_its_name() {
     assert!(!failure.contains("Private Place"));
 }
 
-/// The query string carries the user's latitude and longitude, so a reason that quoted the
-/// request would be a location leak wherever it was pasted.
 #[tokio::test]
 async fn a_failure_reason_names_neither_the_host_nor_a_coordinate() {
     let mut harness = harness().await;
@@ -159,8 +157,6 @@ async fn a_failure_reason_names_neither_the_host_nor_a_coordinate() {
     }
 }
 
-/// The closure captured the request as it stood; a result built from an older one must not
-/// overwrite the current places.
 #[tokio::test]
 async fn a_fetch_from_an_earlier_generation_is_dropped() {
     let mut harness = harness().await;
@@ -192,8 +188,6 @@ async fn a_fetch_from_an_earlier_generation_is_dropped() {
     );
 }
 
-/// A fix can be queued behind the change that stopped anyone watching `here`. Dropping the
-/// subscription does not un-queue it, so the guard is on the model.
 #[tokio::test]
 async fn a_geolocation_update_arriving_after_the_last_here_lease_expired_is_ignored() {
     let mut harness = harness().await;
@@ -217,8 +211,6 @@ async fn a_geolocation_update_arriving_after_the_last_here_lease_expired_is_igno
     assert_eq!(harness.service.fix, None);
 }
 
-/// Places are paired with readings by position, so a response of the wrong length is not a
-/// partial answer — it would hand one place another place's weather.
 #[tokio::test]
 async fn a_response_that_does_not_cover_every_place_is_refused() {
     let mut harness = harness().await;

@@ -32,8 +32,6 @@ fn vilnius() -> GeoCoordinates {
     }
 }
 
-/// `Condition` is a closed set on purpose, so a second provider maps into it rather than
-/// putting its own vocabulary on the wire.
 #[test]
 fn every_met_no_symbol_maps_into_the_closed_set() {
     for (symbol, expected) in [
@@ -63,8 +61,6 @@ fn every_met_no_symbol_maps_into_the_closed_set() {
     assert_eq!(met_no_condition(None), Condition::Unknown);
 }
 
-/// The bead's one named gap: met.no has sleet and WMO 4677 does not, so mapping it onto
-/// freezing rain would print "Freezing rain" for wet snow.
 #[test]
 fn sleet_is_sleet_rather_than_the_nearest_wmo_code() {
     for symbol in [
@@ -95,8 +91,6 @@ fn a_symbol_suffix_says_which_artwork_not_which_weather() {
     assert!(met_no_is_day(None));
 }
 
-/// met.no answers in Celsius, metres per second and millimetres whatever is asked of it, so
-/// unlike Open-Meteo the conversion is ours to do.
 #[test]
 fn met_no_answers_in_metric_and_the_units_are_converted_here() {
     assert_eq!(met_no_temperature(0.0, UnitSystem::Metric), 0.0);
@@ -136,8 +130,6 @@ fn a_current_reading_carries_the_units_it_was_asked_for() {
     assert!((imperial.precipitation.unwrap_or_default() - 1.0).abs() < 1e-9);
 }
 
-/// Open-Meteo aggregates days server-side and met.no does not, so this is the one place the
-/// two providers agree by arithmetic rather than by construction.
 #[test]
 fn days_are_aggregated_from_the_timeseries() {
     let forecast = met_no_forecast(vec![
@@ -169,7 +161,6 @@ fn days_are_aggregated_from_the_timeseries() {
     assert_eq!((days[1].low, days[1].high), (16.0, 16.0));
 }
 
-/// Taking the first entry would let the small hours name a day nobody is awake for.
 #[test]
 fn a_day_is_named_by_the_weather_in_the_middle_of_it() {
     let forecast = met_no_forecast(vec![
@@ -188,8 +179,6 @@ fn a_day_is_named_by_the_weather_in_the_middle_of_it() {
     );
 }
 
-/// The offset is the whole reason `tzf-rs` is a dependency: met.no reports instants in UTC and
-/// says nothing about where they were measured.
 #[test]
 fn a_places_offset_is_looked_up_from_its_coordinates() {
     let summer = Utc

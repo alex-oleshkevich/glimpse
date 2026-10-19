@@ -90,7 +90,7 @@ for f in data/portals/*-portals.conf; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/glimpse/portals/$(basename "$f")"
 done
 for f in data/pam.d/*; do
-    [[ -f "$f" && "$(basename "$f")" != .gitkeep ]] || continue
+    [[ -f "$f" ]] || continue
     install -Dm644 "$f" "$pkgroot/etc/pam.d/$(basename "$f")"
 done
 for f in data/themes/*/*; do

@@ -1,8 +1,5 @@
 use super::*;
 
-/// The rule is the reason this service exists rather than a list of DTSTARTs: a weekly entry
-/// shows once and never again without it, and an EXDATE nobody applies shows a meeting that
-/// was cancelled.
 #[test]
 fn a_recurring_entry_is_expanded_and_its_exceptions_removed() {
     let found = expanded("Weekly");
@@ -48,8 +45,6 @@ async fn a_document_that_is_not_icalendar_is_a_failure_rather_than_an_empty_cale
     );
 }
 
-/// The whole point of the range command: an entry outside the window is absent, and asking
-/// for a wider one brings it back without fetching anything again.
 #[test]
 fn widening_the_window_finds_an_entry_the_narrow_one_missed() {
     let calendar = parsed(&ics("far@example", "Far", now() + TimeDelta::days(200)));
@@ -73,8 +68,6 @@ fn widening_the_window_finds_an_entry_the_narrow_one_missed() {
     assert_eq!(wide.events[0].summary, "Far");
 }
 
-/// `DateTime + TimeDelta` panics on overflow, so an extended year must be clipped before it
-/// reaches the expansion code.
 #[test]
 fn a_range_at_the_far_end_of_time_is_clipped_rather_than_panicking() {
     let far: DateTime<Utc> = serde_json::from_str("\"+262142-06-01T00:00:00Z\"")
@@ -90,8 +83,6 @@ fn a_range_at_the_far_end_of_time_is_clipped_rather_than_panicking() {
     );
 }
 
-/// A client that asks for a thousand years would have the daemon expand every rule in every
-/// calendar to answer, so the ask is clipped rather than refused.
 #[test]
 fn a_window_nobody_could_render_is_clipped_rather_than_refused() {
     let from = now();

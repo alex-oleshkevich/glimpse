@@ -32,9 +32,7 @@ fn child_named<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>, class: &st
 #[test]
 #[ignore = "needs a display"]
 fn status_island_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let island = StatusIsland::new();

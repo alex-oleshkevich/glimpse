@@ -50,7 +50,7 @@ rm -f "$portalconfdir/glimpse-portals.conf"
 debian_pam=false
 [[ -e /etc/pam.d/common-auth && ! -e /etc/pam.d/system-auth ]] && debian_pam=true
 for f in data/pam.d/*; do
-    [[ -f "$f" && "$(basename "$f")" != .gitkeep ]] || continue
+    [[ -f "$f" ]] || continue
     if $debian_pam && [[ -f "data/pam.d/debian/$(basename "$f")" ]]; then
         f="data/pam.d/debian/$(basename "$f")"
     fi

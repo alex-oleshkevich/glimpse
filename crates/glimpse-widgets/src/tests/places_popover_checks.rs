@@ -1,13 +1,9 @@
 use super::*;
 
-/// Separate from `widgets()` for the same reason as `clipboard_widgets`: one failure earlier in
-/// that function must not hide every assertion written after it.
 #[test]
 #[ignore = "needs a display"]
 fn places_popover_widgets() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     register_resources().expect("resources");
     let _styles = Styles::install(adw::ColorScheme::Default);
 
@@ -68,7 +64,6 @@ fn places_popover_widgets() {
         "an empty section and one given nothing at all are the same: no section renders"
     );
 
-    // Places and Bookmarks: hidden when empty, reused by key rather than position.
     popover.set_places(&[entry("home", "Home"), entry("docs", "Documents")]);
     assert!(imp.places.get_visible());
     let home_widget = imp.places_rows.first_child();
@@ -109,7 +104,6 @@ fn places_popover_widgets() {
         "an empty Network hides like every other section rather than standing empty"
     );
 
-    // Trash: a known count of zero is "Empty", not absence either.
     popover.set_trash(Some(PlacesTrash { items: 0 }));
     assert!(imp.trash.get_visible());
     assert_eq!(imp.trash_item.value().as_deref(), Some("Empty"));
@@ -126,9 +120,6 @@ fn places_popover_widgets() {
     popover.set_trash(None);
     assert!(!imp.trash.get_visible());
 
-    // A hostile multibyte label is capped by characters, not bytes, and the card holds its
-    // width. Both measurements keep the same sections visible, so the comparison isolates
-    // label length rather than a section appearing for the first time.
     let width = |popover: &PlacesPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
     popover.set_places(&[entry("a", "Home")]);
     popover.set_bookmarks(&[entry("b", "Downloads")]);

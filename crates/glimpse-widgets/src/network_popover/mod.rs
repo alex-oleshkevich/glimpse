@@ -152,20 +152,6 @@ impl NetworkPopover {
         )
     }
 
-    #[cfg(test)]
-    pub(crate) fn type_in(&self, text: &str) {
-        let imp = self.imp();
-        match imp.prompt_name.get_visible() {
-            true => imp.prompt_name.set_text(text),
-            false => imp.prompt_secret.set_text(text),
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn can_submit(&self) -> bool {
-        self.imp().prompt_accept.is_sensitive()
-    }
-
     pub(crate) fn answer(&self, accepted: bool) {
         let imp = self.imp();
         let entered = match accepted {

@@ -109,7 +109,7 @@ fn a_result_from_an_earlier_cycle_is_discarded() {
     let mut machine = locked(DAEMON);
     machine.handle(Input::Submit);
     machine.handle(Input::Unlocked(1));
-    assert_eq!(machine.generation(), 2, "an unrequested unlock re-locks");
+    assert_eq!(machine.generation, 2, "an unrequested unlock re-locks");
     machine.handle(Input::Locked(2));
     assert_eq!(
         machine.handle(Input::AuthFinished {

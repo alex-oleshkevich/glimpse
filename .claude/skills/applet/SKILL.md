@@ -8,8 +8,8 @@ description: Writing panel applets in glimpse-panel — the Applet trait, Ctx so
 An applet owns exactly one `IndicatorGroup`, which renders 0..N `Indicator`s. Every applet's view is
 therefore identical and only `Vec<IndicatorSpec>` varies, so an applet is a function from state to
 that vector — and, when it has a popover, from the same state to a second surface the runtime opens
-on left click. It never opens a D-Bus connection, never holds a socket, and reaches nothing but the
-daemon through `Ctx`.
+on left click. It never opens a D-Bus connection: it reads the service handles its registration
+closure handed it and sends commands through them.
 
 **Verified against the tree at `crates/glimpse-panel/src/applet/` and `src/applets/`.** Every
 signature below was read out of the current code. When this file and the code disagree, the code is
@@ -19,28 +19,29 @@ right and this file is a bug — fix it in the same change.
 
 ```rust
 pub struct Heartbeat {
+    service: HeartbeatHandle,    // handed in by the registration closure
     count: Option<u64>,          // None renders nothing; 0 is a real value
     period_ms: u64,
     icon: gio::Icon,             // built once, not per render
 }
 
-impl Applet for Heartbeat {
-    fn start() -> Self {                 // called from the registration match, not the vtable
-        Self { count: None, period_ms: DEFAULT_PERIOD_MS, icon: gio::ThemedIcon::new(ICON).upcast() }
-    }
+impl Heartbeat {
+    pub fn start(service: HeartbeatHandle) -> Self { ... }   // inherent, called from applets/mod.rs::build
+}
 
+impl Applet for Heartbeat {
     fn handle(&mut self, ctx: &Ctx, input: &Input) { ... }
 
     fn indicators(&self) -> Vec<IndicatorSpec> { ... }
 
-    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> { ... }   // None: no popover
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> { ... }   // default None: no popover
 }
 ```
 
-`start` and `handle` are the only two without a default, and there are no associated types, so the
-trait is object-safe. The runtime stores `Box<dyn Applet>`; `start` stays out of the vtable via
-`where Self: Sized` and is called from the registration match, where the concrete type is still
-known. `configure`, `view`, `orient` and `anchor` are the remaining defaulted methods.
+`handle` is the only method without a default, and there are no associated types, so the trait is
+object-safe. The runtime stores `Box<dyn Applet>`; construction is an inherent `start` called from
+the registration closure, where the concrete type and its service handles are still known.
+`configure`, `view`, `orient`, `place`, `indicators`, `popover` and `anchor` are defaulted.
 
 ```rust
 pub enum Input {
@@ -54,17 +55,26 @@ pub enum Button { Left, Middle, Right, Other(u32) }   // Other carries the GDK c
 pub enum Direction { Up, Down, Left, Right }
 
 impl Ctx {
-    pub fn call<C: Command>(&self, args: C::Args);       // spawned, fire-and-forget
+    pub fn watch<T>(&self, state: watch::Receiver<T>);   // every change delivers Input::Woken
     pub fn interval(&self, period: Duration);            // delivers Input::Tick, wall-clock aligned
-    pub fn opener(&self) -> Opener;                      // wake, open, close
+    pub fn opener(&self) -> Opener;
+    pub fn output(&self) -> Option<&str>;
+}
+
+impl Opener {                                            // Clone + 'static: capturable by a closure
+    pub fn wake(&self);
+    pub fn open_popover(&self);
+    pub fn toggle_popover(&self);
+    pub fn close_popover(&self);
+    pub fn typing(&self, typing: bool);                  // keyboard focus for the open popover
 }
 
 impl Seat {                                              // what popover() gets instead of a Ctx
-    pub fn caller(&self) -> Caller;                      // Clone + 'static: capturable by a closure
     pub fn opener(&self) -> Opener;
 }
 
-pub fn payload<T: Message>(event: &Event) -> Option<T::Payload>;
+pub fn spawn_command(operation: &'static str, future: F);                 // logs a failure
+pub fn spawn_reported(operation: &'static str, report: Report, wording, future: F); // notifies
 ```
 
 ## Decision table
@@ -76,19 +86,21 @@ pub fn payload<T: Message>(event: &Event) -> Option<T::Payload>;
 | Something does not work and you want the symptom, not the theory | `references/pitfalls.md` |
 | Writing or judging the tests | the `testing` skill |
 | Anything inside `Indicator` / `IndicatorGroup` / `PopoverShell` | the `widget` skill |
-| Reaching the daemon, reconnects, subscription limits | the `ipc-client` skill |
+| The service behind a handle, its snapshot and its commands | the `service` skill |
+| A standalone provider reached over D-Bus | the `zbus` skill |
 | GTK4, libadwaita and relm4 craft in general | the `relm4` and `gtk4-styles` skills |
 | Threading, widget boundaries, untrusted text | `.claude/rules/ui.md` |
 
 ## Rules that are not already loaded
 
 `.claude/rules/ui.md` loads automatically for the GTK crates and carries the boundary rules: nothing
-in a widget calls the socket or D-Bus, no `glib::timeout_add` to refresh from daemon data, a
+in a widget calls the filesystem or D-Bus, no `glib::timeout_add` to refresh from service data, a
 `Controller` that is not stored is dropped, data changes must not shift layout, and hostile text is
 capped before it reaches a label. They are not repeated here. What follows is what none of that says.
 
-1. **State arrives as one typed watch, and `Input::Woken` is the whole notification.** The
-   registration closure calls `ctx.watch(handle.subscribe())`; every change becomes `Input::Woken`,
+1. **State arrives as typed watches, and `Input::Woken` is the whole notification.** The
+   registration closure calls `ctx.watch(handle.subscribe())` once per service it reads; every
+   change becomes `Input::Woken`,
    and the applet reads `handle.snapshot()` from its own arm. The payload is not carried, so there
    is nothing to decode and nothing to name. `Ctx` owns the watch guard, so an applet holds none and
    `start` has no side effects. Blanket teardown is `Ctx` dropping with the runtime; a panicking
@@ -132,9 +144,9 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    pixmap is theirs to choose, and it is rendered as given. `gdk::Texture` implements `gio::Icon`,
    which is why one `Option<gio::Icon>` covers a themed name, a file path and a raw pixmap.
 
-   **An icon the state decides moves with the text it belongs to.** The scan row's plus becomes a
-   stop while scanning, set from Rust beside the label, because a blueprint can only declare the
-   resting look. **An icon never takes a background and never takes the accent.** A chip behind a
+   **An icon the state decides moves with the text it belongs to**: it is set from Rust beside the
+   label, because a blueprint can only declare the resting look. **An icon never takes a background
+   and never takes the accent.** A chip behind a
    glyph shrinks it and makes a row read as a button; GNOME's Quick Settings does that because its
    menu is detached from the tile that opened it, and ours is not. An icon name the theme does not
    have is invisible, so check it — `find /usr/share/icons/Adwaita -name 'bluetooth*'` — before
@@ -143,9 +155,10 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    **A row that expands says so.** Its chevron rotates over `--gl-duration` / `--gl-ease` — the icon
    has to be directional, because a rotated symmetrical glyph reads as nothing — and the open row
    keeps full opacity while everything it is read against recedes. A row's detail is an
-   `$Expandable`, and `PopoverShell` does the receding, the accordion and click-outside-to-close
-   for it; see `references/popovers.md`. An audio stream's volume slider is not a detail and stays a
-   plain revealer, because dimming the popover around a slider would be wrong.
+   `$ExpanderRow` (an `$Expandable` underneath), and `PopoverShell` does the receding, the accordion
+   and click-outside-to-close for it; see `references/popovers.md`. An audio stream's volume slider
+   is not a detail: `SourceList` parents its `SliderRow` beside the row, because dimming the popover
+   around a slider would be wrong.
 
 9. **`ctx.interval(period)` is the only timer, and it aligns to the wall clock.** It delivers
    `Input::Tick`. The wait is the time since the epoch modulo the period, so a minute-long period
@@ -155,16 +168,18 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    every configuration change. A zero period is refused and logged. Never reach for
    `glib::timeout_add` instead: `.claude/rules/ui.md` reserves that for animation.
 
-10. **`ctx.call` is fire-and-forget and its reply is discarded.** Topics reconcile, and UI state never
+10. **A command is a future on the service handle, spawned rather than awaited.**
+   `spawn_command("heartbeat.reset", async move { service.reset().await })` logs a failure;
+   `spawn_reported` and `tell` turn one into a notification. The UI updates optimistically and never
    waits on a round trip. An applet that tracks a value it only ever *sets* can drift from the
-   daemon; that is the accepted cost, and the case that will justify `ctx.ask` when one appears.
+   service, so read it back from the snapshot wherever the service carries it.
 
 11. **The runtime owns left click, and `popover()` is how an applet answers it.** `HostInput::Pressed`
     delivers the press to `handle` and then toggles the popover — opening it calls `popover(&seat)`,
     pressing again closes what is open. An applet that *also* acts on
     `Pointer::Press(Button::Left)` fires that action every time its popover opens. There is one
-    `Catcher` per bar, so one popover is open at a time per monitor and it receives no keyboard
-    input at all.
+    `Catcher` per bar, so one popover is open at a time per monitor, and it receives keyboard input
+    only while its applet holds `opener.typing(true)`.
 
 12. **A live popover is held as a `glib::WeakRef` and dressed from the same method that builds the
     chips.** Every open builds a fresh widget; the strong references are the catcher's child and the
@@ -176,40 +191,39 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 
 13. **A popover talks back by waking, not by calling.** A signal closure has no `&mut self`, so it
     captures `seat.opener()` and calls `wake()`, which arrives as `Input::Woken` and ends in
-    `refresh`. `handle` must match `Input::Woken` — an applet matching only `Topic` and `Tick`
-    swallows it and the popover never updates. Commands go through `seat.caller()`, which is
-    `ctx.call` under another name; connect every signal in `popover()` and never in the dressing
-    method, because that one runs on every event and handlers stack.
+    `refresh`. `handle` must match `Input::Woken` — an applet matching only `Tick` and `Pointer`
+    swallows it and the popover never updates. A command is spawned from the closure on a cloned
+    service handle, exactly as from `handle`; connect every signal in `popover()` and never in the
+    dressing method, because that one runs on every event and handlers stack.
 
 ## What the framework will not do for you
 
-- **There is no staleness and no `degraded`.** A dead daemon stops sending events and the last value
-  stays on screen. `IndicatorState` was deleted from `glimpse-widgets`; do not reintroduce dimming.
+- **There is no staleness and no `degraded`.** The last snapshot stays on screen until the service
+  changes it; never dim a value for its age.
 - **Configuration is typed and validated at load, not by the applet.** `glimpse_config::Applet` is
-  one applet's whole configuration: `common`, the settings every applet understands, and `kind`, an
-  internally-tagged enum on `extends` carrying the settings this applet alone understands. A bad
-  setting in either half is a load error naming the table and the key — the applet never
-  deserializes anything and has no failure path. `configure(&mut self, ctx, config: &AppletConfig)`
-  destructures its own variant off `kind`:
-  `let AppletKind::Clock(cfg) = &config.kind else { return };`. The runtime compares the config
+  one applet's whole configuration: `kind`, an internally-tagged enum on `extends` carrying the
+  settings this applet alone understands, and `regional`, the document's `[regional]` table stamped
+  on by `applets::configured`. A bad setting is a load error naming the table and the key — the
+  applet never deserializes anything and has no failure path.
+  `configure(&mut self, ctx, config: &AppletConfig)` destructures its own variant off `kind`:
+  `let AppletKind::Clock(clock) = &config.kind else { return };`. The runtime compares the config
   before calling, so an unchanged one never reaches the applet.
 
-  **`config.common` is read the same way by every applet**, and reading it is not optional where it
-  applies: `tooltip_format` fills `IndicatorSpec.tooltip`.
+  **`config.kind.tooltip_format()` is read the same way by every applet**, and reading it is not
+  optional where it returns a value: it fills `IndicatorSpec.tooltip`.
 
   Adding settings to an applet means adding a config struct in `glimpse-config` and promoting the
-  variant from `Clock {}` to `Clock(Clock)`. **Never write a unit variant** (`Clock`) —
-  `deny_unknown_fields` has nothing to deny on one, so it silently swallows every key written under
-  it. An empty struct variant refuses them.
-- **There is no `Output`.** Commands leave through `ctx.call`; an empty group hides itself; nothing
-  is reported to the panel.
+  variant from `Heartbeat {}` to `Heartbeat(Heartbeat)`, or giving it named fields inline as `Idle`
+  has. **Never write a unit variant** (`Heartbeat`) — `deny_unknown_fields` has nothing to deny on
+  one, so it silently swallows every key written under it. An empty struct variant refuses them.
+- **There is no `Output`.** Commands leave as spawned futures on a service handle; an empty group
+  hides itself; nothing is reported to the panel.
 - **The panel calls `Applet::place` with `Placement` for position, orientation, zone, size and output.**
   Group applets receive orientation on their group directly.
-- **Nothing in the panel scrolls, and nothing caps a popover's height.** `PopoverShell` does not and
-  the catcher does not; the crate's one `Gtk.ScrolledWindow` propagates its natural height and so
-  does not either. A popover stays on the screen
+- **The height cap is a backstop, not a layout.** `PopoverShell` caps its body at 60% of the
+  monitor's height and scrolls only past that; below it nothing scrolls. A popover stays readable
   because the applet bounds what it hands over — `upcoming`, `days` and `hours` are counts in the
-  config, and the remainder goes behind a drawer. The catcher *does* re-place a popover whose
+  config, and the remainder goes behind an "N more" row. The catcher *does* re-place a popover whose
   measurement changes while it is open, so an applet never re-derives placement — but that
   re-placement is motion under the pointer, which is why content grows downwards and why a card's
   width is pinned by `max-width-chars` rather than left to the widest string.
@@ -219,18 +233,18 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 
 ## Definition of done
 
-- The applet is one arm of the exhaustive `match` in `applets/mod.rs::build`, listing every unbuilt
-  `Applet` variant explicitly rather than `_ => None`, so a new applet is a compile error here.
+- The applet is one arm of the exhaustive `match` in `applets/mod.rs::build`, which names every
+  `AppletKind` variant and has no `_` arm, so a new kind is a compile error there.
 - `indicators()` returns chips in a stable order — `IndicatorGroup` reconciles by position, so a
   list whose order churns rewrites every chip instead of updating the one that changed.
-- Text taken off a topic is capped before it reaches an `IndicatorSpec`. Tray titles, MPRIS metadata
-  and SSIDs are attacker-controlled; `Indicator` truncates, but the cap belongs upstream too.
+- Text taken from a service snapshot is capped before it reaches an `IndicatorSpec`. Tray titles,
+  MPRIS metadata and SSIDs are attacker-controlled; `Indicator` truncates, but the cap belongs
+  upstream too.
 - Pure logic is split out of anything needing a `Ctx` so it can be tested headlessly — see the
   `testing` skill. For an applet with a popover that is a `render.rs` beside it, holding every
-  formatting function over `now` and the payload, with no GTK in the signatures.
-- Every user-visible string in the popover was formatted by the applet, except a placeholder
-  wording, which lives in the `.blp` — nothing in this tree translates a Rust string reaching a
-  label.
+  formatting function over `now` and the snapshot, with no GTK in the signatures.
+- Every user-visible string in the popover is formatted by the applet and marked with `gettext`; a
+  fixed wording, such as a placeholder, lives in the `.blp` as `_("…")`.
 - `just verify` is clean. `just lint` runs `-D warnings`, and a framework item with no consumer is a
   build failure, not a note.
-- `crates/glimpse-panel/README.md` says what changed, in the same commit.
+- A line in `crates/glimpse-panel/README.md` the change made false is corrected in the same change.

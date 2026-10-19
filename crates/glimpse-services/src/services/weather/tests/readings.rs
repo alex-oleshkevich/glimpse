@@ -1,7 +1,5 @@
 use super::*;
 
-/// Every number held is in the old system. Relabelling them would put a wrong number on screen
-/// for the one round trip a correct one takes to arrive; clearing them shows a missing one.
 #[tokio::test]
 async fn changing_units_clears_the_readings_rather_than_relabelling_them() {
     let mut harness = harness().await;
@@ -63,9 +61,6 @@ async fn a_poll_interval_change_keeps_the_readings() {
     assert_eq!(harness.service.places.len(), 1);
 }
 
-/// Open-Meteo will send sun times and met.no cannot, so trusting the payload made the same
-/// fact arrive two ways. It is computed on one path now, and the day it is computed for is the
-/// day in the place's own zone rather than in UTC.
 #[test]
 fn sun_times_are_computed_for_every_provider_on_one_path() {
     let vilnius = GeoCoordinates {

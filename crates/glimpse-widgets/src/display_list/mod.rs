@@ -85,8 +85,6 @@ impl DisplayList {
 
     fn render(&self) {
         let imp = self.imp();
-        #[cfg(test)]
-        imp.renders.set(imp.renders.get() + 1);
         let displays = imp.displays.borrow();
         let power = imp.output_power.get();
         let last_enabled = displays.iter().filter(|display| display.enabled).count() == 1;

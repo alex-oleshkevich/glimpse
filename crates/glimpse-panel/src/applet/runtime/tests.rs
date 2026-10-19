@@ -371,10 +371,6 @@ fn one_burst_larger_than_a_notch_fires_every_notch_it_contains() {
     assert_eq!(drained(&[2.5, 0.5]), [Direction::Down; 3]);
 }
 
-/// `weather-none-available-symbolic` is in the icon-naming spec and is NOT in Adwaita, so the
-/// chip for an unknown condition — and every trouble chip, which routes through the same
-/// mapping — rendered GTK's broken-image placeholder. Nothing caught it because a missing icon
-/// is not an error at any layer: the name is a string until something asks the theme for it.
 fn every_weather_icon_the_applet_can_ask_for_exists() {
     use glimpse_dbus::weather::Condition;
 
@@ -417,14 +413,10 @@ fn every_weather_icon_the_applet_can_ask_for_exists() {
     }
 }
 
-/// One function, because `gtk4::init()` binds GTK to the calling thread and cargo runs tests
-/// in parallel.
 #[test]
 #[ignore = "needs a display"]
 fn an_applet_reaches_its_group() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     glimpse_widgets::register_resources().expect("resources");
 
     every_weather_icon_the_applet_can_ask_for_exists();
@@ -659,9 +651,6 @@ fn an_applet_action_injects_what_a_pointer_would() {
     assert!(seen().is_empty(), "a stopped applet takes no action input");
 }
 
-/// `PopoverRequested` is how an applet raises a question the user has to answer, so it must
-/// open and only open. A press toggles; a raise that toggled would dismiss the very question
-/// it was asked to show, and one swallowed by the close fade would never show it at all.
 fn a_raise_opens_a_popover_and_never_closes_one() {
     let catcher = Catcher::new(None, glimpse_config::Position::Top);
     let handle = AppletHandle::launch(
@@ -711,9 +700,6 @@ fn a_raise_opens_a_popover_and_never_closes_one() {
     assert!(catcher.closing(), "a press still toggles");
 }
 
-/// The one link the widget's own tests and the service's own tests leave between them: the
-/// closures `Bluetooth::popover` connects. Both assertions use a confirmation, because that is
-/// the only command whose whole effect is local — no bus is needed to see it land.
 fn a_bluetooth_popover_signal_reaches_the_service() {
     use crate::applet::popover::Seat;
     use crate::applets::bluetooth::Bluetooth as BluetoothApplet;

@@ -46,18 +46,12 @@ fn tags_are_normalised_nested_and_balanced() {
     assert_eq!(sanitize_body("<b>hello"), "<b>hello</b>");
 }
 
-/// html5ever's serializer emits exactly one named entity, `&nbsp;`, and it is the one entity
-/// Pango does not know — a body carrying a non-breaking space otherwise fails to parse and
-/// `GtkLabel` renders it as nothing at all. Measured in both directions: a literal U+00A0 in
-/// the input comes back out as the entity, so the replacement covers both.
 #[test]
 fn a_non_breaking_space_survives_as_a_character_rather_than_as_an_entity() {
     assert_eq!(sanitize_body("&nbsp;"), "\u{a0}");
     assert_eq!(sanitize_body("a\u{a0}b"), "a\u{a0}b");
 }
 
-/// Every other named entity is decoded by ammonia itself, which is why no entity table is
-/// needed here.
 #[test]
 fn the_other_named_entities_decode_to_characters() {
     assert_eq!(

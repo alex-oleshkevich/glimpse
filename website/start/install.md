@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/ins
 ```sh [From source]
 git clone https://github.com/alex-oleshkevich/glimpse
 cd glimpse
-just build-release build-translations
+just build-release-binaries build-translations
 sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 

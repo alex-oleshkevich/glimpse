@@ -38,9 +38,7 @@ properties to check; `cargo test -- --ignored` runs them together and proves not
 #[test]
 #[ignore = "needs a display"]
 fn the_row_shows_its_subtitle() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     register_resources().expect("resources");
 }
 ```

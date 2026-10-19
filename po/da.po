@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-15 21:38+0200\n"
+"POT-Creation-Date: 2026-10-19 12:33+0200\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -141,7 +141,7 @@ msgstr "Netværksadgangskode"
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:199
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:129
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
 msgid "Cancel"
 msgstr "Annullér"
 
@@ -182,13 +182,11 @@ msgstr "Det kunne ikke gennemføres."
 
 #: crates/glimpse-panel/src/applet/mod.rs:166
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:283
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
 #: crates/glimpse-panel/src/applets/display/indicator.rs:390
 #: crates/glimpse-panel/src/applets/display/indicator.rs:401
 #: crates/glimpse-panel/src/applets/network/render.rs:98
 #: crates/glimpse-panel/src/applets/power/mod.rs:355
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:82
 msgid "That did not work."
 msgstr "Det virkede ikke."
 
@@ -372,15 +370,13 @@ msgstr[1] "{count} programmer mere"
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:82
 #: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
 msgid "Muted"
 msgstr "Lydløs"
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:377
+#: crates/glimpse-widgets/src/lib.rs:358
 msgid "{percent}%"
 msgstr "{percent} %"
 
@@ -696,7 +692,7 @@ msgid "Display"
 msgstr "Skærm"
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:158
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:154
 msgid "Printer"
 msgstr "Printer"
 
@@ -770,7 +766,6 @@ msgid "Unpin"
 msgstr "Frigør"
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:283
 #: crates/glimpse-panel/src/applets/places/render.rs:50
 #: crates/glimpse-panel/src/applets/removable/render.rs:47
 msgid "{count} more"
@@ -806,7 +801,6 @@ msgid "Could not send that"
 msgstr "Kunne ikke sende det"
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
 msgid "KDE Connect is not running."
 msgstr "KDE Connect kører ikke."
 
@@ -863,45 +857,15 @@ msgstr "I morgen"
 msgid "Yesterday"
 msgstr "I går"
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:81
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
-msgid "Color picker"
-msgstr "Farvevælger"
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:92
-msgid "That color is no longer in the palette."
-msgstr "Den farve er ikke længere i paletten."
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
-msgid "The picker could not start, capture the screen or reach the clipboard."
-msgstr ""
-"Farvevælgeren kunne ikke starte, tage billede af skærmen eller få adgang til"
-" udklipsholderen."
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:140
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
-msgid "Could not pick a color"
-msgstr "Kunne ikke vælge en farve"
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:160
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:170
-msgid "Could not copy that color"
-msgstr "Kunne ikke kopiere farven"
-
-#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
-msgid "Pick a color"
-msgstr "Vælg en farve"
-
-#: crates/glimpse-panel/src/applets/command.rs:85
+#: crates/glimpse-panel/src/applets/command.rs:87
 msgid "Command"
 msgstr "Kommando"
 
-#: crates/glimpse-panel/src/applets/command.rs:87
+#: crates/glimpse-panel/src/applets/command.rs:89
 msgid "Could not run a command"
 msgstr "Kunne ikke køre en kommando"
 
-#: crates/glimpse-panel/src/applets/command.rs:89
+#: crates/glimpse-panel/src/applets/command.rs:91
 msgid "{program} could not be started."
 msgstr "{program} kunne ikke startes."
 
@@ -919,7 +883,7 @@ msgstr "Kunne ikke ændre skærmen"
 #: crates/glimpse-panel/src/applets/display/indicator.rs:250
 #: crates/glimpse-panel/src/applets/display/indicator.rs:272
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:218
 msgid "The compositor is unavailable."
 msgstr "Compositoren er utilgængelig."
 
@@ -971,26 +935,50 @@ msgstr "Ikke understøttet: {name}"
 msgid "This applet asked for an element glimpse does not render"
 msgstr "Denne applet bad om et element, som glimpse ikke viser"
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:94
-#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+#: crates/glimpse-panel/src/applets/exec/mod.rs:98
+#: crates/glimpse-panel/src/applets/exec/mod.rs:135
 msgid "External applet action failed."
 msgstr "Handlingen i den eksterne applet mislykkedes."
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+#: crates/glimpse-panel/src/applets/exec/mod.rs:263
 msgid "The file did not open."
 msgstr "Filen kunne ikke åbnes."
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+#: crates/glimpse-panel/src/applets/exec/mod.rs:282
 msgid "The link did not open."
 msgstr "Linket kunne ikke åbnes."
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+#: crates/glimpse-panel/src/applets/exec/mod.rs:306
 msgid "The application did not start."
 msgstr "Programmet kunne ikke starte."
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+#: crates/glimpse-panel/src/applets/exec/mod.rs:340
 msgid "External applet is not running."
 msgstr "Den eksterne applet kører ikke."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:385
+#, fuzzy
+#| msgid "Not charging"
+msgid "Not running"
+msgstr "Oplader ikke"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:391
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr "Genstart"
+
+#: crates/glimpse-panel/src/applets/exec/render.rs:19
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
+msgid "The applet stopped"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/render.rs:21
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:128
+msgid "The applet keeps exiting. It restarts on its own."
+msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
 msgid "Awake until {time}"
@@ -1082,83 +1070,7 @@ msgstr "Glimpse"
 msgid "Manual hold"
 msgstr "Slået til manuelt"
 
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:145
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
-msgid "KDE Connect"
-msgstr "KDE Connect"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:147
-msgid "The device did not respond"
-msgstr "Enheden svarede ikke"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:178
-msgid "Send files"
-msgstr "Send filer"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
-msgid "{percent}, charging"
-msgstr "{percent}, oplader"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
-msgid "Connected"
-msgstr "Forbundet"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
-msgid "{name} wants to pair"
-msgstr "{name} vil parres"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:254
-#: crates/glimpse-panel/src/applets/network/render.rs:44
-msgid "Not connected"
-msgstr "Ikke forbundet"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
-msgid "{name} · {state}"
-msgstr "{name} · {state}"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
-msgid "No paired devices"
-msgstr "Ingen parrede enheder"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
-msgid "charging"
-msgstr "oplader"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:230
-msgid "Ring"
-msgstr "Ring"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:233
-msgid "Ping"
-msgstr "Ping"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:236
-msgid "Send clipboard"
-msgstr "Send udklipsholderen"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:239
-msgid "Send files…"
-msgstr "Send filer…"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:242
-msgid "Browse files"
-msgstr "Gennemse filer"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:245
-msgid "Open SMS"
-msgstr "Åbn sms"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:248
-msgid "Unpair"
-msgstr "Fjern parring"
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:276
-msgid "Wants to pair"
-msgstr "Vil parres"
-
-#: crates/glimpse-panel/src/applets/mod.rs:51
+#: crates/glimpse-panel/src/applets/mod.rs:47
 msgid "Built-in display"
 msgstr "Indbygget skærm"
 
@@ -1199,7 +1111,6 @@ msgstr "WPA3 Personal"
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:114
 #: crates/glimpse-widgets/blueprints/places_popover.blp:51
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
 msgid "Network"
 msgstr "Netværk"
 
@@ -1298,6 +1209,10 @@ msgstr "Unavngivet netværk"
 msgid "{network}: connected, no internet"
 msgstr "{network}: forbundet, intet internet"
 
+#: crates/glimpse-panel/src/applets/network/render.rs:44
+msgid "Not connected"
+msgstr "Ikke forbundet"
+
 #: crates/glimpse-panel/src/applets/network/render.rs:51
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:56
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:64
@@ -1369,8 +1284,8 @@ msgstr[1] "{count} netværk mere"
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/printing/render.rs:163
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
-#: crates/glimpse-widgets/src/display_list/mod.rs:162
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:159
+#: crates/glimpse-widgets/src/display_list/mod.rs:160
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:155
 msgid "Status"
 msgstr "Status"
 
@@ -1586,12 +1501,12 @@ msgstr "Teknologi"
 #: crates/glimpse-panel/src/applets/power/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
-#: crates/glimpse-widgets/src/display_list/mod.rs:172
+#: crates/glimpse-widgets/src/display_list/mod.rs:170
 msgid "Model"
 msgstr "Model"
 
 #: crates/glimpse-panel/src/applets/power/render.rs:163
-#: crates/glimpse-widgets/src/display_list/mod.rs:169
+#: crates/glimpse-widgets/src/display_list/mod.rs:167
 msgid "Make"
 msgstr "Fabrikat"
 
@@ -1896,31 +1811,6 @@ msgstr "Handlingen blev annulleret."
 msgid "The drive could not complete that."
 msgstr "Drevet kunne ikke gennemføre det."
 
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:60
-#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
-msgid "Ruler"
-msgstr "Lineal"
-
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:78
-msgid "The ruler could not start, capture the screen or reach the clipboard."
-msgstr ""
-"Linealen kunne ikke starte, tage billede af skærmen eller få adgang til "
-"udklipsholderen."
-
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:115
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:144
-msgid "Could not measure the screen"
-msgstr "Kunne ikke måle skærmen"
-
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:135
-msgid "Could not copy that measurement"
-msgstr "Kunne ikke kopiere målingen"
-
-#: crates/glimpse-panel/src/applets/ruler/render.rs:25
-#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
-msgid "Measure the screen"
-msgstr "Mål skærmen"
-
 #: crates/glimpse-panel/src/applets/session/render.rs:24
 msgid "Blocked by {who}"
 msgstr "Blokeret af {who}"
@@ -1964,13 +1854,6 @@ msgstr ""
 "Dette lukker den aktuelle session. Programmer bliver måske ikke lukket "
 "korrekt."
 
-#: crates/glimpse-panel/src/applets/session/render.rs:75
-#: crates/glimpse-panel/src/applets/session/render.rs:77
-#: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
-msgid "Restart"
-msgstr "Genstart"
-
 #: crates/glimpse-panel/src/applets/session/render.rs:76
 msgid "Restart this computer?"
 msgstr "Genstart denne computer?"
@@ -2000,31 +1883,6 @@ msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] "Logget ind i {days} dag"
 msgstr[1] "Logget ind i {days} dage"
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:78
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:107
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:21
-msgid "CPU"
-msgstr "CPU"
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:86
-msgid "RAM"
-msgstr "RAM"
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:91
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:31
-msgid "Swap"
-msgstr "Swap"
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:96
-msgid "Net"
-msgstr "Net"
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:103
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:111
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:40
-msgid "GPU"
-msgstr "GPU"
 
 #: crates/glimpse-panel/src/applets/tray/mod.rs:295
 msgid "Show {count} hidden item"
@@ -2252,12 +2110,12 @@ msgstr ""
 "{place}\n"
 "{condition}, {temperature}, føles som {feels-like}"
 
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:212
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
 #: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
 msgid "Workspaces"
 msgstr "Arbejdsområder"
 
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
 msgid "Could not rename the workspace"
 msgstr "Kunne ikke omdøbe arbejdsområdet"
 
@@ -2279,8 +2137,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/config_alert.rs:38
 msgid ""
-"The last change was not applied; the previous configuration is still "
-"running."
+"The last change was not applied; the previous configuration is still running."
 msgstr ""
 "Den seneste ændring blev ikke anvendt. Den tidligere konfiguration kører "
 "stadig."
@@ -2315,9 +2172,8 @@ msgstr "--portal kræver en skærm som mål"
 
 #: crates/glimpse-shot/src/gui/app.rs:532
 #: crates/glimpse-shot/src/gui/app.rs:640
-#: crates/glimpse-shot/src/gui/app.rs:892
-#: crates/glimpse-shot/src/notify.rs:372
-#: crates/glimpse-shot/src/notify/tests.rs:296
+#: crates/glimpse-shot/src/gui/app.rs:892 crates/glimpse-shot/src/notify.rs:284
+#: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
@@ -2428,23 +2284,23 @@ msgid "Saved “{name}”"
 msgstr "»{name}« er gemt"
 
 #: crates/glimpse-shot/src/gui/result.rs:1145
-#: crates/glimpse-shot/src/notify.rs:499
-#: crates/glimpse-shot/src/notify/tests.rs:312
+#: crates/glimpse-shot/src/notify.rs:411
+#: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
 msgstr "Vis i mappe"
 
-#: crates/glimpse-shot/src/notify.rs:485
-#: crates/glimpse-shot/src/notify/tests.rs:298
+#: crates/glimpse-shot/src/notify.rs:397
+#: crates/glimpse-shot/src/notify/tests.rs:307
 msgid "Screenshot saved"
 msgstr "Skærmbillede gemt"
 
-#: crates/glimpse-shot/src/notify.rs:486
-#: crates/glimpse-shot/src/notify/tests.rs:331
+#: crates/glimpse-shot/src/notify.rs:398
+#: crates/glimpse-shot/src/notify/tests.rs:340
 msgid "Screenshot copied"
 msgstr "Skærmbillede kopieret"
 
-#: crates/glimpse-shot/src/notify.rs:497
-#: crates/glimpse-shot/src/notify/tests.rs:310
+#: crates/glimpse-shot/src/notify.rs:409
+#: crates/glimpse-shot/src/notify/tests.rs:319
 msgctxt "notification action"
 msgid "Open"
 msgstr "Åbn"
@@ -2452,7 +2308,7 @@ msgstr "Åbn"
 #: crates/glimpse-shot/src/portal.rs:138
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:636
+#: crates/glimpse-shot/src/portal/tests.rs:654
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Et program"
@@ -2462,7 +2318,6 @@ msgid "Applications"
 msgstr "Programmer"
 
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
 msgid "Nearby devices"
 msgstr "Enheder i nærheden"
 
@@ -2501,16 +2356,12 @@ msgstr "Fastgjort"
 msgid "Recent"
 msgstr "Seneste"
 
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
-msgid "Palette"
-msgstr "Palet"
-
 #: crates/glimpse-widgets/blueprints/display_popover.blp:31
 msgid "Brightness"
 msgstr "Lysstyrke"
 
 #: crates/glimpse-widgets/blueprints/display_popover.blp:57
-#: crates/glimpse-widgets/src/display_list/mod.rs:109
+#: crates/glimpse-widgets/src/display_list/mod.rs:107
 msgid "Enabled"
 msgstr "Aktiveret"
 
@@ -2563,10 +2414,6 @@ msgstr "4 timer"
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:58
 msgid "Kept awake by"
 msgstr "Holdes vågen af"
-
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:48
-msgid "KDE Connect settings"
-msgstr "KDE Connect-indstillinger"
 
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
 msgid "Other players"
@@ -2647,7 +2494,7 @@ msgstr "Tøm papirkurven"
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:319
+#: crates/glimpse-widgets/src/lib.rs:300
 msgid "Play"
 msgstr "Afspil"
 
@@ -3078,7 +2925,6 @@ msgstr "Kopiér og luk"
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
-#: crates/glimpse-widgets/src/color_list/mod.rs:150
 msgid "Copy"
 msgstr "Kopiér"
 
@@ -3263,30 +3109,6 @@ msgstr "Dette arbejdsområde"
 msgid "Other workspaces"
 msgstr "Andre arbejdsområder"
 
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
-msgid "System Monitor"
-msgstr "Systemovervågning"
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
-msgid "Memory"
-msgstr "Hukommelse"
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:57
-msgid "Load average"
-msgstr "Belastningsgennemsnit"
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:62
-msgid "Uptime"
-msgstr "Oppetid"
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:72
-msgid "CPU temperature"
-msgstr "CPU-temperatur"
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:77
-msgid "GPU temperature"
-msgstr "GPU-temperatur"
-
 #: crates/glimpse-widgets/blueprints/transport.blp:20
 msgid "Shuffle"
 msgstr "Bland"
@@ -3308,7 +3130,7 @@ msgid "Locked by the hardware switch"
 msgstr "Låst af hardwarekontakten"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
 msgid "Mute"
 msgstr "Slå lyd fra"
@@ -3323,7 +3145,7 @@ msgstr ""
 msgid "Name this workspace"
 msgstr "Navngiv dette arbejdsområde"
 
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:409
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
 msgid "Unmute"
 msgstr "Slå lyd til"
@@ -3356,49 +3178,39 @@ msgstr "1 til 16 bogstaver eller cifre"
 msgid "Up to 999999"
 msgstr "Op til 999999"
 
-#: crates/glimpse-widgets/src/color_list/mod.rs:70
-msgid "{count} more color"
-msgid_plural "{count} more colors"
-msgstr[0] "{count} farve mere"
-msgstr[1] "{count} farver mere"
-
-#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
-msgid "Nothing picked yet"
-msgstr "Intet valgt endnu"
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:138
+#: crates/glimpse-widgets/src/display_list/mod.rs:136
 msgid "The last enabled display can't be turned off"
 msgstr "Den sidste aktive skærm kan ikke slukkes"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:162
+#: crates/glimpse-widgets/src/display_list/mod.rs:160
 msgid "Off"
 msgstr "Fra"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:161
 msgid "Mode"
 msgstr "Tilstand"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:166
+#: crates/glimpse-widgets/src/display_list/mod.rs:164
 msgid "Connector"
 msgstr "Stik"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:175
+#: crates/glimpse-widgets/src/display_list/mod.rs:173
 msgid "Serial"
 msgstr "Serienummer"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:178
+#: crates/glimpse-widgets/src/display_list/mod.rs:176
 msgid "Scale"
 msgstr "Skalering"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:179
+#: crates/glimpse-widgets/src/display_list/mod.rs:177
 msgid "Position"
 msgstr "Placering"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:190
+#: crates/glimpse-widgets/src/display_list/mod.rs:188
 msgid "{width} × {height} · {hz} Hz"
 msgstr "{width} × {height} · {hz} Hz"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:208
+#: crates/glimpse-widgets/src/display_list/mod.rs:206
 msgid "{x}, {y}"
 msgstr "{x}, {y}"
 
@@ -3419,7 +3231,7 @@ msgid "Not reaching any display"
 msgstr "Påvirker ingen skærm"
 
 #: crates/glimpse-widgets/src/display_popover/mod.rs:323
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:127
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:123
 msgid "Resume"
 msgstr "Genoptag"
 
@@ -3467,8 +3279,8 @@ msgstr "Hviletilstandstast"
 msgid "Hibernate key"
 msgstr "Dvaletast"
 
-#: crates/glimpse-widgets/src/lib.rs:318
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:126
+#: crates/glimpse-widgets/src/lib.rs:299
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr "Pause"
 
@@ -3496,11 +3308,11 @@ msgstr "Luk {notification}"
 msgid "{app}: {notifications}"
 msgstr "{app}: {notifications}"
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:239
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:236
 msgid "Collapse"
 msgstr "Fold sammen"
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:491
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:488
 msgid "{count} notification"
 msgid_plural "{count} notifications"
 msgstr[0] "{count} notifikation"
@@ -3526,19 +3338,19 @@ msgid_plural "Delete {n} items for good?"
 msgstr[0] "Slet {n} element permanent?"
 msgstr[1] "Slet {n} elementer permanent?"
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:128
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:124
 msgid "Retry"
 msgstr "Prøv igen"
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:218
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:214
 msgid "Page {current} of {total}"
 msgstr "Side {current} af {total}"
 
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:94
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:92
 msgid "Stop sharing"
 msgstr "Stop deling"
 
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:131
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:129
 msgid "In use"
 msgstr "I brug"
 
@@ -3566,6 +3378,48 @@ msgstr "Skift til arbejdsområde"
 msgid "No windows"
 msgstr "Ingen vinduer"
 
+#: data/me.aresa.Glimpse.Lens.Picker.desktop:3
+#, fuzzy
+#| msgid "Color picker"
+msgid "Color Picker"
+msgstr "Farvevælger"
+
+#: data/me.aresa.Glimpse.Lens.Picker.desktop:4
+msgid "Pick a color from the screen and copy it"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Picker.desktop:11
+msgid "color;picker;eyedropper;pipette;hex;"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Ruler.desktop:3
+msgid "Ruler"
+msgstr "Lineal"
+
+#: data/me.aresa.Glimpse.Lens.Ruler.desktop:4
+#, fuzzy
+#| msgid "Measure the screen"
+msgid "Measure distances on the screen"
+msgstr "Mål skærmen"
+
+#: data/me.aresa.Glimpse.Lens.Ruler.desktop:11
+msgid "ruler;measure;distance;pixels;"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.desktop:3
+msgid "Magnifier"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.desktop:4
+#, fuzzy
+#| msgid "Measure the screen"
+msgid "Magnify part of the screen"
+msgstr "Mål skærmen"
+
+#: data/me.aresa.Glimpse.Lens.desktop:11
+msgid "magnifier;zoom;lens;enlarge;"
+msgstr ""
+
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"
 msgstr "Tag et skærmbillede, tegn på det, og gem eller kopiér det"
@@ -3575,6 +3429,134 @@ msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "skærmbillede;tag billede;annotér;print "
 "screen;klip;screenshot;capture;annotate;snip;grab;"
+
+#~ msgid "That color is no longer in the palette."
+#~ msgstr "Den farve er ikke længere i paletten."
+
+#~ msgid ""
+#~ "The picker could not start, capture the screen or reach the clipboard."
+#~ msgstr ""
+#~ "Farvevælgeren kunne ikke starte, tage billede af skærmen eller få adgang "
+#~ "til udklipsholderen."
+
+#~ msgid "Could not pick a color"
+#~ msgstr "Kunne ikke vælge en farve"
+
+#~ msgid "Could not copy that color"
+#~ msgstr "Kunne ikke kopiere farven"
+
+#~ msgid "Pick a color"
+#~ msgstr "Vælg en farve"
+
+#~ msgid "KDE Connect"
+#~ msgstr "KDE Connect"
+
+#~ msgid "The device did not respond"
+#~ msgstr "Enheden svarede ikke"
+
+#~ msgid "Send files"
+#~ msgstr "Send filer"
+
+#~ msgid "{percent}, charging"
+#~ msgstr "{percent}, oplader"
+
+#~ msgid "Connected"
+#~ msgstr "Forbundet"
+
+#~ msgid "{name} wants to pair"
+#~ msgstr "{name} vil parres"
+
+#~ msgid "{name} · {state}"
+#~ msgstr "{name} · {state}"
+
+#~ msgid "No paired devices"
+#~ msgstr "Ingen parrede enheder"
+
+#~ msgid "charging"
+#~ msgstr "oplader"
+
+#~ msgid "Ring"
+#~ msgstr "Ring"
+
+#~ msgid "Ping"
+#~ msgstr "Ping"
+
+#~ msgid "Send clipboard"
+#~ msgstr "Send udklipsholderen"
+
+#~ msgid "Send files…"
+#~ msgstr "Send filer…"
+
+#~ msgid "Browse files"
+#~ msgstr "Gennemse filer"
+
+#~ msgid "Open SMS"
+#~ msgstr "Åbn sms"
+
+#~ msgid "Unpair"
+#~ msgstr "Fjern parring"
+
+#~ msgid "Wants to pair"
+#~ msgstr "Vil parres"
+
+#~ msgid ""
+#~ "The ruler could not start, capture the screen or reach the clipboard."
+#~ msgstr ""
+#~ "Linealen kunne ikke starte, tage billede af skærmen eller få adgang til "
+#~ "udklipsholderen."
+
+#~ msgid "Could not measure the screen"
+#~ msgstr "Kunne ikke måle skærmen"
+
+#~ msgid "Could not copy that measurement"
+#~ msgstr "Kunne ikke kopiere målingen"
+
+#~ msgid "CPU"
+#~ msgstr "CPU"
+
+#~ msgid "RAM"
+#~ msgstr "RAM"
+
+#~ msgid "Swap"
+#~ msgstr "Swap"
+
+#~ msgid "Net"
+#~ msgstr "Net"
+
+#~ msgid "GPU"
+#~ msgstr "GPU"
+
+#~ msgid "Palette"
+#~ msgstr "Palet"
+
+#~ msgid "KDE Connect settings"
+#~ msgstr "KDE Connect-indstillinger"
+
+#~ msgid "System Monitor"
+#~ msgstr "Systemovervågning"
+
+#~ msgid "Memory"
+#~ msgstr "Hukommelse"
+
+#~ msgid "Load average"
+#~ msgstr "Belastningsgennemsnit"
+
+#~ msgid "Uptime"
+#~ msgstr "Oppetid"
+
+#~ msgid "CPU temperature"
+#~ msgstr "CPU-temperatur"
+
+#~ msgid "GPU temperature"
+#~ msgstr "GPU-temperatur"
+
+#~ msgid "{count} more color"
+#~ msgid_plural "{count} more colors"
+#~ msgstr[0] "{count} farve mere"
+#~ msgstr[1] "{count} farver mere"
+
+#~ msgid "Nothing picked yet"
+#~ msgstr "Intet valgt endnu"
 
 #~ msgid "{count} print job"
 #~ msgid_plural "{count} print jobs"

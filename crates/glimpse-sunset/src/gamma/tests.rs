@@ -1,7 +1,5 @@
 use super::*;
 
-/// 6500K is the value the night light returns to, so a curve that tinted there would tint the
-/// screen whenever nothing was meant to be applied.
 #[test]
 fn daylight_is_neutral_on_every_channel() {
     let (red, green, blue) = scales(6500);
@@ -33,8 +31,6 @@ fn an_absurd_temperature_is_clamped_rather_than_refused() {
     }
 }
 
-/// The compositor reads exactly this many bytes, so a table of the wrong length is a protocol
-/// error rather than a wrong color.
 #[test]
 fn a_ramp_is_three_u16_channels_of_the_declared_size() {
     let size = 256;

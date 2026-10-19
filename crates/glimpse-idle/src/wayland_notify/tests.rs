@@ -36,6 +36,7 @@ async fn a_full_queue_holds_the_event_instead_of_dropping_it() {
         std::sync::Arc::new(idle::ShellRunner),
     );
     while idle
+        .command_tx
         .try_send(idle::Event::ListenerResume {
             generation: 0,
             id: 0,

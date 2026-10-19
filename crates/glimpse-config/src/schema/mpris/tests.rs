@@ -26,8 +26,6 @@ fn every_key_reads_kebab_case() {
     assert_eq!(parsed.art_max_kib, 512);
 }
 
-/// A pattern is compiled by the service, not the loader, so that one bad regex costs its own
-/// entry rather than every other service's configuration.
 #[test]
 fn a_pattern_that_cannot_compile_still_loads() {
     let parsed = load("[mpris]\nignore = ['[']\n")

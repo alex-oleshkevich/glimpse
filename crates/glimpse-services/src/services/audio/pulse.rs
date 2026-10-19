@@ -87,15 +87,10 @@ pub enum Request {
 
 #[derive(Clone)]
 pub struct Client {
-    tx: mpsc::Sender<Request>,
+    pub(super) tx: mpsc::Sender<Request>,
 }
 
 impl Client {
-    #[cfg(test)]
-    pub(crate) fn new(tx: mpsc::Sender<Request>) -> Self {
-        Self { tx }
-    }
-
     pub async fn send(&self, make: impl FnOnce(Reply) -> Request) -> Result<(), AudioError> {
         let (reply_tx, reply_rx) = oneshot::channel();
         let request = make(reply_tx);

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-19 12:07+0200\n"
+"POT-Creation-Date: 2026-10-19 12:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -139,7 +139,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:199
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:129
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
 msgid "Cancel"
 msgstr ""
 
@@ -374,7 +374,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:361
+#: crates/glimpse-widgets/src/lib.rs:358
 msgid "{percent}%"
 msgstr ""
 
@@ -682,7 +682,7 @@ msgid "Display"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:158
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:154
 msgid "Printer"
 msgstr ""
 
@@ -959,12 +959,12 @@ msgid "Restart"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
-#: crates/glimpse-panel/src/applets/exec/render/tests.rs:109
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
 msgid "The applet stopped"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:21
-#: crates/glimpse-panel/src/applets/exec/render/tests.rs:127
+#: crates/glimpse-panel/src/applets/exec/render/tests.rs:128
 msgid "The applet keeps exiting. It restarts on its own."
 msgstr ""
 
@@ -1271,8 +1271,8 @@ msgstr[1] ""
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/printing/render.rs:163
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
-#: crates/glimpse-widgets/src/display_list/mod.rs:162
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:159
+#: crates/glimpse-widgets/src/display_list/mod.rs:160
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:155
 msgid "Status"
 msgstr ""
 
@@ -1488,12 +1488,12 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/power/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
-#: crates/glimpse-widgets/src/display_list/mod.rs:172
+#: crates/glimpse-widgets/src/display_list/mod.rs:170
 msgid "Model"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/power/render.rs:163
-#: crates/glimpse-widgets/src/display_list/mod.rs:169
+#: crates/glimpse-widgets/src/display_list/mod.rs:167
 msgid "Make"
 msgstr ""
 
@@ -2148,8 +2148,8 @@ msgstr ""
 
 #: crates/glimpse-shot/src/gui/app.rs:532
 #: crates/glimpse-shot/src/gui/app.rs:640
-#: crates/glimpse-shot/src/gui/app.rs:892 crates/glimpse-shot/src/notify.rs:372
-#: crates/glimpse-shot/src/notify/tests.rs:296
+#: crates/glimpse-shot/src/gui/app.rs:892 crates/glimpse-shot/src/notify.rs:284
+#: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
@@ -2260,23 +2260,23 @@ msgid "Saved “{name}”"
 msgstr ""
 
 #: crates/glimpse-shot/src/gui/result.rs:1145
-#: crates/glimpse-shot/src/notify.rs:499
-#: crates/glimpse-shot/src/notify/tests.rs:312
+#: crates/glimpse-shot/src/notify.rs:411
+#: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:485
-#: crates/glimpse-shot/src/notify/tests.rs:298
+#: crates/glimpse-shot/src/notify.rs:397
+#: crates/glimpse-shot/src/notify/tests.rs:307
 msgid "Screenshot saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:486
-#: crates/glimpse-shot/src/notify/tests.rs:331
+#: crates/glimpse-shot/src/notify.rs:398
+#: crates/glimpse-shot/src/notify/tests.rs:340
 msgid "Screenshot copied"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:497
-#: crates/glimpse-shot/src/notify/tests.rs:310
+#: crates/glimpse-shot/src/notify.rs:409
+#: crates/glimpse-shot/src/notify/tests.rs:319
 msgctxt "notification action"
 msgid "Open"
 msgstr ""
@@ -2284,7 +2284,7 @@ msgstr ""
 #: crates/glimpse-shot/src/portal.rs:138
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:636
+#: crates/glimpse-shot/src/portal/tests.rs:654
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr ""
@@ -2337,7 +2337,7 @@ msgid "Brightness"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/display_popover.blp:57
-#: crates/glimpse-widgets/src/display_list/mod.rs:109
+#: crates/glimpse-widgets/src/display_list/mod.rs:107
 msgid "Enabled"
 msgstr ""
 
@@ -2470,7 +2470,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:303
+#: crates/glimpse-widgets/src/lib.rs:300
 msgid "Play"
 msgstr ""
 
@@ -3153,39 +3153,39 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:138
+#: crates/glimpse-widgets/src/display_list/mod.rs:136
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:162
+#: crates/glimpse-widgets/src/display_list/mod.rs:160
 msgid "Off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:161
 msgid "Mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:166
+#: crates/glimpse-widgets/src/display_list/mod.rs:164
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:175
+#: crates/glimpse-widgets/src/display_list/mod.rs:173
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:178
+#: crates/glimpse-widgets/src/display_list/mod.rs:176
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:179
+#: crates/glimpse-widgets/src/display_list/mod.rs:177
 msgid "Position"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:190
+#: crates/glimpse-widgets/src/display_list/mod.rs:188
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:208
+#: crates/glimpse-widgets/src/display_list/mod.rs:206
 msgid "{x}, {y}"
 msgstr ""
 
@@ -3206,7 +3206,7 @@ msgid "Not reaching any display"
 msgstr ""
 
 #: crates/glimpse-widgets/src/display_popover/mod.rs:323
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:127
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:123
 msgid "Resume"
 msgstr ""
 
@@ -3254,8 +3254,8 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:302
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:126
+#: crates/glimpse-widgets/src/lib.rs:299
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr ""
 
@@ -3283,11 +3283,11 @@ msgstr ""
 msgid "{app}: {notifications}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:239
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:236
 msgid "Collapse"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:491
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:488
 msgid "{count} notification"
 msgid_plural "{count} notifications"
 msgstr[0] ""
@@ -3313,19 +3313,19 @@ msgid_plural "Delete {n} items for good?"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:128
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:124
 msgid "Retry"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:218
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:214
 msgid "Page {current} of {total}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:94
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:92
 msgid "Stop sharing"
 msgstr ""
 
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:131
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:129
 msgid "In use"
 msgstr ""
 

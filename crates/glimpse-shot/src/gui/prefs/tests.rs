@@ -71,9 +71,8 @@ fn read_only(dialog: &impl IsA<adw::PreferencesDialog>) -> bool {
 #[test]
 #[ignore = "needs a display"]
 fn a_flipped_row_is_written_when_the_dialog_closes_with_every_comment_kept() {
-    if gtk4::init().is_err() || adw::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
+    adw::init().expect("libadwaita");
     glimpse_widgets::register_resources().expect("resources");
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join("config.toml");

@@ -4,7 +4,7 @@ The argument structs and logging setup every binary repeats, written once.
 
 ## Contents
 
-- `args.rs` — `LogArgs`, `ConfigArg`, `SocketArg`, flattened into each binary's clap `Cli`
+- `args.rs` — `LogArgs`, `ConfigArg`, flattened into each binary's clap `Cli`
 - `log.rs` — `LogFormat` and `init_app_tracing`
 - `i18n.rs` — `init_translations`, the one place the gettext domain is bound
 - `text.rs` — `clean`, the gate text from another application passes before it reaches a label
@@ -14,9 +14,9 @@ The argument structs and logging setup every binary repeats, written once.
 
 ## What it holds
 
-Three `clap::Args` structs, all `global = true` so they may follow a subcommand, each carrying the
-environment variable that is its default: `SocketArg` (`-s`/`--socket`, `GLIMPSED_SOCKET_PATH`),
-`ConfigArg` (`-c`/`--config`, `GLIMPSE_CONFIG_PATH`), `LogArgs` (`--log`/`--log-format`, `RUST_LOG`).
+Two `clap::Args` structs, both `global = true` so they may follow a subcommand, each carrying the
+environment variable that is its default: `ConfigArg` (`-c`/`--config`, `GLIMPSE_CONFIG_PATH`),
+`LogArgs` (`--log`/`--log-format`, `RUST_LOG`).
 The variable is declared on the flag rather than read separately, so it shows in `--help` and cannot
 acquire a second spelling elsewhere.
 

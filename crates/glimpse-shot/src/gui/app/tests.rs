@@ -82,9 +82,7 @@ fn a_typed_failure_keeps_its_own_code() {
 #[test]
 #[ignore = "needs a display"]
 fn a_hand_off_that_never_settles_is_cancelled() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     use glimpse_config::{PaletteColor, Stroke};
     use glimpse_shot::doc::document::{Document, Source};
     use glimpse_wayland::capture::Frame;

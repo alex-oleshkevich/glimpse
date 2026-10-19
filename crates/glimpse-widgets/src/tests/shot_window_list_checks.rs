@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_window_list_widgets() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
 
     let list = ShotWindowList::new();
     let imp = list.imp();

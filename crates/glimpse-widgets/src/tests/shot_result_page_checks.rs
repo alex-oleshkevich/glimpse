@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_result_page_widgets() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
 
     let page = ShotResultPage::new();
     let imp = page.imp();

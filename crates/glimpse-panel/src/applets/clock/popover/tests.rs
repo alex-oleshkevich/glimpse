@@ -45,8 +45,6 @@ fn a_day_at_or_after_the_truncation_mark_is_truncated() {
     );
 }
 
-/// The panel asks for the month it is showing and the one after it, so an event that starts
-/// on the last day of the shown month and runs into the next is still in the answer.
 #[test]
 fn a_month_pair_starts_at_its_own_first_day_and_ends_two_months_later() {
     let (from, to) = month_pair(2026, 12).expect("December is a month");

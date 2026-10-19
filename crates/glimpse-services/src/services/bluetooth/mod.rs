@@ -338,8 +338,6 @@ pub struct Bluetooth {
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
     agent_enabled: bool,
-    #[cfg(test)]
-    register_attempts: std::cell::Cell<u32>,
     agent: bool,
     prompt: Option<(Prompt, Option<oneshot::Sender<Answer>>)>,
     confirm: Option<Confirmation>,
@@ -507,8 +505,6 @@ impl Service for Bluetooth {
             scans: 0,
             deadline: None,
             agent_enabled: dependencies.agent,
-            #[cfg(test)]
-            register_attempts: std::cell::Cell::new(0),
             agent: false,
             prompt: None,
             confirm: None,
@@ -883,9 +879,6 @@ impl Bluetooth {
         if !self.agent_enabled {
             return;
         }
-        #[cfg(test)]
-        self.register_attempts.set(self.register_attempts.get() + 1);
-
         let Ok(connection) = ctx.system_bus().cloned() else {
             return;
         };

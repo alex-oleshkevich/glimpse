@@ -15,8 +15,6 @@ fn a_transport_repeat_carries_the_same_three_states_as_the_wire() {
     );
 }
 
-/// The button says only that it was pressed, so pressing it three times has to walk the whole
-/// cycle and come back.
 #[test]
 fn repeat_cycles_off_playlist_track_and_round_again() {
     assert_eq!(cycled(Repeat::Off), Repeat::Playlist);

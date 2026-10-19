@@ -1,9 +1,3 @@
-//! Run against the compositor this session is actually under: `just test-compositor`.
-//!
-//! Ignored by default because they need a real socket. The headless suite covers the parsing and
-//! the command shapes; what only a live compositor can prove is that the requests we send are ones
-//! it still accepts.
-
 use glimpse_compositors::{Compositor, CompositorError, Event, LayoutTarget, detect_compositor};
 
 use futures_util::StreamExt;
@@ -42,8 +36,6 @@ async fn a_live_snapshot_describes_the_session() {
     );
 }
 
-/// The round trip the headless tests cannot make: a command we send comes back as an event the
-/// compositor chose to emit. Restores the layout it started on.
 #[tokio::test]
 #[ignore = "needs a running niri or Hyprland"]
 async fn switching_the_layout_is_reported_back_on_the_event_stream() {

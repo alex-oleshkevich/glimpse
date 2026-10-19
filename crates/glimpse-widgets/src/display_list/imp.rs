@@ -11,8 +11,6 @@ pub struct DisplayList {
     pub displays: RefCell<Vec<Display>>,
     pub holders: RefCell<Vec<(String, ExpanderRow)>>,
     pub output_power: Cell<bool>,
-    #[cfg(test)]
-    pub renders: Cell<u32>,
 }
 
 impl Default for DisplayList {
@@ -21,8 +19,6 @@ impl Default for DisplayList {
             displays: RefCell::default(),
             holders: RefCell::default(),
             output_power: Cell::new(true),
-            #[cfg(test)]
-            renders: Cell::default(),
         }
     }
 }

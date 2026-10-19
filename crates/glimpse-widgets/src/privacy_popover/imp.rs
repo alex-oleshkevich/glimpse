@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
@@ -32,8 +30,6 @@ pub struct PrivacyPopover {
 
     pub usage_data: RefCell<Vec<Usage>>,
     pub usage_held: RefCell<Vec<((String, bool), gtk4::Widget)>>,
-    #[cfg(test)]
-    pub renders: Cell<u32>,
 }
 
 #[glib::object_subclass]

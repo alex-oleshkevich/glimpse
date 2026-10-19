@@ -273,8 +273,6 @@ async fn a_refresh_after_release_is_handed_a_new_client_not_the_released_one() {
     })
     .await;
 
-    // Driven through the same command a `geolocation.refresh` call uses, never a wait on the
-    // real refresh cadence.
     handle
         .refresh()
         .await
@@ -311,8 +309,6 @@ async fn a_config_switch_mid_wait_still_releases_the_client() {
     let client = first_client(&calls);
     assert!(fake.in_use());
 
-    // Switching to `manual` mid-wait removes the Geoclue subscription, which aborts the source
-    // while it is still parked in `first_fix` — the same abort `Live::reconcile` performs.
     let target = manual(51.5074, -0.1278);
     service.reconfigure(&target);
 
@@ -355,8 +351,6 @@ async fn a_release_that_races_an_already_deleted_client_is_stepped_over() {
     .await;
     let client = first_client(&calls);
 
-    // Another actor releases the same client first, the way a second glimpse process or a
-    // races-with-itself retry would.
     let racer = bus.connection().await;
     let manager = GeoClueManagerProxy::new(&racer).await.unwrap();
     manager.delete_client(client.clone()).await.unwrap();
@@ -374,7 +368,6 @@ async fn a_release_that_races_an_already_deleted_client_is_stepped_over() {
         "a delete that lands before the service's own release must not degrade it on its own"
     );
 
-    // Force the service's own release of the now-vanished client, the same seam AC-4 uses.
     let target = manual(40.4168, -3.7038);
     service.reconfigure(&target);
 
@@ -400,8 +393,6 @@ async fn a_release_that_races_an_already_deleted_client_is_stepped_over() {
          failure: {settled:?}"
     );
 
-    // The abandoned source's release is a detached task racing this assertion, not something
-    // the config-switch reply waits for, so its own arrival needs its own bounded wait.
     let calls = calls_until(&fake, Duration::from_secs(5), |calls| {
         calls
             .iter()

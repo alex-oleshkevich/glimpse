@@ -1,7 +1,5 @@
 use super::*;
 
-/// A daemon that learns a new condition must not make an older reader fail to decode the whole
-/// payload. Adding a field is already safe; adding a variant is only safe because of `other`.
 #[test]
 fn an_unknown_condition_variant_decodes_rather_than_failing_the_payload() {
     let decoded: Condition = serde_json::from_str(r#"{"condition":"volcanic_ash"}"#)
@@ -10,9 +8,6 @@ fn an_unknown_condition_variant_decodes_rather_than_failing_the_payload() {
     assert_eq!(decoded, Condition::Unknown);
 }
 
-/// A provider that answers with alerts reaches a payload through `absorb`, which is where
-/// `sanitized` runs — so hostile prose off a national feed is capped and bidi-stripped whichever
-/// provider produced it.
 #[tokio::test]
 async fn a_second_providers_alerts_go_through_the_same_gate() {
     let mut harness = harness().await;
@@ -43,8 +38,6 @@ async fn a_second_providers_alerts_go_through_the_same_gate() {
     );
 }
 
-/// The only test standing between a national alert feed and a `Gtk.Label`: an alert headline is
-/// third-party prose off the network, unlike every other string in this payload.
 #[test]
 fn an_alert_headline_is_capped_and_stripped_of_bidi_overrides() {
     let alert = WeatherAlert {
@@ -73,7 +66,6 @@ fn more_alerts_than_the_cap_are_dropped_rather_than_rendered() {
     assert_eq!(sanitized(&many).len(), MOST_ALERTS);
 }
 
-/// A newer panel must decode an older daemon's payload, which is what `serde(default)` buys.
 #[test]
 fn a_payload_without_an_alerts_field_still_decodes() {
     let older = serde_json::json!({

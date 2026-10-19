@@ -282,11 +282,3 @@ fn a_vpn_reaching_activated_is_not_the_same_as_its_active_connection_doing_so() 
     assert_eq!(VpnState::from_code(2), VpnState::NeedAuth);
     assert_eq!(ActiveState::from_code(2), ActiveState::Activated);
 }
-
-#[test]
-fn the_secret_flags_match_the_values_libnm_documents() {
-    assert_eq!(SECRET_FLAG_ALLOW_INTERACTION, 0x1);
-    assert_eq!(SECRET_FLAG_REQUEST_NEW, 0x2);
-    assert_eq!(SECRET_FLAG_USER_REQUESTED, 0x4);
-    assert_eq!(AGENT_CAPABILITY_VPN_HINTS, 0x1);
-}

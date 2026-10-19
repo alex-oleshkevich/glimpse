@@ -199,6 +199,7 @@ async fn watch_coalesces_initial_burst_and_discovers_owner_removal() {
 }
 
 #[tokio::test]
+#[ignore = "subprocess entry point for reload_signals_only_the_selected_bus_owner_process"]
 async fn reload_signal_target_child() {
     if std::env::var_os("GLIMPSE_RELOAD_TEST_CHILD").is_none() {
         return;
@@ -220,7 +221,12 @@ async fn reload_signal_target_child() {
 async fn reload_signals_only_the_selected_bus_owner_process() {
     let bus = PrivateBus::start();
     let mut target = tokio::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "reload_signal_target_child", "--nocapture"])
+        .args([
+            "--exact",
+            "reload_signal_target_child",
+            "--ignored",
+            "--nocapture",
+        ])
         .env("GLIMPSE_RELOAD_TEST_CHILD", "1")
         .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
         .stdout(Stdio::piped())

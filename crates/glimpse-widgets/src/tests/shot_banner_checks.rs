@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_banner_widgets() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
 
     let banner = ShotBanner::new();
     let imp = banner.imp();

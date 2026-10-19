@@ -1,7 +1,14 @@
 use super::*;
 
+fn sha256_hex(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
 fn manager(root: &Path) -> PackageManager {
-    PackageManager::with_dirs(root.join("applets"), root.join("applications"))
+    PackageManager {
+        applets_dir: root.join("applets"),
+        applications_dir: root.join("applications"),
+    }
 }
 
 const DESKTOP: &str = "[Desktop Entry]\nType=Application\nName=Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n";

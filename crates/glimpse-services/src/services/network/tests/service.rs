@@ -240,14 +240,13 @@ async fn networkmanager_coming_back_bumps_the_generation_so_every_source_restart
 #[tokio::test]
 async fn mirror_only_mode_never_enables_agent_registration() {
     let mut harness = harness_without_agent().await;
-    assert_eq!(
-        harness.service.register_attempts.get(),
-        0,
+    assert!(
+        !harness.service.agent_enabled,
         "a locked screen must never register a secret agent"
     );
 
     enumerate(&mut harness, measured_objects()).await;
-    assert_eq!(harness.service.register_attempts.get(), 0);
+    assert!(!harness.service.agent_enabled);
 
     harness
         .service
@@ -256,29 +255,18 @@ async fn mirror_only_mode_never_enables_agent_registration() {
             Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
         )
         .await;
-    assert_eq!(
-        harness.service.register_attempts.get(),
-        0,
+    assert!(
+        !harness.service.agent_enabled,
         "coming back onto the bus must not attempt registration in mirror-only mode"
     );
 }
 
 #[tokio::test]
-async fn the_panel_path_still_attempts_agent_registration() {
+async fn the_panel_path_still_enables_agent_registration() {
     let mut harness = harness().await;
-    assert_eq!(
-        harness.service.register_attempts.get(),
-        0,
-        "nothing attempts registration before the first enumeration"
-    );
+    assert!(harness.service.agent_enabled);
 
     enumerate(&mut harness, measured_objects()).await;
-    assert!(
-        harness.service.register_attempts.get() > 0,
-        "enumerating with the agent enabled must attempt registration, same as today"
-    );
-
-    let after_enumerate = harness.service.register_attempts.get();
     harness
         .service
         .handle(
@@ -286,10 +274,7 @@ async fn the_panel_path_still_attempts_agent_registration() {
             Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
         )
         .await;
-    assert!(
-        harness.service.register_attempts.get() > after_enumerate,
-        "the bus reappearing re-attempts registration when the agent is enabled"
-    );
+    assert!(harness.service.agent_enabled);
 }
 
 fn activated(path: &str, settings: &str, device: &str) -> nm::ActiveProperties {

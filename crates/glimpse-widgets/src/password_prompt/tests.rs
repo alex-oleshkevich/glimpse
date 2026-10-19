@@ -31,9 +31,7 @@ fn password_prompt_states() {
         }
         glib::log_writer_default(level, fields)
     });
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let prompt = PasswordPrompt::new();

@@ -14,9 +14,10 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
 ## Threading
 
 - Never block the GTK main thread. Every value reaches the UI through a channel fed by a tokio
-  task; nothing in a widget calls the socket, the filesystem, or D-Bus directly.
-- No `glib::timeout_add` to refresh a widget from daemon data. Values arrive as topic events;
-  polling recreates the split-brain the architecture exists to prevent. Timers are for animation.
+  task; nothing in a widget calls the filesystem or D-Bus directly.
+- No `glib::timeout_add` to refresh a widget from service data. An applet renders state from its
+  services' handles and sends commands; polling recreates the split-brain the architecture exists
+  to prevent. Timers are for animation.
 
 ## Widget boundaries
 

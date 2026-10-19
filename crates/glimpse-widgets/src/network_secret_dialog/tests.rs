@@ -39,6 +39,37 @@ fn connecting_returns_what_was_typed() {
 }
 
 #[test]
+#[ignore = "needs a display"]
+fn a_retry_clears_the_rejected_password_and_says_so() {
+    gtk4::init().expect("display");
+    crate::register_resources().expect("resources");
+
+    let secret = SecretDialog::new();
+    secret.ask("psk:Skylink", "Skylink", false, Entered::Passphrase);
+    let first = secret.heading().map(|one| one.to_string());
+    assert!(
+        !secret.body().is_empty(),
+        "the first ask explains why it is asking"
+    );
+
+    secret.imp().entry.set_text("the-wrong-one");
+    secret.ask("psk:Skylink", "Skylink", true, Entered::Passphrase);
+    assert!(
+        secret.imp().entry.text().is_empty(),
+        "a retry clears the rejected password; leaving it invites retyping the same thing"
+    );
+    assert_ne!(
+        secret.heading().map(|one| one.to_string()),
+        first,
+        "a retry must not look like the first ask, or the same password is typed again"
+    );
+    assert!(
+        secret.heading().is_some_and(|one| !one.is_empty()),
+        "the retry says the last password was refused"
+    );
+}
+
+#[test]
 fn a_hostile_network_name_is_capped_by_characters() {
     let name = "Kaffeehaus Freies WLAN Gäste-Zugang ".repeat(6);
     let capped = capped(&name);

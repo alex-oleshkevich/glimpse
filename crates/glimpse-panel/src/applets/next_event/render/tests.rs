@@ -41,8 +41,6 @@ fn spanning(summary: &str, first: u32, last: u32) -> Occasion {
     event
 }
 
-/// One entry covering three days is one entry, not three, so the row has to say which day of
-/// it the reader is on. Anchoring that to the event's own start made every row read "day 1".
 #[test]
 fn a_multi_day_entry_counts_the_day_it_is_actually_on() {
     let trip = spanning("Vilnius trip", 8, 10);
@@ -62,8 +60,6 @@ fn a_multi_day_entry_counts_the_day_it_is_actually_on() {
     );
 }
 
-/// The bar spells out how long is left only once the event is close enough to be worth the
-/// width; outside that window the title stands alone.
 #[test]
 fn the_bar_counts_down_only_inside_its_own_window() {
     let meeting = event("Design review", at(4, 14, 0), at(4, 15, 0));
@@ -95,7 +91,6 @@ fn the_bar_counts_down_only_inside_its_own_window() {
     );
 }
 
-/// The suffix is added after the title is cut, so a long summary cannot eat the time.
 #[test]
 fn the_countdown_survives_a_title_long_enough_to_be_truncated() {
     let long = event(
@@ -109,8 +104,6 @@ fn the_countdown_survives_a_title_long_enough_to_be_truncated() {
     assert!(shown.contains(ELLIPSIS), "{shown}");
 }
 
-/// The bar's tooltip and the popover's hero describe the same event, so they have to pick the
-/// same day of it. Anchoring the tooltip to the event's start had them disagree mid-trip.
 #[test]
 fn the_tooltip_and_the_hero_agree_on_which_day_a_trip_is_on() {
     let trip = spanning("Vilnius trip", 8, 10);
@@ -143,8 +136,6 @@ fn a_single_day_entry_is_not_given_a_counter_it_does_not_need() {
     );
 }
 
-/// An all-day entry covers the whole day, so ordering by start alone would let it outrank
-/// every meeting on it — which is exactly the one thing the bar has to get right.
 #[test]
 fn an_all_day_entry_never_outranks_a_meeting_that_is_actually_next() {
     let events = vec![
@@ -185,8 +176,6 @@ fn an_event_that_has_ended_is_never_next() {
     assert!(next(at(4, 9, 30), &events, HORIZON, true).is_none());
 }
 
-/// The bar has nothing useful to say about a meeting two days out, and saying it anyway is
-/// what the window exists to stop.
 #[test]
 fn an_event_beyond_the_window_stays_off_the_bar_until_the_window_reaches_it() {
     let events = vec![event("Review", at(6, 14, 0), at(6, 15, 0))];
@@ -199,7 +188,6 @@ fn an_event_beyond_the_window_stays_off_the_bar_until_the_window_reaches_it() {
     );
 }
 
-/// A meeting you are already in is never too far away, however long ago it started.
 #[test]
 fn a_running_event_stays_on_the_bar_however_far_back_it_started() {
     let marathon = vec![event("Offsite", at(1, 9, 0), at(6, 17, 0))];
@@ -293,8 +281,6 @@ fn a_row_on_another_day_says_which_day() {
     assert_eq!(rows[0].when, "Sat 14:00 · 1 h");
 }
 
-/// Two windows, and the list's is the wider one: the bar answers "is something about to
-/// happen", the popover answers "what does the rest of this look like".
 #[test]
 fn the_list_reaches_past_the_window_the_bar_is_held_to() {
     let events = vec![event("Review", at(4, 18, 0), at(4, 19, 0))];
@@ -311,8 +297,6 @@ fn the_list_reaches_past_the_window_the_bar_is_held_to() {
     );
 }
 
-/// A late-afternoon glance has to reach tomorrow morning, which is the whole reason the list
-/// rolls forward by hours rather than stopping at midnight.
 #[test]
 fn the_horizon_crosses_midnight_rather_than_stopping_at_it() {
     let standup = vec![event("Standup", at(5, 8, 0), at(5, 8, 15))];
@@ -367,8 +351,6 @@ fn a_tooltip_resolves_its_own_tokens_and_keeps_the_text_around_them() {
     assert_eq!(tooltip("{unclosed", &meeting, "", &[]), "{unclosed");
 }
 
-/// A summary comes from a `.ics` file the user did not write, so a token inside one must
-/// stay text rather than become a second round of substitution.
 #[test]
 fn a_token_inside_an_events_own_text_is_not_substituted() {
     let hostile = event("{when}", at(4, 14, 0), at(4, 15, 0));
@@ -376,9 +358,6 @@ fn a_token_inside_an_events_own_text_is_not_substituted() {
     assert_eq!(tooltip("{summary}", &hostile, "in 12 min", &[]), "{when}");
 }
 
-/// The bar's label ellipsizes at its rendered width, but only for a string that still
-/// overflows it — a hard cut with no mark reaches GTK already fitting, so it draws no
-/// ellipsis and the cut reads as the title itself.
 #[test]
 fn a_capped_bar_label_says_that_it_was_cut() {
     let mut long = event(

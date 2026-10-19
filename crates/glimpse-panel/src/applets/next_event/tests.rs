@@ -1,7 +1,5 @@
 use super::*;
 
-/// A bar showing an event the list below it does not contain is an incoherent popover, and
-/// nothing stops a document asking for one.
 #[test]
 fn the_list_never_reaches_less_far_than_the_bar() {
     let settings = NextEventConfig {

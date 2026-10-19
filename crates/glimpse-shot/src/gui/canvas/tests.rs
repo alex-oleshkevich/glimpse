@@ -69,9 +69,7 @@ fn crop(x: i32, y: i32, width: i32, height: i32) -> Rect<BufferPx> {
 #[test]
 #[ignore = "needs a display"]
 fn a_dragged_crop_waits_for_enter_and_applying_it_is_one_undo_step() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.set_tool(Tool::Crop);
     assert_eq!(editor.pending_crop, None, "nothing to adjust yet");
@@ -130,9 +128,7 @@ fn a_dragged_crop_waits_for_enter_and_applying_it_is_one_undo_step() {
 #[test]
 #[ignore = "needs a display"]
 fn an_applied_output_crop_is_centered_and_undo_restores_the_full_view() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.pending_crop = Some(crop(50, 20, 50, 20));
     assert!(editor.apply_crop());
@@ -145,9 +141,7 @@ fn an_applied_output_crop_is_centered_and_undo_restores_the_full_view() {
 #[test]
 #[ignore = "needs a display"]
 fn each_new_drag_is_one_undoable_mark() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     for tool in [Tool::Line, Tool::Freehand, Tool::Highlighter] {
         let mut editor = editor();
         editor.set_tool(tool);
@@ -205,9 +199,7 @@ fn pixel(bytes: &[u8], width: usize, x: usize, y: usize) -> &[u8] {
 #[test]
 #[ignore = "needs a display"]
 fn a_pending_crop_dims_only_the_image_and_an_applied_one_is_all_that_shows() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut doc = document();
     if let Source::Output { frame, .. } = &mut doc.source {
         frame.pixels = glib::Bytes::from_owned(vec![0x80u8; 200 * 100 * 4]);
@@ -249,9 +241,7 @@ fn a_pending_crop_dims_only_the_image_and_an_applied_one_is_all_that_shows() {
 #[test]
 #[ignore = "needs a display"]
 fn a_picked_window_replaces_the_screen_and_only_the_scrim_surrounds_it() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut doc = document();
     if let Source::Output { frame, .. } = &mut doc.source {
         frame.pixels = glib::Bytes::from_owned(vec![0x80u8; 200 * 100 * 4]);
@@ -384,9 +374,7 @@ fn editor() -> Editor {
 #[test]
 #[ignore = "needs a display"]
 fn resize_starts_at_the_handle_without_a_jump_and_undoes_once() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.doc.selected = Some(0);
     let original = editor.doc.marks[0].1.clone();
@@ -412,9 +400,7 @@ fn resize_starts_at_the_handle_without_a_jump_and_undoes_once() {
 #[test]
 #[ignore = "needs a display"]
 fn wheel_steps_only_the_size_bearing_tools() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     assert!(editor.scroll_stroke(-1.0));
     assert_eq!(editor.style.stroke, Stroke::Thick);
@@ -440,9 +426,7 @@ fn wheel_steps_only_the_size_bearing_tools() {
 #[test]
 #[ignore = "needs a display"]
 fn tool_keys_tap_to_select_and_hold_to_borrow() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     assert_eq!(spring_tool(gdk::Key::n), Some(Tool::Number));
     assert_eq!(spring_tool(gdk::Key::b), Some(Tool::Blur));
@@ -492,9 +476,7 @@ fn tool_keys_tap_to_select_and_hold_to_borrow() {
 #[test]
 #[ignore = "needs a display"]
 fn hover_cursors_match_crop_and_annotation_handles() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.doc.selected = Some(0);
     assert_eq!(editor.cursor_at(10.0, 10.0), "nwse-resize");
@@ -525,9 +507,7 @@ fn hover_cursors_match_crop_and_annotation_handles() {
 #[test]
 #[ignore = "needs a display"]
 fn a_starting_tool_is_active_at_once_and_survives_a_picked_window() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     assert_eq!(editor().tool, Tool::Arrow);
     assert_eq!(editor().starting_with(None).tool, Tool::Arrow);
     let mut started = editor().starting_with(Some(Tool::Crop));
@@ -548,9 +528,7 @@ fn a_starting_tool_is_active_at_once_and_survives_a_picked_window() {
 #[test]
 #[ignore = "needs a display"]
 fn a_sheet_is_its_logical_size_and_maps_the_picture_back_to_buffer_pixels() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut doc = document();
     doc.source = Source::Window {
         id: 1,
@@ -594,9 +572,7 @@ fn a_sheet_is_its_logical_size_and_maps_the_picture_back_to_buffer_pixels() {
 #[test]
 #[ignore = "needs a display"]
 fn escape_unwinds_the_innermost_thing_first() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.list_open = true;
     editor.doc.selected = Some(0);
@@ -628,9 +604,7 @@ fn escape_unwinds_the_innermost_thing_first() {
 #[test]
 #[ignore = "needs a display"]
 fn a_click_selects_a_drag_draws_and_undo_takes_it_back() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.press(10.0, 30.0);
     editor.release(10.0, 30.0, false);
@@ -661,9 +635,7 @@ fn a_click_selects_a_drag_draws_and_undo_takes_it_back() {
 #[test]
 #[ignore = "needs a display"]
 fn blur_paints_a_path_and_click_paints_one_round_stamp() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.set_tool(Tool::Blur);
     editor.press(70.0, 70.0);
@@ -685,9 +657,7 @@ fn blur_paints_a_path_and_click_paints_one_round_stamp() {
 #[test]
 #[ignore = "needs a display"]
 fn a_pixelation_stroke_moves_and_resizes_with_undo() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.set_tool(Tool::Blur);
     editor.press(70.0, 70.0);
@@ -716,9 +686,7 @@ fn a_pixelation_stroke_moves_and_resizes_with_undo() {
 #[test]
 #[ignore = "needs a display"]
 fn a_selected_mark_moves_by_drag_and_delete_removes_it() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.doc.selected = Some(0);
     editor.press(12.0, 20.0);
@@ -736,9 +704,7 @@ fn a_selected_mark_moves_by_drag_and_delete_removes_it() {
 #[test]
 #[ignore = "needs a display"]
 fn text_commits_capped_and_blank_text_is_dropped() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut editor = editor();
     editor.tool = Tool::Text;
     editor.press(150.0, 80.0);

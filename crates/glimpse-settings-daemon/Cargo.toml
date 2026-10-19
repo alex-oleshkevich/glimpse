@@ -21,5 +21,6 @@ tracing.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]
+glimpse-services = { workspace = true, features = ["testing"] }
 glimpse-dbus = { workspace = true, features = ["testing"] }
 tempfile.workspace = true

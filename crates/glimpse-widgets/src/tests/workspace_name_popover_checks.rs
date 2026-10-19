@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn workspace_name_popover_widgets() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     register_resources().expect("resources");
 
     let popover = WorkspaceNamePopover::new();

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
@@ -150,63 +151,21 @@ fn spawn_app(info: &gio::AppInfo, uri: &str, token: &str) {
     }
 }
 
-#[derive(Clone)]
-enum Source {
-    Session,
-    #[cfg(test)]
-    Open(Connection),
-}
-
 pub struct BusNotifier {
-    source: Source,
+    connection: Option<Connection>,
     opener: Arc<dyn Opener>,
+    grace: Duration,
     done: std::sync::Mutex<Option<oneshot::Receiver<()>>>,
-    #[cfg(test)]
-    notify_returned: tokio::sync::watch::Sender<bool>,
-    #[cfg(test)]
-    hold_grace: std::sync::atomic::AtomicBool,
-    #[cfg(test)]
-    grace_release: Arc<tokio::sync::Notify>,
 }
 
 impl BusNotifier {
     pub fn session() -> Self {
-        Self::with(Source::Session, Arc::new(Desktop::system()))
-    }
-
-    #[cfg(test)]
-    pub fn on(connection: Connection, opener: Arc<dyn Opener>) -> Self {
-        Self::with(Source::Open(connection), opener)
-    }
-
-    fn with(source: Source, opener: Arc<dyn Opener>) -> Self {
         Self {
-            source,
-            opener,
+            connection: None,
+            opener: Arc::new(Desktop::system()),
+            grace: crate::hold::NOTIFY_GRACE,
             done: std::sync::Mutex::new(None),
-            #[cfg(test)]
-            notify_returned: tokio::sync::watch::channel(false).0,
-            #[cfg(test)]
-            hold_grace: std::sync::atomic::AtomicBool::new(false),
-            #[cfg(test)]
-            grace_release: Arc::new(tokio::sync::Notify::new()),
         }
-    }
-
-    #[cfg(test)]
-    fn notify_returned(&self) -> tokio::sync::watch::Receiver<bool> {
-        self.notify_returned.subscribe()
-    }
-
-    #[cfg(test)]
-    fn hold_grace(&self) {
-        self.hold_grace
-            .store(true, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    #[cfg(test)]
-    fn release_grace(&self) {
-        self.grace_release.notify_one();
     }
 
     pub fn notify(&self, notice: Notice) -> Result<(), String> {
@@ -215,25 +174,13 @@ impl BusNotifier {
             .done
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(rx);
-        let source = self.source.clone();
+        let connection = self.connection.clone();
         let opener = Arc::clone(&self.opener);
+        let grace = self.grace;
         let runtime = tokio::runtime::Handle::try_current()
             .map_err(|_| "the notification is posted from the hold runtime".to_owned())?;
-        #[cfg(test)]
-        let _ = self.notify_returned.send(false);
-        #[cfg(test)]
-        let returned = self.notify_returned.clone();
-        #[cfg(not(test))]
-        let returned = ();
-        #[cfg(test)]
-        let gate = GraceGate {
-            hold: self.hold_grace.load(std::sync::atomic::Ordering::SeqCst),
-            release: Arc::clone(&self.grace_release),
-        };
-        #[cfg(not(test))]
-        let gate = GraceGate;
         runtime.spawn(async move {
-            if let Err(error) = post(source, opener.as_ref(), notice, returned, gate).await {
+            if let Err(error) = post(connection, opener.as_ref(), notice, grace).await {
                 tracing::warn!("cannot post the notification: {error}");
             }
             let _ = tx.send(());
@@ -252,19 +199,6 @@ impl BusNotifier {
         }
     }
 }
-
-#[cfg(test)]
-type Returned = tokio::sync::watch::Sender<bool>;
-#[cfg(not(test))]
-type Returned = ();
-
-#[cfg(test)]
-struct GraceGate {
-    hold: bool,
-    release: Arc<tokio::sync::Notify>,
-}
-#[cfg(not(test))]
-struct GraceGate;
 
 enum Heard {
     Token(String),
@@ -293,13 +227,12 @@ fn heard(message: &zbus::message::Message, id: u32) -> Option<Heard> {
 }
 
 async fn post(
-    source: Source,
+    connection: Option<Connection>,
     opener: &dyn Opener,
     notice: Notice,
-    returned: Returned,
-    gate: GraceGate,
+    grace: Duration,
 ) -> Result<(), String> {
-    let connection = connect(&source).await?;
+    let connection = connect(connection).await?;
     let proxy = FreedesktopNotificationsProxy::new(&connection)
         .await
         .map_err(|error| error.to_string())?;
@@ -312,9 +245,7 @@ async fn post(
     })
     .await?;
     let id = send(&proxy, &notice).await?;
-    arm_returned(&returned);
-    wait_to_arm(&gate).await;
-    let mut grace = std::pin::pin!(tokio::time::sleep(crate::hold::NOTIFY_GRACE));
+    let mut grace = std::pin::pin!(tokio::time::sleep(grace));
     let mut token = String::new();
     loop {
         tokio::select! {
@@ -337,32 +268,13 @@ async fn post(
     }
 }
 
-#[cfg(test)]
-fn arm_returned(returned: &Returned) {
-    let _ = returned.send(true);
-}
-
-#[cfg(not(test))]
-fn arm_returned(_returned: &Returned) {}
-
-#[cfg(test)]
-async fn wait_to_arm(gate: &GraceGate) {
-    if gate.hold {
-        gate.release.notified().await;
-    }
-}
-
-#[cfg(not(test))]
-async fn wait_to_arm(_gate: &GraceGate) {}
-
-async fn connect(source: &Source) -> Result<Connection, String> {
+async fn connect(connection: Option<Connection>) -> Result<Connection, String> {
     within(async {
-        match source {
-            Source::Session => zbus::Connection::session()
+        match connection {
+            Some(connection) => Ok(connection),
+            None => zbus::Connection::session()
                 .await
                 .map_err(|error| error.to_string()),
-            #[cfg(test)]
-            Source::Open(connection) => Ok(connection.clone()),
         }
     })
     .await

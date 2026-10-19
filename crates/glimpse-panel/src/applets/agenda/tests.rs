@@ -32,7 +32,6 @@ fn read(now: DateTime<Local>, event: &Occasion) -> String {
     when(now, now.date_naive(), event, CLOCK)
 }
 
-/// A colour that will not parse must cost its event a dot, not the whole popover.
 #[test]
 fn an_event_converts_from_the_wire_and_survives_a_bad_color() {
     let wire = |color: Option<&str>| CalendarEvent {

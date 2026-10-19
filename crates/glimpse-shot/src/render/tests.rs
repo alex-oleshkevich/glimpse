@@ -169,9 +169,7 @@ fn a_bgr_frame_preserves_color_and_alpha_through_png_encoding() {
 #[test]
 #[ignore = "needs a display"]
 fn a_transparent_window_pixel_stays_transparent_through_export() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let doc = Document {
         source: Source::Window {
             id: 42,
@@ -196,9 +194,7 @@ fn a_transparent_window_pixel_stays_transparent_through_export() {
 #[test]
 #[ignore = "needs a display"]
 fn a_filled_rect_is_the_exact_palette_color_inside_and_nothing_outside() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut doc = document();
     doc.marks = vec![(
         0,
@@ -221,9 +217,7 @@ fn a_filled_rect_is_the_exact_palette_color_inside_and_nothing_outside() {
 #[test]
 #[ignore = "needs a display"]
 fn every_mark_renders_at_the_cropped_size_and_matches_the_golden_image() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let doc = document();
 
     let png = export(&doc, 1.0).expect("renders");
@@ -292,9 +286,7 @@ fn every_mark_renders_at_the_cropped_size_and_matches_the_golden_image() {
 #[test]
 #[ignore = "needs a display"]
 fn pixelation_export_paints_only_the_brush_path() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     let mut doc = document();
     doc.crop = None;
     doc.marks = vec![(

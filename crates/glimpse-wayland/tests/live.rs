@@ -33,8 +33,11 @@ fn every_output_is_captured_and_one_can_be_named() {
 #[test]
 #[ignore = "needs a Wayland compositor"]
 fn the_selection_is_read_without_being_changed() {
-    selection::snapshot(Duration::from_secs(1)).unwrap();
     let changes = selection::Changes::start().unwrap();
+    let first = selection::snapshot(Duration::from_secs(1)).unwrap();
+    let second = selection::snapshot(Duration::from_secs(1)).unwrap();
+    assert_eq!(first.entries, second.entries);
+    assert_eq!(first.skipped, second.skipped);
     assert!(changes.since().is_empty());
 }
 

@@ -186,8 +186,6 @@ fn day_length_is_the_span_between_sunrise_and_sunset() {
     assert_eq!(day_length(&backwards), None);
 }
 
-/// `WeatherStatus.units` says which system the numbers already are in, so the page prints
-/// what the payload declares rather than what a configuration says one round trip later.
 #[test]
 fn a_day_page_prints_the_units_the_payload_declares() {
     let mut week = place();
@@ -341,8 +339,6 @@ fn a_wind_direction_rounds_to_the_nearest_of_eight_points() {
     }
 }
 
-/// The hour standing is the hero's job. A column repeating it is the second telling, and it
-/// costs one of the hours the strip exists to look ahead at.
 #[test]
 fn the_strip_starts_at_the_next_hour() {
     let mut strip = place();
@@ -410,8 +406,6 @@ fn a_place_with_no_alerts_builds_no_notice() {
     assert_eq!(worst(&[]), None, "no alert is no condition to report");
 }
 
-/// The chip has room for one condition. Reporting the first alert listed would let a minor one
-/// hide a severe one behind it.
 #[test]
 fn the_chip_reports_the_worst_alert_standing() {
     let alert = |severity| WeatherAlert {

@@ -3,9 +3,7 @@ use super::*;
 #[test]
 #[ignore = "needs a display"]
 fn shot_countdown_widgets() {
-    if !shot_display() {
-        return;
-    }
+    shot_display();
 
     let countdown = ShotCountdown::new();
     let imp = countdown.imp();

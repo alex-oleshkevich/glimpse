@@ -30,7 +30,6 @@ async fn set_interval_reports_the_period_it_replaced() {
     let _ = task.await;
 }
 
-/// A rejected period must not be retryable: retrying the same argument cannot start working.
 #[tokio::test]
 async fn set_interval_refuses_a_period_outside_the_supported_range() {
     let (handle, cancel, task) = running().await;

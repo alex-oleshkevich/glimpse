@@ -1,7 +1,5 @@
 use super::*;
 
-/// The sweep runs after the readings are absorbed, so without the retain a place whose lease
-/// had just expired would stay on screen for a whole poll.
 #[tokio::test]
 async fn a_place_whose_lease_expired_leaves_the_published_list() {
     let mut harness = harness().await;
@@ -41,8 +39,6 @@ async fn a_place_whose_lease_expired_leaves_the_published_list() {
     assert!(harness.service.places.is_empty());
 }
 
-/// Only `here` followed the fix. Clearing every reading would blank a place the user asked for
-/// by coordinate — whose numbers are still correct — for a whole round trip.
 #[tokio::test]
 async fn a_fix_that_moved_drops_only_the_place_that_followed_it() {
     let mut harness = harness().await;

@@ -11,7 +11,6 @@ fn a_title_loses_control_characters_that_would_break_a_log_line() {
     assert_eq!(sanitize("a\nb\tc\u{0}d", TITLE_CAP), "abcd");
 }
 
-/// `take` counts characters, so a cap landing mid-codepoint cannot slice one in half.
 #[test]
 fn an_overlong_title_truncates_on_a_char_boundary() {
     let long = "\u{1f600}".repeat(TITLE_CAP + 10);

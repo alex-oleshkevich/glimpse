@@ -66,8 +66,6 @@ fn a_recaptured_entry_moves_to_the_front_rather_than_duplicating() {
     assert_eq!(history.entries()[0].preview, "first");
 }
 
-/// The echo of our own `offer` arrives as an ordinary capture and is collapsed by the same
-/// path. Nothing else guards it, so this is the assertion that keeps the loop closed.
 #[test]
 fn re_reading_what_was_just_offered_does_not_grow_the_history() {
     let mut history = History::new(limits());
@@ -222,8 +220,6 @@ fn a_removed_entry_stays_gone_until_it_is_copied_again() {
     assert_eq!(history.entries().len(), 2);
 }
 
-/// A preview is another application's text. Cutting it by byte would split a codepoint, and the
-/// cap has to survive one that is four bytes wide.
 #[test]
 fn a_multi_byte_preview_is_capped_by_character_and_does_not_panic() {
     let mut history = History::new(Limits {
@@ -265,9 +261,6 @@ fn lowering_the_limits_evicts_at_once_rather_than_on_the_next_capture() {
     assert_eq!(history.entries()[0].preview, "three");
 }
 
-/// The defect this exists for: the entry was pushed first and `evict` removed oldest-first, so
-/// everything else unpinned was destroyed before the offender was finally dropped — and
-/// `insert` answered `Ok`.
 #[test]
 fn a_capture_too_large_for_the_whole_budget_is_refused_and_destroys_nothing() {
     let mut history = History::new(Limits {
@@ -289,8 +282,6 @@ fn a_capture_too_large_for_the_whole_budget_is_refused_and_destroys_nothing() {
     );
 }
 
-/// Pins were counted against the byte budget, so a history pinned to the cap evicted every new
-/// entry the instant it arrived — an empty clipboard with nothing to explain it.
 #[test]
 fn a_history_pinned_to_the_byte_cap_still_records_new_entries() {
     let mut history = History::new(Limits {
@@ -310,8 +301,6 @@ fn a_history_pinned_to_the_byte_cap_still_records_new_entries() {
     assert!(history.get(pinned).is_some());
 }
 
-/// `kind_of` accepts five spellings of text, so the same line arrives under different mimes.
-/// Fingerprinting the spelling filed them as two rows of identical content.
 #[test]
 fn the_same_text_under_two_mime_spellings_is_one_entry() {
     let mut history = History::new(limits());
@@ -342,8 +331,6 @@ fn forgetting_everything_takes_the_pins_too() {
     assert!(history.entries().is_empty());
 }
 
-/// `DefaultHasher` has fixed keys, so its output is byte-identical in every process and an
-/// application choosing clipboard content could craft a collision. Two instances must not agree.
 #[test]
 fn the_fingerprint_is_seeded_per_instance_rather_than_fixed() {
     let one = History::new(limits());
@@ -361,15 +348,12 @@ fn the_fingerprint_is_seeded_per_instance_rather_than_fixed() {
     );
 }
 
-/// Taking the dedup branch on a collision would discard the bytes just copied and leave the
-/// older entry in place — the viewer pastes something other than what they copied.
 #[test]
 fn colliding_content_is_kept_apart_rather_than_silently_substituted() {
     let mut history = History::new(limits());
     put(&mut history, "first").expect("recorded");
     let id = history.entries()[0].id;
 
-    // Forge the collision the hash is meant to prevent: a second entry carrying the first's id.
     history.entries[0].id = 7;
     put(&mut history, "second").expect("recorded");
     history.entries[0].id = 7;

@@ -67,11 +67,6 @@ pub struct PackageManager {
     applications_dir: PathBuf,
 }
 
-#[cfg(test)]
-fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
 fn sha256_file(path: &Path) -> Result<(String, u64)> {
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
@@ -192,14 +187,6 @@ impl PackageManager {
             applets_dir,
             applications_dir: glib::user_data_dir().join("applications"),
         })
-    }
-
-    #[cfg(test)]
-    fn with_dirs(applets_dir: PathBuf, applications_dir: PathBuf) -> Self {
-        Self {
-            applets_dir,
-            applications_dir,
-        }
     }
 
     pub fn metadata(&self, id: &str) -> Result<Metadata> {

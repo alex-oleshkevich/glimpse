@@ -251,7 +251,11 @@ async fn reconfigure_waits_for_a_full_queue_and_applies_the_newest_config() {
     .await
     .unwrap();
     let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(NoopRunner));
-    while handle.try_send(Event::RegistryChanged(false)).is_ok() {}
+    while handle
+        .command_tx
+        .try_send(Event::RegistryChanged(false))
+        .is_ok()
+    {}
     let cancel = CancellationToken::new();
     let mut services = IdleServices {
         handle,

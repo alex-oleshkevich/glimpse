@@ -69,8 +69,6 @@ impl PrivacyPopover {
 
     fn render_usages(&self) {
         let imp = self.imp();
-        #[cfg(test)]
-        imp.renders.set(imp.renders.get() + 1);
         let usages = imp.usage_data.borrow();
         reconcile::by_key(
             &*imp.usage_rows,

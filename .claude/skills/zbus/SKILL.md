@@ -83,7 +83,7 @@ services:
 into each service; never open a per-service connection and never open one per method call.
 
 A service that needs a bus reaches it through the connection handed to it at construction. This is
-the same shape as `trait WaylandEdge`: the resource is injected, so a service test can hand over a
+The resource is injected, so a service test can hand over a
 connection to a fixture bus instead.
 
 ## Decision Table
@@ -132,7 +132,7 @@ a peer can return. The variants that actually come up:
 Handle them by dropping the item, not by logging an error and retrying.
 
 A service that cannot reach its backend at all publishes `degraded` and keeps running. It does not
-panic and it does not exit — see invariant 5 in `specs/001_architecture.md`.
+panic and it does not exit.
 
 ## Definition of Done
 

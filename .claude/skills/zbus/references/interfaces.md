@@ -88,7 +88,7 @@ returns will drift: BlueZ stops discovery on its own timeout, and other clients 
 too.
 
 Pairing needs an `org.bluez.Agent1` registered with `AgentManager1`. Whether the owning process registers one
-is still open in `specs/001_architecture.md` — do not add it without settling that.
+is still undecided; do not add it without settling that.
 
 ---
 
@@ -123,8 +123,8 @@ Destination `org.freedesktop.login1`.
 inhibitor. Hold it in the service that took it, and close it explicitly when the reason ends. Miss
 the `InhibitDelayMaxUSec` deadline and logind sleeps anyway.
 
-`specs/009_systemd.md` prefers `systemd-lock-handler` over the daemon for lock-before-sleep,
-because that keeps locking working when the owning process is down. Follow the spec; do not quietly move it.
+The design prefers `systemd-lock-handler` over the daemon for lock-before-sleep,
+because that keeps locking working when the owning process is down. Do not quietly move it.
 
 ---
 
@@ -268,7 +268,7 @@ round produces either a stale menu or a handler that blocks on a click.
 `GetLayout` returns a revision. Compare it with the revision from `LayoutUpdated` and skip the
 re-fetch when it has not moved.
 
-Fetch menus on pointer-enter, not on click — `specs/004_panel.md`. A menu fetch is two
+Fetch menus on pointer-enter, not on click. A menu fetch is two
 round trips to a foreign process that may be slow or hostile.
 
 ---

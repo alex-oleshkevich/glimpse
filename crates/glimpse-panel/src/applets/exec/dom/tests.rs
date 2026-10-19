@@ -51,7 +51,7 @@ fn widget(dom: &Dom, generation: u64, id: u32, kind: ElementKind) -> gtk4::Widge
         .clone()
 }
 
-#[gtk4::test]
+#[test]
 #[ignore = "needs a display"]
 fn containers_sit_directly_in_the_body() {
     init();
@@ -1238,7 +1238,7 @@ fn style_notifications_redress_unchanged_calendar_markers() {
     assert!(!dirty.get());
 }
 
-#[gtk4::test]
+#[test]
 #[ignore = "needs a display"]
 fn swatch_takes_its_color_and_the_large_size() {
     init();

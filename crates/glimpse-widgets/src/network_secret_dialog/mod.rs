@@ -66,16 +66,6 @@ impl SecretDialog {
         self.imp().revalidate();
     }
 
-    #[cfg(test)]
-    pub(crate) fn type_in(&self, text: &str) {
-        self.imp().entry.set_text(text);
-    }
-
-    #[cfg(test)]
-    pub(crate) fn is_blank(&self) -> bool {
-        self.imp().entry.text().is_empty()
-    }
-
     pub fn connect_answered<F>(&self, handler: F) -> glib::SignalHandlerId
     where
         F: Fn(&Self, SecretAnswer) + 'static,

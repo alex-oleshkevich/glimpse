@@ -18,9 +18,7 @@ fn exact_focus(window: &gtk4::Window, widget: &impl IsA<gtk4::Widget>) -> bool {
 #[test]
 #[ignore = "needs a display"]
 fn session_sheet_states() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("display");
     crate::register_resources().expect("resources");
 
     let sheet = SessionSheet::new();

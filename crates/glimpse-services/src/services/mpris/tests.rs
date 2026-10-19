@@ -23,8 +23,6 @@ fn a_playback_status_the_spec_does_not_name_is_unknown_rather_than_stopped() {
     assert_eq!(playback(None), Playback::Unknown);
 }
 
-/// The chattiest player would otherwise win every tie: a property change is not the viewer
-/// starting something, and `Position` alone moves on every read.
 #[test]
 fn a_re_read_that_changes_nothing_does_not_count_as_activity() {
     let earlier = Utc.with_ymd_and_hms(2026, 9, 9, 12, 0, 0).unwrap();

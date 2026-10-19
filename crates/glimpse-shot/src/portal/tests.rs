@@ -401,371 +401,392 @@ fn program_name(argv: &[OsString]) -> Option<&str> {
         .and_then(|name| name.to_str())
 }
 
-async fn close_kills_the_child_and_the_screenshot_call_does_not_return_impl() {
-    let started = Started::new().await;
-    let proxy = ShotPortalProxy::new(&started.client)
-        .await
-        .expect("a proxy");
-    started.fake.push(Script::Hang);
-    let mut seen = started.fake.launches.subscribe();
-    let client = started.client.clone();
-    let call = tokio::spawn(async move {
-        let proxy = ShotPortalProxy::new(&client).await.expect("a proxy");
-        let path = handle("/req/close");
-        proxy
-            .screenshot(&path, "org.gimp.GIMP", "", flags(&[("interactive", true)]))
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn close_kills_the_child_and_the_screenshot_call_does_not_return() {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let started = Started::new().await;
+        let proxy = ShotPortalProxy::new(&started.client)
             .await
-    });
-    tokio::time::timeout(Duration::from_secs(2), seen.wait_for(|count| *count >= 1))
-        .await
-        .expect("the first child starts promptly")
-        .expect("the child was spawned");
-
-    let request = PortalRequestTestProxy::builder(&started.client)
-        .path(handle("/req/close"))
-        .expect("a path")
-        .destination(BUS_NAME)
-        .expect("a destination")
-        .build()
-        .await
-        .expect("a request proxy");
-    tokio::time::timeout(Duration::from_secs(2), request.close())
-        .await
-        .expect("Close returns promptly")
-        .expect("Close returns");
-    let killed = tokio::time::timeout(Duration::from_secs(2), async {
-        while !started.fake.killed.load(Ordering::SeqCst) {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await;
-    assert!(killed.is_ok(), "Close sends SIGTERM to the child");
-
-    let pending = tokio::time::timeout(Duration::from_millis(400), call).await;
-    assert!(
-        pending.is_err(),
-        "a closed request sends no Screenshot response"
-    );
-
-    started.fake.push(Script::Done {
-        stdout: result_stdout("/tmp/after-close.png"),
-        code: 0,
-    });
-    let again = tokio::time::timeout(Duration::from_secs(2), async {
-        loop {
-            let reply = proxy
-                .screenshot(&handle("/req/after"), "org.gimp.GIMP", "", HashMap::new())
+            .expect("a proxy");
+        started.fake.push(Script::Hang);
+        let mut seen = started.fake.launches.subscribe();
+        let client = started.client.clone();
+        let call = tokio::spawn(async move {
+            let proxy = ShotPortalProxy::new(&client).await.expect("a proxy");
+            let path = handle("/req/close");
+            proxy
+                .screenshot(&path, "org.gimp.GIMP", "", flags(&[("interactive", true)]))
                 .await
-                .expect("a reply");
-            if reply.0 == SUCCESS {
-                return reply;
-            }
-            assert_eq!(reply.0, OTHER);
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("the slot is free after Close");
-    assert_eq!(again.0, SUCCESS);
-}
-
-async fn pick_color_returns_fractions_of_255_and_cancel_is_response_1_impl() {
-    let started = Started::new().await;
-    let proxy = ShotPortalProxy::new(&started.client)
-        .await
-        .expect("a proxy");
-    started.fake.push(Script::Done {
-        stdout: r#"{"format":"rgb","value":"rgb(224 86 63)","red":224,"green":86,"blue":63}"#
-            .to_owned(),
-        code: 0,
-    });
-    let (response, results) = proxy
-        .pick_color(
-            &handle("/req/color"),
-            "org.inkscape.Inkscape",
-            "",
-            HashMap::new(),
-        )
-        .await
-        .expect("PickColor");
-    assert_eq!(response, SUCCESS);
-    let (red, green, blue) =
-        <(f64, f64, f64)>::try_from(results.get("color").expect("color").clone()).expect("(ddd)");
-    assert_eq!(
-        (red, green, blue),
-        (224.0 / 255.0, 86.0 / 255.0, 63.0 / 255.0)
-    );
-    assert_eq!(program_name(&started.fake.argv()[0]), Some("glimpse-lens"));
-    assert_eq!(
-        &started.fake.argv()[0][1..],
-        &[
-            OsString::from("--tool"),
-            OsString::from("picker"),
-            OsString::from("--json"),
-        ]
-    );
-
-    started.fake.push(Script::Done {
-        stdout: String::new(),
-        code: 4,
-    });
-    let (response, results) = proxy
-        .pick_color(&handle("/req/color_cancel"), "", "", HashMap::new())
-        .await
-        .expect("PickColor");
-    assert_eq!(response, CANCELLED);
-    assert!(results.is_empty());
-
-    started.fake.push(Script::Done {
-        stdout: "nope".to_owned(),
-        code: 1,
-    });
-    let (response, results) = proxy
-        .pick_color(&handle("/req/color_fail"), "", "", HashMap::new())
-        .await
-        .expect("PickColor");
-    assert_eq!(response, OTHER);
-    assert!(results.is_empty());
-}
-
-async fn a_second_request_while_one_is_open_returns_2_impl() {
-    let started = Started::new().await;
-    let proxy = ShotPortalProxy::new(&started.client)
-        .await
-        .expect("a proxy");
-    started.fake.push(Script::Hang);
-    let mut seen = started.fake.launches.subscribe();
-    let client = started.client.clone();
-    let first = tokio::spawn(async move {
-        let proxy = ShotPortalProxy::new(&client).await.expect("a proxy");
-        let path = handle("/req/busy");
-        proxy
-            .screenshot(&path, "org.gimp.GIMP", "", flags(&[("interactive", true)]))
+        });
+        tokio::time::timeout(Duration::from_secs(2), seen.wait_for(|count| *count >= 1))
             .await
-    });
-    tokio::time::timeout(Duration::from_secs(2), seen.wait_for(|count| *count >= 1))
-        .await
-        .expect("the first child starts promptly")
-        .expect("the first child was spawned");
+            .expect("the first child starts promptly")
+            .expect("the child was spawned");
 
-    let (response, results) = tokio::time::timeout(
-        Duration::from_secs(2),
-        proxy.pick_color(&handle("/req/busy_2"), "org.other.App", "", HashMap::new()),
-    )
-    .await
-    .expect("a busy request returns at once")
-    .expect("the second call returns");
-    assert_eq!(response, OTHER);
-    assert!(results.is_empty());
-    assert_eq!(started.fake.argv().len(), 1, "the busy call spawns nothing");
+        let request = PortalRequestTestProxy::builder(&started.client)
+            .path(handle("/req/close"))
+            .expect("a path")
+            .destination(BUS_NAME)
+            .expect("a destination")
+            .build()
+            .await
+            .expect("a request proxy");
+        tokio::time::timeout(Duration::from_secs(2), request.close())
+            .await
+            .expect("Close returns promptly")
+            .expect("Close returns");
+        let killed = tokio::time::timeout(Duration::from_secs(2), async {
+            while !started.fake.killed.load(Ordering::SeqCst) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        assert!(killed.is_ok(), "Close sends SIGTERM to the child");
 
-    let request = PortalRequestTestProxy::builder(&started.client)
-        .path(handle("/req/busy"))
-        .expect("a path")
-        .destination(BUS_NAME)
-        .expect("a destination")
-        .build()
-        .await
-        .expect("a request proxy");
-    tokio::time::timeout(Duration::from_secs(2), request.close())
-        .await
-        .expect("Close returns promptly")
-        .expect("Close");
-    let pending = tokio::time::timeout(Duration::from_millis(400), first).await;
-    assert!(pending.is_err());
-}
+        let pending = tokio::time::timeout(Duration::from_millis(400), call).await;
+        assert!(
+            pending.is_err(),
+            "a closed request sends no Screenshot response"
+        );
 
-async fn the_spawned_child_follows_the_decision_and_the_child_result_impl() {
-    let started = Started::new().await;
-    let proxy = ShotPortalProxy::new(&started.client)
-        .await
-        .expect("a proxy");
-    assert_eq!(proxy.version().await.expect("version"), 3);
-    assert_eq!(proxy.available_targets().await.expect("targets"), 13);
-
-    let raw = format!("<b>{}</b>", "é".repeat(300));
-    started.fake.push(Script::Done {
-        stdout: result_stdout("/tmp/portal overlay.png"),
-        code: 0,
-    });
-    let (response, results) = proxy
-        .screenshot(
-            &handle("/req/name"),
-            &raw,
-            "ignored",
-            flags(&[("interactive", true), ("permission_store_checked", true)]),
-        )
-        .await
-        .expect("Screenshot");
-    assert_eq!(response, SUCCESS);
-    assert_eq!(
-        results
-            .get("uri")
-            .and_then(|value| String::try_from(value.clone()).ok())
-            .as_deref(),
-        Some("file:///tmp/portal%20overlay.png")
-    );
-    let argv = started.fake.argv();
-    assert_eq!(program_name(&argv[0]), Some("glimpse-shot"));
-    assert_eq!(
-        &argv[0][1..],
-        &[
-            OsString::from("--screen"),
-            OsString::from("--json"),
-            OsString::from("--portal"),
-            OsString::from(app_label(&raw)),
-            OsString::from("--timeout"),
-            OsString::from(OVERLAY_TIMEOUT_SECS.to_string()),
-        ]
-    );
-
-    started.fake.push(Script::Done {
-        stdout: result_stdout("/tmp/empty-app.png"),
-        code: 0,
-    });
-    proxy
-        .screenshot(
-            &handle("/req/empty"),
-            "   ",
-            "",
-            flags(&[("interactive", false)]),
-        )
-        .await
-        .expect("Screenshot");
-    let argv = started.fake.argv();
-    let fallback = gettextrs::gettext("An application");
-    assert_eq!(
-        argv[1]
-            .windows(2)
-            .find(|pair| pair[0] == "--portal")
-            .map(|pair| pair[1].as_os_str()),
-        Some(std::ffi::OsStr::new(fallback.as_str()))
-    );
-    assert_eq!(argv[1][1], OsString::from("--screen"));
-
-    let output = started.directory.path().join("shot.png");
-    started.fake.push(Script::Done {
-        stdout: result_stdout(output.to_str().expect("utf-8")),
-        code: 0,
-    });
-    let (response, results) = proxy
-        .screenshot(
-            &handle("/req/headless"),
-            "org.gimp.GIMP",
-            "",
-            flags(&[("interactive", false), ("permission_store_checked", true)]),
-        )
-        .await
-        .expect("Screenshot");
-    assert_eq!(response, SUCCESS);
-    assert_eq!(
-        results
-            .get("uri")
-            .and_then(|value| String::try_from(value.clone()).ok())
-            .as_deref(),
-        file_uri(&output).as_deref()
-    );
-    let argv = &started.fake.argv()[2];
-    assert_eq!(program_name(argv), Some("glimpse-shot"));
-    assert_eq!(argv[1], OsString::from("capture"));
-    assert_eq!(argv[2], OsString::from("--screen"));
-    assert_eq!(argv[3], OsString::from("--json"));
-    assert_eq!(argv[4], OsString::from("-o"));
-    assert_eq!(argv[5], output.as_os_str());
-    assert!(output.starts_with(started.directory.path()));
-
-    started.fake.push(Script::Done {
-        stdout: String::new(),
-        code: 4,
-    });
-    let (response, results) = proxy
-        .screenshot(
-            &handle("/req/esc"),
-            "org.gimp.GIMP",
-            "",
-            flags(&[("interactive", true)]),
-        )
-        .await
-        .expect("Screenshot");
-    assert_eq!(response, CANCELLED);
-    assert!(results.is_empty());
-
-    started.fake.push(Script::Done {
-        stdout: "crash".to_owned(),
-        code: 9,
-    });
-    let (response, results) = proxy
-        .screenshot(&handle("/req/crash"), "org.gimp.GIMP", "", HashMap::new())
-        .await
-        .expect("Screenshot");
-    assert_eq!(response, OTHER);
-    assert!(results.is_empty());
-
-    let silent = [("interactive", false), ("permission_store_checked", true)];
-    let stdout = result_stdout(output.to_str().expect("utf-8"));
-    for (n, (target, extra, want)) in [
-        (1u32, &silent[..], "capture"),
-        (1, &[][..], "--screen"),
-        (4, &silent[..], "--screen"),
-        (8, &silent[..], "capture"),
-        (
-            8,
-            &[("interactive", true), ("permission_store_checked", true)][..],
-            "capture",
-        ),
-    ]
-    .into_iter()
-    .enumerate()
-    {
         started.fake.push(Script::Done {
-            stdout: stdout.clone(),
+            stdout: result_stdout("/tmp/after-close.png"),
             code: 0,
         });
-        let (response, _) = proxy
-            .screenshot(
-                &handle(&format!("/req/target{n}")),
-                "org.gimp.GIMP",
+        let again = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let reply = proxy
+                    .screenshot(&handle("/req/after"), "org.gimp.GIMP", "", HashMap::new())
+                    .await
+                    .expect("a reply");
+                if reply.0 == SUCCESS {
+                    return reply;
+                }
+                assert_eq!(reply.0, OTHER);
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the slot is free after Close");
+        assert_eq!(again.0, SUCCESS);
+    })
+    .await
+    .expect("Close test finishes on the private bus");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pick_color_returns_fractions_of_255_and_cancel_is_response_1() {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let started = Started::new().await;
+        let proxy = ShotPortalProxy::new(&started.client)
+            .await
+            .expect("a proxy");
+        started.fake.push(Script::Done {
+            stdout: r#"{"format":"rgb","value":"rgb(224 86 63)","red":224,"green":86,"blue":63}"#
+                .to_owned(),
+            code: 0,
+        });
+        let (response, results) = proxy
+            .pick_color(
+                &handle("/req/color"),
+                "org.inkscape.Inkscape",
                 "",
-                targeted(Value::from(target), extra),
+                HashMap::new(),
+            )
+            .await
+            .expect("PickColor");
+        assert_eq!(response, SUCCESS);
+        let (red, green, blue) =
+            <(f64, f64, f64)>::try_from(results.get("color").expect("color").clone())
+                .expect("(ddd)");
+        assert_eq!(
+            (red, green, blue),
+            (224.0 / 255.0, 86.0 / 255.0, 63.0 / 255.0)
+        );
+        assert_eq!(program_name(&started.fake.argv()[0]), Some("glimpse-lens"));
+        assert_eq!(
+            &started.fake.argv()[0][1..],
+            &[
+                OsString::from("--tool"),
+                OsString::from("picker"),
+                OsString::from("--json"),
+            ]
+        );
+
+        started.fake.push(Script::Done {
+            stdout: String::new(),
+            code: 4,
+        });
+        let (response, results) = proxy
+            .pick_color(&handle("/req/color_cancel"), "", "", HashMap::new())
+            .await
+            .expect("PickColor");
+        assert_eq!(response, CANCELLED);
+        assert!(results.is_empty());
+
+        started.fake.push(Script::Done {
+            stdout: "nope".to_owned(),
+            code: 1,
+        });
+        let (response, results) = proxy
+            .pick_color(&handle("/req/color_fail"), "", "", HashMap::new())
+            .await
+            .expect("PickColor");
+        assert_eq!(response, OTHER);
+        assert!(results.is_empty());
+    })
+    .await
+    .expect("PickColor test finishes on the private bus");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_second_request_while_one_is_open_returns_2() {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let started = Started::new().await;
+        let proxy = ShotPortalProxy::new(&started.client)
+            .await
+            .expect("a proxy");
+        started.fake.push(Script::Hang);
+        let mut seen = started.fake.launches.subscribe();
+        let client = started.client.clone();
+        let first = tokio::spawn(async move {
+            let proxy = ShotPortalProxy::new(&client).await.expect("a proxy");
+            let path = handle("/req/busy");
+            proxy
+                .screenshot(&path, "org.gimp.GIMP", "", flags(&[("interactive", true)]))
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(2), seen.wait_for(|count| *count >= 1))
+            .await
+            .expect("the first child starts promptly")
+            .expect("the first child was spawned");
+
+        let (response, results) = tokio::time::timeout(
+            Duration::from_secs(2),
+            proxy.pick_color(&handle("/req/busy_2"), "org.other.App", "", HashMap::new()),
+        )
+        .await
+        .expect("a busy request returns at once")
+        .expect("the second call returns");
+        assert_eq!(response, OTHER);
+        assert!(results.is_empty());
+        assert_eq!(started.fake.argv().len(), 1, "the busy call spawns nothing");
+
+        let request = PortalRequestTestProxy::builder(&started.client)
+            .path(handle("/req/busy"))
+            .expect("a path")
+            .destination(BUS_NAME)
+            .expect("a destination")
+            .build()
+            .await
+            .expect("a request proxy");
+        tokio::time::timeout(Duration::from_secs(2), request.close())
+            .await
+            .expect("Close returns promptly")
+            .expect("Close");
+        let pending = tokio::time::timeout(Duration::from_millis(400), first).await;
+        assert!(pending.is_err());
+    })
+    .await
+    .expect("busy request test finishes on the private bus");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_spawned_child_follows_the_decision_and_the_child_result() {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let started = Started::new().await;
+        let proxy = ShotPortalProxy::new(&started.client)
+            .await
+            .expect("a proxy");
+        assert_eq!(proxy.version().await.expect("version"), 3);
+        assert_eq!(proxy.available_targets().await.expect("targets"), 13);
+
+        let raw = format!("<b>{}</b>", "é".repeat(300));
+        started.fake.push(Script::Done {
+            stdout: result_stdout("/tmp/portal overlay.png"),
+            code: 0,
+        });
+        let (response, results) = proxy
+            .screenshot(
+                &handle("/req/name"),
+                &raw,
+                "ignored",
+                flags(&[("interactive", true), ("permission_store_checked", true)]),
             )
             .await
             .expect("Screenshot");
         assert_eq!(response, SUCCESS);
-        let argv = started.fake.argv().pop().expect("argv");
-        assert_eq!(argv[1], OsString::from(want));
-        if target == 4 {
-            assert!(argv.contains(&OsString::from("--portal")));
-        }
-        if target == 8 {
-            assert_eq!(argv[2], OsString::from("--window"));
-            assert_eq!(argv[3], OsString::from("focused"));
-        }
-    }
+        assert_eq!(
+            results
+                .get("uri")
+                .and_then(|value| String::try_from(value.clone()).ok())
+                .as_deref(),
+            Some("file:///tmp/portal%20overlay.png")
+        );
+        let argv = started.fake.argv();
+        assert_eq!(program_name(&argv[0]), Some("glimpse-shot"));
+        assert_eq!(
+            &argv[0][1..],
+            &[
+                OsString::from("--screen"),
+                OsString::from("--json"),
+                OsString::from("--portal"),
+                OsString::from(app_label(&raw)),
+                OsString::from("--timeout"),
+                OsString::from(OVERLAY_TIMEOUT_SECS.to_string()),
+            ]
+        );
 
-    let before = started.fake.argv().len();
-    let refused: [(Value<'static>, &[(&'static str, bool)]); 7] = [
-        (Value::from(2u32), &silent[..]),
-        (Value::from(3u32), &silent[..]),
-        (Value::from(0u32), &silent[..]),
-        (Value::from(16u32), &silent[..]),
-        (Value::from("1"), &silent[..]),
-        (Value::from(8u32), &[("interactive", true)][..]),
-        (Value::from(8u32), &[("interactive", false)][..]),
-    ];
-    for (n, (target, extra)) in refused.into_iter().enumerate() {
+        started.fake.push(Script::Done {
+            stdout: result_stdout("/tmp/empty-app.png"),
+            code: 0,
+        });
+        proxy
+            .screenshot(
+                &handle("/req/empty"),
+                "   ",
+                "",
+                flags(&[("interactive", false)]),
+            )
+            .await
+            .expect("Screenshot");
+        let argv = started.fake.argv();
+        let fallback = gettextrs::gettext("An application");
+        assert_eq!(
+            argv[1]
+                .windows(2)
+                .find(|pair| pair[0] == "--portal")
+                .map(|pair| pair[1].as_os_str()),
+            Some(std::ffi::OsStr::new(fallback.as_str()))
+        );
+        assert_eq!(argv[1][1], OsString::from("--screen"));
+
+        let output = started.directory.path().join("shot.png");
+        started.fake.push(Script::Done {
+            stdout: result_stdout(output.to_str().expect("utf-8")),
+            code: 0,
+        });
         let (response, results) = proxy
             .screenshot(
-                &handle(&format!("/req/refused{n}")),
+                &handle("/req/headless"),
                 "org.gimp.GIMP",
                 "",
-                targeted(target, extra),
+                flags(&[("interactive", false), ("permission_store_checked", true)]),
             )
+            .await
+            .expect("Screenshot");
+        assert_eq!(response, SUCCESS);
+        assert_eq!(
+            results
+                .get("uri")
+                .and_then(|value| String::try_from(value.clone()).ok())
+                .as_deref(),
+            file_uri(&output).as_deref()
+        );
+        let argv = &started.fake.argv()[2];
+        assert_eq!(program_name(argv), Some("glimpse-shot"));
+        assert_eq!(argv[1], OsString::from("capture"));
+        assert_eq!(argv[2], OsString::from("--screen"));
+        assert_eq!(argv[3], OsString::from("--json"));
+        assert_eq!(argv[4], OsString::from("-o"));
+        assert_eq!(argv[5], output.as_os_str());
+        assert!(output.starts_with(started.directory.path()));
+
+        started.fake.push(Script::Done {
+            stdout: String::new(),
+            code: 4,
+        });
+        let (response, results) = proxy
+            .screenshot(
+                &handle("/req/esc"),
+                "org.gimp.GIMP",
+                "",
+                flags(&[("interactive", true)]),
+            )
+            .await
+            .expect("Screenshot");
+        assert_eq!(response, CANCELLED);
+        assert!(results.is_empty());
+
+        started.fake.push(Script::Done {
+            stdout: "crash".to_owned(),
+            code: 9,
+        });
+        let (response, results) = proxy
+            .screenshot(&handle("/req/crash"), "org.gimp.GIMP", "", HashMap::new())
             .await
             .expect("Screenshot");
         assert_eq!(response, OTHER);
         assert!(results.is_empty());
-    }
-    assert_eq!(started.fake.argv().len(), before);
+
+        let silent = [("interactive", false), ("permission_store_checked", true)];
+        let stdout = result_stdout(output.to_str().expect("utf-8"));
+        for (n, (target, extra, want)) in [
+            (1u32, &silent[..], "capture"),
+            (1, &[][..], "--screen"),
+            (4, &silent[..], "--screen"),
+            (8, &silent[..], "capture"),
+            (
+                8,
+                &[("interactive", true), ("permission_store_checked", true)][..],
+                "capture",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            started.fake.push(Script::Done {
+                stdout: stdout.clone(),
+                code: 0,
+            });
+            let (response, _) = proxy
+                .screenshot(
+                    &handle(&format!("/req/target{n}")),
+                    "org.gimp.GIMP",
+                    "",
+                    targeted(Value::from(target), extra),
+                )
+                .await
+                .expect("Screenshot");
+            assert_eq!(response, SUCCESS);
+            let argv = started.fake.argv().pop().expect("argv");
+            assert_eq!(argv[1], OsString::from(want));
+            if target == 4 {
+                assert!(argv.contains(&OsString::from("--portal")));
+            }
+            if target == 8 {
+                assert_eq!(argv[2], OsString::from("--window"));
+                assert_eq!(argv[3], OsString::from("focused"));
+            }
+        }
+
+        let before = started.fake.argv().len();
+        let refused: [(Value<'static>, &[(&'static str, bool)]); 7] = [
+            (Value::from(2u32), &silent[..]),
+            (Value::from(3u32), &silent[..]),
+            (Value::from(0u32), &silent[..]),
+            (Value::from(16u32), &silent[..]),
+            (Value::from("1"), &silent[..]),
+            (Value::from(8u32), &[("interactive", true)][..]),
+            (Value::from(8u32), &[("interactive", false)][..]),
+        ];
+        for (n, (target, extra)) in refused.into_iter().enumerate() {
+            let (response, results) = proxy
+                .screenshot(
+                    &handle(&format!("/req/refused{n}")),
+                    "org.gimp.GIMP",
+                    "",
+                    targeted(target, extra),
+                )
+                .await
+                .expect("Screenshot");
+            assert_eq!(response, OTHER);
+            assert!(results.is_empty());
+        }
+        assert_eq!(started.fake.argv().len(), before);
+    })
+    .await
+    .expect("Screenshot flow test finishes on the private bus");
 }
 
 #[test]
@@ -827,44 +848,4 @@ fn overlay_and_headless_commands_name_the_binaries() {
     assert_ne!(first_id, second_id);
     assert!(app_id(&child_command(headless).expect("headless command")).is_none());
     assert!(app_id(&child_command(picker).expect("picker command")).is_none());
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn close_kills_the_child_and_the_screenshot_call_does_not_return() {
-    tokio::time::timeout(
-        Duration::from_secs(10),
-        close_kills_the_child_and_the_screenshot_call_does_not_return_impl(),
-    )
-    .await
-    .expect("Close test finishes on the private bus");
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn pick_color_returns_fractions_of_255_and_cancel_is_response_1() {
-    tokio::time::timeout(
-        Duration::from_secs(10),
-        pick_color_returns_fractions_of_255_and_cancel_is_response_1_impl(),
-    )
-    .await
-    .expect("PickColor test finishes on the private bus");
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_second_request_while_one_is_open_returns_2() {
-    tokio::time::timeout(
-        Duration::from_secs(10),
-        a_second_request_while_one_is_open_returns_2_impl(),
-    )
-    .await
-    .expect("busy request test finishes on the private bus");
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn the_spawned_child_follows_the_decision_and_the_child_result() {
-    tokio::time::timeout(
-        Duration::from_secs(10),
-        the_spawned_child_follows_the_decision_and_the_child_result_impl(),
-    )
-    .await
-    .expect("Screenshot flow test finishes on the private bus");
 }

@@ -44,15 +44,11 @@ async fn a_tick_reaches_the_handler_as_an_event() {
     assert_eq!(event(&mut received).await, Some(9));
 }
 
-/// Without this the task simply vanishes and the service keeps reporting itself healthy while
-/// one of its sources is gone.
 #[tokio::test]
 async fn a_panicking_source_degrades_its_service() {
     let (ctx, _received, health) = wired_probe();
 
     ctx.spawn_detached(|_ctx| async { panic!("the backend sent nonsense") });
-    // Let the task reach its panic before cancelling: `shutdown` races the cancel branch of the
-    // source's own select, and a cancelled task never panics at all.
     tokio::task::yield_now().await;
     ctx.shutdown().await;
 
@@ -62,8 +58,6 @@ async fn a_panicking_source_degrades_its_service() {
     ));
 }
 
-/// The reason `degraded` is shared rather than owned: a task that degrades the service through
-/// its own `Ctx` has to be visible to the runtime, which holds the original.
 #[tokio::test]
 async fn a_clone_shares_the_degraded_flag_with_the_original() {
     let (ctx, _received) = probe();

@@ -188,9 +188,7 @@ just gen-config-commented  # regenerate the seed installed into ~/.config/glimps
 just net-guard arm   # restore connectivity automatically if a network test strands the machine
 ```
 
-Binaries run through `just run-daemon`, `just run-panel`, `just run-wallpaper`, `just run-locker`
-and `just ctl <args>`. `just nested` opens a nested niri window for a dev loop that does not disturb
-the session.
+Binaries run through `just run-panel`, `just run-wallpaper`, `just run-locker` and `just ctl <args>`.
 
 **A blueprint error naming a `.blp` that does not exist is a stale build script, not a broken tree.**
 Switching branches can leave `target/` holding a compiled `build.rs` from the other branch whose
@@ -253,7 +251,7 @@ units, adding a language and the extractor's traps: `docs/translations.md`.
   `glimpse-compositors` — while pointer injection belongs in a script.
 - **`_old/` and `var/glimpse2` are reference only.** Never edit, build, or copy code out of them.
 - **Never sandbox `glimpse-lock.service` — no systemd sandboxing option of any kind.** All 14
-  measured in `var/lock/research.md` break PAM through one of two mechanisms: namespace options
+  break PAM through one of two mechanisms: namespace options
   (`PrivateTmp=`, `ProtectSystem=`, `ProtectKernelTunables=`, …) put a user service in a user
   namespace where root is unmapped and `unix_chkpwd`'s setuid bit is not honoured, and
   seccomp-family options (`SystemCallFilter=`, `LockPersonality=`, `RestrictSUIDSGID=`, …) imply

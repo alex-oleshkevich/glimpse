@@ -8,8 +8,6 @@ use clap::{Parser, ValueEnum};
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
 
-/// Scoped to the preview's own window. On bare `window` it also paints every tooltip, popover and
-/// menu GTK creates, which then render transparent over the checkerboard.
 const CHECKERBOARD: &str = "
 window.preview {
   background-color: #888888;
@@ -160,10 +158,6 @@ fn activate(
     unsafe { window.set_data("preview-monitors", monitors) };
 }
 
-/// A watched path must be spelled the way the file monitor spells it back. A relative argument or
-/// a `..` component compares unequal to the absolute, resolved path GIO reports, and every event is
-/// then discarded — the watch arms, stays silent, and looks exactly like a tool that does not
-/// reload.
 fn resolve(path: &Path) -> PathBuf {
     std::fs::canonicalize(path)
         .or_else(|_| std::path::absolute(path))
@@ -198,13 +192,6 @@ fn load_styles(sheets: &[(PathBuf, gtk4::CssProvider)]) {
     }
 }
 
-/// Watches each file's **directory**, not the file, and treats a rename onto the path as a change.
-///
-/// An editor that saves by writing a temporary file and renaming it over the original destroys the
-/// inode a file monitor holds, and GIO then reports the write on a two-second timer. Watching the
-/// directory sees the rename immediately — but reports it as `RENAMED`, whose `file` argument is
-/// the *temporary* path and whose `other_file` is the one that was asked for, so matching only the
-/// first argument silently ignores every such save.
 fn watch(
     blueprint: &Path,
     slot: &gtk4::Box,
@@ -261,9 +248,6 @@ fn watch(
     monitors
 }
 
-/// Some widgets cannot be filled from a `.blp` because their data is not a property — a calendar's
-/// events are a colour list per day. A named fixture puts sample data in after the build, so a
-/// states sheet stays a blueprint rather than becoming a second program.
 mod fixtures {
     use adw::prelude::AdwDialogExt;
     use gtk4::gdk;
@@ -720,8 +704,6 @@ mod fixtures {
         forecast("Sunday", "weather-fog-symbolic", "Fog", Some(20), 7.0, 15.0),
     ];
 
-    /// The real `$WeatherPopover`, filled through the setters the applet uses, so the preview
-    /// shows the shipped widget rather than a hand-copied arrangement of its parts.
     fn weather_popover(root: &gtk4::Widget) {
         for popover in collect::<WeatherPopover>(root) {
             weather(&popover);
@@ -923,8 +905,6 @@ mod fixtures {
         },
     ];
 
-    /// A rewind past this many seconds restarts the track instead of stepping back a track, which
-    /// is what every player does and what makes the button feel right rather than jumpy.
     const RESTART_AFTER: f64 = 3.0;
 
     struct Entry {
@@ -1242,8 +1222,6 @@ mod fixtures {
         }
     }
 
-    /// Where the row carrying `key` sits in `entries`. Rows cover `entries[1..]`, and the list
-    /// reports which player was clicked rather than which position, so the fixture looks it up.
     fn other(media: &Media, key: &str) -> Option<usize> {
         media
             .entries
@@ -1292,9 +1270,6 @@ mod fixtures {
         list.set_players(&players);
     }
 
-    /// Nothing in a preview can reach a real `mpris:artUrl`, so the cover is generated: a diagonal
-    /// blend between the source's colour and a darkened version of it. It exists to prove the
-    /// rounded clip and the fallback swap, not to look like a record sleeve.
     fn artwork((r, g, b): (u8, u8, u8)) -> gdk::Texture {
         const SIZE: usize = 192;
         let mut pixels = Vec::with_capacity(SIZE * SIZE * 4);
@@ -3724,25 +3699,6 @@ mod fixtures {
         }
     }
 
-    /// The nearest ancestor that asked for its rows to recede behind an open expander.
-    ///
-    /// Opt-in, because `.expander` also reveals an audio stream's volume slider, and dimming a
-    /// whole popover around a slider would be wrong.
-    /// Everything outside an open detail dims, the row that opened it does not.
-    ///
-    /// Derived from what is revealed rather than remembered, so two expanders open at once leave
-    /// both details lit and closing one does not undim the other's neighbours.
-    /// A `Gtk.MenuButton` carrying `.open-on-map` shows its menu once the board is on screen.
-    ///
-    /// A blueprint cannot do this: `active: true` is applied by `Builder` before the button is
-    /// realized, and `GtkMenuButton` drops it, so the popup is never even created — no
-    /// `xdg_positioner` reaches the compositor. Without this a board can only show a menu if
-    /// someone clicks it, and `just click` cannot reliably reach a preview window
-    /// (`glimpse-cd67`), which is what made a real `Gtk.PopoverMenu` look broken here.
-    ///
-    /// The popup is deferred to an idle after the first frame because its anchor rectangle is the
-    /// button's *allocation*: popping up before layout anchors it to a zero-sized rectangle, and a
-    /// compositor legitimately squeezes that popup to nothing.
     fn opened_menus(root: &gtk4::Widget) {
         for button in collect::<gtk4::MenuButton>(root) {
             if !button.has_css_class(OPEN) {
@@ -3752,13 +3708,6 @@ mod fixtures {
                 eprintln!("a .{OPEN} menu button has no menu to open");
                 continue;
             }
-            // Opened when the window becomes *active*, not merely mapped: a compositor dismisses
-            // a popup belonging to an unfocused window with `xdg_popup.popup_done` the moment it
-            // appears, and a preview opens on its own workspace, which is usually not the focused
-            // one. Waiting for focus is what makes the menu stay up long enough to read.
-            //
-            // Hooked from `map`, because a fixture runs while the tree is still being built and
-            // the button has no root window to ask about focus yet.
             button.connect_map(|button| {
                 let Some(window) = button.root().and_downcast::<gtk4::Window>() else {
                     return;

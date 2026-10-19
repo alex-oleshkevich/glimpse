@@ -1,7 +1,5 @@
 use super::*;
 
-/// The backend is read from the environment by `start`; every assertion here supplies it
-/// instead, so the result does not depend on which compositor the test machine runs.
 #[tokio::test]
 async fn a_status_is_published_before_any_snapshot_arrives() {
     let harness = harness(Backend::Unsupported);
@@ -18,8 +16,6 @@ async fn a_status_is_published_before_any_snapshot_arrives() {
     );
 }
 
-/// `Changed` before the first `Snapshot` has no state to apply to, and must not publish an
-/// empty set of workspaces over the nothing that is already there.
 #[tokio::test]
 async fn a_change_before_the_first_snapshot_publishes_nothing() {
     let mut harness = harness(Backend::Unsupported);
