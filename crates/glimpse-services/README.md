@@ -195,7 +195,8 @@ stale UI events cannot reach a reloaded applet.
 the entry's `Path`, or the desktop file's directory. Placement and options changes go over the
 socket without a restart; a changed entry or `env` stops the unit and starts the next `<n>`. Every
 panel startup sweeps leftover units and the sockets of dead panels; a clean stop stops each unit,
-and a crashed panel closes the sockets so applets exit on EOF. Without the systemd user manager every
+and a crashed panel closes the sockets so applets exit on EOF. An applet that cannot reach its panel
+socket exits 69, and its unit is not restarted. Without the systemd user manager every
 slot fails with a reason and the panel keeps running. A dev slot from AppletHost takes over the
 same-id slot, has no automatic restart, and writes stderr to the caller. The host passes the applet's state
 directory as `state` and its desktop entry's id, name and icon as `entry` in `hello`. A URI must

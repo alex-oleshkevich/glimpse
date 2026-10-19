@@ -11,7 +11,7 @@ use tokio::process::Command;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
-use super::{Launcher, UnitSpec, UnitState};
+use super::{Launcher, UnitSpec, UnitState, is_orphan_unit, pid_alive};
 
 struct Unit {
     stop: CancellationToken,
@@ -251,12 +251,15 @@ impl Launcher for ProcessLauncher {
     }
 
     fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
+        let own_pid = std::process::id();
         let units: Vec<Arc<Unit>> = self
             .units
             .lock()
             .map(|map| {
                 map.iter()
-                    .filter(|(name, _)| name.starts_with(prefix))
+                    .filter(|(name, _)| {
+                        name.starts_with(prefix) || is_orphan_unit(name, own_pid, pid_alive)
+                    })
                     .map(|(_, unit)| Arc::clone(unit))
                     .collect()
             })

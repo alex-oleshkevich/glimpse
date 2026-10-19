@@ -46,7 +46,8 @@ func run(app App) (code int) {
 	conn, err := net.Dial("unix", path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ECONNREFUSED) {
-			return 0
+			fmt.Fprintf(os.Stderr, "GLIMPSE_APPLET_SOCKET at %s is not reachable: run the applet under the panel\n", path)
+			return 69
 		}
 		fmt.Fprintln(os.Stderr, err)
 		return 1

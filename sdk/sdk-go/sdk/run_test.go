@@ -109,9 +109,21 @@ func TestRunExitCodes(t *testing.T) {
 	}
 }
 
-func TestRunMissingSocketExitsZero(t *testing.T) {
-	t.Setenv("GLIMPSE_APPLET_SOCKET", filepath.Join(t.TempDir(), "none"))
-	if code := run(runApp{func() []Widget { return nil }}); code != 0 {
-		t.Fatalf("exit %d", code)
+func TestRunMissingOrRefusedSocketExits69(t *testing.T) {
+	dir := t.TempDir()
+	refused := filepath.Join(dir, "refused.sock")
+	ln, err := net.Listen("unix", refused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln.(*net.UnixListener).SetUnlinkOnClose(false)
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join(dir, "none"), refused} {
+		t.Setenv("GLIMPSE_APPLET_SOCKET", path)
+		if code := run(runApp{func() []Widget { return nil }}); code != 69 {
+			t.Fatalf("%s: exit %d, want 69", path, code)
+		}
 	}
 }
