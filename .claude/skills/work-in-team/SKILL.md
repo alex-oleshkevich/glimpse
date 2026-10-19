@@ -41,7 +41,10 @@ Pick by complexity, cheapest that will get it right:
 - **pi with DeepSeek** — fact analysis: `pi -p --no-session --model
 "openrouter/~deepseek/deepseek-flash-latest" "<question>"`. Live tests: `pi -p --no-session -ne
 --no-mcp -ns -np --model openrouter/deepseek/deepseek-v4-flash-latest "<brief>"`.
-- When a CLI is broken, fall back to a Claude subagent and say so. kimi's `-p` mode rejects any
+- **muse** is an executor only: it builds, never plans or reviews. It is the first fallback when
+  another builder CLI is broken or out of credits.
+- When a planning or review CLI (codex astra) is unavailable, a Claude subagent takes that role.
+  When any CLI is broken or out of credits, say so. kimi's `-p` mode rejects any
   approval flag and fails on a large tool schema; use grok or muse in its place.
 - Workers economize too: they hand simple steps (running tests, reading or grepping files) to a
   cheaper agent (a haiku subagent or pi) and use `codegraph explore "<symbols or question>"` to
