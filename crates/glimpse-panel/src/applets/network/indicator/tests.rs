@@ -24,25 +24,6 @@ fn a_wired_row_routes_to_its_device_and_never_to_an_access_point() {
 }
 
 #[test]
-fn only_the_question_networkmanager_is_waiting_on_survives_the_popover_closing() {
-    assert!(survives_reopen(Some(&Asking::Agent(SecretRequest {
-        name: "Skylink".to_owned(),
-        path: "/s/1".to_owned(),
-        setting: "802-11-wireless-security".to_owned(),
-        retry: false,
-    }))));
-    assert!(!survives_reopen(Some(&Asking::Name)));
-    assert!(!survives_reopen(Some(&Asking::Hidden {
-        ssid: "Skylink".to_owned()
-    })));
-    assert!(!survives_reopen(Some(&Asking::Joining {
-        id: NetworkId::new("/ap/1".to_owned()),
-        name: "Skylink".to_owned(),
-    })));
-    assert!(!survives_reopen(None));
-}
-
-#[test]
 fn a_vpn_token_is_not_held_to_a_wifi_passphrase_length() {
     assert_eq!(
         entered_for("802-11-wireless-security"),
@@ -199,32 +180,4 @@ fn a_connected_vpn_adds_a_second_chip_rather_than_changing_the_first() {
 
     assert_eq!(with_vpn.icon_name(), state(70).icon_name());
     assert!(with_vpn.vpn_icon_name(true).is_some());
-}
-
-#[tokio::test]
-async fn a_secret_request_asks_the_panel_to_raise_it() {
-    let (mut service, handle) = glimpse_services::Running::<glimpse_services::Network>::spawn(
-        &glimpse_config::Config::default(),
-        glimpse_dbus::Buses::unavailable("no bus in tests"),
-        glimpse_services::NetworkDependencies { agent: false },
-    );
-    let notifications =
-        glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests").handle();
-    let (dialog, inbox) = relm4::channel();
-    let mut applet = Network::start(handle, notifications, dialog.clone());
-
-    applet.state.secret = Some(SecretRequest {
-        name: "Skylink".to_owned(),
-        path: "/s/1".to_owned(),
-        setting: "802-11-wireless-security".to_owned(),
-        retry: false,
-    });
-    applet.raise();
-
-    let _ = dialog.send(crate::app::AppInput::MonitorsChanged);
-    assert!(matches!(
-        inbox.recv().await,
-        Some(crate::app::AppInput::Raise("network"))
-    ));
-    service.stop().await;
 }

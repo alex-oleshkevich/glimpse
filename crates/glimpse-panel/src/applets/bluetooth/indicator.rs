@@ -4,7 +4,7 @@ use std::rc::Rc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{Answer, BluetoothError, BluetoothHandle, BluetoothState, DeviceId, Hold};
+use glimpse_services::{BluetoothError, BluetoothHandle, BluetoothState, DeviceId, Hold};
 
 use glimpse_widgets::{BluetoothPopover, IndicatorSpec};
 use gtk4::glib;
@@ -21,7 +21,6 @@ pub struct Bluetooth {
     state: BluetoothState,
     bluetooth: BluetoothHandle,
     notifications: NotificationsProviderHandle,
-    dialog: relm4::Sender<crate::app::AppInput>,
     tooltip_format: Option<String>,
     spec: Vec<IndicatorSpec>,
     devices: usize,
@@ -29,7 +28,6 @@ pub struct Bluetooth {
     nearby_toggled: Rc<Cell<bool>>,
     expanded: Rc<Cell<(bool, bool)>>,
     asked: Rc<RefCell<Option<Asked>>>,
-    raised: Option<Asked>,
     shown: glib::WeakRef<BluetoothPopover>,
 }
 
@@ -54,9 +52,8 @@ impl Applet for Bluetooth {
                     && render::powered(&self.state)
                     && self.shown.upgrade().is_some_and(|shown| shown.is_mapped())
                 {
-                    look(self.bluetooth.clone(), self.raised.is_some());
+                    look(self.bluetooth.clone(), self.asked.borrow().is_some());
                 }
-                self.raise();
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -174,19 +171,6 @@ impl Applet for Bluetooth {
                     return;
                 };
                 match asked {
-                    Asked::Pairing(_) => {
-                        let answer = match accepted {
-                            true => Answer::Confirm,
-                            false => Answer::Deny,
-                        };
-                        tell(
-                            &notifications,
-                            &opener,
-                            "bluetooth.answer_pairing",
-                            gettext("Could not pair"),
-                            async move { bluetooth.answer_pairing(answer).await },
-                        );
-                    }
                     Asked::Forget(id) if accepted => tell(
                         &notifications,
                         &opener,
@@ -226,7 +210,7 @@ impl Applet for Bluetooth {
             }
         });
 
-        let prompting = self.raised.is_some();
+        let prompting = self.asked.borrow().is_some();
         shown.connect_map({
             let bluetooth = self.bluetooth.clone();
             move |_| {
@@ -336,17 +320,12 @@ fn wording(error: &BluetoothError) -> Option<String> {
 }
 
 impl Bluetooth {
-    pub fn start(
-        bluetooth: BluetoothHandle,
-        notifications: NotificationsProviderHandle,
-        dialog: relm4::Sender<crate::app::AppInput>,
-    ) -> Self {
+    pub fn start(bluetooth: BluetoothHandle, notifications: NotificationsProviderHandle) -> Self {
         let state = bluetooth.snapshot();
         Self {
             state,
             bluetooth,
             notifications,
-            dialog,
             tooltip_format: None,
             spec: Vec::new(),
             devices: 6,
@@ -354,19 +333,7 @@ impl Bluetooth {
             expanded: Rc::new(Cell::new((false, false))),
             nearby_toggled: Rc::new(Cell::new(false)),
             asked: Rc::new(RefCell::new(None)),
-            raised: None,
             shown: glib::WeakRef::new(),
-        }
-    }
-
-    fn raise(&mut self) {
-        let asking = render::asked(&self.state);
-        if asking == self.raised {
-            return;
-        }
-        self.raised = asking;
-        if let Some(Asked::Pairing(_)) = &self.raised {
-            let _ = self.dialog.send(crate::app::AppInput::Raise("bluetooth"));
         }
     }
 
@@ -417,6 +384,3 @@ impl Bluetooth {
         })
     }
 }
-
-#[cfg(test)]
-mod tests;

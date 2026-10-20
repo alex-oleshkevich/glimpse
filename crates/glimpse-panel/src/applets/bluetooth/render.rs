@@ -65,37 +65,43 @@ pub fn hero(state: &BluetoothState) -> Hero {
     }
 }
 
-pub fn typed(prompt: &Prompt) -> Option<PairingEntry> {
+pub fn prompt_entry(prompt: &Prompt) -> (PairingEntry, String) {
     match prompt {
-        Prompt::RequestPin(_) => Some(PairingEntry::Pin),
-        Prompt::RequestPasskey(_) => Some(PairingEntry::Passkey),
-        _ => None,
+        Prompt::RequestPin(_) => (PairingEntry::Pin, String::new()),
+        Prompt::RequestPasskey(_) => (PairingEntry::Passkey, String::new()),
+        Prompt::Confirm { passkey, .. } => (PairingEntry::Pin, digits(*passkey)),
+        Prompt::Authorize(_) => (PairingEntry::Authorize, String::new()),
+        Prompt::DisplayPin { pin, .. } => {
+            (PairingEntry::ShowPin, glimpse_utils::clean(pin, PIN_MAX))
+        }
+        Prompt::DisplayPasskey {
+            passkey, entered, ..
+        } => (
+            PairingEntry::ShowPasskey,
+            format!(
+                "{}\n{}",
+                digits(*passkey),
+                gettext("{entered} of 6 entered")
+                    .replace("{entered}", &(*entered).min(6).to_string())
+            ),
+        ),
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Asked {
-    Pairing(DeviceId),
     Forget(DeviceId),
 }
 
 impl Asked {
     fn key(&self) -> String {
         match self {
-            Self::Pairing(device) => format!("pair:{}", device.as_str()),
             Self::Forget(device) => format!("forget:{}", device.as_str()),
         }
     }
 }
 
 pub fn asked(state: &BluetoothState) -> Option<Asked> {
-    if let Some(prompt) = state
-        .pairing
-        .as_ref()
-        .filter(|prompt| typed(prompt).is_none())
-    {
-        return Some(Asked::Pairing(prompt.device().clone()));
-    }
     let Confirmation::Forget { device, .. } = state.confirm.as_ref()?;
     Some(Asked::Forget(device.clone()))
 }
@@ -112,7 +118,7 @@ pub fn waiting(state: &BluetoothState) -> Option<String> {
 }
 
 pub fn prompt(state: &BluetoothState) -> Option<Ask> {
-    pairing(state).or_else(|| confirmation(state))
+    confirmation(state)
 }
 
 fn confirmation(state: &BluetoothState) -> Option<Ask> {
@@ -144,59 +150,6 @@ fn named(state: &BluetoothState, device: &DeviceId) -> String {
             || gettext("Unknown device"),
             |name| glimpse_utils::clean(name, NAME_CAP),
         )
-}
-
-fn pairing(state: &BluetoothState) -> Option<Ask> {
-    let prompt = state.pairing.as_ref()?;
-    let key = Asked::Pairing(prompt.device().clone()).key();
-    let device = named(state, prompt.device());
-
-    Some(match prompt {
-        Prompt::Confirm { passkey, .. } => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("Is this the code shown on the device?"),
-            code: digits(*passkey),
-            progress: String::new(),
-            accept: gettext("Confirm"),
-            destructive: false,
-            cancel: gettext("Cancel"),
-        },
-        Prompt::Authorize(_) => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("This device wants to pair with this computer."),
-            code: String::new(),
-            progress: String::new(),
-            accept: gettext("Allow"),
-            destructive: false,
-            cancel: gettext("Deny"),
-        },
-        Prompt::DisplayPin { pin, .. } => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("Type this PIN on the device. It will not ask again."),
-            code: glimpse_utils::clean(pin, PIN_MAX),
-            progress: String::new(),
-            accept: String::new(),
-            destructive: false,
-            cancel: gettext("Cancel"),
-        },
-        Prompt::DisplayPasskey {
-            passkey, entered, ..
-        } => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("Type this passkey on the device."),
-            code: digits(*passkey),
-            progress: gettext("{entered} of 6 entered")
-                .replace("{entered}", &(*entered).min(6).to_string()),
-            accept: String::new(),
-            destructive: false,
-            cancel: gettext("Cancel"),
-        },
-        Prompt::RequestPin(_) | Prompt::RequestPasskey(_) => return None,
-    })
 }
 
 fn digits(passkey: u32) -> String {

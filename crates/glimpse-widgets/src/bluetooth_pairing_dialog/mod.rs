@@ -5,7 +5,7 @@ use gettextrs::gettext;
 use gtk4::glib;
 use gtk4::glib::subclass::prelude::*;
 
-use imp::{NAME_MAX, OK};
+use imp::{ACCEPT, NAME_MAX, OK};
 
 pub use imp::{Entry, PASSKEY_MAX, PIN_MAX};
 
@@ -18,6 +18,7 @@ glib::wrapper! {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PairingAnswer {
     Deny,
+    Accept,
     Pin(String),
     Passkey(u32),
 }
@@ -33,7 +34,7 @@ impl PairingDialog {
         glib::Object::new()
     }
 
-    pub fn ask(&self, device: &str, name: &str, kind: Entry) {
+    pub fn ask(&self, device: &str, name: &str, kind: Entry, code: &str) {
         if self.imp().asked.replace(device.to_owned()) != device {
             self.imp().entry.set_text("");
         }
@@ -47,6 +48,29 @@ impl PairingDialog {
                 gettext("Enter the passkey"),
                 gettext("Type the passkey shown on {device}.").replace("{device}", &capped(name)),
             ),
+            Entry::Confirm => (
+                gettext("Confirm the code"),
+                gettext("Is this the code shown on {device}?\n\n{code}")
+                    .replace("{device}", &capped(name))
+                    .replace("{code}", code),
+            ),
+            Entry::Authorize => (
+                gettext("Allow pairing"),
+                gettext("{device} wants to pair with this computer.")
+                    .replace("{device}", &capped(name)),
+            ),
+            Entry::ShowPin => (
+                gettext("Type this PIN"),
+                gettext("Type this PIN on {device}. It will not ask again.\n\n{code}")
+                    .replace("{device}", &capped(name))
+                    .replace("{code}", code),
+            ),
+            Entry::ShowPasskey => (
+                gettext("Type this passkey"),
+                gettext("Type this passkey on {device}.\n\n{code}")
+                    .replace("{device}", &capped(name))
+                    .replace("{code}", code),
+            ),
         };
         if self.heading().as_deref() != Some(heading.as_str()) {
             self.set_heading(Some(&heading));
@@ -57,6 +81,7 @@ impl PairingDialog {
         self.imp().entry.set_placeholder_text(Some(&match kind {
             Entry::Pin => gettext("1 to 16 letters or digits"),
             Entry::Passkey => gettext("Up to 999999"),
+            _ => String::new(),
         }));
         self.imp().show_entry(kind);
     }
@@ -80,6 +105,7 @@ impl PairingDialog {
 
 fn answer(response: &str, value: &str, numeric: bool) -> PairingAnswer {
     match (response, numeric) {
+        (ACCEPT, _) => PairingAnswer::Accept,
         (OK, true) => match value.parse::<u32>() {
             Ok(passkey) if passkey <= PASSKEY_MAX => PairingAnswer::Passkey(passkey),
             _ => PairingAnswer::Deny,
