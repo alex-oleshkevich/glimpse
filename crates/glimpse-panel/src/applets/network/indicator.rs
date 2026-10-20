@@ -139,6 +139,7 @@ pub struct Network {
     state: NetworkState,
     network: NetworkHandle,
     notifications: NotificationsProviderHandle,
+    dialog: relm4::Sender<crate::app::AppInput>,
     tooltip_format: Option<String>,
     vpn_chip: bool,
     visible_networks: usize,
@@ -151,12 +152,17 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn start(network: NetworkHandle, notifications: NotificationsProviderHandle) -> Self {
+    pub fn start(
+        network: NetworkHandle,
+        notifications: NotificationsProviderHandle,
+        dialog: relm4::Sender<crate::app::AppInput>,
+    ) -> Self {
         let state = network.snapshot();
         let mut applet = Self {
             state,
             network,
             notifications,
+            dialog,
             tooltip_format: None,
             vpn_chip: true,
             visible_networks: 8,
@@ -173,7 +179,7 @@ impl Network {
 
     /// A request from NetworkManager owns the prompt while it is up: it is the only one that can
     /// arrive without the user having asked for anything, so it opens the popover to be answered.
-    fn raise(&mut self, ctx: &Ctx) {
+    fn raise(&mut self) {
         let held = self.asking.borrow().clone();
         let asked = match (&self.state.secret, held) {
             (Some(request), Some(Asking::Agent(held)))
@@ -188,7 +194,7 @@ impl Network {
         let raising = asked.is_some();
         self.asking.replace(asked);
         if raising {
-            ctx.opener().open_popover();
+            let _ = self.dialog.send(crate::app::AppInput::Raise("network"));
         }
     }
 
@@ -334,11 +340,11 @@ impl Applet for Network {
         self.refresh();
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
                 self.state = self.network.snapshot();
-                self.raise(ctx);
+                self.raise();
             }
             Input::Tick | Input::Pointer(_) => return,
         }

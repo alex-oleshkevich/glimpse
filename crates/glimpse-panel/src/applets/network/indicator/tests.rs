@@ -200,3 +200,31 @@ fn a_connected_vpn_adds_a_second_chip_rather_than_changing_the_first() {
     assert_eq!(with_vpn.icon_name(), state(70).icon_name());
     assert!(with_vpn.vpn_icon_name(true).is_some());
 }
+
+#[tokio::test]
+async fn a_secret_request_asks_the_panel_to_raise_it() {
+    let (mut service, handle) = glimpse_services::Running::<glimpse_services::Network>::spawn(
+        &glimpse_config::Config::default(),
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+        glimpse_services::NetworkDependencies { agent: false },
+    );
+    let notifications =
+        glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests").handle();
+    let (dialog, inbox) = relm4::channel();
+    let mut applet = Network::start(handle, notifications, dialog.clone());
+
+    applet.state.secret = Some(SecretRequest {
+        name: "Skylink".to_owned(),
+        path: "/s/1".to_owned(),
+        setting: "802-11-wireless-security".to_owned(),
+        retry: false,
+    });
+    applet.raise();
+
+    let _ = dialog.send(crate::app::AppInput::MonitorsChanged);
+    assert!(matches!(
+        inbox.recv().await,
+        Some(crate::app::AppInput::Raise("network"))
+    ));
+    service.stop().await;
+}

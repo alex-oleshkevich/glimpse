@@ -90,7 +90,7 @@ fn enclosed(path: &str) -> Result<PathBuf> {
             && candidate
                 .components()
                 .all(|component| matches!(component, Component::Normal(_))),
-        "package entry escapes the install directory: {path}"
+        "package entry escapes the install directory: {path:?}"
     );
     Ok(candidate.to_path_buf())
 }
@@ -198,7 +198,7 @@ impl PackageManager {
             .with_context(|| format!("installed metadata for {id} is invalid"))?;
         ensure!(
             metadata.id == id,
-            "installed metadata names {}",
+            "installed metadata names {:?}",
             metadata.id
         );
         Ok(metadata)
@@ -330,10 +330,10 @@ impl PackageManager {
         let text =
             String::from_utf8(raw).map_err(|_| Refused("metadata.toml is not UTF-8".to_owned()))?;
         let metadata: Metadata = toml::from_str(&text)
-            .map_err(|error| Refused(format!("invalid metadata.toml: {error}")))?;
+            .map_err(|error| Refused(format!("invalid metadata.toml: {:?}", error.message())))?;
         ensure!(
             is_desktop_id(&metadata.id),
-            "invalid desktop-file id: {}",
+            "invalid desktop-file id: {:?}",
             metadata.id
         );
 
@@ -394,7 +394,7 @@ impl PackageManager {
             }
             ensure!(
                 format!("{:x}", hasher.finalize()) == file.sha256,
-                "{}: sha256 does not match metadata.toml",
+                "{:?}: sha256 does not match metadata.toml",
                 file.path
             );
             fs::set_permissions(

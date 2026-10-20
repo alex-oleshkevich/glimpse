@@ -722,7 +722,8 @@ fn a_bluetooth_popover_signal_reaches_the_service() {
 
     let notifications =
         glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests").handle();
-    let mut applet = BluetoothApplet::start(bluetooth.clone(), notifications);
+    let (dialog, _dialogs) = relm4::channel();
+    let mut applet = BluetoothApplet::start(bluetooth.clone(), notifications, dialog);
     let (host, _receiver) = relm4::channel();
     let shown = applet
         .popover(&Seat::new(host))

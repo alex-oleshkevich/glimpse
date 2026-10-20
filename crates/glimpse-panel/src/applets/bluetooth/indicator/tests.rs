@@ -1,14 +1,14 @@
 use super::*;
-use crate::applet::runtime::HostInput;
+use crate::app::AppInput;
 use glimpse_services::Confirmation;
 
-async fn requests(inbox: &relm4::Receiver<HostInput>, ctx: &Ctx) -> usize {
-    ctx.opener().wake();
+async fn raised(dialog: &relm4::Sender<AppInput>, inbox: &relm4::Receiver<AppInput>) -> usize {
+    let _ = dialog.send(AppInput::MonitorsChanged);
     let mut seen = 0;
     while let Some(input) = inbox.recv().await {
         match input {
-            HostInput::PopoverRequested => seen += 1,
-            HostInput::Woken => break,
+            AppInput::Raise("bluetooth") => seen += 1,
+            AppInput::MonitorsChanged => break,
             _ => {}
         }
     }
@@ -25,26 +25,48 @@ fn forget() -> BluetoothState {
     }
 }
 
-#[tokio::test]
-async fn a_forget_confirmation_never_raises_a_popover() {
-    let (mut service, handle) = glimpse_services::Running::<glimpse_services::Bluetooth>::spawn(
+async fn applets(
+    count: usize,
+) -> (
+    glimpse_services::Running<glimpse_services::Bluetooth>,
+    Vec<Bluetooth>,
+    relm4::Receiver<AppInput>,
+    relm4::Sender<AppInput>,
+) {
+    let (service, handle) = glimpse_services::Running::<glimpse_services::Bluetooth>::spawn(
         &glimpse_config::Config::default(),
         glimpse_dbus::Buses::unavailable("no bus in tests"),
         glimpse_services::BluetoothDependencies { agent: false },
     );
     let notifications =
         glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests").handle();
-    let (sender, inbox) = relm4::channel();
-    let ctx = Ctx::new("bluetooth".into(), None, sender);
-    let mut bars: Vec<_> = (0..2)
-        .map(|_| Bluetooth::start(handle.clone(), notifications.clone()))
+    let (dialog, inbox) = relm4::channel();
+    let bars = (0..count)
+        .map(|_| Bluetooth::start(handle.clone(), notifications.clone(), dialog.clone()))
         .collect();
+    (service, bars, inbox, dialog)
+}
+
+#[tokio::test]
+async fn a_forget_confirmation_never_raises_a_popover() {
+    let (mut service, mut bars, inbox, dialog) = applets(2).await;
 
     for bar in &mut bars {
         bar.state = forget();
-        bar.raise(&ctx);
+        bar.raise();
     }
 
-    assert_eq!(requests(&inbox, &ctx).await, 0);
+    assert_eq!(raised(&dialog, &inbox).await, 0);
+    service.stop().await;
+}
+
+#[tokio::test]
+async fn a_pairing_prompt_asks_the_panel_to_raise_it() {
+    let (mut service, mut bars, inbox, dialog) = applets(1).await;
+
+    bars[0].state.pairing = Some(glimpse_services::Prompt::Authorize(DeviceId::new("/dev/1")));
+    bars[0].raise();
+
+    assert_eq!(raised(&dialog, &inbox).await, 1);
     service.stop().await;
 }

@@ -62,6 +62,7 @@ pub struct AppInit {
 
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
+    Raise(&'static str),
     BluetoothPrompt(Option<(Entry, String, String)>),
     NetworkSecret(Option<SecretPrompt>),
     SessionConfirm(SessionDialog),
@@ -80,6 +81,7 @@ pub enum AppInput {
 impl std::fmt::Debug for AppInput {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
+            AppInput::Raise(_) => "Raise",
             AppInput::BluetoothPrompt(_) => "BluetoothPrompt",
             AppInput::NetworkSecret(_) => "NetworkSecret",
             AppInput::SessionConfirm(_) => "SessionConfirm",
@@ -238,6 +240,24 @@ impl SimpleComponent for App {
                 return;
             }
             AppInput::MonitorsChanged => {}
+            AppInput::Raise(applet) => {
+                let focused = self.services.as_ref().and_then(|services| {
+                    let state = services.handles.compositor.snapshot();
+                    let outputs = state.outputs?;
+                    outputs.outputs.into_iter().find(|output| output.focused)
+                });
+                let keys = self.panels.iter().map(|panel| &panel.key);
+                let target = raise_target(
+                    &self.config,
+                    keys,
+                    applet,
+                    focused.as_ref().map(|o| &*o.connector),
+                );
+                if let Some(panel) = target.and_then(|index| self.panels.get(index)) {
+                    panel.controller.emit(panel::Input::Raise(applet));
+                }
+                return;
+            }
             AppInput::ServicesReady(services) => {
                 services.reconfigure(&self.config);
                 self.bluetooth_watch = Some(spawn_bluetooth_watch(
@@ -534,13 +554,35 @@ fn answered(answer: PairingAnswer) -> Answer {
     }
 }
 
+fn hosts(panel: &glimpse_config::Panel, applet: &str) -> bool {
+    [&panel.left, &panel.center, &panel.right]
+        .into_iter()
+        .flatten()
+        .any(|name| name == applet)
+}
+
 fn listed(config: &Config, applet: &str) -> bool {
-    config.panels.iter().any(|panel| {
-        [&panel.left, &panel.center, &panel.right]
-            .into_iter()
-            .flatten()
-            .any(|name| name == applet)
-    })
+    config.panels.iter().any(|panel| hosts(panel, applet))
+}
+
+fn raise_target<'a>(
+    config: &Config,
+    keys: impl Iterator<Item = &'a Key>,
+    applet: &str,
+    focused: Option<&str>,
+) -> Option<usize> {
+    let mut hosting = keys.enumerate().filter(|(_, key)| {
+        config
+            .panels
+            .get(key.index)
+            .is_some_and(|panel| hosts(panel, applet))
+    });
+    let first = hosting.next()?;
+    let found = [first]
+        .into_iter()
+        .chain(hosting)
+        .find(|(_, key)| Some(key.monitor.as_str()) == focused);
+    Some(found.unwrap_or(first).0)
 }
 
 fn spawn_network_watch(network: NetworkHandle, sender: ComponentSender<App>) -> JoinHandle<()> {

@@ -92,3 +92,44 @@ fn bar_wire_retains_empty_surfaces_and_their_configured_indices() {
             .is_empty()
     );
 }
+
+fn bars(monitors: &[(usize, &str)]) -> Vec<Key> {
+    monitors
+        .iter()
+        .map(|(index, monitor)| Key {
+            index: *index,
+            monitor: (*monitor).to_owned(),
+        })
+        .collect()
+}
+
+fn with_network(panels: &[bool]) -> Config {
+    Config {
+        panels: panels
+            .iter()
+            .map(|network| glimpse_config::Panel {
+                right: if *network {
+                    vec!["network".to_owned()]
+                } else {
+                    Vec::new()
+                },
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_prompt_raises_on_exactly_one_hosting_bar() {
+    let keys = bars(&[(0, "DP-1"), (0, "DP-2"), (1, "DP-1"), (1, "DP-2")]);
+    let both = with_network(&[true, true]);
+    let target = |config: &Config, focused| raise_target(config, keys.iter(), "network", focused);
+
+    assert_eq!(target(&both, Some("DP-2")), Some(1));
+    assert_eq!(target(&both, Some("DP-1")), Some(0));
+    assert_eq!(target(&both, None), Some(0));
+    assert_eq!(target(&both, Some("HDMI-1")), Some(0));
+    assert_eq!(target(&with_network(&[false, true]), Some("DP-1")), Some(2));
+    assert_eq!(target(&with_network(&[false, false]), Some("DP-1")), None);
+}

@@ -287,3 +287,19 @@ fn right_click_and_timeout_hide_only_the_popup() {
     assert_eq!(state.hide(1).removed, [1]);
     assert!(state.record(1).is_some());
 }
+
+#[test]
+fn a_record_arriving_behind_a_gate_is_skipped_not_shown() {
+    let mut state = PopupState::new(Notifications::default());
+    state.update(Vec::new());
+    ready(&mut state);
+    state.set_dnd(true);
+
+    let delta = state.update(vec![note(1, "quiet")]);
+
+    assert_eq!(delta.skipped, [1]);
+    assert!(delta.appeared.is_empty());
+    state.set_dnd(false);
+    let delta = state.update(vec![note(1, "quiet")]);
+    assert!(delta.appeared.is_empty() && delta.skipped.is_empty());
+}

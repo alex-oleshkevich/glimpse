@@ -664,6 +664,10 @@ impl AppletHandle {
         }
     }
 
+    pub fn raise(&self) {
+        let _ = self._controller.sender().send(HostInput::PopoverRequested);
+    }
+
     pub fn configure(&self, config: AppletConfig) {
         let _ = self
             ._controller

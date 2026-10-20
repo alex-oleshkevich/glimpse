@@ -149,6 +149,7 @@ fn desired(
 pub enum Input {
     Configure(Config),
     ClosePopover,
+    Raise(&'static str),
 }
 
 impl fmt::Debug for Input {
@@ -156,6 +157,7 @@ impl fmt::Debug for Input {
         formatter.write_str(match self {
             Input::Configure(_) => "Configure(..)",
             Input::ClosePopover => "ClosePopover",
+            Input::Raise(_) => "Raise",
         })
     }
 }
@@ -204,6 +206,16 @@ impl SimpleComponent for Panel {
         match message {
             Input::Configure(config) => self.apply(&config),
             Input::ClosePopover => self.catcher.close(),
+            Input::Raise(applet) => {
+                for handle in self
+                    .applets
+                    .iter()
+                    .filter(|slot| slot.name == applet)
+                    .filter_map(|slot| slot.handle.as_ref())
+                {
+                    handle.raise();
+                }
+            }
         }
     }
 }

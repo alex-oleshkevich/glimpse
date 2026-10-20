@@ -129,17 +129,23 @@ pub fn build(
         AppletKind::Bluetooth(_) => {
             let bluetooth = handles.bluetooth.clone();
             let notifications = handles.notifications.clone();
+            let dialog = dialog.clone();
             Box::new(move |ctx| {
                 ctx.watch(bluetooth.subscribe());
-                Box::new(bluetooth::Bluetooth::start(bluetooth, notifications))
+                Box::new(bluetooth::Bluetooth::start(
+                    bluetooth,
+                    notifications,
+                    dialog,
+                ))
             })
         }
         AppletKind::Network(_) => {
             let network = handles.network.clone();
             let notifications = handles.notifications.clone();
+            let dialog = dialog.clone();
             Box::new(move |ctx| {
                 ctx.watch(network.subscribe());
-                Box::new(network::Network::start(network, notifications))
+                Box::new(network::Network::start(network, notifications, dialog))
             })
         }
         AppletKind::Audio(_) => {

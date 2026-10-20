@@ -21,6 +21,7 @@ pub struct Bluetooth {
     state: BluetoothState,
     bluetooth: BluetoothHandle,
     notifications: NotificationsProviderHandle,
+    dialog: relm4::Sender<crate::app::AppInput>,
     tooltip_format: Option<String>,
     spec: Vec<IndicatorSpec>,
     devices: usize,
@@ -44,7 +45,7 @@ impl Applet for Bluetooth {
         self.refresh();
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
                 let was = render::powered(&self.state);
@@ -55,7 +56,7 @@ impl Applet for Bluetooth {
                 {
                     look(self.bluetooth.clone(), self.raised.is_some());
                 }
-                self.raise(ctx);
+                self.raise();
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -335,12 +336,17 @@ fn wording(error: &BluetoothError) -> Option<String> {
 }
 
 impl Bluetooth {
-    pub fn start(bluetooth: BluetoothHandle, notifications: NotificationsProviderHandle) -> Self {
+    pub fn start(
+        bluetooth: BluetoothHandle,
+        notifications: NotificationsProviderHandle,
+        dialog: relm4::Sender<crate::app::AppInput>,
+    ) -> Self {
         let state = bluetooth.snapshot();
         Self {
             state,
             bluetooth,
             notifications,
+            dialog,
             tooltip_format: None,
             spec: Vec::new(),
             devices: 6,
@@ -353,14 +359,14 @@ impl Bluetooth {
         }
     }
 
-    fn raise(&mut self, ctx: &Ctx) {
+    fn raise(&mut self) {
         let asking = render::asked(&self.state);
         if asking == self.raised {
             return;
         }
         self.raised = asking;
         if let Some(Asked::Pairing(_)) = &self.raised {
-            ctx.opener().open_popover();
+            let _ = self.dialog.send(crate::app::AppInput::Raise("bluetooth"));
         }
     }
 

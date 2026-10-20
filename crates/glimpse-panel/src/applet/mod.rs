@@ -205,10 +205,6 @@ pub struct Ctx {
 pub struct Opener(relm4::Sender<runtime::HostInput>);
 
 impl Opener {
-    pub fn open_popover(&self) {
-        let _ = self.0.send(runtime::HostInput::PopoverRequested);
-    }
-
     pub fn toggle_popover(&self) {
         let _ = self.0.send(runtime::HostInput::PopoverToggled);
     }
