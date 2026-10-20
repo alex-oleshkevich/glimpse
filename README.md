@@ -8,13 +8,17 @@ libadwaita.
   <img alt="The glimpse panel over the default wallpaper" src="docs/screenshots/shell-light.png">
 </picture>
 
-[![Watch the glimpse demo](website/public/video/demo-poster.jpg)](website/public/video/demo.mp4)
-
 ## About
 
 glimpse adds what a bare Wayland compositor leaves out: a bar, notifications, a wallpaper, a lock
 screen, idle timers and a night light. It follows your light or dark theme and accent color, and
 blurs what sits behind it.
+
+## Demo
+
+![glimpse in use](docs/screenshots/demo.gif)
+
+[Watch it in full quality](website/public/video/demo.mp4).
 
 ## Features
 
