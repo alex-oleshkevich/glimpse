@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-19 12:33+0200\n"
+"POT-Creation-Date: 2026-10-20 13:16+0200\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,12 +16,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: crates/glimpse-lens/src/session.rs:281
+#: crates/glimpse-lens/src/session.rs:291
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"
 msgstr[0] "总长 {length}px，{count} 段"
 
-#: crates/glimpse-lens/src/session.rs:294
+#: crates/glimpse-lens/src/session.rs:304
 msgid "segment {length}px · {angle}°"
 msgstr "线段 {length}px · {angle}°"
 
@@ -67,32 +67,44 @@ msgstr ""
 msgid "Notifications"
 msgstr "通知"
 
-#: crates/glimpse-lock/src/notify.rs:16
+#: crates/glimpse-lock/src/notify.rs:17
 msgid "Screen not locked"
 msgstr "屏幕未锁定"
 
-#: crates/glimpse-lock/src/notify.rs:17
+#: crates/glimpse-lock/src/notify.rs:18
 msgid "Suspending unlocked"
 msgstr "挂起时不锁屏"
 
-#: crates/glimpse-lock/src/notify.rs:20
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Lock restore is off"
+msgstr "锁定恢复已关闭"
+
+#: crates/glimpse-lock/src/notify.rs:23
+msgid ""
+"Hyprland will refuse a restarted glimpse-lock. Set "
+"misc:allow_session_lock_restore to true."
+msgstr ""
+"Hyprland 将拒绝重新启动的 glimpse-lock。请将 misc:allow_session_lock_restore "
+"设为 true。"
+
+#: crates/glimpse-lock/src/notify.rs:29
 msgid "Password expired"
 msgstr "密码已过期"
 
-#: crates/glimpse-lock/src/notify.rs:21
+#: crates/glimpse-lock/src/notify.rs:30
 msgid "Your password has expired. Change it now with passwd."
 msgstr "您的密码已过期，请立即用 passwd 更改。"
 
-#: crates/glimpse-lock/src/notify.rs:27
+#: crates/glimpse-lock/src/notify.rs:36
 msgid ""
 "glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
 msgstr "glimpse-lock 无法在此会话中验证密码。请运行 glimpse-lock check。"
 
-#: crates/glimpse-lock/src/notify.rs:29
+#: crates/glimpse-lock/src/notify.rs:38
 msgid "This compositor has no session lock."
 msgstr "此合成器不支持会话锁定。"
 
-#: crates/glimpse-lock/src/notify.rs:30
+#: crates/glimpse-lock/src/notify.rs:39
 msgid "The compositor refused the lock."
 msgstr "合成器拒绝了锁定。"
 
@@ -690,7 +702,7 @@ msgstr "打印机"
 msgid "Device"
 msgstr "设备"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:448
 msgid "Vendor codec"
 msgstr "厂商编解码器"
 
@@ -946,10 +958,8 @@ msgid "External applet is not running."
 msgstr "外部小程序未运行。"
 
 #: crates/glimpse-panel/src/applets/exec/mod.rs:385
-#, fuzzy
-#| msgid "Not charging"
 msgid "Not running"
-msgstr "未充电"
+msgstr "未运行"
 
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-panel/src/applets/session/render.rs:75
@@ -962,12 +972,12 @@ msgstr "重启"
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
 msgid "The applet stopped"
-msgstr ""
+msgstr "小程序已停止"
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:21
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:128
 msgid "The applet keeps exiting. It restarts on its own."
-msgstr ""
+msgstr "小程序不断退出。它会自动重新启动。"
 
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
 msgid "Awake until {time}"
@@ -2176,24 +2186,24 @@ msgstr "无标题窗口"
 msgid "Screenshot failed"
 msgstr "截图失败"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:385
+#: crates/glimpse-shot/src/gui/overlay.rs:383
 msgid "Waiting to take a screenshot"
 msgstr "正在等待截图"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/overlay.rs:1081
 #: crates/glimpse-shot/src/gui/result.rs:936
 msgid "Save Screenshot"
 msgstr "保存截图"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1641
+#: crates/glimpse-shot/src/gui/overlay.rs:1639
 msgid "{size} · scaled {percent}%"
 msgstr "{size} · 缩放 {percent}%"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1818
+#: crates/glimpse-shot/src/gui/overlay.rs:1816
 msgid "Saved"
 msgstr "已保存"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1819
+#: crates/glimpse-shot/src/gui/overlay.rs:1817
 msgid "Copied"
 msgstr "已复制"
 
@@ -2280,6 +2290,56 @@ msgstr "打开"
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "某个应用"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:18
+msgid "Wallpaper changed"
+msgstr "壁纸已更改"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:22
+msgid "Wallpaper not changed"
+msgstr "壁纸未更改"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:29
+msgid "{count} output keeps its own image."
+msgid_plural "{count} outputs keep their own image."
+msgstr[0] "{count} 个显示器保留自己的图片。"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:38
+msgid "Only the background can be set."
+msgstr "只能设置背景。"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:43
+msgid "{file} already sets the wallpaper image."
+msgstr "{file} 已经设置了壁纸图片。"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:47
+msgid "The wallpaper could not be saved."
+msgstr "无法保存壁纸。"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:81
+msgid "Wallpaper"
+msgstr "壁纸"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:151
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "撤销"
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:22
+msgid "Only a file on this computer can be set as the wallpaper."
+msgstr "只有此电脑上的文件才能设为壁纸。"
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:24
+msgid "The image is larger than {limit} MiB."
+msgstr "图片大于 {limit} MiB。"
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:26
+msgid "The file is not an image."
+msgstr "文件不是图片。"
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:27
+msgid "The file cannot be read."
+msgstr "无法读取文件。"
 
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:76
 msgid "Applications"
@@ -2867,10 +2927,6 @@ msgstr "编辑"
 msgid "Apply Crop or Finish Text"
 msgstr "应用裁剪或完成文本"
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
-msgid "Undo"
-msgstr "撤销"
-
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
 msgid "Redo"
 msgstr "重做"
@@ -3343,46 +3399,40 @@ msgid "No windows"
 msgstr "没有窗口"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:3
-#, fuzzy
-#| msgid "Color picker"
 msgid "Color Picker"
 msgstr "取色器"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:4
 msgid "Pick a color from the screen and copy it"
-msgstr ""
+msgstr "从屏幕上取色并复制"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:11
 msgid "color;picker;eyedropper;pipette;hex;"
-msgstr ""
+msgstr "颜色;取色器;吸管;hex;"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:3
 msgid "Ruler"
 msgstr "标尺"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:4
-#, fuzzy
-#| msgid "Measure the screen"
 msgid "Measure distances on the screen"
-msgstr "测量屏幕"
+msgstr "测量屏幕上的距离"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:11
 msgid "ruler;measure;distance;pixels;"
-msgstr ""
+msgstr "标尺;测量;距离;像素;"
 
 #: data/me.aresa.Glimpse.Lens.desktop:3
 msgid "Magnifier"
-msgstr ""
+msgstr "放大镜"
 
 #: data/me.aresa.Glimpse.Lens.desktop:4
-#, fuzzy
-#| msgid "Measure the screen"
 msgid "Magnify part of the screen"
-msgstr "测量屏幕"
+msgstr "放大屏幕的一部分"
 
 #: data/me.aresa.Glimpse.Lens.desktop:11
 msgid "magnifier;zoom;lens;enlarge;"
-msgstr ""
+msgstr "放大镜;缩放;镜头;放大;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"

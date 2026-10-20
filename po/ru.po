@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-19 12:33+0200\n"
+"POT-Creation-Date: 2026-10-20 13:16+0200\n"
 "PO-Revision-Date: 2026-10-17 14:54+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -19,14 +19,14 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: crates/glimpse-lens/src/session.rs:281
+#: crates/glimpse-lens/src/session.rs:291
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"
 msgstr[0] "всего {length}px, {count} сегмент"
 msgstr[1] "всего {length}px, {count} сегмента"
 msgstr[2] "всего {length}px, {count} сегментов"
 
-#: crates/glimpse-lens/src/session.rs:294
+#: crates/glimpse-lens/src/session.rs:304
 msgid "segment {length}px · {angle}°"
 msgstr "сегмент {length}px · {angle}°"
 
@@ -72,34 +72,46 @@ msgstr ""
 msgid "Notifications"
 msgstr "Уведомления"
 
-#: crates/glimpse-lock/src/notify.rs:16
+#: crates/glimpse-lock/src/notify.rs:17
 msgid "Screen not locked"
 msgstr "Экран не заблокирован"
 
-#: crates/glimpse-lock/src/notify.rs:17
+#: crates/glimpse-lock/src/notify.rs:18
 msgid "Suspending unlocked"
 msgstr "Переход в спящий режим без блокировки"
 
-#: crates/glimpse-lock/src/notify.rs:20
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Lock restore is off"
+msgstr "Восстановление блокировки отключено"
+
+#: crates/glimpse-lock/src/notify.rs:23
+msgid ""
+"Hyprland will refuse a restarted glimpse-lock. Set "
+"misc:allow_session_lock_restore to true."
+msgstr ""
+"Hyprland отклонит перезапущенный glimpse-lock. Установите "
+"misc:allow_session_lock_restore в true."
+
+#: crates/glimpse-lock/src/notify.rs:29
 msgid "Password expired"
 msgstr "Пароль истёк"
 
-#: crates/glimpse-lock/src/notify.rs:21
+#: crates/glimpse-lock/src/notify.rs:30
 msgid "Your password has expired. Change it now with passwd."
 msgstr "Ваш пароль истёк. Смените его сейчас с помощью passwd."
 
-#: crates/glimpse-lock/src/notify.rs:27
+#: crates/glimpse-lock/src/notify.rs:36
 msgid ""
 "glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
 msgstr ""
 "glimpse-lock не может проверить пароли в этом сеансе. Запустите glimpse-lock "
 "check."
 
-#: crates/glimpse-lock/src/notify.rs:29
+#: crates/glimpse-lock/src/notify.rs:38
 msgid "This compositor has no session lock."
 msgstr "У этого композитора нет блокировки сеанса."
 
-#: crates/glimpse-lock/src/notify.rs:30
+#: crates/glimpse-lock/src/notify.rs:39
 msgid "The compositor refused the lock."
 msgstr "Композитор отклонил блокировку."
 
@@ -712,7 +724,7 @@ msgstr "Принтер"
 msgid "Device"
 msgstr "Устройство"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:448
 msgid "Vendor codec"
 msgstr "Кодек производителя"
 
@@ -970,10 +982,8 @@ msgid "External applet is not running."
 msgstr "Внешний апплет не запущен."
 
 #: crates/glimpse-panel/src/applets/exec/mod.rs:385
-#, fuzzy
-#| msgid "Not charging"
 msgid "Not running"
-msgstr "Не заряжается"
+msgstr "Не запущен"
 
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-panel/src/applets/session/render.rs:75
@@ -986,12 +996,12 @@ msgstr "Перезагрузить"
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
 msgid "The applet stopped"
-msgstr ""
+msgstr "Апплет остановлен"
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:21
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:128
 msgid "The applet keeps exiting. It restarts on its own."
-msgstr ""
+msgstr "Апплет постоянно завершается. Он перезапустится сам."
 
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
 msgid "Awake until {time}"
@@ -2232,24 +2242,24 @@ msgstr "Окно без названия"
 msgid "Screenshot failed"
 msgstr "Не удалось сделать снимок экрана"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:385
+#: crates/glimpse-shot/src/gui/overlay.rs:383
 msgid "Waiting to take a screenshot"
 msgstr "Ожидание снимка экрана"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/overlay.rs:1081
 #: crates/glimpse-shot/src/gui/result.rs:936
 msgid "Save Screenshot"
 msgstr "Сохранить снимок экрана"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1641
+#: crates/glimpse-shot/src/gui/overlay.rs:1639
 msgid "{size} · scaled {percent}%"
 msgstr "{size} · масштаб {percent}%"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1818
+#: crates/glimpse-shot/src/gui/overlay.rs:1816
 msgid "Saved"
 msgstr "Сохранено"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1819
+#: crates/glimpse-shot/src/gui/overlay.rs:1817
 msgid "Copied"
 msgstr "Скопировано"
 
@@ -2336,6 +2346,58 @@ msgstr "Открыть"
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Приложение"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:18
+msgid "Wallpaper changed"
+msgstr "Обои изменены"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:22
+msgid "Wallpaper not changed"
+msgstr "Обои не изменены"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:29
+msgid "{count} output keeps its own image."
+msgid_plural "{count} outputs keep their own image."
+msgstr[0] "{count} монитор оставляет своё изображение."
+msgstr[1] "{count} монитора оставляют своё изображение."
+msgstr[2] "{count} мониторов оставляют своё изображение."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:38
+msgid "Only the background can be set."
+msgstr "Можно задать только фон."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:43
+msgid "{file} already sets the wallpaper image."
+msgstr "Изображение обоев уже задано файлом {file}."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:47
+msgid "The wallpaper could not be saved."
+msgstr "Не удалось сохранить обои."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:81
+msgid "Wallpaper"
+msgstr "Обои"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:151
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "Отменить"
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:22
+msgid "Only a file on this computer can be set as the wallpaper."
+msgstr "В качестве обоев можно задать только файл на этом компьютере."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:24
+msgid "The image is larger than {limit} MiB."
+msgstr "Изображение больше {limit} МиБ."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:26
+msgid "The file is not an image."
+msgstr "Файл не является изображением."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:27
+msgid "The file cannot be read."
+msgstr "Не удалось прочитать файл."
 
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:76
 msgid "Applications"
@@ -2923,10 +2985,6 @@ msgstr "Редактирование"
 msgid "Apply Crop or Finish Text"
 msgstr "Применить обрезку или завершить текст"
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
-msgid "Undo"
-msgstr "Отменить"
-
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
 msgid "Redo"
 msgstr "Повторить"
@@ -3407,46 +3465,40 @@ msgid "No windows"
 msgstr "Нет окон"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:3
-#, fuzzy
-#| msgid "Color picker"
 msgid "Color Picker"
 msgstr "Пипетка"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:4
 msgid "Pick a color from the screen and copy it"
-msgstr ""
+msgstr "Выбрать цвет на экране и скопировать его"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:11
 msgid "color;picker;eyedropper;pipette;hex;"
-msgstr ""
+msgstr "цвет;пипетка;выбор цвета;hex;"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:3
 msgid "Ruler"
 msgstr "Линейка"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:4
-#, fuzzy
-#| msgid "Measure the screen"
 msgid "Measure distances on the screen"
-msgstr "Измерить экран"
+msgstr "Измерить расстояния на экране"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:11
 msgid "ruler;measure;distance;pixels;"
-msgstr ""
+msgstr "линейка;измерение;расстояние;пиксели;"
 
 #: data/me.aresa.Glimpse.Lens.desktop:3
 msgid "Magnifier"
-msgstr ""
+msgstr "Лупа"
 
 #: data/me.aresa.Glimpse.Lens.desktop:4
-#, fuzzy
-#| msgid "Measure the screen"
 msgid "Magnify part of the screen"
-msgstr "Измерить экран"
+msgstr "Увеличить часть экрана"
 
 #: data/me.aresa.Glimpse.Lens.desktop:11
 msgid "magnifier;zoom;lens;enlarge;"
-msgstr ""
+msgstr "лупа;увеличение;масштаб;линза;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-19 12:33+0200\n"
+"POT-Creation-Date: 2026-10-20 13:16+0200\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,13 +16,13 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: crates/glimpse-lens/src/session.rs:281
+#: crates/glimpse-lens/src/session.rs:291
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"
 msgstr[0] "i alt {length}px, {count} segment"
 msgstr[1] "i alt {length}px, {count} segmenter"
 
-#: crates/glimpse-lens/src/session.rs:294
+#: crates/glimpse-lens/src/session.rs:304
 msgid "segment {length}px · {angle}°"
 msgstr "segment {length}px · {angle}°"
 
@@ -68,34 +68,46 @@ msgstr ""
 msgid "Notifications"
 msgstr "Notifikationer"
 
-#: crates/glimpse-lock/src/notify.rs:16
+#: crates/glimpse-lock/src/notify.rs:17
 msgid "Screen not locked"
 msgstr "Skærmen er ikke låst"
 
-#: crates/glimpse-lock/src/notify.rs:17
+#: crates/glimpse-lock/src/notify.rs:18
 msgid "Suspending unlocked"
 msgstr "Går i hviletilstand uden lås"
 
-#: crates/glimpse-lock/src/notify.rs:20
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Lock restore is off"
+msgstr "Gendannelse af lås er slået fra"
+
+#: crates/glimpse-lock/src/notify.rs:23
+msgid ""
+"Hyprland will refuse a restarted glimpse-lock. Set "
+"misc:allow_session_lock_restore to true."
+msgstr ""
+"Hyprland afviser en genstartet glimpse-lock. Sæt "
+"misc:allow_session_lock_restore til true."
+
+#: crates/glimpse-lock/src/notify.rs:29
 msgid "Password expired"
 msgstr "Adgangskoden er udløbet"
 
-#: crates/glimpse-lock/src/notify.rs:21
+#: crates/glimpse-lock/src/notify.rs:30
 msgid "Your password has expired. Change it now with passwd."
 msgstr "Din adgangskode er udløbet. Skift den nu med passwd."
 
-#: crates/glimpse-lock/src/notify.rs:27
+#: crates/glimpse-lock/src/notify.rs:36
 msgid ""
 "glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
 msgstr ""
 "glimpse-lock kan ikke bekræfte adgangskoder i denne session. Kør glimpse-"
 "lock check."
 
-#: crates/glimpse-lock/src/notify.rs:29
+#: crates/glimpse-lock/src/notify.rs:38
 msgid "This compositor has no session lock."
 msgstr "Denne compositor har ingen sessionslås."
 
-#: crates/glimpse-lock/src/notify.rs:30
+#: crates/glimpse-lock/src/notify.rs:39
 msgid "The compositor refused the lock."
 msgstr "Compositoren afviste låsen."
 
@@ -700,7 +712,7 @@ msgstr "Printer"
 msgid "Device"
 msgstr "Enhed"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:448
 msgid "Vendor codec"
 msgstr "Producentspecifik codec"
 
@@ -957,10 +969,8 @@ msgid "External applet is not running."
 msgstr "Den eksterne applet kører ikke."
 
 #: crates/glimpse-panel/src/applets/exec/mod.rs:385
-#, fuzzy
-#| msgid "Not charging"
 msgid "Not running"
-msgstr "Oplader ikke"
+msgstr "Kører ikke"
 
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-panel/src/applets/session/render.rs:75
@@ -973,12 +983,12 @@ msgstr "Genstart"
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
 msgid "The applet stopped"
-msgstr ""
+msgstr "Appleten er stoppet"
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:21
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:128
 msgid "The applet keeps exiting. It restarts on its own."
-msgstr ""
+msgstr "Appleten bliver ved med at afslutte. Den genstarter af sig selv."
 
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
 msgid "Awake until {time}"
@@ -2208,24 +2218,24 @@ msgstr "Unavngivet vindue"
 msgid "Screenshot failed"
 msgstr "Skærmbillede mislykkedes"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:385
+#: crates/glimpse-shot/src/gui/overlay.rs:383
 msgid "Waiting to take a screenshot"
 msgstr "Venter på at tage et skærmbillede"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/overlay.rs:1081
 #: crates/glimpse-shot/src/gui/result.rs:936
 msgid "Save Screenshot"
 msgstr "Gem skærmbillede"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1641
+#: crates/glimpse-shot/src/gui/overlay.rs:1639
 msgid "{size} · scaled {percent}%"
 msgstr "{size} · skaleret {percent} %"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1818
+#: crates/glimpse-shot/src/gui/overlay.rs:1816
 msgid "Saved"
 msgstr "Gemt"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1819
+#: crates/glimpse-shot/src/gui/overlay.rs:1817
 msgid "Copied"
 msgstr "Kopieret"
 
@@ -2312,6 +2322,57 @@ msgstr "Åbn"
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Et program"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:18
+msgid "Wallpaper changed"
+msgstr "Baggrunden er ændret"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:22
+msgid "Wallpaper not changed"
+msgstr "Baggrunden er ikke ændret"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:29
+msgid "{count} output keeps its own image."
+msgid_plural "{count} outputs keep their own image."
+msgstr[0] "{count} skærm beholder sit eget billede."
+msgstr[1] "{count} skærme beholder deres eget billede."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:38
+msgid "Only the background can be set."
+msgstr "Kun baggrunden kan indstilles."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:43
+msgid "{file} already sets the wallpaper image."
+msgstr "{file} angiver allerede baggrundsbilledet."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:47
+msgid "The wallpaper could not be saved."
+msgstr "Baggrunden kunne ikke gemmes."
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:81
+msgid "Wallpaper"
+msgstr "Baggrund"
+
+#: crates/glimpse-wallpaper/src/portal/notify.rs:151
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "Fortryd"
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:22
+msgid "Only a file on this computer can be set as the wallpaper."
+msgstr "Kun en fil på denne computer kan bruges som baggrund."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:24
+msgid "The image is larger than {limit} MiB."
+msgstr "Billedet er større end {limit} MiB."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:26
+msgid "The file is not an image."
+msgstr "Filen er ikke et billede."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:27
+msgid "The file cannot be read."
+msgstr "Filen kan ikke læses."
 
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:76
 msgid "Applications"
@@ -2899,10 +2960,6 @@ msgstr "Redigering"
 msgid "Apply Crop or Finish Text"
 msgstr "Anvend beskæring eller afslut tekst"
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
-msgid "Undo"
-msgstr "Fortryd"
-
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
 msgid "Redo"
 msgstr "Omgør"
@@ -3379,46 +3436,40 @@ msgid "No windows"
 msgstr "Ingen vinduer"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:3
-#, fuzzy
-#| msgid "Color picker"
 msgid "Color Picker"
 msgstr "Farvevælger"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:4
 msgid "Pick a color from the screen and copy it"
-msgstr ""
+msgstr "Vælg en farve fra skærmen og kopiér den"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:11
 msgid "color;picker;eyedropper;pipette;hex;"
-msgstr ""
+msgstr "farve;farvevælger;pipette;hex;"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:3
 msgid "Ruler"
 msgstr "Lineal"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:4
-#, fuzzy
-#| msgid "Measure the screen"
 msgid "Measure distances on the screen"
-msgstr "Mål skærmen"
+msgstr "Mål afstande på skærmen"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:11
 msgid "ruler;measure;distance;pixels;"
-msgstr ""
+msgstr "lineal;mål;afstand;pixels;"
 
 #: data/me.aresa.Glimpse.Lens.desktop:3
 msgid "Magnifier"
-msgstr ""
+msgstr "Forstørrelsesglas"
 
 #: data/me.aresa.Glimpse.Lens.desktop:4
-#, fuzzy
-#| msgid "Measure the screen"
 msgid "Magnify part of the screen"
-msgstr "Mål skærmen"
+msgstr "Forstør en del af skærmen"
 
 #: data/me.aresa.Glimpse.Lens.desktop:11
 msgid "magnifier;zoom;lens;enlarge;"
-msgstr ""
+msgstr "forstørrelsesglas;zoom;linse;forstør;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"
