@@ -1,5 +1,76 @@
 use super::*;
 
+fn backend() -> wayland_client::backend::WeakBackend {
+    let (socket, _peer) = std::os::unix::net::UnixStream::pair().unwrap();
+    Connection::from_socket(socket)
+        .unwrap()
+        .backend()
+        .downgrade()
+}
+
+fn naming(names: &[Option<&str>]) -> Naming {
+    let backend = backend();
+    Naming {
+        outputs: names
+            .iter()
+            .map(|name| {
+                (
+                    wl_output::WlOutput::inert(backend.clone()),
+                    name.map(str::to_owned),
+                    wl_output::Transform::Normal,
+                )
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn unnamed_outputs_are_skipped_after_naming() {
+    for (only, expected) in [(None, vec!["DP-1", "DP-2"]), (Some("DP-1"), vec!["DP-1"])] {
+        let named = naming(&[None, Some("DP-1"), Some("DP-2")])
+            .finish(only)
+            .unwrap();
+        assert_eq!(
+            named
+                .iter()
+                .map(|output| output.connector.as_str())
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn only_unnamed_outputs_return_the_missing_output_error() {
+    assert!(matches!(
+        naming(&[None]).finish(None),
+        Err(CaptureError::NoOutputs)
+    ));
+    assert!(matches!(
+        naming(&[None]).finish(Some("DP-1")),
+        Err(CaptureError::NoSuchOutput(name)) if name == "DP-1"
+    ));
+}
+
+#[test]
+fn capture_memory_reads_only_ready_frames() {
+    use std::io::Write;
+
+    let memory = || {
+        let mut file = File::from(memfd_create("capture-test", MemfdFlags::CLOEXEC).unwrap());
+        file.write_all(&[1, 2, 3, 4]).unwrap();
+        Memory {
+            file,
+            pool: wl_shm_pool::WlShmPool::inert(backend()),
+            buffer: wl_buffer::WlBuffer::inert(backend()),
+        }
+    };
+
+    assert_eq!(memory().read(usize::MAX, false), None);
+    assert_eq!(memory().read(4, true), Some(vec![1, 2, 3, 4]));
+    assert_eq!(memory().read(5, true), None);
+}
+
 fn raw(width: u32, height: u32, transform: wl_output::Transform, y_invert: bool) -> Raw {
     Raw {
         width,

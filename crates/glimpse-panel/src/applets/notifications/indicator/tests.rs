@@ -60,3 +60,34 @@ fn caches_keep_only_keys_present_in_the_latest_list() {
 
     assert_eq!(cache, HashMap::from([("kept".to_owned(), 2)]));
 }
+
+#[tokio::test]
+async fn late_image_completion_cannot_overwrite_a_readded_path() {
+    let images = Rc::new(RefCell::new(HashMap::new()));
+    let (send, receive) = tokio::sync::oneshot::channel();
+    let first = load_image(images.clone(), "A".to_owned(), async {
+        Ok(receive.await.unwrap())
+    });
+    let mut first = std::pin::pin!(first);
+    assert!(
+        std::future::poll_fn(|cx| std::task::Poll::Ready(first.as_mut().poll(cx)))
+            .await
+            .is_pending()
+    );
+    prune_cache(&mut images.borrow_mut(), std::iter::empty());
+    let texture: gdk::Texture = gdk::MemoryTexture::new(
+        1,
+        1,
+        gdk::MemoryFormat::R8g8b8a8,
+        &glib::Bytes::from_static(&[1, 2, 3, 255]),
+        4,
+    )
+    .upcast();
+    load_image(images.clone(), "A".to_owned(), async {
+        Ok(Some(texture.clone()))
+    })
+    .await;
+    send.send(None).unwrap();
+    first.await;
+    assert_eq!(images.borrow()["A"].borrow().as_ref(), Some(&texture));
+}

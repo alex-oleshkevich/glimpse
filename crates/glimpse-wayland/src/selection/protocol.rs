@@ -4,10 +4,6 @@ use wayland_protocols_wlr::data_control::v1::client as wlr;
 
 use super::backend::Backend;
 
-/// The two data-control protocols are the same protocol twice: `ext-data-control-v1` is the
-/// standardised successor and `wlr-data-control-unstable-v1` the original, with identical requests
-/// and events. Every compositor that offers one offers it under its own name, so the objects are
-/// wrapped rather than abstracted — a trait would need one implementation per interface anyway.
 pub enum Manager {
     Ext(ext::ext_data_control_manager_v1::ExtDataControlManagerV1),
     Wlr(wlr::zwlr_data_control_manager_v1::ZwlrDataControlManagerV1),
@@ -78,8 +74,6 @@ impl Source {
 }
 
 impl DataOffer {
-    /// The protocol object id, which is how an offer's accumulating mime list is keyed before the
-    /// `selection` event names which offer became the selection.
     pub fn key(&self) -> u32 {
         use wayland_client::Proxy as _;
         match self {

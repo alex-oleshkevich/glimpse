@@ -54,15 +54,16 @@ ext. A window capture never carries it.
 ## Selection
 
 **`x-kde-passwordManagerHint` is classified off the mime list before any read**, so a secret never
-enters the process. `watch` reports such a selection as `Incoming` with no `entry`; `snapshot`
+enters the process. `watch` skips such a selection; `snapshot`
 reads none of its mimes and records each as `SkipReason::Sensitive`. `glimpse_utils::is_sensitive`
 is the rule.
 
-**Nothing larger than 2 MiB is kept, and the read asks for one byte more.** Reading exactly the cap
-cannot tell a full selection from a truncated one, and a fragment pastes back as corrupt content.
+**Nothing larger than 2 MiB is kept.** Reads detect overflow rather than keeping a fragment that
+pastes back as corrupt content. Offers retain at most 64 mimes of 256 bytes each, including any sensitive hint.
 
 **`watch` reads one representation per selection**, the first of a fixed ladder — UTF-8 text, the
-other text spellings, HTML, PNG, JPEG — and waits at most 5 s for the peer to write it. The stream
+other text spellings, HTML, PNG, JPEG — with a 5 s deadline on the pipe read itself. A superseded read
+cannot publish after the newer selection. The stream
 owns its connection: dropping it closes the connection, so a caller that holds it only while someone
 listens opens nothing otherwise. The `wanted` closure is asked before every read, and a selection
 nobody wants is destroyed unread — dropping the stream is not immediate enough to be the gate. A
@@ -70,9 +71,9 @@ failure is `Unavailable` and a retry two seconds later; a compositor with neithe
 protocol is `Unavailable` once and the stream ends. The setup runs on the blocking pool with its
 `JoinHandle` carried across retries, because dropping one does not cancel it.
 
-**`snapshot` reads every offered mime under one budget**, setup included — not a budget per mime.
-A mime the budget does not reach is `TimedOut`, one over the cap `TooLarge`, one whose pipe fails
-`Unreadable`.
+**`snapshot` shares one time budget and one 2 MiB total across mimes**, setup included. A mime the
+time budget does not reach is `TimedOut`, one exceeding the remaining bytes and every subsequent
+mime is `TooLarge`, one whose pipe fails is `Unreadable`.
 
 **`Changes` records every selection change after `start`**, as its mime list, and an empty list for
 a cleared selection. `since` makes a roundtrip first, so everything the compositor sent before the
@@ -84,8 +85,8 @@ up and immediately before the selection is set; `false` sets nothing and returns
 how a caller keeps a superseded or cancelled offer from landing after a newer one. It returns only
 after a roundtrip, so a returned `Owned` is a selection the compositor accepted and still holds. `cancelled`
 resolves once the selection is lost or the connection fails; dropping the `Owned` gives the
-selection up. At most eight paste targets are written at once, each on the blocking pool, so a slow
-reader cannot stall the queue.
+selection up. At most eight paste targets are written process-wide, each on the blocking pool with
+a 5 s write deadline, so a slow reader cannot stall the queue or hold its thread indefinitely.
 
 **`data_offer` precedes `selection` or `primary_selection`.** The primary arm destroys its offer
 too; ignoring it leaks a compositor resource per mouse highlight.

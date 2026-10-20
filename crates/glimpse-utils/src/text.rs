@@ -1,6 +1,6 @@
 /// Bidi overrides and isolates, which reorder the characters after them and let a feed render
 /// `gpj.exe` as `exe.jpg` inside a label that is doing nothing wrong.
-fn hostile(character: char) -> bool {
+pub fn hostile(character: char) -> bool {
     character.is_control() || matches!(character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
 }
 

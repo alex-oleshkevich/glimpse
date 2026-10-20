@@ -110,22 +110,60 @@ fn a_sender_that_exits_between_notifications_still_groups_by_the_name_it_calls_i
     );
 }
 
-#[test]
-fn an_empty_app_name_falls_back_to_the_desktop_identity() {
+#[tokio::test]
+async fn a_desktop_entry_resolves_its_display_name_before_storage() {
+    let name = "services::notifications::tests::identity::a_desktop_entry_resolves_its_display_name_before_storage";
+    if std::env::var_os("GLIMPSE_DESKTOP_TEST").is_none() {
+        let scratch = tempfile::tempdir().expect("scratch directory");
+        let applications = scratch.path().join("applications");
+        std::fs::create_dir(&applications).expect("desktop directory");
+        std::fs::write(
+            applications.join("org.example.NotificationFixture.desktop"),
+            "[Desktop Entry]\nType=Application\nName=Notification Fixture\nExec=true\n",
+        )
+        .expect("desktop entry");
+        assert!(
+            std::process::Command::new(std::env::current_exe().expect("test binary"))
+                .args(["--exact", name])
+                .env("GLIMPSE_DESKTOP_TEST", "1")
+                .env("XDG_DATA_HOME", scratch.path())
+                .env("LC_ALL", "C")
+                .status()
+                .expect("isolated test runs")
+                .success()
+        );
+        return;
+    }
+    let (app_id, app_name) = resolve_sender(
+        Some("org.example.NotificationFixture".to_owned()),
+        None,
+        String::new(),
+        None,
+        1,
+    )
+    .await;
     let mut held = Store::new(10);
-    assert!(held.post(
-        48,
+    held.post(
+        1,
         Incoming {
-            app_name: String::new(),
-            app_id: "com.mitchellh.ghostty".to_owned(),
-            ..incoming("", "Ghostty")
-        }
-    ));
+            app_id,
+            app_name,
+            ..incoming("", "hello")
+        },
+    );
+    assert_eq!(held.records()[0].app_name, "Notification Fixture");
+}
 
-    let records = held.records();
-    assert!(
-        !records[0].app_name.is_empty(),
-        "Ghostty supplies a desktop entry but leaves the freedesktop app-name argument empty"
+#[test]
+fn an_empty_app_name_uses_the_app_id_when_no_desktop_name_resolved() {
+    assert_eq!(
+        application_name("", "com.mitchellh.ghostty"),
+        "com.mitchellh.ghostty"
+    );
+    assert_eq!(
+        application_name("", ":1.42"),
+        "",
+        "a synthetic identity has no desktop name"
     );
 }
 

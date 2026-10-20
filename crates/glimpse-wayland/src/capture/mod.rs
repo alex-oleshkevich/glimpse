@@ -6,8 +6,8 @@ use std::os::fd::AsFd;
 use std::time::Instant;
 
 use rustix::fs::{MemfdFlags, memfd_create};
-use wayland_client::protocol::{wl_buffer, wl_output, wl_shm, wl_shm_pool};
-use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, WEnum};
+use wayland_client::protocol::{wl_buffer, wl_callback, wl_output, wl_shm, wl_shm_pool};
+use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, WEnum, delegate_dispatch};
 use wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1;
 use wayland_protocols::ext::image_capture_source::v1::client::{
     ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1,
@@ -16,7 +16,7 @@ use wayland_protocols::ext::image_capture_source::v1::client::{
 use wayland_protocols::ext::image_copy_capture::v1::client::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1;
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
-use crate::wire::{self, Globals, Stall};
+use crate::wire::{self, Globals, Stall, Synced};
 
 #[derive(Debug, thiserror::Error)]
 pub enum CaptureError {
@@ -296,28 +296,34 @@ fn named(
     if naming.outputs.is_empty() {
         return Err(CaptureError::NoOutputs);
     }
-    wire::settle(connection, &mut queue, &mut naming, deadline, |naming| {
-        naming.outputs.iter().all(|(_, name, _)| name.is_some())
-    })?;
-    let mut named = Vec::new();
-    for (output, connector, transform) in naming.outputs {
-        let connector = connector.unwrap_or_default();
-        if only.is_some_and(|wanted| wanted != connector) {
-            output.release();
-            continue;
+    wire::roundtrip(connection, &mut queue, &mut naming, deadline)?;
+    naming.finish(only)
+}
+
+impl Naming {
+    fn finish(self, only: Option<&str>) -> Result<Vec<Named>, CaptureError> {
+        let mut named = Vec::new();
+        for (output, connector, transform) in self.outputs {
+            let Some(connector) = connector.filter(|name| only.is_none_or(|wanted| wanted == name))
+            else {
+                output.release();
+                continue;
+            };
+            named.push(Named {
+                output,
+                connector,
+                transform,
+            });
         }
-        named.push(Named {
-            output,
-            connector,
-            transform,
-        });
-    }
-    match (named.is_empty(), only) {
-        (true, Some(wanted)) => Err(CaptureError::NoSuchOutput(wanted.to_owned())),
-        (true, None) => Err(CaptureError::NoOutputs),
-        (false, _) => Ok(named),
+        match (named.is_empty(), only) {
+            (true, Some(wanted)) => Err(CaptureError::NoSuchOutput(wanted.to_owned())),
+            (true, None) => Err(CaptureError::NoOutputs),
+            (false, _) => Ok(named),
+        }
     }
 }
+
+delegate_dispatch!(Naming: [wl_callback::WlCallback: Synced] => Synced);
 
 impl Dispatch<wl_output::WlOutput, usize> for Naming {
     fn event(
@@ -377,11 +383,12 @@ impl Memory {
 
     fn read(self, size: usize, ready: bool) -> Option<Vec<u8>> {
         use std::os::unix::fs::FileExt;
-        let mut bytes = vec![0u8; size];
-        let read = ready && self.file.read_exact_at(&mut bytes, 0).is_ok();
         self.buffer.destroy();
         self.pool.destroy();
-        read.then_some(bytes)
+        ready.then(|| {
+            let mut bytes = vec![0u8; size];
+            self.file.read_exact_at(&mut bytes, 0).map(|()| bytes).ok()
+        })?
     }
 }
 

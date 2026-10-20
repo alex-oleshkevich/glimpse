@@ -35,11 +35,11 @@ const ICON_MAX_CHARS: usize = 128;
 const IMAGE_PATH_MAX_CHARS: usize = 4096;
 const ACTIVATION_TOKEN_MAX_CHARS: usize = 512;
 
-/// `NotificationClosed` reasons, as the specification numbers them.
 const NAMED: &str = "name:";
 const CLOSED_EXPIRED: u32 = 1;
 const CLOSED_BY_SENDER: u32 = 3;
 const CLOSED_BY_READER: u32 = 2;
+pub const UNREAD_MAX: usize = 200;
 
 #[derive(Debug)]
 pub struct Incoming {
@@ -231,8 +231,6 @@ impl ServiceEndpoint<Notifications> {
     }
 }
 
-/// Everything the service decides about what to keep, with no publisher and no bus in it, so the
-/// bound and the replace rule are ordinary tests rather than something only a live daemon shows.
 #[derive(Debug, Default)]
 pub struct Store {
     held: VecDeque<NotificationRecord>,
@@ -276,8 +274,8 @@ impl Service for Notifications {
             images: HashSet::new(),
         };
         service.publish();
-        if let Some(dir) = images_dir() {
-            let _ = tokio::fs::remove_dir_all(dir).await;
+        if let Some(runtime) = glimpse_config::runtime_dir() {
+            clear_stale_images(&runtime.join("notifications")).await;
         }
 
         let connection = match ctx.session_bus() {
@@ -329,7 +327,7 @@ impl Service for Notifications {
 impl Notifications {
     async fn dispatch(&mut self, input: Input<Self>) {
         match input {
-            Input::Event(Event::Posted { id, incoming }) => self.posted(id, *incoming),
+            Input::Event(Event::Posted { id, incoming }) => self.posted(id, *incoming).await,
             Input::Event(Event::Retracted { id }) => self.remove(id, CLOSED_BY_SENDER).await,
             Input::Event(Event::DoNotDisturbLapsed(until)) => {
                 if self.dnd.until == Some(until) {
@@ -340,7 +338,7 @@ impl Notifications {
             Input::Command(Command::Post { incoming, reply }) => match self.ids.as_ref() {
                 Some(ids) => {
                     let id = ids.allocate(0);
-                    self.posted(id, *incoming);
+                    self.posted(id, *incoming).await;
                     let _ = reply.send(Ok(id));
                 }
                 None => {
@@ -446,7 +444,7 @@ impl Store {
         store
     }
 
-    fn post(&mut self, id: u32, mut incoming: Incoming) -> bool {
+    fn post(&mut self, id: u32, mut incoming: Incoming) -> Option<Vec<u32>> {
         incoming.app_name = application_name(&incoming.app_name, &incoming.app_id);
         if self.matches(
             &incoming.app_name,
@@ -454,7 +452,7 @@ impl Store {
             &incoming.summary,
             &incoming.body,
         ) {
-            return false;
+            return None;
         }
         match incoming.transient {
             true => self.transient.insert(id),
@@ -468,7 +466,24 @@ impl Store {
         let held = &self.held;
         self.transient
             .retain(|id| held.iter().any(|record| record.id == *id));
-        true
+        Some(self.cap_unread(id))
+    }
+
+    fn cap_unread(&mut self, id: u32) -> Vec<u32> {
+        if self.held.iter().filter(|record| record.unread).count() <= UNREAD_MAX {
+            return Vec::new();
+        }
+        let Some(record) = self
+            .held
+            .iter()
+            .rposition(|record| record.unread && !pending(record))
+            .or_else(|| self.held.iter().position(|record| record.id == id))
+            .and_then(|at| self.held.remove(at))
+        else {
+            return Vec::new();
+        };
+        self.transient.remove(&record.id);
+        vec![record.id]
     }
 
     fn bound(&mut self) -> bool {
@@ -603,7 +618,7 @@ fn application_name(declared: &str, app_id: &str) -> String {
         return String::new();
     }
 
-    desktop_name(&app_id).unwrap_or(app_id)
+    app_id
 }
 
 fn application_id(
@@ -628,17 +643,36 @@ fn application_id(
         .unwrap_or_else(|| format!("notification-{id}"))
 }
 
-async fn process_desktop_entry(pid: Option<i32>) -> Option<String> {
-    let pid = pid?;
+async fn resolve_sender(
+    desktop_entry: Option<String>,
+    pid: Option<i32>,
+    app_name: String,
+    sender: Option<String>,
+    id: u32,
+) -> (String, String) {
+    let fallback_name = app_name.clone();
     tokio::task::spawn_blocking(move || {
-        let executable =
-            std::fs::read_link(Path::new("/proc").join(pid.to_string()).join("exe")).ok()?;
-        let app_id = executable.file_name()?.to_str()?;
-        DesktopAppInfo::new(&format!("{app_id}.desktop")).map(|_| app_id.to_owned())
+        let process_entry = process_desktop_entry(pid);
+        let app_id = application_id(desktop_entry, process_entry, &app_name, sender, id);
+        let app_name = match glimpse_utils::text::clean(&app_name, APP_NAME_MAX_CHARS).is_empty() {
+            true => desktop_name(&app_id).unwrap_or(app_name),
+            false => app_name,
+        };
+        (app_id, app_name)
     })
     .await
-    .ok()
-    .flatten()
+    .unwrap_or_else(|error| {
+        tracing::debug!(%error, "cannot resolve the sender identity");
+        (String::new(), fallback_name)
+    })
+}
+
+fn process_desktop_entry(pid: Option<i32>) -> Option<String> {
+    let pid = pid?;
+    let executable =
+        std::fs::read_link(Path::new("/proc").join(pid.to_string()).join("exe")).ok()?;
+    let app_id = executable.file_name()?.to_str()?;
+    DesktopAppInfo::new(&format!("{app_id}.desktop")).map(|_| app_id.to_owned())
 }
 
 fn desktop_name(app_id: &str) -> Option<String> {
@@ -701,9 +735,17 @@ impl Notifications {
         });
     }
 
-    fn posted(&mut self, id: u32, incoming: Incoming) {
-        if self.store.post(id, incoming) {
+    async fn posted(&mut self, id: u32, incoming: Incoming) {
+        if let (Some(image), Some(dir)) = (&incoming.image, images_dir())
+            && generated(image, &dir)
+        {
+            self.images.insert(image.clone());
+        }
+        if let Some(evicted) = self.store.post(id, incoming) {
             self.publish();
+            for id in evicted {
+                self.closed(id, CLOSED_EXPIRED).await;
+            }
         }
     }
 
@@ -759,9 +801,6 @@ impl Notifications {
     }
 }
 
-/// Every string here is chosen by the sender and unbounded on the wire, so each one is capped
-/// before it reaches a payload. The body goes through the markup sanitiser instead of `clean`,
-/// which flattens the newline the most common sender shape depends on.
 fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     let Incoming {
         app_name,
@@ -813,8 +852,6 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     }
 }
 
-/// The exported half. It owns nothing but the id counter: every decision about what to keep is
-/// the service's, which is what lets the store be tested without a bus.
 struct Served {
     events: mpsc::Sender<Input<Notifications>>,
     next: Ids,
@@ -837,7 +874,7 @@ impl Served {
 impl Served {
     #[allow(clippy::too_many_arguments)]
     async fn notify(
-        &mut self,
+        &self,
         app_name: String,
         replaces_id: u32,
         app_icon: String,
@@ -851,13 +888,14 @@ impl Served {
         let id = self.next.allocate(replaces_id);
         let app_pid = self.sender_pid(&header).await;
 
-        let app_id = application_id(
+        let (app_id, app_name) = resolve_sender(
             hint_str(&hints, "desktop-entry"),
-            process_desktop_entry(app_pid).await,
-            &app_name,
+            app_pid,
+            app_name,
             header.sender().map(ToString::to_string),
             id,
-        );
+        )
+        .await;
         let image_data = match pixels(&hints) {
             Some(pixels) => {
                 let stamp = Utc::now().timestamp_nanos_opt().unwrap_or_default();
@@ -866,6 +904,10 @@ impl Served {
             None => None,
         };
         let (icon, image) = visuals(&app_icon, image_hint(&hints).as_deref(), image_data);
+        let image = match image {
+            Some(path) if regular_file(&path).await => Some(path),
+            _ => None,
+        };
         let incoming = Incoming {
             app_name,
             app_id,
@@ -893,7 +935,7 @@ impl Served {
         id
     }
 
-    async fn close_notification(&mut self, id: u32) {
+    async fn close_notification(&self, id: u32) {
         let _ = self
             .events
             .send(Input::Event(Event::Retracted { id }))
@@ -938,8 +980,6 @@ impl Served {
     ) -> zbus::Result<()>;
 }
 
-/// Zero means "new" on the wire, so the counter steps over it when it wraps rather than handing
-/// it out. A sender naming a replacement gets that id back and spends none.
 #[derive(Debug, Clone)]
 struct Ids(std::sync::Arc<std::sync::atomic::AtomicU32>);
 
@@ -971,8 +1011,6 @@ impl Ids {
     }
 }
 
-/// The specification sends actions as a flat list of alternating key and label. An odd trailing
-/// entry is a sender's mistake and is dropped rather than being given an empty label.
 fn pairs(actions: Vec<String>) -> Vec<(String, String)> {
     actions
         .chunks_exact(2)
@@ -1025,6 +1063,12 @@ fn local_path(raw: &str) -> Option<String> {
         Ok(_) => None,
         Err(_) => Path::new(raw).is_absolute().then(|| raw.to_owned()),
     }
+}
+
+async fn regular_file(path: &str) -> bool {
+    tokio::fs::metadata(path)
+        .await
+        .is_ok_and(|metadata| metadata.file_type().is_file())
 }
 
 fn icon_name(raw: &str) -> Option<String> {
@@ -1110,6 +1154,30 @@ fn generated(image: &str, dir: &Path) -> bool {
     Path::new(image).parent() == Some(dir)
 }
 
+async fn clear_stale_images(root: &Path) {
+    let Ok(mut entries) = tokio::fs::read_dir(root).await else {
+        return;
+    };
+    loop {
+        let Ok(Some(entry)) = entries.next_entry().await else {
+            return;
+        };
+        let name = entry.file_name();
+        let Some(pid) = name.to_str().and_then(|name| name.parse::<u32>().ok()) else {
+            continue;
+        };
+        if tokio::fs::try_exists(Path::new("/proc").join(pid.to_string()))
+            .await
+            .unwrap_or(true)
+        {
+            continue;
+        }
+        if let Err(error) = tokio::fs::remove_dir_all(entry.path()).await {
+            tracing::debug!(%error, path = %entry.path().display(), "cannot remove stale notification images");
+        }
+    }
+}
+
 fn images_dir() -> Option<PathBuf> {
     Some(
         glimpse_config::runtime_dir()?
@@ -1145,8 +1213,6 @@ fn hint_bool(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<bool> {
     hints.get(name).and_then(|value| bool::try_from(value).ok())
 }
 
-/// The specification numbers urgency 0, 1, 2. Anything else is a sender that has invented one, and
-/// is read as normal rather than refused.
 fn urgency(hints: &HashMap<String, OwnedValue>) -> NotificationUrgency {
     match hints.get("urgency").and_then(|v| u8::try_from(v).ok()) {
         Some(0) => NotificationUrgency::Low,

@@ -13,6 +13,13 @@ header before running it; the notes here are the traps that header does not cove
   original up to `glimpse-lock.glimpse-rescue.bak` and resetting faillock; restore puts that backup
   back. Both need sudo, so the user runs them; never leave the rescue file installed.
 
+## Manual tests
+
+- **`a_real_drm_change_event_reaches_the_hotplug_stream`** — waits 60s for a real DRM uevent.
+  `just test-compositor` names it as left out; run it with `just test-one glimpse-services
+  services::brightness::tests::a_real_drm_change_event_reaches_the_hotplug_stream` and, in another
+  terminal, `sudo udevadm trigger --subsystem-match=drm --action=change`.
+
 ## Input and windows
 
 - **`click.py`** (`just click`) — clicks a point on a niri output through a wlr virtual pointer:

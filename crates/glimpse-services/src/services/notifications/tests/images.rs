@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::*;
 
 #[test]
@@ -26,29 +28,6 @@ fn image_hints_remain_content_images() {
     assert_eq!(
         screenshot.image.as_deref(),
         Some("/tmp/Screenshot_2026-09-12.png")
-    );
-}
-
-#[test]
-fn only_image_hints_fill_the_image_slot_and_the_app_icon_never_does() {
-    let text_only = visuals("/usr/share/pixmaps/chat.png", None, None);
-    assert_eq!(
-        text_only,
-        (Some("/usr/share/pixmaps/chat.png".to_owned()), None)
-    );
-    let themed = visuals("org.example.Chat", None, None);
-    assert_eq!(themed, (Some("org.example.Chat".to_owned()), None));
-    let media = visuals(
-        "org.example.Chat",
-        Some("file:///tmp/photo.jpg"),
-        Some("/run/pixels.png".to_owned()),
-    );
-    assert_eq!(
-        media,
-        (
-            Some("org.example.Chat".to_owned()),
-            Some("/run/pixels.png".to_owned())
-        )
     );
 }
 
@@ -140,4 +119,100 @@ fn only_a_file_directly_in_the_images_directory_is_ever_deleted() {
     ));
     assert!(!generated("/fixture/runtime/glimpse/notifications/7", dir));
     assert!(!generated("/home/u/picture.png", dir));
+}
+
+fn isolated_image_test(name: &str) -> bool {
+    if std::env::var("GLIMPSE_IMAGE_TEST").as_deref() == Ok(name) {
+        return false;
+    }
+    let scratch = tempfile::tempdir().expect("a scratch directory");
+    assert!(
+        std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args(["--exact", name])
+            .env("GLIMPSE_IMAGE_TEST", name)
+            .env("XDG_RUNTIME_DIR", scratch.path())
+            .status()
+            .expect("isolated test runs")
+            .success()
+    );
+    true
+}
+
+async fn dead_pid() -> u32 {
+    let mut child = std::process::Command::new("true")
+        .spawn()
+        .expect("a helper process");
+    let pid = child.id();
+    child.wait().expect("the helper exits");
+    pid
+}
+
+#[tokio::test]
+async fn a_dead_pids_images_are_swept_and_a_live_pids_survive() {
+    if isolated_image_test(
+        concat!(
+            module_path!(),
+            "::a_dead_pids_images_are_swept_and_a_live_pids_survive"
+        )
+        .trim_start_matches("glimpse_services::"),
+    ) {
+        return;
+    }
+    let root = images_dir()
+        .expect("the image directory")
+        .parent()
+        .expect("the root")
+        .to_owned();
+    let dead = root.join(dead_pid().await.to_string());
+    let live = root.join(std::process::id().to_string());
+    tokio::fs::create_dir_all(&dead)
+        .await
+        .expect("the dead directory is created");
+    tokio::fs::create_dir_all(&live)
+        .await
+        .expect("the live directory is created");
+    tokio::fs::write(dead.join("x.png"), [0u8; 8])
+        .await
+        .expect("the dead png is written");
+    tokio::fs::write(live.join("y.png"), [0u8; 8])
+        .await
+        .expect("the live png is written");
+
+    let (handle, _sender, _state, cancel, running) = dnd_service().await;
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        handle
+            .health()
+            .wait_for(|state| !matches!(state, crate::ServiceState::Starting)),
+    )
+    .await
+    .expect("startup finishes")
+    .expect("the service is alive");
+
+    assert!(!dead.exists(), "a dead pid's images are swept");
+    assert!(live.exists(), "a live pid's images survive the sweep");
+    cancel.cancel();
+    running.await.expect("joined");
+}
+
+#[tokio::test]
+async fn a_sweep_failure_is_skipped_and_the_sweep_continues() {
+    let scratch = tempfile::tempdir().expect("a scratch directory");
+    let root = scratch.path().join("notifications");
+    let stuck = root.join(dead_pid().await.to_string());
+    let doomed = root.join(dead_pid().await.to_string());
+    tokio::fs::create_dir_all(&root)
+        .await
+        .expect("the root is created");
+    tokio::fs::write(&stuck, b"not a directory")
+        .await
+        .expect("the stuck entry is written");
+    tokio::fs::create_dir_all(&doomed)
+        .await
+        .expect("the doomed directory is created");
+
+    clear_stale_images(&root).await;
+
+    assert!(stuck.exists(), "an unremovable entry is left alone");
+    assert!(!doomed.exists(), "the sweep continues past a failure");
 }

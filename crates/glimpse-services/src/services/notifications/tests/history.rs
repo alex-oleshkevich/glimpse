@@ -28,7 +28,7 @@ fn the_bound_drops_only_old_read_history() {
     assert_eq!(
         held.records().len(),
         3,
-        "unread notifications are never evicted"
+        "the read-history bound leaves unread notifications below their ceiling"
     );
     assert!(held.dismiss(1));
     assert!(held.dismiss(2));
@@ -51,27 +51,36 @@ fn suppression_patterns_match_application_title_and_body_before_storage() {
     ];
     let mut held = Store::with_suppression(10, &patterns);
 
-    assert!(!held.post(
-        1,
-        Incoming {
-            app_id: "org.example".to_owned(),
-            ..incoming("Friendly name", "Visible title")
-        }
-    ));
-    assert!(!held.post(
-        2,
-        Incoming {
-            summary: "Build succeeded".to_owned(),
-            ..incoming("Builder", "unimportant")
-        }
-    ));
-    assert!(!held.post(
-        3,
-        Incoming {
-            body: "A secret token arrived".to_owned(),
-            ..incoming("Builder", "unimportant")
-        }
-    ));
+    assert!(
+        held.post(
+            1,
+            Incoming {
+                app_id: "org.example".to_owned(),
+                ..incoming("Friendly name", "Visible title")
+            }
+        )
+        .is_none()
+    );
+    assert!(
+        held.post(
+            2,
+            Incoming {
+                summary: "Build succeeded".to_owned(),
+                ..incoming("Builder", "unimportant")
+            }
+        )
+        .is_none()
+    );
+    assert!(
+        held.post(
+            3,
+            Incoming {
+                body: "A secret token arrived".to_owned(),
+                ..incoming("Builder", "unimportant")
+            }
+        )
+        .is_none()
+    );
     assert!(held.records().is_empty());
 }
 
@@ -80,8 +89,8 @@ fn an_invalid_suppression_pattern_does_not_disable_valid_patterns() {
     let patterns = ["[".to_owned(), "quiet".to_owned()];
     let mut held = Store::with_suppression(10, &patterns);
 
-    assert!(!held.post(1, incoming("quiet", "shown")));
-    assert!(held.post(2, incoming("loud", "shown")));
+    assert!(held.post(1, incoming("quiet", "shown")).is_none());
+    assert!(held.post(2, incoming("loud", "shown")).is_some());
     assert_eq!(held.records().len(), 1);
 }
 

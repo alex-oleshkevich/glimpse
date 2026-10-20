@@ -51,8 +51,8 @@ acquire a second spelling elsewhere.
 
 ## Text, size and markup
 
-`clean(text, cap)` flattens whitespace, drops control characters and bidi overrides, and caps by
-character count so a multi-byte string cannot be cut mid-codepoint; `glimpse-compositors` keeps its
+`clean(text, cap)` flattens whitespace, turns control characters and bidi overrides into a word
+break, and keeps at most `cap` characters, then `…` when it cut, so the result can be `cap + 1` long; `glimpse-compositors` keeps its
 own copy for window titles rather than take a dependency on this crate to avoid one. `size::bytes(u64)
 -> String` formats a byte count SI-style, base 1000, dropping a trailing `.0` — `"1.5 MB"`, never
 `"1.50 MB"`.

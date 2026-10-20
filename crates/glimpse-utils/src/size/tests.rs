@@ -27,3 +27,10 @@ fn a_round_value_drops_the_trailing_zero_and_a_fractional_one_keeps_it() {
 fn u64_max_does_not_panic_or_overflow() {
     assert_eq!(bytes(u64::MAX), "18.4 EB");
 }
+
+#[test]
+fn the_printed_value_is_the_rounded_one() {
+    for n in [2_050, 4_050, 8_050, 1_050_000, 16_050_000_000] {
+        assert!(!bytes(n).contains(".0 "), "{}", bytes(n));
+    }
+}

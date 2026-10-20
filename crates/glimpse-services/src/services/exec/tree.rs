@@ -1882,7 +1882,7 @@ fn entry_value(value: &str) -> String {
     let mut out = String::new();
     let mut count = 0;
     for character in value.chars() {
-        if hostile(character) {
+        if glimpse_utils::hostile(character) {
             continue;
         }
         if count == ENTRY_CAP {
@@ -1892,10 +1892,6 @@ fn entry_value(value: &str) -> String {
         count += 1;
     }
     out
-}
-
-fn hostile(character: char) -> bool {
-    character.is_control() || matches!(character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
 }
 
 fn finite_or(value: f64, fallback: f64) -> f64 {

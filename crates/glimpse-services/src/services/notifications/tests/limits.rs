@@ -100,6 +100,65 @@ fn a_notification_carries_the_pid_of_the_process_that_sent_it() {
 }
 
 #[test]
+fn unread_notifications_are_capped_at_the_ceiling() {
+    let mut held = Store::new(10);
+    for id in 1..=10_000 {
+        held.post(id, incoming("Flood", "again"));
+    }
+
+    assert_eq!(held.records().len(), UNREAD_MAX);
+}
+
+#[test]
+fn a_pending_flood_keeps_the_ceiling_and_the_existing_pending_records() {
+    let mut held = Store::new(10);
+    for id in 1..=10_000 {
+        held.post(
+            id,
+            Incoming {
+                resident: true,
+                actions: vec![("reply".to_owned(), "Reply".to_owned())],
+                ..incoming("Flood", "again")
+            },
+        );
+    }
+    let ids: Vec<_> = held.records().iter().map(|record| record.id).collect();
+    assert_eq!(ids.len(), UNREAD_MAX);
+    assert!(ids.contains(&1));
+    assert!(!ids.contains(&10_000));
+}
+
+#[test]
+fn replacing_read_history_cannot_evict_an_existing_pending_record() {
+    let mut held = Store::new(10);
+    held.post(1, incoming("Read", "old"));
+    held.dismiss(1);
+    for id in 2..=UNREAD_MAX as u32 + 1 {
+        held.post(
+            id,
+            Incoming {
+                resident: true,
+                actions: vec![("reply".to_owned(), "Reply".to_owned())],
+                ..incoming("Pending", "stay")
+            },
+        );
+    }
+    assert_eq!(
+        held.post(
+            1,
+            Incoming {
+                resident: true,
+                actions: vec![("reply".to_owned(), "Reply".to_owned())],
+                ..incoming("Read", "replacement")
+            }
+        ),
+        Some(vec![1])
+    );
+    assert_eq!(held.records().len(), UNREAD_MAX);
+    assert!(held.records().iter().all(|record| record.id != 1));
+}
+
+#[test]
 fn ids_are_handed_out_in_order_and_a_sender_naming_one_gets_it_back() {
     let next = Ids::default();
 
