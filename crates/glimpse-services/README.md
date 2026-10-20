@@ -123,11 +123,18 @@ Job commands to the local CUPS go over `/run/cups/cups.sock` with `Authorization
 is no progress timer since the payload carries `position_us`, `position_at` and `rate`.
 
 **notifications** — `Store` holds no publisher and no connection, so bound handling and per-app
-clearing are testable without either. **The default action does not spend one of the three button
+clearing are testable without either. **History is bounded in memory: `keep` read records plus a
+200-record unread ceiling** — evict the oldest non-pending unread record, or reject the incoming record
+when all are pending, with `CLOSED_EXPIRED`. **The default action does not spend one of the three button
 slots** — it drives the card itself. **`NameTaken` is degraded, not fatal** — dunst, mako or a Plasma
 session may already own the name. **`app_icon` is identity, never media**: only `image-data`,
 `image-path` and legacy `icon_data` fill the image slot, and a path passed as `app_icon` is the
-header icon.
+header icon. Every sender-chosen string is capped before it reaches a payload, and the body goes
+through the markup sanitiser rather than `clean`, which would flatten the newline the common
+sender shape depends on. `NotificationClosed` reasons are the specification's numbers, and so is
+urgency — an invented value is read as normal rather than refused. Actions arrive as a flat list
+of alternating key and label, an odd trailing entry is dropped, a replacement spends no id, and
+the counter steps over zero, which the wire reserves for "new".
 
 **tray** — glimpse takes `org.kde.StatusNotifierWatcher` when free and hosts on whoever holds it when
 not; an empty item list is a normal state, never `degraded`. **A taken name is not a broken tray** —

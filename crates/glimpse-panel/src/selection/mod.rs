@@ -205,11 +205,7 @@ async fn run<P>(
             }
             () = ended(owned.as_ref()) => owned = None,
             event = next(watching.as_mut()) => match event {
-                Some(event) => {
-                    if let Some(event) = translated(event) {
-                        subscribers.announce(event);
-                    }
-                }
+                Some(event) => subscribers.announce(translated(event)),
                 None => {
                     tracing::info!("the clipboard watch ended and is not reopened");
                     unsupported = true;
@@ -243,16 +239,14 @@ async fn next(watching: Option<&mut WatchStream>) -> Option<Watched> {
     }
 }
 
-fn translated(event: Watched) -> Option<SelectionEvent> {
+fn translated(event: Watched) -> SelectionEvent {
     match event {
-        Watched::Watching => Some(SelectionEvent::Watching),
-        Watched::Unavailable(reason) => Some(SelectionEvent::Unavailable(reason)),
-        Watched::Incoming(incoming) => incoming.entry.map(|entry| {
-            SelectionEvent::Captured(Capture {
-                mime: entry.mime,
-                data: entry.data,
-                sensitive: false,
-            })
+        Watched::Watching => SelectionEvent::Watching,
+        Watched::Unavailable(reason) => SelectionEvent::Unavailable(reason),
+        Watched::Incoming(entry) => SelectionEvent::Captured(Capture {
+            mime: entry.mime,
+            data: entry.data,
+            sensitive: false,
         }),
     }
 }

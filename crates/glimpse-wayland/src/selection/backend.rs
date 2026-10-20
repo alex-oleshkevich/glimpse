@@ -1,11 +1,14 @@
 use std::collections::HashMap;
-use std::io::{self, Read};
-use std::os::fd::AsFd;
+use std::io::{self, Write as _};
+use std::os::fd::{AsFd, AsRawFd};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
+use futures_util::future::BoxFuture;
 use glimpse_utils::is_sensitive;
+use rustix::event::PollFlags;
+use rustix::fs::{FileType, Mode, OFlags, fstat, open};
 use tokio::io::{Interest, unix::AsyncFd};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -17,22 +20,19 @@ use wayland_protocols::ext::data_control::v1::client as ext;
 use wayland_protocols_wlr::data_control::v1::client as wlr;
 
 use super::protocol::{DataOffer, Device, Manager, Source};
-use super::{Entry, Incoming, MAX_READ_BYTES, Watched};
+use super::{Entry, Watched, drain, wait};
 use crate::wire::{self, Synced};
 
-/// How long a peer gets to answer `receive` before the read is abandoned. An application that
-/// advertises a mime and then never writes would otherwise hold the pipe open for ever.
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// How many paste targets may be served at once. A client that calls `receive` and never reads
-/// parks a blocking thread until it gives up, and nothing limits how many times it may ask — so
-/// without a ceiling another process can exhaust the pool the whole panel shares.
 const MAX_CONCURRENT_SENDS: usize = 8;
+static SENDING: AtomicUsize = AtomicUsize::new(0);
+const MAX_MIMES: usize = 64;
+const MAX_MIME_BYTES: usize = 256;
 
 pub(super) const SETUP_TIMEOUT: Duration = Duration::from_secs(5);
 const RETRY_DELAY: Duration = Duration::from_secs(2);
 
-/// What the panel asks for, in order. The first the offer advertises is the one read.
 const PREFERRED: &[&str] = &[
     "text/plain;charset=utf-8",
     "text/plain",
@@ -45,17 +45,12 @@ const PREFERRED: &[&str] = &[
 ];
 
 pub(super) struct Backend {
-    /// Mime lists accumulate on an offer before the `selection` event says which offer won.
     mimes: HashMap<u32, Vec<String>>,
-    /// Filled by the `selection` handler and drained after the queue is dispatched, because the
-    /// read needs the connection flushed first and a handler cannot flush.
     pub(super) incoming: Option<(DataOffer, Vec<String>)>,
-    /// What we currently offer, answered on every `send`.
     pub(super) serving: Option<Arc<[Entry]>>,
     source: Option<Source>,
     finished: bool,
-    /// Paste targets currently being written to, against `MAX_CONCURRENT_SENDS`.
-    sending: Arc<AtomicUsize>,
+    selection_changed: bool,
     pub(super) changes: Option<Vec<Vec<String>>>,
 }
 
@@ -86,7 +81,6 @@ pub(super) async fn run(events: mpsc::UnboundedSender<Watched>, wanted: Wanted) 
     }
 }
 
-/// Everything the setup produced, built entirely on the blocking pool.
 pub(super) struct Ready {
     pub(super) conn: Connection,
     pub(super) queue: EventQueue<Backend>,
@@ -118,14 +112,18 @@ async fn watch(
     conn.flush().map_err(io::Error::other)?;
     let fd = conn.as_fd().try_clone_to_owned()?;
     let readable = AsyncFd::with_interest(fd, Interest::READABLE)?;
+    let mut reading = None;
 
     loop {
         queue
             .dispatch_pending(&mut backend)
             .map_err(io::Error::other)?;
+        if std::mem::take(&mut backend.selection_changed) {
+            reading.take();
+        }
         if let Some((offer, mimes)) = backend.incoming.take() {
             let wanted = !events.is_closed() && wanted();
-            read_selection(&conn, events, offer, mimes, wanted)?;
+            reading = read_selection(&conn, events, offer, mimes, wanted)?;
         }
         if backend.finished {
             return Err(io::Error::other(
@@ -136,6 +134,9 @@ async fn watch(
 
         tokio::select! {
             () = events.closed() => return Ok(()),
+            _ = async { reading.as_mut()?.await; Some(()) }, if reading.is_some() => {
+                reading.take();
+            }
             guard = readable.readable() => {
                 let mut guard = guard?;
                 if let Some(read) = conn.prepare_read() {
@@ -147,9 +148,6 @@ async fn watch(
     }
 }
 
-/// The `JoinHandle` is carried across retries rather than dropped. Dropping it does **not** cancel
-/// a blocking task, so a compositor that never answers would otherwise leak one pool thread every
-/// `RETRY_DELAY` until the pool is exhausted and every other `spawn_blocking` in the panel stalls.
 async fn connect(
     connecting: &mut Option<tokio::task::JoinHandle<io::Result<Ready>>>,
 ) -> io::Result<Ready> {
@@ -170,7 +168,6 @@ pub(super) fn bind(deadline: Instant) -> io::Result<Ready> {
     let mut queue = conn.new_event_queue::<Backend>();
     let qh = queue.handle();
 
-    // `ext` first: it is the standardised successor and a compositor offering both prefers it.
     let manager = globals
         .bind::<ext::ext_data_control_manager_v1::ExtDataControlManagerV1, _, _>(&qh, 1..=1, ())
         .map(Manager::Ext)
@@ -200,7 +197,7 @@ pub(super) fn bind(deadline: Instant) -> io::Result<Ready> {
         serving: None,
         source: None,
         finished: false,
-        sending: Arc::new(AtomicUsize::new(0)),
+        selection_changed: false,
         changes: None,
     };
     let device = manager.device(&seat, &qh);
@@ -216,38 +213,16 @@ pub(super) fn bind(deadline: Instant) -> io::Result<Ready> {
     })
 }
 
-/// The read runs after the queue is dispatched, because `receive` has to reach the compositor
-/// before anything arrives on the pipe. **Our own copy of the write end is dropped after the
-/// flush**: while it is open the reader never sees EOF and the read hangs until the cap.
 fn read_selection(
     conn: &Connection,
     events: &mpsc::UnboundedSender<Watched>,
     offer: DataOffer,
     mimes: Vec<String>,
     wanted: bool,
-) -> io::Result<()> {
-    let unread = |mimes| {
-        let _ = events.send(Watched::Incoming(Incoming { mimes, entry: None }));
-    };
-    let mime = match verdict(&mimes, wanted) {
-        Verdict::Unwanted => {
-            offer.destroy();
-            return Ok(());
-        }
-        Verdict::Unread => {
-            offer.destroy();
-            unread(mimes);
-            return Ok(());
-        }
-        Verdict::Sensitive => {
-            // Not read at all. Classifying before the content moves is what keeps a password out of
-            // this process entirely rather than out of the history afterwards.
-            tracing::debug!("a selection marked sensitive was not read");
-            offer.destroy();
-            unread(mimes);
-            return Ok(());
-        }
-        Verdict::Read(mime) => mime,
+) -> io::Result<Option<BoxFuture<'static, ()>>> {
+    let Some(mime) = verdict(&mimes, wanted) else {
+        offer.destroy();
+        return Ok(None);
     };
 
     let (reader, writer) = std::io::pipe()?;
@@ -256,69 +231,32 @@ fn read_selection(
     drop(writer);
     offer.destroy();
 
-    let events = events.clone();
-    tokio::spawn(async move {
-        let read = tokio::task::spawn_blocking(move || {
-            let mut body = Vec::new();
-            // One byte past the cap, so an oversize selection can be told from one that merely
-            // fills it. Reading exactly `MAX_READ_BYTES` would truncate silently, and a fragment
-            // stored under the sender's mime pastes back as corrupt content — worse than nothing.
-            reader
-                .take(MAX_READ_BYTES as u64 + 1)
-                .read_to_end(&mut body)
-                .map(|_| body)
-        });
-        // An application that advertises a mime and then never writes would hold the pipe open for
-        // ever. The bound is on waiting for it, not on the read itself: nothing can make a peer
-        // answer, and the worker ends when the pipe is finally closed.
-        let entry = match tokio::time::timeout(READ_TIMEOUT, read).await {
-            Ok(Ok(Ok(body))) if body.len() > MAX_READ_BYTES => {
-                tracing::debug!(
-                    %mime,
-                    bytes = body.len(),
-                    "a selection larger than the read cap was discarded rather than truncated"
-                );
-                None
-            }
-            Ok(Ok(Ok(body))) => (!body.is_empty()).then(|| Entry {
-                mime,
-                data: Arc::from(body.as_slice()),
-            }),
-            Ok(Ok(Err(error))) => {
-                tracing::warn!(%error, %mime, "reading the selection failed");
-                None
-            }
-            Ok(Err(error)) => {
-                tracing::warn!(%error, %mime, "the selection reader panicked");
-                None
-            }
-            Err(_) => {
-                tracing::warn!(%mime, "the application offering the selection never wrote it");
-                None
-            }
-        };
-        let _ = events.send(Watched::Incoming(Incoming { mimes, entry }));
-    });
-    Ok(())
+    Ok(Some(read_entry(reader, mime, events.clone())))
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum Verdict {
-    Unwanted,
-    Unread,
-    Sensitive,
-    Read(String),
+fn read_entry(
+    reader: std::io::PipeReader,
+    mime: String,
+    events: mpsc::UnboundedSender<Watched>,
+) -> BoxFuture<'static, ()> {
+    let deadline = Instant::now() + READ_TIMEOUT;
+    Box::pin(async move {
+        match tokio::task::spawn_blocking(move || drain(reader, deadline)).await {
+            Ok(Ok(data)) if !data.is_empty() => {
+                let _ = events.send(Watched::Incoming(Entry { mime, data }));
+            }
+            Ok(Ok(_)) => {}
+            Ok(Err(reason)) => tracing::debug!(?reason, %mime, "reading the selection failed"),
+            Err(error) => tracing::warn!(%error, %mime, "the selection reader panicked"),
+        }
+    })
 }
 
-fn verdict(mimes: &[String], wanted: bool) -> Verdict {
-    if !wanted {
-        return Verdict::Unwanted;
+fn verdict(mimes: &[String], wanted: bool) -> Option<String> {
+    if !wanted || is_sensitive(mimes) {
+        return None;
     }
-    match choose(mimes) {
-        None => Verdict::Unread,
-        Some(_) if is_sensitive(mimes) => Verdict::Sensitive,
-        Some(mime) => Verdict::Read(mime),
-    }
+    choose(mimes)
 }
 
 fn choose(mimes: &[String]) -> Option<String> {
@@ -406,6 +344,10 @@ impl Backend {
     }
 
     fn selected(&mut self, offer: Option<DataOffer>) {
+        self.selection_changed = true;
+        if let Some((displaced, _)) = self.incoming.take() {
+            displaced.destroy();
+        }
         let Some(offer) = offer else {
             self.mimes.clear();
             if let Some(changes) = &mut self.changes {
@@ -417,10 +359,7 @@ impl Backend {
         if let Some(changes) = &mut self.changes {
             changes.push(mimes.clone());
         }
-        // Two copies inside one dispatch batch: the offer being displaced is still ours to destroy.
-        if let Some((displaced, _)) = self.incoming.replace((offer, mimes)) {
-            displaced.destroy();
-        }
+        self.incoming = Some((offer, mimes));
     }
 
     fn answer(&self, mime: &str, fd: std::os::fd::OwnedFd) {
@@ -432,25 +371,78 @@ impl Backend {
         }) else {
             return;
         };
-        let live = Arc::clone(&self.sending);
-        if live.fetch_add(1, Ordering::Relaxed) >= MAX_CONCURRENT_SENDS {
-            live.fetch_sub(1, Ordering::Relaxed);
+        let Some(sending) = Sending::start() else {
             tracing::warn!(%mime, "too many paste targets are already being served");
             return;
-        }
+        };
 
         let mime = mime.to_owned();
-        // Written on the blocking pool: a paste target that reads slowly would otherwise stall the
-        // whole Wayland queue, and with it every other selection the panel is watching.
+        let deadline = Instant::now() + READ_TIMEOUT;
         tokio::task::spawn_blocking(move || {
-            use std::io::Write as _;
-            let mut file = std::fs::File::from(fd);
-            if let Err(error) = file.write_all(&data) {
+            let _sending = sending;
+            if let Err(error) = write_before(fd, &data, deadline) {
                 tracing::debug!(%error, %mime, "a paste target went away mid-write");
             }
-            live.fetch_sub(1, Ordering::Relaxed);
         });
     }
+}
+
+struct Sending;
+
+impl Sending {
+    fn start() -> Option<Self> {
+        SENDING
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |live| {
+                (live < MAX_CONCURRENT_SENDS).then_some(live + 1)
+            })
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for Sending {
+    fn drop(&mut self) {
+        SENDING.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+fn write_before(fd: std::os::fd::OwnedFd, mut data: &[u8], deadline: Instant) -> io::Result<()> {
+    if FileType::from_raw_mode(fstat(&fd)?.st_mode) != FileType::Fifo {
+        return Err(io::ErrorKind::InvalidInput.into());
+    }
+    let mut file = std::fs::File::from(open(
+        format!("/proc/self/fd/{}", fd.as_raw_fd()),
+        OFlags::WRONLY | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?);
+    while !data.is_empty() {
+        wait(&file, PollFlags::OUT, deadline)?;
+        match file.write(data) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(written) => data = &data[written..],
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
+                ) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+fn keep_mime(mimes: &mut Vec<String>, mut mime: String) {
+    let sensitive = is_sensitive(std::slice::from_ref(&mime));
+    if sensitive {
+        mime = mime.trim().to_owned();
+    }
+    if mime.len() > MAX_MIME_BYTES || (mimes.len() == MAX_MIMES && !sensitive) {
+        return;
+    }
+    if mimes.len() == MAX_MIMES {
+        mimes.pop();
+    }
+    mimes.push(mime);
 }
 
 delegate_noop!(Backend: ignore wl_seat::WlSeat);
@@ -518,11 +510,10 @@ macro_rules! offer_dispatch {
                 use wayland_client::Proxy as _;
                 use $events as Event;
                 if let Event::Offer { mime_type } = event {
-                    state
-                        .mimes
-                        .entry(proxy.id().protocol_id())
-                        .or_default()
-                        .push(mime_type);
+                    keep_mime(
+                        state.mimes.entry(proxy.id().protocol_id()).or_default(),
+                        mime_type,
+                    );
                 }
             }
         }
@@ -552,7 +543,6 @@ macro_rules! source_dispatch {
                 use $events as Event;
                 match event {
                     Event::Send { mime_type, fd } => state.answer(&mime_type, fd),
-                    // Another client took the selection; ours is dead and must not be reused.
                     Event::Cancelled => {
                         if let Some(source) = state.source.take() {
                             source.destroy();

@@ -10,11 +10,7 @@ pub fn bytes(n: u64) -> String {
         value /= 1000.0;
         unit += 1;
     }
-    let tenths = (value * 10.0).round();
-    if tenths % 10.0 == 0.0 {
-        return format!("{} {}", tenths / 10.0, UNITS[unit]);
-    }
-    format!("{value:.1} {}", UNITS[unit])
+    format!("{} {}", (value * 10.0).round() / 10.0, UNITS[unit])
 }
 
 #[cfg(test)]

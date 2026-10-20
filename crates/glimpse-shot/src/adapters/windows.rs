@@ -178,10 +178,7 @@ const TITLE_CAP: usize = 512;
 fn cleaned(text: Option<&str>, cap: usize) -> Option<String> {
     let text: String = text?
         .chars()
-        .filter(|character| {
-            !character.is_control()
-                && !matches!(character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-        })
+        .filter(|character| !glimpse_utils::hostile(*character))
         .take(cap)
         .collect();
     (!text.is_empty()).then_some(text)

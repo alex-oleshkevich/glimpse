@@ -112,3 +112,19 @@ fn line_breaks_past_the_body_line_limit_become_spaces() {
 fn generic_attributes_are_stripped_from_kept_tags() {
     assert_eq!(sanitize_body(r#"<b lang="en" title="t">x</b>"#), "<b>x</b>");
 }
+
+#[test]
+fn numeric_references_to_hostile_characters_do_not_survive() {
+    for body in [
+        "Lunch&#x202e;gpj.exe",
+        "a&#x2066;b&#x2069;c",
+        "one&#x1b;two",
+    ] {
+        let once = sanitize_body(body);
+        assert!(
+            !once.chars().any(|c| c != '\n' && super::hostile(c)),
+            "{once:?}"
+        );
+        assert_eq!(sanitize_body(&once), once);
+    }
+}

@@ -23,8 +23,6 @@ pub trait Selection: Send + Sync + 'static {
     fn offer(&self, offer: Offer) -> Result<(), String>;
 }
 
-pub use glimpse_utils::is_sensitive;
-
 #[derive(Debug, Clone)]
 pub enum SelectionEvent {
     Captured(Capture),

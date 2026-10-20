@@ -2,7 +2,6 @@ use super::*;
 
 #[test]
 fn the_catalog_directory_is_the_install_prefix_unless_the_environment_names_another() {
-    // SAFETY: this is the only test in the crate that touches this variable, and it is
     unsafe { env::remove_var(OVERRIDE) };
     assert_eq!(locale_dir(), PathBuf::from(INSTALLED));
 

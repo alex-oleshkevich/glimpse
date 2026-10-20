@@ -14,7 +14,7 @@ pub use {
     context::Ctx,
     gamma::Gamma,
     publisher::Publisher,
-    selection::{Capture, Offer, Selection, SelectionEvent, is_sensitive},
+    selection::{Capture, Offer, Selection, SelectionEvent},
     service::{
         CommandError, Input, NoConfig, Pending, Running, Service, ServiceEndpoint, ServiceRuntime,
         ServiceState,

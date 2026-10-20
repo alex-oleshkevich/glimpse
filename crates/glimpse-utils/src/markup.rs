@@ -3,6 +3,8 @@ use std::sync::LazyLock;
 
 use ammonia::Builder;
 
+use crate::text::hostile;
+
 pub const BODY_MAX_CHARS: usize = 2048;
 pub const BODY_MAX_LINES: usize = 3;
 
@@ -20,20 +22,8 @@ static SANITIZER: LazyLock<Builder<'static>> = LazyLock::new(|| {
     builder
 });
 
-fn hostile(character: char) -> bool {
-    (character.is_control() && character != '\n')
-        || matches!(character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-}
-
 pub fn sanitize_body(body: &str) -> String {
-    let bounded: String = body
-        .chars()
-        .take(BODY_MAX_CHARS)
-        .map(|character| match hostile(character) {
-            true => ' ',
-            false => character,
-        })
-        .collect();
+    let bounded: String = body.chars().take(BODY_MAX_CHARS).collect();
 
     let clean = SANITIZER
         .clean(&bounded)
@@ -49,6 +39,7 @@ pub fn sanitize_body(body: &str) -> String {
                 character
             }
             '\n' => ' ',
+            _ if hostile(character) => ' ',
             _ => character,
         })
         .collect()

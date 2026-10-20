@@ -234,10 +234,10 @@ async fn enumerate_sysfs_reads_a_real_backlight() {
 }
 
 #[tokio::test]
-#[ignore = "listens on the real drm udev subsystem and needs a `sudo udevadm trigger \
-                --subsystem-match=drm --action=change` run in another terminal while this test \
-                is running, since writing a uevent needs root; run under \
-                just test-crate-compositor"]
+#[ignore = "manual: needs `sudo udevadm trigger --subsystem-match=drm --action=change` in another \
+                terminal within 60s; run with just test-one glimpse-services \
+                services::brightness::tests::a_real_drm_change_event_reaches_the_hotplug_stream; \
+                just test-compositor leaves it out"]
 async fn a_real_drm_change_event_reaches_the_hotplug_stream() {
     let socket = open_drm_monitor().expect("a drm udev monitor for this session");
     let backend: Arc<dyn Backlight> = Arc::new(FakeBacklight::new(vec![entry(

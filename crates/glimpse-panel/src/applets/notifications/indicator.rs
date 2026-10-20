@@ -19,11 +19,13 @@ use gtk4::prelude::{Cast, WidgetExt};
 use gtk4::{gdk, gio, glib};
 
 use crate::applet::popover::Seat;
-use crate::applet::{Applet, Ctx, Input, spawn_command};
+use crate::applet::{Applet, Ctx, Input, Opener, spawn_command};
 
 use super::render;
 
 const MINUTE: Duration = Duration::from_secs(60);
+type ImageCache = HashMap<String, Rc<RefCell<Option<gdk::Texture>>>>;
+
 pub struct Notifications {
     list: Option<Vec<NotificationRecord>>,
     dnd: Rc<Cell<bool>>,
@@ -32,7 +34,8 @@ pub struct Notifications {
     indicator_style: NotificationIndicatorStyle,
     held: Rc<RefCell<Vec<NotificationRecord>>>,
     icons: HashMap<String, gio::Icon>,
-    images: HashMap<String, Option<gdk::Texture>>,
+    images: Rc<RefCell<ImageCache>>,
+    opener: Option<Opener>,
     bell: gio::Icon,
     muted: gio::Icon,
     spec: Vec<IndicatorSpec>,
@@ -50,6 +53,7 @@ impl Applet for Notifications {
         self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         ctx.interval(MINUTE);
+        self.opener = Some(ctx.opener());
         self.refresh();
     }
 
@@ -138,7 +142,8 @@ impl Notifications {
             indicator_style: NotificationIndicatorStyle::default(),
             held: Rc::new(RefCell::new(Vec::new())),
             icons: HashMap::new(),
-            images: HashMap::new(),
+            images: Rc::new(RefCell::new(HashMap::new())),
+            opener: None,
             bell: gio::ThemedIcon::new(render::BELL).upcast(),
             muted: gio::ThemedIcon::new(render::MUTED).upcast(),
             spec: Vec::new(),
@@ -170,7 +175,7 @@ impl Notifications {
             self.spec.clear();
             *self.held.borrow_mut() = Vec::new();
             self.icons.clear();
-            self.images.clear();
+            self.images.borrow_mut().clear();
             if let Some(shown) = self.shown.upgrade() {
                 self.dress(&shown, &[]);
             }
@@ -216,7 +221,7 @@ impl Notifications {
     fn filled(&mut self, records: &[NotificationRecord]) -> Vec<Group> {
         prune_cache(&mut self.icons, records.iter().map(icon_key));
         prune_cache(
-            &mut self.images,
+            &mut self.images.borrow_mut(),
             records.iter().filter_map(|record| record.image.as_deref()),
         );
         let now = Utc::now();
@@ -244,10 +249,36 @@ impl Notifications {
     }
 
     fn image(&mut self, path: &str) -> Option<gdk::Texture> {
-        self.images
-            .entry(path.to_owned())
-            .or_insert_with(|| notification_image(Path::new(path)))
-            .clone()
+        if let Some(texture) = self.images.borrow().get(path) {
+            return texture.borrow().clone();
+        }
+        let opener = self.opener.clone()?;
+        let path = path.to_owned();
+        let target = path.clone();
+        let load = load_image(
+            self.images.clone(),
+            path,
+            gio::spawn_blocking(move || notification_image(Path::new(&target))),
+        );
+        glib::spawn_future_local(async move {
+            load.await;
+            opener.wake();
+        });
+        None
+    }
+}
+
+fn load_image(
+    images: Rc<RefCell<ImageCache>>,
+    path: String,
+    load: impl Future<Output = std::thread::Result<Option<gdk::Texture>>>,
+) -> impl Future<Output = ()> {
+    let image = images.borrow_mut().entry(path).or_default().clone();
+    async move {
+        match load.await {
+            Ok(loaded) => *image.borrow_mut() = loaded,
+            Err(_) => tracing::debug!("notification image load panicked"),
+        }
     }
 }
 

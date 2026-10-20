@@ -47,6 +47,16 @@ struct State {
 }
 
 impl State {
+    fn constrained(&self) -> bool {
+        self.targets.iter().any(|target| target.stopped)
+            || self.targets.iter().all(|target| target.constrained)
+    }
+
+    fn finished(&self) -> bool {
+        self.targets.iter().any(|target| target.stopped)
+            || self.targets.iter().all(|target| target.outcome.is_some())
+    }
+
     fn watch(
         &mut self,
         connector: String,
@@ -208,12 +218,10 @@ fn capture(
     let shm: wl_shm::WlShm = globals
         .bind(&handle, 1..=1, ())
         .ok_or_else(|| failed("the compositor offers no wl_shm"))?;
-    settle(connection, queue, state, deadline, |state| {
-        state
-            .targets
-            .iter()
-            .all(|target| target.constrained || target.stopped)
-    })?;
+    settle(connection, queue, state, deadline, State::constrained)?;
+    if let Some(target) = state.targets.iter().find(|target| target.stopped) {
+        return Err(CaptureError::Refused(target.connector.clone()));
+    }
 
     let mut memory = Vec::new();
     for (index, target) in state.targets.iter_mut().enumerate() {
@@ -251,9 +259,10 @@ fn capture(
         memory.push((shared, raw));
     }
 
-    settle(connection, queue, state, deadline, |state| {
-        state.targets.iter().all(|target| target.outcome.is_some())
-    })?;
+    settle(connection, queue, state, deadline, State::finished)?;
+    if let Some(target) = state.targets.iter().find(|target| target.stopped) {
+        return Err(CaptureError::Refused(target.connector.clone()));
+    }
 
     let mut frames = Vec::new();
     for (target, (shared, raw)) in state.targets.iter().zip(memory) {
@@ -385,6 +394,9 @@ impl Dispatch<ExtForeignToplevelHandleV1, ()> for State {
 }
 
 delegate_dispatch!(State: [wl_callback::WlCallback: Synced] => Synced);
+
+#[cfg(test)]
+mod tests;
 delegate_noop!(State: ignore wl_shm::WlShm);
 delegate_noop!(State: ignore wl_shm_pool::WlShmPool);
 delegate_noop!(State: ignore wl_buffer::WlBuffer);

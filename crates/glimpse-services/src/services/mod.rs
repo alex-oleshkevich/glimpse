@@ -129,7 +129,9 @@ pub use night_light::{
     Config as NightLightConfig, DAY as NEUTRAL_KELVIN, Dependencies as NightLightDependencies,
     NightLight, NightLightHandle, NightLightState,
 };
-pub use notifications::{Incoming, Notifications, NotificationsHandle, NotificationsState};
+pub use notifications::{
+    Incoming, Notifications, NotificationsHandle, NotificationsState, UNREAD_MAX,
+};
 pub use places::{
     Config as PlacesConfig, Kind as PlacesKind, Place, Places, PlacesHandle, PlacesState,
 };

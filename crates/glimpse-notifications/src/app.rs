@@ -60,6 +60,8 @@ pub enum Input {
     Invoke(u32, String),
     Settled(u32),
     Finalize(u32),
+    ImageLoaded(u32, gdk::Texture),
+    Allocated,
 }
 
 struct Timer {
@@ -130,6 +132,18 @@ struct Entry {
     timer: Timer,
     animation: adw::TimedAnimation,
     state: EntryState,
+    image: Option<glib::JoinHandle<()>>,
+}
+
+impl Drop for Entry {
+    fn drop(&mut self) {
+        if let Some(task) = self.image.take() {
+            task.abort();
+        }
+        if let Some(task) = self.timer.task.take() {
+            task.abort();
+        }
+    }
 }
 
 pub struct App {
@@ -235,12 +249,7 @@ impl SimpleComponent for App {
                 }
             },
             Input::Notifications(state) => self.notifications(state, &sender),
-            Input::NotificationsHealth(state) => {
-                if matches!(state, ServiceState::Stopped { .. }) {
-                    let delta = self.state.disconnected();
-                    self.apply(delta, &sender);
-                }
-            }
+            Input::NotificationsHealth(state) => self.update_notification_health(state, &sender),
             Input::Compositor(state) => self.compositor(state),
             Input::Session(state) => self.session(state, &sender),
             Input::Config(config) => self.configure(*config, &sender),
@@ -299,6 +308,13 @@ impl SimpleComponent for App {
             }
             Input::Settled(id) => self.settle(id, &sender),
             Input::Finalize(id) => self.finalize(id, &sender),
+            Input::ImageLoaded(id, texture) => {
+                self.image_loaded(id, &texture, sender.input_sender().clone());
+            }
+            Input::Allocated => {
+                self.update_input_region();
+                self.constrain_height(&sender);
+            }
         }
     }
 
@@ -399,7 +415,7 @@ impl App {
             self.insert(id, sender);
         }
         for id in delta.replaced {
-            self.refresh(id);
+            self.refresh(id, sender);
             self.restart(id, sender);
         }
         self.reorder();
@@ -419,7 +435,7 @@ impl App {
         frame.add_css_class("notification-popup__entry");
         frame.append(&card);
         self.connect(id, &card, sender);
-        self.fill(&card, &record);
+        let image = Self::fill(&card, &record, sender.input_sender());
         self.stack.append(&frame);
 
         let hide_delay = Duration::from_secs(self.state.settings().hide_delay);
@@ -443,32 +459,60 @@ impl App {
                 timer,
                 animation: animation.clone(),
                 state: EntryState::Entering,
+                image,
             },
         );
         animate_in(&frame, &animation, self.visible_edge());
     }
 
-    fn refresh(&mut self, id: u32) {
+    fn refresh(&mut self, id: u32, sender: &ComponentSender<Self>) {
         let Some(record) = self.state.record(id).cloned() else {
             return;
         };
-        if let Some(entry) = self.rows.get(&id) {
-            self.fill(&entry.card, &record);
+        if let Some(entry) = self.rows.get_mut(&id) {
+            if let Some(task) = entry.image.take() {
+                task.abort();
+            }
+            entry.image = Self::fill(&entry.card, &record, sender.input_sender());
             announce(&entry.card, &record);
         }
     }
 
-    fn fill(&self, card: &NotificationCard, record: &NotificationRecord) {
+    fn fill(
+        card: &NotificationCard,
+        record: &NotificationRecord,
+        sender: &relm4::Sender<Input>,
+    ) -> Option<glib::JoinHandle<()>> {
         let mut notification = from_record(record, gettext("now"));
         notification.icon = Some(notification_icon(
             record.icon.as_deref().unwrap_or(&record.app_id),
         ));
-        notification.image = record
-            .image
-            .as_deref()
-            .and_then(|path| notification_image(Path::new(path)));
         card.set_notification(&notification);
         card.set_controls_visible(true);
+        record
+            .image
+            .as_ref()
+            .map(|path| load_image(record.id, Path::new(path), sender.clone()))
+    }
+
+    fn image_loaded(&self, id: u32, texture: &gdk::Texture, sender: relm4::Sender<Input>) {
+        let Some(entry) = self
+            .rows
+            .get(&id)
+            .filter(|entry| entry.state.accepts_input())
+        else {
+            return;
+        };
+        entry.card.set_image(Some(texture));
+        self.update_input_region();
+        let wait_for_allocation = Cell::new(true);
+        self.root.add_tick_callback(move |_, _| {
+            if wait_for_allocation.replace(false) {
+                return glib::ControlFlow::Continue;
+            }
+            let _ = sender.send(Input::Allocated);
+            glib::ControlFlow::Break
+        });
     }
 
     fn connect(&self, id: u32, card: &NotificationCard, sender: &ComponentSender<Self>) {
@@ -540,10 +584,7 @@ impl App {
     }
 
     fn finalize(&mut self, id: u32, sender: &ComponentSender<Self>) {
-        if let Some(mut entry) = self.rows.remove(&id) {
-            if let Some(task) = entry.timer.task.take() {
-                task.abort();
-            }
+        if let Some(entry) = self.rows.remove(&id) {
             self.stack.remove(&entry.frame);
         }
         self.root.set_visible(!self.rows.is_empty());
@@ -1027,6 +1068,19 @@ fn activation_token(window: &gtk4::Window) -> Option<String> {
         .app_launch_context()
         .startup_notify_id(gio::AppInfo::NONE, &[])?;
     (!id.is_empty()).then(|| id.to_string())
+}
+
+fn load_image(id: u32, path: &Path, sender: relm4::Sender<Input>) -> glib::JoinHandle<()> {
+    let path = path.to_path_buf();
+    glib::spawn_future_local(async move {
+        match gio::spawn_blocking(move || notification_image(&path)).await {
+            Ok(Some(texture)) => {
+                let _ = sender.send(Input::ImageLoaded(id, texture));
+            }
+            Ok(None) => {}
+            Err(_) => tracing::debug!("notification image load panicked"),
+        }
+    })
 }
 
 fn from_record(record: &NotificationRecord, when: String) -> Notification {

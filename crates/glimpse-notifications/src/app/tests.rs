@@ -98,8 +98,147 @@ fn countdowns_pause_independently_and_replacements_preserve_hover() {
 }
 
 #[test]
-fn a_popup_lives_as_long_as_its_sender_asked() {
-    let record = NotificationRecord {
+#[ignore = "needs a display"]
+fn late_artwork_rebuilds_the_input_region_after_the_card_settles() {
+    adw::init().expect("display");
+    glimpse_widgets::register_resources().expect("resources");
+
+    let scratch = glib::mkdtemp(std::env::temp_dir().join("glimpse-notification-image-XXXXXX"))
+        .expect("a scratch directory");
+    let fifo = scratch.join("fifo.png");
+    std::process::Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .expect("mkfifo runs");
+
+    let card = NotificationCard::new();
+    let (sender, receiver) = relm4::channel();
+    let _ = App::fill(
+        &card,
+        &NotificationRecord {
+            image: Some(fifo.to_string_lossy().into_owned()),
+            ..record()
+        },
+        &sender,
+    );
+
+    let started = std::time::Instant::now();
+    glib::MainContext::default().block_on(glib::timeout_future(Duration::from_millis(100)));
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "the main loop kept running while a FIFO image path loaded"
+    );
+    assert!(
+        picture(&card).is_none_or(|picture| picture.paintable().is_none()),
+        "a FIFO never yields an image"
+    );
+
+    let png = scratch.join("ok.png");
+    gdk::MemoryTexture::new(
+        2,
+        2,
+        gdk::MemoryFormat::R8g8b8a8,
+        &glib::Bytes::from_static(&[0u8; 16]),
+        8,
+    )
+    .save_to_png(&png)
+    .expect("a fixture png is written");
+    let second = NotificationCard::new();
+    let frame = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    frame.append(&second);
+    let stack = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    stack.append(&frame);
+    let root = gtk4::Window::new();
+    root.set_child(Some(&stack));
+    let config = Config::default();
+    let app = App {
+        actions: ComponentActions::install(&gio::SimpleActionGroup::new(), "test", Ok(())),
+        root,
+        stack,
+        state: PopupState::new(config.notifications.clone()),
+        config,
+        services: None,
+        services_start: relm4::spawn(std::future::pending()),
+        rows: HashMap::from([(
+            1,
+            Entry {
+                frame: frame.clone(),
+                card: second.clone(),
+                timer: Timer {
+                    countdown: None,
+                    task: None,
+                    hovered: false,
+                },
+                animation: animation(&frame),
+                state: EntryState::Visible,
+                image: None,
+            },
+        )]),
+        surface_edge: NotificationEdge::TopRight,
+        theme_watch: relm4::spawn(std::future::pending()),
+        styles: Styles::install(color_scheme(glimpse_config::ColorScheme::Desktop)),
+        input_region_pending: Rc::new(Cell::new(false)),
+        input_region_cards: Rc::new(RefCell::new(Vec::new())),
+    };
+    let _ = App::fill(
+        &second,
+        &NotificationRecord {
+            image: Some(png.to_string_lossy().into_owned()),
+            ..record()
+        },
+        &sender,
+    );
+    app.root.present();
+    app.update_input_region();
+    glib::MainContext::default().block_on(async {
+        glib::timeout_future(Duration::from_millis(100)).await;
+        assert!(!app.input_region_pending.get());
+        let height = second.height();
+        let Some(Input::ImageLoaded(id, texture)) = receiver.recv().await else {
+            panic!("a regular png arrives after the async load");
+        };
+        app.image_loaded(id, &texture, sender.clone());
+        assert!(
+            app.input_region_pending.get(),
+            "late artwork schedules a new input region"
+        );
+        let Some(Input::Allocated) = receiver.recv().await else {
+            panic!("height enforcement runs after allocation");
+        };
+        assert!(!app.input_region_pending.get());
+        assert!(
+            second.height() > height,
+            "artwork enlarges the settled card"
+        );
+        assert!(picture(&second).is_some_and(|picture| picture.paintable().is_some()));
+        let bounds = app.input_region_cards.borrow()[0]
+            .compute_bounds(app.root.upcast_ref::<gtk4::Widget>())
+            .expect("card bounds");
+        assert_eq!(enclosing_rectangle(bounds).height(), second.height());
+    });
+    app.root.close();
+    app.services_start.abort();
+    app.theme_watch.abort();
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+fn picture(card: &NotificationCard) -> Option<gtk4::Picture> {
+    let mut pending = vec![card.clone().upcast::<gtk4::Widget>()];
+    while let Some(widget) = pending.pop() {
+        if let Some(picture) = widget.downcast_ref::<gtk4::Picture>() {
+            return Some(picture.clone());
+        }
+        let mut child = widget.first_child();
+        while let Some(next) = child {
+            child = next.next_sibling();
+            pending.push(next);
+        }
+    }
+    None
+}
+
+fn record() -> NotificationRecord {
+    NotificationRecord {
         id: 1,
         app_id: "app".to_owned(),
         app_name: "App".to_owned(),
@@ -115,7 +254,12 @@ fn a_popup_lives_as_long_as_its_sender_asked() {
         unread: true,
         resident: false,
         expire_timeout: -1,
-    };
+    }
+}
+
+#[test]
+fn a_popup_lives_as_long_as_its_sender_asked() {
+    let record = record();
     let delay = Duration::from_secs(4);
     assert_eq!(lifetime(&record, delay), Some(delay));
     assert_eq!(
