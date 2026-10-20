@@ -96,6 +96,12 @@ async fn download(client: &reqwest::Client, url: &str, max_kib: u32) -> Result<S
     keep(target)
 }
 
+pub async fn forget(url: String) {
+    if let Some(path) = cached(&url) {
+        let _ = tokio::fs::remove_file(path).await;
+    }
+}
+
 fn keep(path: PathBuf) -> Result<String, String> {
     path.into_os_string()
         .into_string()

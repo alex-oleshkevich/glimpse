@@ -141,3 +141,12 @@ fn the_cap_counts_characters_and_marks_what_it_cut() {
     );
     assert_eq!(trimmed("短い", 8).as_deref(), Some("短い"));
 }
+
+#[test]
+fn metadata_that_looks_like_a_placeholder_is_rendered_as_written() {
+    let mut player = player();
+    player.title = Some("a {artist} b".to_owned());
+
+    assert_eq!(label("{title}", &player, at(0)), "a {artist} b");
+    assert_eq!(label("{foo} {title}", &player, at(0)), "{foo} a {artist} b");
+}

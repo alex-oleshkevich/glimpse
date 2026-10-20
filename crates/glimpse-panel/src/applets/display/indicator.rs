@@ -543,7 +543,7 @@ impl Display {
                 schedule: render::night_mode(&snapshot.schedule, &snapshot.configured).to_owned(),
                 fixed_hours: snapshot.schedule == "schedule" || snapshot.configured == "schedule",
                 serving: snapshot.serving,
-                can_pause: snapshot.active && snapshot.serving,
+                can_pause: snapshot.pausable && snapshot.serving,
                 paused_until: (snapshot.paused_until != 0).then(|| {
                     chrono::DateTime::from_timestamp(snapshot.paused_until, 0)
                         .map(|time| {

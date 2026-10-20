@@ -27,6 +27,7 @@ const MINUTE: Duration = Duration::from_secs(60);
 pub struct Notifications {
     list: Option<Vec<NotificationRecord>>,
     dnd: Rc<Cell<bool>>,
+    pending_dnd: Rc<Cell<Option<bool>>>,
     trouble: Option<String>,
     tooltip_format: Option<String>,
     indicator_style: NotificationIndicatorStyle,
@@ -71,12 +72,17 @@ impl Applet for Notifications {
         let opener = seat.opener();
         let held = self.held.clone();
         let dnd = self.dnd.clone();
+        let pending_dnd = self.pending_dnd.clone();
 
         shown.connect_activated({
             let notifications = self.notifications.clone();
             let compositor = self.compositor.clone();
             let held = held.clone();
-            move |popover, key| activate(&notifications, &compositor, popover, &held, &key)
+            let opener = opener.clone();
+            move |popover, key| {
+                activate(&notifications, &compositor, popover, &held, &key);
+                opener.close_popover();
+            }
         });
         shown.connect_action_invoked({
             let notifications = self.notifications.clone();
@@ -114,9 +120,16 @@ impl Applet for Notifications {
             let notifications = self.notifications.clone();
             move |_, silenced| {
                 dnd.set(silenced);
+                pending_dnd.set(Some(silenced));
                 let notifications = notifications.clone();
-                spawn_command("notifications.set_do_not_disturb", async move {
-                    notifications.set_do_not_disturb(silenced, 0).await
+                let pending_dnd = pending_dnd.clone();
+                let refused = opener.clone();
+                relm4::spawn_local(async move {
+                    if let Err(error) = notifications.set_do_not_disturb(silenced, 0).await {
+                        tracing::warn!(operation = "notifications.set_do_not_disturb", %error, "service command failed");
+                        pending_dnd.set(None);
+                        refused.wake();
+                    }
                 });
                 opener.wake();
             }
@@ -128,11 +141,19 @@ impl Applet for Notifications {
     }
 }
 
+fn awaited(pending: &Cell<Option<bool>>, enabled: bool) -> bool {
+    if pending.get() == Some(enabled) {
+        pending.set(None);
+    }
+    pending.get().unwrap_or(enabled)
+}
+
 impl Notifications {
     pub fn start(notifications: NotificationsProviderHandle, compositor: CompositorHandle) -> Self {
         let mut this = Self {
             list: None,
             dnd: Rc::new(Cell::new(false)),
+            pending_dnd: Rc::new(Cell::new(None)),
             trouble: None,
             tooltip_format: None,
             indicator_style: NotificationIndicatorStyle::default(),
@@ -155,11 +176,13 @@ impl Notifications {
         self.trouble = unavailable;
         let Some(view) = view else {
             self.list = None;
+            self.pending_dnd.set(None);
             self.dnd.set(false);
             return;
         };
         self.list = Some(view.notifications);
-        self.dnd.set(view.do_not_disturb.enabled);
+        self.dnd
+            .set(awaited(&self.pending_dnd, view.do_not_disturb.enabled));
         if !view.serving {
             self.trouble = Some(view.reason);
         }

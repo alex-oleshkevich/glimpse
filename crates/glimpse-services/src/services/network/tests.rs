@@ -69,6 +69,7 @@ fn wifi_connected(strength: u8) -> NetworkState {
 mod icon;
 mod model;
 mod profiles;
+mod review;
 mod scanning;
 mod secrets;
 pub(super) mod service;

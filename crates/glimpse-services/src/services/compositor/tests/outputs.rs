@@ -85,6 +85,7 @@ fn output_power_is_mirrored_into_compositor_capabilities() {
         workspace_reorder: true,
         output_power: true,
         blank_screens: true,
+        window_screenshot: false,
     });
 
     assert!(mapped.output_power && mapped.blank_screens);

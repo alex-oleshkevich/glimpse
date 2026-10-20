@@ -273,7 +273,7 @@ impl SimpleComponent for App {
             }
             AppInput::NetworkSecret(request) => {
                 if let Some(services) = &self.services {
-                    if listed(&self.config, "network") {
+                    if network_on_a_bar(&self.config, self.panels.iter().map(|panel| &panel.key)) {
                         return;
                     }
                     if request.is_some() {
@@ -543,18 +543,14 @@ fn close_secret(open: Option<(SecretDialog, glib::SignalHandlerId)>) {
     dialog.unblock_signal(&handler);
 }
 
-/// A secret request reaches the host as its key, the network's name and whether NetworkManager
-/// rejected the last answer.
-/// Whether a panel carries the applet by that name. The network applet asks for a secret inside
-/// its own popover, so the host's dialog is for the configuration that has no such applet and
-/// would otherwise leave NetworkManager waiting on a prompt nothing can show.
-fn listed(config: &Config, applet: &str) -> bool {
-    config.panels.iter().any(|panel| {
-        [&panel.left, &panel.center, &panel.right]
-            .into_iter()
-            .flatten()
-            .any(|name| name == applet)
-    })
+fn network_on_a_bar<'a>(config: &Config, keys: impl Iterator<Item = &'a Key>) -> bool {
+    keys.filter_map(|key| config.panels.get(key.index))
+        .flat_map(|panel| [&panel.left, &panel.center, &panel.right])
+        .flatten()
+        .any(|name| {
+            crate::applets::configured(name, &config.applets, &config.regional)
+                .is_some_and(|applet| matches!(applet.kind, glimpse_config::AppletKind::Network(_)))
+        })
 }
 
 fn spawn_network_watch(network: NetworkHandle, sender: ComponentSender<App>) -> JoinHandle<()> {

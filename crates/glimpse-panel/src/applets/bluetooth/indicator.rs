@@ -13,7 +13,7 @@ use render::Asked;
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, claim, command, release, spawn_command};
 
 use super::render;
 
@@ -290,13 +290,7 @@ fn tell<T: 'static>(
         icon: render::IDLE.to_owned(),
         summary,
     };
-    let opener = opener.clone();
-    relm4::spawn_local(async move {
-        if let Err(error) = future.await {
-            report_failure(operation, report, wording(&error), error).await;
-        }
-        opener.wake();
-    });
+    command(report, opener.clone(), operation, wording, |_| {}, future);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -316,18 +310,18 @@ fn act(
         summary,
     };
     let shown = shown.clone();
-    let opener = opener.clone();
-    relm4::spawn_local(async move {
-        match future.await {
-            Ok(()) => {
-                if let Some(shown) = shown.upgrade() {
-                    shown.collapse(id.as_str());
-                }
+    command(
+        report,
+        opener.clone(),
+        operation,
+        wording,
+        move |()| {
+            if let Some(shown) = shown.upgrade() {
+                shown.collapse(id.as_str());
             }
-            Err(error) => report_failure(operation, report, wording(&error), error).await,
-        }
-        opener.wake();
-    });
+        },
+        future,
+    );
 }
 
 fn wording(error: &BluetoothError) -> Option<String> {
@@ -358,8 +352,13 @@ impl Bluetooth {
         if asking == self.raised {
             return;
         }
+        if let Some(old) = self.raised.take() {
+            release(&old.key());
+        }
         self.raised = asking;
-        if self.raised.is_some() {
+        if let Some(asked @ Asked::Pairing(_)) = &self.raised
+            && claim(&asked.key())
+        {
             ctx.opener().open_popover();
         }
     }
@@ -411,3 +410,6 @@ impl Bluetooth {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -448,3 +448,17 @@ fn the_default_tooltip_is_the_format_the_schema_documents() {
         Some(glimpse_config::WEATHER_TOOLTIP)
     );
 }
+
+#[test]
+fn a_place_that_looks_like_a_placeholder_is_rendered_as_written() {
+    let current = current(Condition::PartlyCloudy);
+
+    assert_eq!(
+        tooltip("{place}", "{temperature}", &current),
+        "{temperature}"
+    );
+    assert_eq!(
+        tooltip("{foo} {place}", "Vilnius", &current),
+        "{foo} Vilnius"
+    );
+}

@@ -102,3 +102,63 @@ fn only_a_one_line_url_is_read_as_a_sidecar() {
         "the sidecar exists to hold the link a provider gave you, and that link is webcal"
     );
 }
+
+#[tokio::test]
+async fn a_directory_with_more_than_256_events_is_read_whole() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    for index in 0..300 {
+        tokio::fs::write(
+            root.path().join(format!("{index}.ics")),
+            ics(
+                &format!("{index}@example"),
+                "Synced",
+                now() + TimeDelta::hours(index),
+            ),
+        )
+        .await
+        .expect("an event file");
+    }
+
+    let documents = directory(root.path().to_str().expect("utf-8"))
+        .await
+        .expect("a readable directory");
+
+    assert_eq!(documents.len(), 300);
+}
+
+#[tokio::test]
+async fn a_directory_stops_at_the_byte_cap_without_failing() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let padding = "X".repeat(1024 * 1024);
+    for index in 0..20 {
+        tokio::fs::write(root.path().join(format!("{index}.ics")), &padding)
+            .await
+            .expect("a large file");
+    }
+
+    let documents = directory(root.path().to_str().expect("utf-8"))
+        .await
+        .expect("a capped read is not a failure");
+
+    assert_eq!(documents.len(), 16);
+}
+
+#[tokio::test]
+async fn an_unreadable_file_is_skipped_and_the_rest_are_kept() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    tokio::fs::write(root.path().join("bad.ics"), [0xff, 0xfe, 0xfd])
+        .await
+        .expect("a file that is not text");
+    tokio::fs::write(
+        root.path().join("good.ics"),
+        ics("g@example", "Good", now()),
+    )
+    .await
+    .expect("an event file");
+
+    let documents = directory(root.path().to_str().expect("utf-8"))
+        .await
+        .expect("a readable directory");
+
+    assert_eq!(documents.len(), 1);
+}

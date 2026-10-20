@@ -1,14 +1,61 @@
 use super::*;
 
+fn texture() -> gdk::Texture {
+    let pixels = glib::Bytes::from_owned(vec![0u8; 64]);
+    gdk::MemoryTexture::new(4, 4, gdk::MemoryFormat::R8g8b8a8, &pixels, 16).upcast()
+}
+
 #[test]
-fn should_clear_image_only_when_the_new_intent_has_no_image_and_one_is_rendered() {
-    assert!(should_clear_image(None, true));
-    assert!(!should_clear_image(None, false));
-    assert!(!should_clear_image(Some(Path::new("fixtures/a.jpg")), true));
-    assert!(!should_clear_image(
-        Some(Path::new("fixtures/a.jpg")),
-        false
-    ));
+#[ignore = "needs a display; run alone with just test-one"]
+fn a_crossfade_keeps_the_outgoing_image_at_its_own_fit_and_a_cut_empties_over() {
+    gtk4::init().expect("GTK display");
+    let under = gtk::Picture::new();
+    let over = gtk::Picture::new();
+    let old = texture();
+    under.set_paintable(Some(&old));
+    under.set_content_fit(gtk::ContentFit::ScaleDown);
+
+    let new = texture();
+    hand_over(&under, &over, &new, gtk::ContentFit::Fill, true);
+    assert_eq!(over.paintable(), Some(old.upcast()));
+    assert_eq!(over.content_fit(), gtk::ContentFit::ScaleDown);
+    assert_eq!(over.opacity(), 1.0);
+    assert_eq!(under.paintable(), Some(new.clone().upcast()));
+    assert_eq!(under.content_fit(), gtk::ContentFit::Fill);
+
+    hand_over(&under, &over, &texture(), gtk::ContentFit::Contain, false);
+    assert_eq!(over.paintable(), None);
+    assert_eq!(over.opacity(), 0.0);
+    assert_eq!(under.content_fit(), gtk::ContentFit::Contain);
+}
+
+#[test]
+#[ignore = "needs a display; run alone with just test-one"]
+fn a_skipped_fade_done_keeps_the_next_fade_outgoing_image_and_its_own_done_clears_it() {
+    gtk4::init().expect("GTK display");
+    let over = gtk::Picture::new();
+    let outgoing = texture();
+    over.set_paintable(Some(&outgoing));
+    let fade = || {
+        adw::TimedAnimation::new(
+            &over,
+            1.0,
+            0.0,
+            100,
+            adw::PropertyAnimationTarget::new(&over, "opacity"),
+        )
+    };
+    let skipped = fade();
+    let running = fade();
+    let mut animation = Some(running.clone());
+
+    finish(&over, &mut animation, &skipped);
+    assert_eq!(over.paintable(), Some(outgoing.upcast()));
+    assert_eq!(animation.as_ref(), Some(&running));
+
+    finish(&over, &mut animation, &running);
+    assert_eq!(over.paintable(), None);
+    assert!(animation.is_none());
 }
 
 #[test]

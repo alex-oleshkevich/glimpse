@@ -62,4 +62,5 @@ fn the_two_backends_disagree_about_floating_and_about_reordering() {
     );
     assert!(niri.output_power && hyprland.output_power);
     assert!(niri.blank_screens && !hyprland.blank_screens);
+    assert!(niri.window_screenshot && !hyprland.window_screenshot);
 }

@@ -1,4 +1,8 @@
 use super::*;
+use crate::applet::runtime::HostInput;
+use crate::applet::testing::{driven, run_in};
+use glimpse_dbus::notifications::NotificationsProvider;
+use glimpse_services::Running;
 
 fn device(id: &str, volume: u32, muted: bool, default: bool) -> AudioDevice {
     AudioDevice {
@@ -159,4 +163,73 @@ fn a_block_marks_the_device_the_app_is_currently_routed_to() {
             .expect("dev-a is listed")
             .selected
     );
+}
+
+fn started(audio: AudioHandle, notifications: NotificationsProviderHandle, volume: u32) -> Audio {
+    let mut applet = Audio::start(audio, notifications);
+    applet.state.outputs = vec![device("speakers", volume, false, true)];
+    applet
+}
+
+#[tokio::test]
+async fn several_notches_before_a_wake_add_up_and_clamp() {
+    let (stopped, audio) = Running::<glimpse_services::Audio>::build(
+        &glimpse_config::Config::default(),
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+    );
+    drop(stopped);
+    let mut applet = started(
+        audio.clone(),
+        NotificationsProvider::unavailable("no bus in tests").handle(),
+        50,
+    );
+
+    let targets: Vec<_> = (0..3)
+        .map(|_| applet.adjust(Direction::Up).map(|(_, target)| target))
+        .collect();
+    assert_eq!(targets, [Some(55), Some(60), Some(65)]);
+
+    applet.state.outputs[0].volume = 98;
+    let targets: Vec<_> = (0..2)
+        .map(|_| applet.adjust(Direction::Up).map(|(_, target)| target))
+        .collect();
+    assert_eq!(
+        targets,
+        [Some(100), None],
+        "nothing is sent once the volume is already at 100"
+    );
+}
+
+#[tokio::test]
+async fn a_refused_volume_command_wakes_the_applet_and_the_next_wake_restores_the_chip() {
+    let (stopped, audio) = Running::<glimpse_services::Audio>::build(
+        &glimpse_config::Config::default(),
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+    );
+    drop(stopped);
+    let (sender, inbox) = relm4::channel();
+    let ctx = Ctx::new("audio".into(), None, sender);
+    let mut applet = started(
+        audio.clone(),
+        NotificationsProvider::unavailable("no bus in tests").handle(),
+        50,
+    );
+    let context = glib::MainContext::new();
+
+    run_in(&context, || {
+        for _ in 0..3 {
+            applet.handle(&ctx, &Input::Pointer(Pointer::Scroll(Direction::Up)));
+        }
+    });
+    assert_eq!(
+        applet.state.default_output().map(|one| one.volume),
+        Some(65)
+    );
+
+    assert!(matches!(
+        driven(&context, inbox.recv()).await,
+        Some(HostInput::Woken)
+    ));
+    applet.handle(&ctx, &Input::Woken);
+    assert_eq!(applet.state, audio.snapshot());
 }

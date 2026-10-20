@@ -9,6 +9,7 @@ use glimpse_services::CommandError;
 use glimpse_widgets::IndicatorSpec;
 use popover::Seat;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::future::Future;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -100,12 +101,37 @@ pub fn tell<F, T>(
     F: Future<Output = Result<T, CommandError>> + 'static,
     T: 'static,
 {
+    command(
+        report,
+        opener,
+        operation,
+        move |error| wording(error, &unavailable),
+        |_| {},
+        future,
+    );
+}
+
+pub fn command<F, T, E>(
+    report: Report,
+    opener: Opener,
+    operation: &'static str,
+    wording: impl FnOnce(&E) -> Option<String> + 'static,
+    on_success: impl FnOnce(T) + 'static,
+    future: F,
+) where
+    F: Future<Output = Result<T, E>> + 'static,
+    T: 'static,
+    E: Display + 'static,
+{
     relm4::spawn_local(async move {
-        let Err(error) = future.await else {
-            return;
-        };
-        opener.wake();
-        report_failure(operation, report, wording(&error, &unavailable), error).await;
+        match future.await {
+            Ok(value) => on_success(value),
+            Err(error) => {
+                opener.wake();
+                let body = wording(&error);
+                report_failure(operation, report, body, error).await;
+            }
+        }
     });
 }
 
@@ -201,6 +227,18 @@ pub struct Ctx {
     ticks: RefCell<Option<SourceGuard>>,
 }
 
+thread_local! {
+    static CLAIMS: RefCell<HashSet<String>> = RefCell::default();
+}
+
+pub fn claim(prompt: &str) -> bool {
+    CLAIMS.with(|claims| claims.borrow_mut().insert(prompt.to_owned()))
+}
+
+pub fn release(prompt: &str) {
+    CLAIMS.with(|claims| claims.borrow_mut().remove(prompt));
+}
+
 #[derive(Clone)]
 pub struct Opener(relm4::Sender<runtime::HostInput>);
 
@@ -271,17 +309,7 @@ impl Ctx {
 
         let host = self.host.clone();
         let applet = self.name.clone();
-        let start = tokio::time::Instant::now() + until_boundary(since_epoch(), period);
-        let handle = relm4::spawn(async move {
-            let mut ticks = ticker(start, period);
-            loop {
-                ticks.tick().await;
-                tracing::trace!(applet, "tick");
-                if host.send(runtime::HostInput::Ticked).is_err() {
-                    return;
-                }
-            }
-        });
+        let handle = relm4::spawn(tick_loop(host, applet, period, since_epoch));
 
         self.ticks.replace(Some(SourceGuard {
             abort: handle.abort_handle(),
@@ -321,10 +349,23 @@ fn since_epoch() -> Duration {
         .unwrap_or_default()
 }
 
-fn ticker(start: tokio::time::Instant, period: Duration) -> tokio::time::Interval {
-    let mut ticks = tokio::time::interval_at(start, period);
-    ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    ticks
+async fn tick_loop(
+    host: relm4::Sender<runtime::HostInput>,
+    applet: String,
+    period: Duration,
+    now: impl Fn() -> Duration,
+) {
+    let slot = |at: Duration| at.as_nanos() / period.as_nanos();
+    loop {
+        let started = slot(now());
+        while slot(now()) == started {
+            tokio::time::sleep(until_boundary(now(), period).min(Duration::from_secs(1))).await;
+        }
+        tracing::trace!(applet, "tick");
+        if host.send(runtime::HostInput::Ticked).is_err() {
+            return;
+        }
+    }
 }
 
 fn until_boundary(since_epoch: Duration, period: Duration) -> Duration {
@@ -346,5 +387,7 @@ impl Drop for SourceGuard {
     }
 }
 
+#[cfg(test)]
+pub(crate) mod testing;
 #[cfg(test)]
 mod tests;

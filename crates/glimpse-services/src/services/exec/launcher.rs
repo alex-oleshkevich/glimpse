@@ -415,8 +415,11 @@ impl Watch {
         if self.done {
             return None;
         }
-        if self.changes.is_none() {
-            self.subscribe().await?;
+        if self.changes.is_none() && self.subscribe().await.is_none() {
+            self.done = true;
+            return self.connection.as_ref().map(|_| UnitState::Failed {
+                result: "exit-code".to_owned(),
+            });
         }
         loop {
             match self.changes.as_mut()?.next().await? {

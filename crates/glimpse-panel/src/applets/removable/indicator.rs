@@ -62,13 +62,16 @@ impl Applet for Removable {
             let state = Rc::clone(&self.state);
             let removable = self.removable.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, id| match render::activation(&state.borrow(), id) {
                 Some(render::Activation::Open(path)) => {
-                    open(gio::File::for_path(&path).uri().to_string())
+                    open(gio::File::for_path(&path).uri().to_string());
+                    opener.close_popover();
                 }
                 Some(render::Activation::Mount(id)) => {
                     let removable = removable.clone();
                     let notifications = notifications.clone();
+                    let opener = opener.clone();
                     relm4::spawn_local(async move {
                         let mut states = removable.subscribe();
                         if let Err(error) = removable.mount(id.clone()).await {
@@ -93,6 +96,7 @@ impl Applet for Removable {
                             });
                         if let Some(at) = mounted {
                             open(gio::File::for_path(&at).uri().to_string());
+                            opener.close_popover();
                         }
                     });
                 }

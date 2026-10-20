@@ -30,6 +30,7 @@ pub struct Capabilities {
     pub workspace_reorder: bool,
     pub output_power: bool,
     pub blank_screens: bool,
+    pub window_screenshot: bool,
 }
 
 impl Capabilities {
@@ -38,6 +39,7 @@ impl Capabilities {
         workspace_reorder: false,
         output_power: false,
         blank_screens: false,
+        window_screenshot: false,
     };
 }
 

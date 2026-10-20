@@ -20,7 +20,10 @@ pub enum Failure {
 pub fn classify(action: Action, error: &IppError) -> Result<(), Failure> {
     if let IppError::StatusError(status) = error {
         match (action, status) {
-            (Action::Cancel, StatusCode::ClientErrorNotFound) => return Ok(()),
+            (
+                Action::Cancel,
+                StatusCode::ClientErrorNotFound | StatusCode::ClientErrorNotPossible,
+            ) => return Ok(()),
             (Action::Resume, StatusCode::ClientErrorNotPossible) => return Ok(()),
             _ => {}
         }

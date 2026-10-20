@@ -26,11 +26,10 @@ pub(super) struct SourceArgs {
     pub env: BTreeMap<String, String>,
     pub state_base: Option<PathBuf>,
     pub entry: Option<super::Entry>,
-    pub cwd: Option<PathBuf>,
     pub restart: bool,
     pub stderr: Option<OwnedFd>,
     pub unit: String,
-    pub socket: PathBuf,
+    pub socket: Option<PathBuf>,
     pub launcher: Arc<dyn Launcher>,
     pub stop: CancellationToken,
 }
@@ -43,11 +42,10 @@ struct SlotStream {
     env: BTreeMap<String, String>,
     state_base: Option<PathBuf>,
     entry: Option<super::Entry>,
-    cwd: Option<PathBuf>,
     restart: bool,
     stderr: Option<OwnedFd>,
     unit: String,
-    socket: PathBuf,
+    socket: Option<PathBuf>,
     socket_id: Option<(u64, u64)>,
     launcher: Arc<dyn Launcher>,
     stop: CancellationToken,
@@ -79,7 +77,9 @@ impl Drop for SlotStream {
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             runtime.spawn(async move {
                 launcher.stop(&unit).await;
-                unlink_if_ours(&socket, socket_id);
+                if let Some(socket) = socket {
+                    unlink_if_ours(&socket, socket_id);
+                }
             });
         }
     }
@@ -104,7 +104,6 @@ pub async fn source(catalog: Arc<dyn Catalog>, args: SourceArgs) -> impl Stream<
             env: args.env,
             state_base: args.state_base,
             entry: args.entry,
-            cwd: args.cwd,
             restart: args.restart,
             stderr: args.stderr,
             unit: args.unit,
@@ -245,10 +244,9 @@ impl SlotStream {
         tracing::warn!(applet = %self.id, %reason, "applet misbehaved, killing its unit");
         self.disconnect();
         self.launcher.kill(&self.unit).await;
-        Some(Event::Misbehaved {
+        Some(Event::Disconnected {
             slot: self.slot,
             spawn: self.spawn,
-            reason,
         })
     }
 
@@ -397,17 +395,20 @@ impl SlotStream {
             }
         };
         self.resolved = Some(entry.clone());
-        if let Some(parent) = self.socket.parent()
+        let Some(socket) = self.socket.clone() else {
+            return self.failed("no runtime directory".to_owned());
+        };
+        if let Some(parent) = socket.parent()
             && let Err(error) = tokio::fs::create_dir_all(parent).await
         {
             return self.failed(format!("cannot create applet socket directory: {error}"));
         }
-        let _ = tokio::fs::remove_file(&self.socket).await;
-        let listener = match UnixListener::bind(&self.socket) {
+        let _ = tokio::fs::remove_file(&socket).await;
+        let listener = match UnixListener::bind(&socket) {
             Ok(listener) => listener,
             Err(error) => return self.failed(format!("cannot bind applet socket: {error}")),
         };
-        self.socket_id = std::fs::metadata(&self.socket)
+        self.socket_id = std::fs::metadata(&socket)
             .ok()
             .map(|meta| (meta.dev(), meta.ino()));
         self.listener = Some(listener);
@@ -415,8 +416,7 @@ impl SlotStream {
             self.done = true;
             return None;
         }
-        let cwd = self.cwd.clone().or_else(|| entry.cwd.clone());
-        let socket = self.socket.clone();
+        let cwd = entry.cwd.clone();
         let env = self.env.clone();
         let unit = self.unit.clone();
         let description = entry.name.clone();

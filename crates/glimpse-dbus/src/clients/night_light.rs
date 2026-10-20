@@ -33,6 +33,7 @@ pub struct NightLightSnapshot {
     pub configured: String,
     pub manual: bool,
     pub paused_until: i64,
+    pub pausable: bool,
 }
 
 impl TryFrom<Value<'_>> for NightLightSnapshot {
@@ -86,6 +87,11 @@ impl TryFrom<Value<'_>> for NightLightSnapshot {
                 .map(i64::try_from)
                 .transpose()?
                 .unwrap_or_default(),
+            pausable: fields
+                .next()
+                .map(bool::try_from)
+                .transpose()?
+                .unwrap_or_default(),
         })
     }
 }
@@ -111,6 +117,7 @@ impl From<NightLightSnapshot> for Value<'_> {
             snapshot.configured,
             snapshot.manual,
             snapshot.paused_until,
+            snapshot.pausable,
         ))
     }
 }

@@ -46,9 +46,6 @@ pub enum Event {
 pub type Reply = oneshot::Sender<Result<(), AudioError>>;
 
 pub enum Request {
-    Refresh {
-        reply: Reply,
-    },
     SetDeviceVolume {
         dir: Direction,
         index: u32,
@@ -365,7 +362,6 @@ async fn dispatch(
     request: Request,
 ) -> bool {
     match request {
-        Request::Refresh { reply } => finish_refresh(mainloop, context, events_tx, reply).await,
         Request::SetDeviceVolume {
             dir,
             index,
@@ -413,28 +409,6 @@ async fn dispatch(
         } => {
             let result = move_streams(mainloop, context, dir, streams, target).await;
             finish_command(mainloop, context, events_tx, reply, result).await
-        }
-    }
-}
-
-async fn finish_refresh(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-    events_tx: &mpsc::Sender<Event>,
-    reply: Reply,
-) -> bool {
-    match refresh(mainloop, context).await {
-        Ok(snapshot) => {
-            let _ = reply.send(Ok(()));
-            events_tx
-                .send(Event::Snapshot(Box::new(snapshot)))
-                .await
-                .is_ok()
-        }
-        Err(reason) => {
-            let _ = reply.send(Err(AudioError::Unavailable));
-            let _ = events_tx.send(Event::Gone(reason)).await;
-            false
         }
     }
 }

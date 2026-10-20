@@ -629,7 +629,7 @@ fn a_document_edited_outside_this_table_projects_to_the_same_configuration() {
 #[tokio::test]
 async fn an_override_declares_the_sources_its_mode_needs() {
     let mut harness = harness(config(Schedule::Automatic)).await;
-    assert_eq!(harness.service.subscriptions().len(), 2);
+    assert_eq!(harness.service.subscriptions().len(), 3);
 
     harness.set(Schedule::Off).await;
     assert!(harness.service.subscriptions().is_empty());
@@ -637,8 +637,8 @@ async fn an_override_declares_the_sources_its_mode_needs() {
     harness.set(Schedule::Schedule).await;
     assert_eq!(
         harness.service.subscriptions().len(),
-        1,
-        "a manual window needs the tick but not the solar watch"
+        2,
+        "a manual window needs the tick and the resume but not the solar watch"
     );
 }
 
@@ -984,6 +984,31 @@ async fn a_daytime_or_off_pause_is_unsupported() {
 }
 
 #[tokio::test]
+async fn pause_is_offered_only_in_a_night_with_a_future_boundary() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = day(Some(sunset()));
+    let ramp = sunset() - TimeDelta::minutes(5);
+    harness.settle(ramp).await;
+    assert!(harness.state.borrow().active());
+    assert!(!harness.state.borrow().pausable);
+
+    let deadline = at(6, 0) + TimeDelta::days(1);
+    harness.service.observed = night(Some(deadline));
+    harness.settle(at(23, 0)).await;
+    assert!(harness.state.borrow().pausable);
+    let (reply, result) = oneshot::channel();
+    harness
+        .service
+        .handle_at(
+            &harness.ctx,
+            Input::Command(Command::Pause { reply }),
+            at(23, 0),
+        )
+        .await;
+    assert_eq!(result.await.expect("the handler answers"), Ok(()));
+}
+
+#[tokio::test]
 async fn a_manual_temperature_clears_a_pause_but_an_invalid_one_keeps_it() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     let deadline = at(6, 0) + TimeDelta::days(1);
@@ -1188,4 +1213,13 @@ async fn a_screen_following_the_ramp_is_never_glided() {
         assert_eq!(harness.gamma.applied().last(), Some(&ramp.value(now)));
         assert_eq!(harness.service.cadence(now), RAMPING);
     }
+}
+
+#[tokio::test]
+async fn a_schedule_declares_a_resume_source_beside_its_tick() {
+    let harness = harness(config(Schedule::Schedule)).await;
+    let declared = harness.service.subscriptions();
+    let keys: Vec<_> = declared.iter().map(|sub| sub.key()).collect();
+    assert!(keys.contains(&&Watch::Resume));
+    assert!(keys.iter().any(|key| matches!(key, Watch::Tick(_))));
 }

@@ -57,3 +57,68 @@ async fn the_first_snapshot_publishes_and_clears_a_degraded_health() {
         Some(1)
     );
 }
+
+#[tokio::test]
+async fn a_change_before_the_first_snapshot_refetches_once_when_it_lands() {
+    let mut harness = harness(Backend::Unsupported);
+    let before = harness.service.attempt;
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Changed(Change::WorkspacesChanged(Vec::new()))),
+        )
+        .await;
+    assert_eq!(
+        harness.service.attempt, before,
+        "nothing refetches before the snapshot lands"
+    );
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                Vec::new(),
+                Vec::new(),
+            )))),
+        )
+        .await;
+    assert_eq!(harness.service.attempt, before + 1);
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                Vec::new(),
+                Vec::new(),
+            )))),
+        )
+        .await;
+    assert_eq!(
+        harness.service.attempt,
+        before + 1,
+        "a second snapshot does not refetch again"
+    );
+}
+
+#[tokio::test]
+async fn a_snapshot_with_no_change_during_the_fetch_does_not_refetch() {
+    let mut harness = harness(Backend::Unsupported);
+    let before = harness.service.attempt;
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                Vec::new(),
+                Vec::new(),
+            )))),
+        )
+        .await;
+
+    assert_eq!(harness.service.attempt, before);
+}

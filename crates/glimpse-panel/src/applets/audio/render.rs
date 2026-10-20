@@ -152,5 +152,9 @@ pub(crate) fn app_name(app: &AudioApp) -> String {
     }
 }
 
+pub(crate) fn heading(output: Option<&AudioDevice>) -> Option<String> {
+    output.map(|device| glimpse_utils::clean(&device.name, AUDIO_NAME_CAP))
+}
+
 #[cfg(test)]
 mod tests;

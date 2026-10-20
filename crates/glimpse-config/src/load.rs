@@ -278,6 +278,13 @@ pub fn resolved_files(config_path: Option<&Path>) -> Result<Vec<PathBuf>, Config
     stack(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
 
+pub fn user_file(config_path: Option<&Path>) -> Option<PathBuf> {
+    match config_path {
+        Some(path) => Some(path.to_path_buf()),
+        None => user_dir().map(|dir| dir.join(FILE_NAME)),
+    }
+}
+
 pub fn screenshot_file(config_path: Option<&Path>) -> Option<PathBuf> {
     screenshot_file_in(user_dir().as_deref(), config_path)
 }

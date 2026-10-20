@@ -31,12 +31,21 @@ fn a_bad_filename_is_refused() {
     for (filename, reason) in [
         ("shot %Q.png", "strftime"),
         ("shots/%s.png", "`/`"),
+        ("Shot %D.png", "`/`"),
+        ("Shot %x.png", "`/`"),
         ("shot %s.jpg", "`.png`"),
     ] {
         let error = load(&format!("[screenshot]\nfilename = \"{filename}\"\n"))
             .expect_err("a bad filename is refused")
             .to_string();
         assert!(error.contains(reason), "{filename}: {error}");
+    }
+}
+
+#[test]
+fn a_template_whose_expansion_stays_one_component_is_accepted() {
+    for filename in ["Screenshot from %Y-%m-%d %H-%M-%S.png", "Shot %F %H-%M.png"] {
+        load(&format!("[screenshot]\nfilename = \"{filename}\"\n")).expect(filename);
     }
 }
 

@@ -46,3 +46,17 @@ fn a_typed_answer_is_read_back_from_the_response_and_its_value() {
         "the entry cannot enable OK on this, so it can only mean the value went missing"
     );
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn a_dropped_pairing_dialog_is_finalized() {
+    gtk4::init().expect("display");
+    adw::init().expect("adwaita");
+    crate::register_resources().expect("resources");
+
+    let dialog = PairingDialog::new();
+    let weak = dialog.downgrade();
+    drop(dialog);
+
+    assert!(weak.upgrade().is_none());
+}

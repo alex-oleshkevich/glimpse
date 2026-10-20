@@ -90,3 +90,11 @@ fn an_http_layer_404_is_not_found() {
         Err(Failure::NotFound)
     );
 }
+
+#[test]
+fn cancelling_a_completed_job_is_not_a_failure() {
+    assert_eq!(
+        classify(Action::Cancel, &status(StatusCode::ClientErrorNotPossible)),
+        Ok(())
+    );
+}

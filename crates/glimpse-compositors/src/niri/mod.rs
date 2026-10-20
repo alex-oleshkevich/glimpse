@@ -31,6 +31,7 @@ pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     workspace_reorder: true,
     output_power: true,
     blank_screens: true,
+    window_screenshot: true,
 };
 
 /// Niri answers one request per connection and then closes it, so there is no connection to hold —

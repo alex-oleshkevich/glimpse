@@ -60,3 +60,22 @@ fn caches_keep_only_keys_present_in_the_latest_list() {
 
     assert_eq!(cache, HashMap::from([("kept".to_owned(), 2)]));
 }
+
+#[test]
+fn a_switch_flip_survives_snapshots_until_the_provider_agrees_or_refuses() {
+    let pending = Cell::new(Some(true));
+    assert!(
+        awaited(&pending, false),
+        "a snapshot published before the answer must not undo the flip"
+    );
+    assert!(awaited(&pending, false));
+    assert!(awaited(&pending, true));
+    assert_eq!(pending.get(), None, "agreement ends the wait");
+
+    pending.set(Some(true));
+    pending.set(None);
+    assert!(
+        !awaited(&pending, false),
+        "a refusal clears the wait and the next snapshot shows off"
+    );
+}

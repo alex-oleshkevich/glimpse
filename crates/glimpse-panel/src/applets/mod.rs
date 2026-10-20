@@ -1,7 +1,7 @@
 mod agenda;
 pub mod audio;
 pub(crate) mod bluetooth;
-mod clipboard;
+pub(crate) mod clipboard;
 mod clock;
 mod command;
 mod display;
@@ -109,9 +109,10 @@ pub fn build(
         }
         AppletKind::Keyboard { .. } => {
             let keyboard = handles.keyboard.clone();
+            let notifications = handles.notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(keyboard.subscribe());
-                Box::new(keyboard::Keyboard::start(keyboard))
+                Box::new(keyboard::Keyboard::start(keyboard, notifications))
             }))
         }
         AppletKind::Notifications(_) => {
@@ -168,9 +169,10 @@ pub fn build(
         }
         AppletKind::Idle { .. } => {
             let idle = handles.idle.clone();
+            let notifications = handles.notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(idle.subscribe());
-                Box::new(idle::Idle::start(idle))
+                Box::new(idle::Idle::start(idle, notifications))
             }))
         }
         AppletKind::Session { .. } => {

@@ -200,3 +200,65 @@ fn a_connected_vpn_adds_a_second_chip_rather_than_changing_the_first() {
     assert_eq!(with_vpn.icon_name(), state(70).icon_name());
     assert!(with_vpn.vpn_icon_name(true).is_some());
 }
+
+async fn requests(inbox: &relm4::Receiver<crate::applet::runtime::HostInput>, ctx: &Ctx) -> usize {
+    use crate::applet::runtime::HostInput;
+    ctx.opener().wake();
+    let mut seen = 0;
+    while let Some(input) = inbox.recv().await {
+        match input {
+            HostInput::PopoverRequested => seen += 1,
+            HostInput::Woken => break,
+            _ => {}
+        }
+    }
+    seen
+}
+
+fn secret(name: &str) -> SecretRequest {
+    SecretRequest {
+        name: name.to_owned(),
+        path: "/s/1".to_owned(),
+        setting: "802-11-wireless-security".to_owned(),
+        retry: false,
+    }
+}
+
+#[tokio::test]
+async fn a_secret_request_raises_one_popover_and_every_bar_can_still_show_it() {
+    let (mut service, handle) = glimpse_services::Running::<glimpse_services::Network>::spawn(
+        &glimpse_config::Config::default(),
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+        glimpse_services::NetworkDependencies { agent: false },
+    );
+    let notifications =
+        glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests").handle();
+    let (sender, inbox) = relm4::channel();
+    let ctx = Ctx::new("network".into(), None, sender);
+    let mut bars: Vec<_> = (0..2)
+        .map(|_| Network::start(handle.clone(), notifications.clone()))
+        .collect();
+
+    for bar in &mut bars {
+        bar.state.secret = Some(secret("Skylink"));
+        bar.raise(&ctx);
+    }
+    assert_eq!(requests(&inbox, &ctx).await, 1);
+    assert!(
+        bars.iter()
+            .all(|bar| survives_reopen(bar.asking.borrow().as_ref())),
+        "the bar that did not raise still holds the prompt for its popover"
+    );
+
+    for bar in &mut bars {
+        bar.state.secret = None;
+        bar.raise(&ctx);
+    }
+    assert!(bars.iter().all(|bar| bar.asking.borrow().is_none()));
+    for bar in &mut bars {
+        bar.state.secret = Some(secret("Skylink"));
+        bar.raise(&ctx);
+    }
+    assert_eq!(requests(&inbox, &ctx).await, 1);
+    service.stop().await;
+}

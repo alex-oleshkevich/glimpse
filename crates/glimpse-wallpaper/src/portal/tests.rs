@@ -23,8 +23,12 @@ fn handle(path: &str) -> ObjectPath<'static> {
 }
 
 fn image_file(dir: &Path, name: &str) -> PathBuf {
+    sized_image_file(dir, name, 4, 4)
+}
+
+fn sized_image_file(dir: &Path, name: &str, width: i32, height: i32) -> PathBuf {
     let path = dir.join(name);
-    let pixbuf = Pixbuf::new(Colorspace::Rgb, false, 8, 4, 4).expect("a pixbuf");
+    let pixbuf = Pixbuf::new(Colorspace::Rgb, false, 8, width, height).expect("a pixbuf");
     pixbuf.fill(0xff0000ff);
     pixbuf.savev(&path, "png", &[]).expect("saves");
     path
@@ -123,6 +127,7 @@ fn every_rejection_has_its_own_text() {
     let texts: Vec<String> = [
         Reject::NotFileUri,
         Reject::TooLarge,
+        Reject::TooBig,
         Reject::NotImage,
         Reject::Unreadable,
     ]
@@ -131,6 +136,7 @@ fn every_rejection_has_its_own_text() {
     .collect();
     assert!(texts.iter().all(|text| !text.is_empty()));
     assert!(texts[1].contains("64"));
+    assert!(texts[2].contains("8192"));
     let unique: std::collections::HashSet<&String> = texts.iter().collect();
     assert_eq!(unique.len(), texts.len());
 }
@@ -160,6 +166,16 @@ async fn a_valid_image_is_copied_and_a_rejected_one_leaves_nothing() {
     );
 }
 
+#[tokio::test]
+async fn an_image_wider_than_the_ceiling_is_too_big_and_leaves_nothing() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let copies = dir.path().join("copies");
+    let source = sized_image_file(dir.path(), "panorama.png", 9000, 16);
+
+    assert_eq!(copy_image(&source, &copies).await, Err(Reject::TooBig));
+    assert_eq!(std::fs::read_dir(&copies).expect("lists").count(), 0);
+}
+
 #[test]
 fn collecting_copies_keeps_only_the_named_files() {
     let dir = tempfile::tempdir().expect("a temporary directory");
@@ -184,7 +200,7 @@ struct Started {
 }
 
 impl Started {
-    async fn new() -> Self {
+    async fn new(dropin: Option<&str>) -> Self {
         let directory = tempfile::tempdir().expect("a temporary directory");
         let config = directory.path().join("config.toml");
         std::fs::write(
@@ -192,6 +208,11 @@ impl Started {
             "[wallpaper]\nimage = \"old.jpg\"\nimage-dark = \"dark.jpg\"\n",
         )
         .expect("writes");
+        if let Some(text) = dropin {
+            let dropins = directory.path().join("config.d");
+            std::fs::create_dir_all(&dropins).expect("creates");
+            std::fs::write(dropins.join("10.toml"), text).expect("writes");
+        }
         let copies = directory.path().join("state").join("wallpaper");
         let bus = PrivateBus::start();
         let server = bus.connection().await;
@@ -201,9 +222,9 @@ impl Started {
         serve_at(
             &server,
             Settings {
-                config_path: Some(config.clone()),
+                config_path: dropin.is_none().then(|| config.clone()),
                 user_config: config.clone(),
-                user_dir: None,
+                user_dir: dropin.map(|_| directory.path().to_path_buf()),
                 copies: copies.clone(),
             },
         )
@@ -240,7 +261,7 @@ trait WallpaperPortalTest {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn setting_the_background_copies_the_image_and_rewrites_the_config() {
-    let started = Started::new().await;
+    let started = Started::new(None).await;
     let proxy = WallpaperPortalTestProxy::new(&started.client)
         .await
         .expect("a proxy");
@@ -260,9 +281,10 @@ async fn setting_the_background_copies_the_image_and_rewrites_the_config() {
     assert_eq!(response, SUCCESS);
 
     let written = std::fs::read_to_string(&started.config).expect("reads");
-    assert!(written.contains("state/wallpaper/wallpaper-"), "{written}");
-    assert!(!written.contains("image-dark"), "{written}");
-    assert!(!written.contains("old.jpg"), "{written}");
+    let prev = prev_from(&written).expect("parses");
+    let image = prev.image.as_deref().expect("an image");
+    assert!(image.contains("state/wallpaper/wallpaper-"), "{written}");
+    assert_eq!(prev.image_dark.as_deref(), Some(image), "{written}");
     assert_eq!(
         std::fs::read_dir(&started.copies).expect("lists").count(),
         1
@@ -303,5 +325,48 @@ async fn setting_the_background_copies_the_image_and_rewrites_the_config() {
     assert_eq!(
         std::fs::read_dir(&started.copies).expect("lists").count(),
         1
+    );
+}
+
+async fn set_background(started: &Started, path: &str) -> u32 {
+    let proxy = WallpaperPortalTestProxy::new(&started.client)
+        .await
+        .expect("a proxy");
+    let source = image_file(started.directory.path(), "shot.png");
+    proxy
+        .set_wallpaper_uri(
+            &handle(path),
+            "",
+            "",
+            &format!("file://{}", source.display()),
+            HashMap::new(),
+        )
+        .await
+        .expect("SetWallpaperURI")
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_dropin_setting_image_dark_refuses_the_set_and_leaves_the_config() {
+    let started = Started::new(Some("[wallpaper]\nimage-dark = \"mine.jpg\"\n")).await;
+    let before = std::fs::read_to_string(&started.config).expect("reads");
+
+    assert_eq!(set_background(&started, "/req/shadowed").await, OTHER);
+    assert_eq!(
+        std::fs::read_to_string(&started.config).expect("reads"),
+        before
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unwritable_config_refuses_the_set_and_removes_the_copy() {
+    use std::os::unix::fs::PermissionsExt;
+    let started = Started::new(None).await;
+    std::fs::set_permissions(&started.config, std::fs::Permissions::from_mode(0o444))
+        .expect("sets permissions");
+
+    assert_eq!(set_background(&started, "/req/unwritable").await, OTHER);
+    assert_eq!(
+        std::fs::read_dir(&started.copies).expect("lists").count(),
+        0
     );
 }

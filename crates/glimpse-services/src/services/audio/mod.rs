@@ -6,6 +6,8 @@ mod tests;
 
 pub use model::*;
 
+use std::time::Duration;
+
 use tokio::sync::oneshot;
 
 use crate::{
@@ -60,11 +62,15 @@ pub enum Command {
     },
 }
 
+const RECONNECT_MIN: Duration = Duration::from_secs(1);
+const RECONNECT_MAX: Duration = Duration::from_secs(30);
+
 pub struct Audio {
     state: Publisher<AudioState>,
     current: AudioState,
     client: Option<pulse::Client>,
     generation: u64,
+    backoff: Duration,
 }
 
 pub type AudioHandle = crate::ServiceEndpoint<Audio>;
@@ -177,9 +183,14 @@ impl Service for Audio {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        vec![Sub::stream(Watch::Pulse(self.generation), |_ctx| async {
-            pulse::connect().await
-        })]
+        let backoff = self.backoff;
+        vec![Sub::stream(
+            Watch::Pulse(self.generation),
+            move |_ctx| async move {
+                tokio::time::sleep(backoff).await;
+                pulse::connect().await
+            },
+        )]
     }
 
     async fn start(ctx: &Ctx<Self>, _config: Self::Config, _: Self::Dependencies) -> Self {
@@ -188,6 +199,7 @@ impl Service for Audio {
             current: AudioState::default(),
             client: None,
             generation: 0,
+            backoff: Duration::ZERO,
         }
     }
 
@@ -197,6 +209,7 @@ impl Service for Audio {
             Input::Config(_) => {}
             Input::Event(pulse::Event::Ready(client)) => {
                 self.client = Some(client);
+                self.backoff = Duration::ZERO;
                 ctx.running();
             }
             Input::Event(pulse::Event::Snapshot(snapshot)) => {
@@ -215,6 +228,7 @@ impl Service for Audio {
             Input::Event(pulse::Event::Gone(reason)) => {
                 self.client = None;
                 self.generation = self.generation.wrapping_add(1);
+                self.backoff = (self.backoff * 2).clamp(RECONNECT_MIN, RECONNECT_MAX);
                 ctx.degraded(reason);
             }
         }

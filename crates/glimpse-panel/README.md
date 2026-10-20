@@ -57,9 +57,10 @@ inside their popover.
 
 `ctx.interval(period)` is the only timer an applet gets, delivering `Input::Tick`. **A tick lands
 on the boundary**, not on whenever the panel started: `until_boundary` takes the time since the
-epoch modulo the period, without which a `%H:%M` clock changes up to a minute late. **A missed tick
-is skipped, not burst** — tokio's default `Burst` would deliver every missed tick in one pass after
-a long suspend; `Skip` keeps the phase, where `Delay` would restart from the stall.
+epoch modulo the period, without which a `%H:%M` clock changes up to a minute late. **The phase is
+re-derived from the wall clock before every sleep**: a counted interval runs on the monotonic clock,
+which stops during suspend and ignores a clock step, and would hold its old phase for the rest of
+the session.
 
 **The clock derives its period rather than being configured**: `%H:%M` ticks once a minute,
 `%H:%M:%S` once a second, decided by scanning for a specifier faster than a minute — reading actual
@@ -130,7 +131,8 @@ nothing inside `within` means no chip, and an event ending under an open popover
 **Images decode through `thumbnail`, never `Texture::from_bytes`** — a byte cap says nothing about
 pixel count, and a small file can decode to an enormous bitmap.
 A decoded image is also written, private, under `runtime_dir()/clipboard/<id>/` and deleted with
-its entry: a drop hands a file manager a URI, and a drag's content must exist when it starts.
+its entry or when the panel's services start: a drop hands a file manager a URI, and a drag's
+content must exist when it starts. Decoding and writing run on `gio::spawn_blocking`.
 `WaylandSelection` adapts `glimpse_wayland::selection` to the service's `Selection` trait. It
 opens a data-control watch only while the service has an events subscriber and passes read demand
 before reading an offer, so a disabled clipboard service opens no connection or reads no secret.

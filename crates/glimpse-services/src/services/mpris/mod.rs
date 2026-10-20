@@ -364,15 +364,15 @@ impl Service for Mpris {
                 for bus in names {
                     self.admit(bus);
                 }
-                self.publish();
+                self.publish(ctx);
             }
             Input::Event(Event::Appeared(bus)) => {
                 self.admit(bus);
-                self.publish();
+                self.publish(ctx);
             }
             Input::Event(Event::Vanished(bus)) | Input::Event(Event::Gone(bus)) => {
                 if self.known.remove(&bus).is_some() {
-                    self.publish();
+                    self.publish(ctx);
                 }
             }
             Input::Event(Event::Updated(player)) if !self.known.contains_key(&player.bus) => {}
@@ -385,16 +385,16 @@ impl Service for Mpris {
                     player.last_active = stirred(held, &player);
                     self.known.insert(player.bus.clone(), Some(*player));
                 }
-                self.publish();
+                self.publish(ctx);
             }
             Input::Event(Event::Art { url, path }) => {
                 self.art.insert(url, path);
-                self.publish();
+                self.publish(ctx);
             }
             Input::Event(Event::Unavailable(reason)) => {
                 ctx.degraded(reason);
                 self.known.clear();
-                self.publish();
+                self.publish(ctx);
             }
             Input::Config(config) => {
                 if config.ignore != self.settings.ignore {
@@ -413,7 +413,7 @@ impl Service for Mpris {
                 }
                 self.client = client(ctx, &config);
                 self.settings = config;
-                self.publish();
+                self.publish(ctx);
             }
             Input::Command(command) => self.act(ctx, command),
         }
@@ -449,9 +449,18 @@ impl Mpris {
         wanted
     }
 
-    fn publish(&mut self) {
+    fn publish(&mut self, ctx: &Ctx<Self>) {
         let referenced = self.remote_art();
-        self.art.retain(|url, _| referenced.contains(url));
+        let dropped: Vec<String> = self
+            .art
+            .keys()
+            .filter(|url| !referenced.contains(*url))
+            .cloned()
+            .collect();
+        for url in dropped {
+            self.art.remove(&url);
+            ctx.spawn_detached(move |_ctx| art::forget(url));
+        }
 
         let held: Vec<Player> = self.known.values().flatten().cloned().collect();
         let arranged = select::arrange(held);
@@ -685,12 +694,14 @@ async fn watch(
     let root = MprisRootProxy::builder(&connection)
         .destination(bus.clone())
         .map_err(say)?
+        .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
         .await
         .map_err(say)?;
     let player = MprisPlayerProxy::builder(&connection)
         .destination(bus.clone())
         .map_err(say)?
+        .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
         .await
         .map_err(say)?;
@@ -725,9 +736,6 @@ async fn watch(
     Ok(stream::once(async move { first }).chain(futures_util::stream::select(updated, seeked)))
 }
 
-/// Everything is re-read on every change, because a `Player` is rebuilt whole either way and only
-/// `Position` costs a round trip — every other property is answered from the proxy's cache, kept
-/// fresh by the same signal that woke this up.
 async fn read(bus: String, root: &MprisRootProxy<'_>, player: &MprisPlayerProxy<'_>) -> Event {
     let identity = root
         .identity()

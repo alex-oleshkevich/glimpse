@@ -113,7 +113,7 @@ fn child_exit_codes_map_onto_portal_responses() {
             code: Some(0),
         },
     );
-    assert_eq!(relative.0, OTHER);
+    assert_eq!(relative.0, SUCCESS);
 
     let color = response_of(
         RequestKind::Color,
@@ -244,24 +244,14 @@ struct Started {
 
 impl Started {
     async fn new() -> Self {
-        Self::with_directory(None).await
-    }
-
-    async fn with_directory(override_directory: Option<PathBuf>) -> Self {
         let directory = tempfile::tempdir().expect("a temporary directory");
         let fake = Arc::new(Fake::new());
         let bus = PrivateBus::start();
         let server = bus.connection().await;
-        let template = FileTemplate::try_from("shot.png".to_owned()).expect("template");
-        let screenshot = ScreenshotConfig {
-            directory: Some(override_directory.unwrap_or_else(|| directory.path().to_path_buf())),
-            filename: template,
-            ..ScreenshotConfig::default()
-        };
         glimpse_dbus::own_name(&server, BUS_NAME)
             .await
             .expect("the portal name");
-        serve_at(&server, Arc::clone(&fake) as Arc<dyn Spawner>, screenshot)
+        serve_at(&server, Arc::clone(&fake) as Arc<dyn Spawner>)
             .await
             .expect("the portal is served");
         let client = bus.connection().await;
@@ -273,51 +263,6 @@ impl Started {
             fake,
         }
     }
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn unavailable_screenshot_directory_does_not_stop_color_or_interactive_requests() {
-    let started = Started::with_directory(Some(PathBuf::from("/dev/null/glimpse-shot"))).await;
-    let proxy = ShotPortalProxy::new(&started.client)
-        .await
-        .expect("a proxy");
-
-    started.fake.push(Script::Done {
-        stdout: r#"{"red":1,"green":2,"blue":3}"#.to_owned(),
-        code: 0,
-    });
-    let (color, _) = proxy
-        .pick_color(&handle("/req/no_folder_color"), "", "", HashMap::new())
-        .await
-        .expect("PickColor");
-    assert_eq!(color, SUCCESS);
-
-    started.fake.push(Script::Done {
-        stdout: result_stdout("/tmp/portal-overlaid.png"),
-        code: 0,
-    });
-    let (interactive, _) = proxy
-        .screenshot(
-            &handle("/req/no_folder_interactive"),
-            "org.gimp.GIMP",
-            "",
-            flags(&[("interactive", true)]),
-        )
-        .await
-        .expect("interactive Screenshot");
-    assert_eq!(interactive, SUCCESS);
-
-    let (headless, _) = proxy
-        .screenshot(
-            &handle("/req/no_folder_headless"),
-            "org.gimp.GIMP",
-            "",
-            flags(&[("permission_store_checked", true)]),
-        )
-        .await
-        .expect("headless Screenshot");
-    assert_eq!(headless, OTHER);
-    assert_eq!(started.fake.argv().len(), 2);
 }
 
 #[zbus::proxy(
@@ -688,9 +633,8 @@ async fn the_spawned_child_follows_the_decision_and_the_child_result() {
         assert_eq!(argv[1], OsString::from("capture"));
         assert_eq!(argv[2], OsString::from("--screen"));
         assert_eq!(argv[3], OsString::from("--json"));
-        assert_eq!(argv[4], OsString::from("-o"));
-        assert_eq!(argv[5], output.as_os_str());
-        assert!(output.starts_with(started.directory.path()));
+        assert!(!argv.iter().any(|arg| arg == "-o"));
+        assert_eq!(argv.len(), 4);
 
         started.fake.push(Script::Done {
             stdout: String::new(),
@@ -804,11 +748,10 @@ fn overlay_and_headless_commands_name_the_binaries() {
             OsString::from(OVERLAY_TIMEOUT_SECS.to_string()),
         ]
     );
-    let output = Path::new("/tmp/shots/shot.png");
-    let headless = headless_command(output, false);
+    let headless = headless_command(false);
     assert_eq!(headless[1], OsString::from("capture"));
-    assert_eq!(headless[5], output.as_os_str());
-    let window = headless_command(output, true);
+    assert!(!headless.iter().any(|arg| arg == "-o"));
+    let window = headless_command(true);
     assert_eq!(
         &window[1..4],
         &[
@@ -817,7 +760,7 @@ fn overlay_and_headless_commands_name_the_binaries() {
             OsString::from("focused")
         ]
     );
-    assert_eq!(window[6], output.as_os_str());
+    assert!(!window.iter().any(|arg| arg == "-o"));
     let picker = picker_command();
     assert_eq!(program_name(&picker), Some("glimpse-lens"));
     assert_eq!(
@@ -848,4 +791,14 @@ fn overlay_and_headless_commands_name_the_binaries() {
     assert_ne!(first_id, second_id);
     assert!(app_id(&child_command(headless).expect("headless command")).is_none());
     assert!(app_id(&child_command(picker).expect("picker command")).is_none());
+}
+
+#[test]
+fn a_relative_result_path_becomes_an_absolute_uri() {
+    let reply =
+        parse_success(RequestKind::Shot, result_stdout("shots/a.png").as_bytes()).expect("a reply");
+    let uri = String::try_from(reply.1["uri"].clone()).expect("a uri");
+    let absolute = std::path::absolute("shots/a.png").expect("absolute");
+    assert_eq!(Some(uri), file_uri(&absolute));
+    assert!(parse_success(RequestKind::Shot, b"{}").is_none());
 }

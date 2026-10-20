@@ -26,6 +26,7 @@ pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     workspace_reorder: false,
     output_power: true,
     blank_screens: false,
+    window_screenshot: false,
 };
 
 const CONTROL_SOCKET: &str = ".socket.sock";

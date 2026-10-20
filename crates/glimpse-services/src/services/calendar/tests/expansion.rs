@@ -209,3 +209,49 @@ fn a_zoned_hourly_series_keeps_the_instance_whose_utc_face_looks_like_the_overri
         1
     );
 }
+
+fn zoned(tzid: &str) -> String {
+    format!(
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+         BEGIN:VEVENT\r\nUID:zoned@example\r\nDTSTAMP:20260901T000000Z\r\n\
+         DTSTART;TZID={tzid}:20260907T100000\r\nDTEND;TZID={tzid}:20260907T103000\r\n\
+         SUMMARY:Zoned\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+}
+
+async fn zoned_occurrences(tzid: &str) -> Vec<Occurrence> {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let file = root.path().join("zoned.ics");
+    tokio::fs::write(&file, zoned(tzid))
+        .await
+        .expect("a written fixture");
+    let fetch = read(
+        None,
+        CalendarSourceKind::Ical,
+        file.to_string_lossy().into_owned(),
+    )
+    .await
+    .expect("a readable document");
+    expand(&fetch.calendars[0], window())
+}
+
+#[tokio::test]
+async fn an_exchange_event_with_a_windows_timezone_name_is_expanded_in_that_zone() {
+    let found = zoned_occurrences("W. Europe Standard Time").await;
+
+    assert_eq!(found.len(), 1, "the Exchange event vanished");
+    assert_eq!(
+        found[0].start,
+        Utc.with_ymd_and_hms(2026, 9, 7, 8, 0, 0)
+            .single()
+            .expect("one instant")
+    );
+}
+
+#[tokio::test]
+async fn an_event_in_an_unknown_zone_keeps_its_single_instance() {
+    let found = zoned_occurrences("Mars/Base").await;
+
+    assert_eq!(found.len(), 1, "an unknown zone must not drop the event");
+    assert_eq!(found[0].summary, "Zoned");
+}

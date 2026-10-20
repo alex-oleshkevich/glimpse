@@ -16,7 +16,7 @@ use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkEntered, NetworkPopover}
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, claim, command, release, spawn_command};
 
 use super::render;
 
@@ -68,6 +68,10 @@ fn agent_key(request: &SecretRequest) -> String {
     format!("{}:{}", request.setting, request.name)
 }
 
+fn claim_key(request: &SecretRequest) -> String {
+    format!("network:{}", agent_key(request))
+}
+
 /// Which command a row's own id belongs to. A row in *Known networks* or *VPN* carries a settings
 /// profile path, which `connect_access_point` cannot find — it searches access points alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,24 +119,21 @@ fn tell<T: 'static>(
         icon: IDLE.to_owned(),
         summary,
     };
-    let opener = opener.clone();
     let closing = closing.map(|(shown, id)| (shown.clone(), id.clone()));
-    relm4::spawn_local(async move {
-        match future.await {
-            Ok(_) => {
-                if let Some((shown, id)) = closing
-                    && let Some(shown) = shown.upgrade()
-                {
-                    shown.collapse(id.as_str());
-                }
+    command(
+        report,
+        opener.clone(),
+        operation,
+        |error: &NetworkError| error.failure().and_then(render::wording),
+        move |_| {
+            if let Some((shown, id)) = closing
+                && let Some(shown) = shown.upgrade()
+            {
+                shown.collapse(id.as_str());
             }
-            Err(error) => {
-                let wording = error.failure().and_then(render::wording);
-                report_failure(operation, report, wording, error).await;
-            }
-        }
-        opener.wake();
-    });
+        },
+        future,
+    );
 }
 
 pub struct Network {
@@ -175,20 +176,24 @@ impl Network {
     /// arrive without the user having asked for anything, so it opens the popover to be answered.
     fn raise(&mut self, ctx: &Ctx) {
         let held = self.asking.borrow().clone();
-        let asked = match (&self.state.secret, held) {
+        match (&self.state.secret, held) {
             (Some(request), Some(Asking::Agent(held)))
-                if agent_key(&held) == agent_key(request) =>
-            {
-                return;
+                if agent_key(&held) == agent_key(request) => {}
+            (Some(request), held) => {
+                if let Some(Asking::Agent(held)) = held {
+                    release(&claim_key(&held));
+                }
+                let first = claim(&claim_key(request));
+                self.asking.replace(Some(Asking::Agent(request.clone())));
+                if first {
+                    ctx.opener().open_popover();
+                }
             }
-            (Some(request), _) => Some(Asking::Agent(request.clone())),
-            (None, Some(Asking::Agent(_))) => None,
-            (None, _) => return,
-        };
-        let raising = asked.is_some();
-        self.asking.replace(asked);
-        if raising {
-            ctx.opener().open_popover();
+            (None, Some(Asking::Agent(held))) => {
+                release(&claim_key(&held));
+                self.asking.replace(None);
+            }
+            (None, _) => {}
         }
     }
 

@@ -303,3 +303,24 @@ fn pixelation_export_paints_only_the_brush_path() {
     assert!(near(scaled.at(50, 50), [127, 127, 127]));
     assert_eq!(scaled.at(50, 60), [128, 128, 128]);
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn number_digits_are_centered_by_their_ink_rect() {
+    gtk4::init().expect("display");
+    let label = gtk4::Label::new(None);
+    for n in [1, 7, 10, 88] {
+        for pixels in [12.0_f64, 19.2, 28.8, 40.0] {
+            let layout = label.create_pango_layout(Some(&n.to_string()));
+            let mut font = pango::FontDescription::from_string("Sans Bold");
+            font.set_absolute_size(pixels * f64::from(pango::SCALE));
+            layout.set_font_description(Some(&font));
+            let (left, top) = ink_origin(&layout, (100.0, 100.0));
+            let (ink, _) = layout.extents();
+            let scale = pango::SCALE as f32;
+            let cx = left + (ink.x() as f32 + ink.width() as f32 / 2.0) / scale;
+            let cy = top + (ink.y() as f32 + ink.height() as f32 / 2.0) / scale;
+            assert!((cx - 100.0).abs() < 0.5 && (cy - 100.0).abs() < 0.5);
+        }
+    }
+}

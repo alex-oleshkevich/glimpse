@@ -188,13 +188,13 @@ async fn a_prompt_that_is_dropped_cancels_rather_than_hanging() {
 
 #[test]
 fn an_answer_is_shaped_by_the_setting_and_named_by_the_hint() {
-    let wifi = answer_for(WIRELESS_SECURITY, &[], "x");
+    let wifi = answer_for(WIRELESS_SECURITY, &[], "x").expect("an answer");
     assert!(
         wifi[WIRELESS_SECURITY].contains_key("psk"),
         "a wireless request with no hint is the ordinary pre-shared key"
     );
 
-    let wep = answer_for(WIRELESS_SECURITY, &["wep-key0".to_owned()], "x");
+    let wep = answer_for(WIRELESS_SECURITY, &["wep-key0".to_owned()], "x").expect("an answer");
     assert!(
         wep[WIRELESS_SECURITY].contains_key("wep-key0")
             && !wep[WIRELESS_SECURITY].contains_key("psk"),
@@ -202,10 +202,11 @@ fn an_answer_is_shaped_by_the_setting_and_named_by_the_hint() {
              wrong password and is not one"
     );
 
-    let ignored = answer_for(WIRELESS_SECURITY, &["something-else".to_owned()], "x");
+    let ignored =
+        answer_for(WIRELESS_SECURITY, &["something-else".to_owned()], "x").expect("an answer");
     assert!(ignored[WIRELESS_SECURITY].contains_key("psk"));
 
-    let vpn = answer_for(VPN, &["password".to_owned()], "x");
+    let vpn = answer_for(VPN, &["password".to_owned()], "x").expect("an answer");
     let secrets = vpn[VPN].get("secrets").expect("the secrets member");
     let secrets = HashMap::<String, String>::try_from(secrets.try_clone().expect("a clone"))
         .expect("vpn.secrets is a{ss}, never a bare string");

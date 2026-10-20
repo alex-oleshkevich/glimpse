@@ -508,3 +508,43 @@ async fn a_stopped_service_maps_a_dropped_reply_to_unavailable() {
         Err(AudioError::Service(CommandError::Unavailable(_)))
     ));
 }
+
+async fn gone(service: &mut Audio, ctx: &Ctx<Audio>) {
+    service
+        .handle(ctx, Input::Event(pulse::Event::Gone("down".to_owned())))
+        .await;
+}
+
+#[tokio::test]
+async fn reconnecting_waits_longer_after_each_failure_up_to_a_cap() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    assert_eq!(service.backoff, Duration::ZERO);
+
+    let mut waits = Vec::new();
+    for _ in 0..8 {
+        gone(&mut service, &ctx).await;
+        waits.push(service.backoff.as_secs());
+    }
+
+    assert_eq!(waits, [1, 2, 4, 8, 16, 30, 30, 30]);
+}
+
+#[tokio::test]
+async fn a_ready_connection_resets_the_backoff() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    gone(&mut service, &ctx).await;
+    gone(&mut service, &ctx).await;
+    assert_eq!(service.backoff, Duration::from_secs(2));
+
+    let (tx, _requests) = mpsc::channel(1);
+    service
+        .handle(
+            &ctx,
+            Input::Event(pulse::Event::Ready(pulse::Client { tx })),
+        )
+        .await;
+    assert_eq!(service.backoff, Duration::ZERO);
+
+    gone(&mut service, &ctx).await;
+    assert_eq!(service.backoff, Duration::from_secs(1));
+}

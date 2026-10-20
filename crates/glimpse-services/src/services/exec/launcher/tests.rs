@@ -399,3 +399,36 @@ async fn sweep_matches_escaped_panel_ids_and_preserves_other_panels() {
     assert!(swept.is_ok(), "escaped panel prefix must match its unit");
     assert!(preserved, "another panel's unit must remain running");
 }
+
+#[tokio::test]
+#[ignore = "needs the systemd user manager"]
+async fn a_unit_that_vanishes_before_the_watch_subscribes_is_failed() {
+    use futures_util::StreamExt;
+    let connection = zbus::Connection::session().await.expect("session bus");
+    let launcher = SystemdLauncher::new(Some(connection));
+    let name = unit_name(
+        &format!("me.aresa.Vanish-Test{}", std::process::id()),
+        "me.example.Test",
+        1,
+        1,
+    );
+    let state = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        launcher.watch(&name).next(),
+    )
+    .await
+    .expect("the watch answers");
+    assert_eq!(
+        state,
+        Some(UnitState::Failed {
+            result: "exit-code".to_owned()
+        })
+    );
+}
+
+#[tokio::test]
+async fn a_watch_without_a_manager_connection_reports_nothing() {
+    use futures_util::StreamExt;
+    let launcher = SystemdLauncher::new(None);
+    assert_eq!(launcher.watch("app-glimpse-x.service").next().await, None);
+}

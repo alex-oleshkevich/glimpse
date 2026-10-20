@@ -113,6 +113,7 @@ pub trait AgentManager1 {
         capability: &str,
     ) -> zbus::Result<()>;
     fn unregister_agent(&self, agent: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
+    fn request_default_agent(&self, agent: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
 }
 
 const NAME: usize = 64;

@@ -90,7 +90,7 @@ fn group_name(level: &str, section: usize) -> String {
 }
 
 fn entry(item: &Item, group: &str) -> gio::MenuItem {
-    let built = gio::MenuItem::new(Some(&item.label), None);
+    let built = gio::MenuItem::new(Some(&item.label.replace('_', "__")), None);
     if let Some(icon) = &item.icon {
         built.set_icon(&gio::ThemedIcon::new(icon));
     }

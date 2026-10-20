@@ -158,7 +158,7 @@ pub(super) fn check() {
     );
     events.imp().more.emit_by_name::<()>("activated", &[]);
     assert_eq!(titles(&events).len(), 6);
-    assert!(!events.overflows());
+    assert!(!events.imp().more.get_visible());
     events.fold();
     assert_eq!(titles(&events).len(), 3, "folding restores both caps");
 

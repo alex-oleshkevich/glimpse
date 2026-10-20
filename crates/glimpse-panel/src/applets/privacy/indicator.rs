@@ -71,10 +71,20 @@ impl Applet for Privacy {
         shown.connect_stop_activated({
             let compositor = self.compositor.clone();
             let notifications = self.notifications.clone();
-            let state = self.state.clone();
+            let privacy = self.privacy.clone();
             let filters = self.filters;
             move |_, id| {
-                for session in render::sessions_for(&state, filters, &id) {
+                let sessions = render::sessions_for(&privacy.snapshot(), filters, &id);
+                if sessions.is_empty() {
+                    let report = stop_report(notifications.clone());
+                    relm4::spawn_local(report_failure(
+                        "privacy.stop_screencast",
+                        report,
+                        Some(gettext("That share had already ended.")),
+                        "no live session behind that row",
+                    ));
+                }
+                for session in sessions {
                     stop_screencast(compositor.clone(), notifications.clone(), session);
                 }
             }
@@ -129,12 +139,7 @@ fn stop_screencast(
 ) {
     relm4::spawn_local(async move {
         if let Err(error) = compositor.stop_screencast(session).await {
-            let report = Report {
-                notifications,
-                app_name: gettext("Privacy"),
-                icon: render::SCREEN.to_owned(),
-                summary: gettext("Could not stop that screen share"),
-            };
+            let report = stop_report(notifications);
             report_failure(
                 "compositor.stop_screencast",
                 report,
@@ -144,6 +149,15 @@ fn stop_screencast(
             .await;
         }
     });
+}
+
+fn stop_report(notifications: NotificationsProviderHandle) -> Report {
+    Report {
+        notifications,
+        app_name: gettext("Privacy"),
+        icon: render::SCREEN.to_owned(),
+        summary: gettext("Could not stop that screen share"),
+    }
 }
 
 fn compositor_wording(error: &CommandError) -> Option<String> {

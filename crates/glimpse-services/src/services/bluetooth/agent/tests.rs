@@ -165,3 +165,62 @@ async fn cancel_withdraws_the_prompt() {
         Ok(Input::Event(Event::PromptGone))
     ));
 }
+
+struct FakeManager {
+    calls: std::sync::Arc<std::sync::Mutex<Vec<&'static str>>>,
+    refuse_default: bool,
+}
+
+#[zbus::interface(name = "org.bluez.AgentManager1")]
+impl FakeManager {
+    fn register_agent(&self, _agent: ObjectPath<'_>, _capability: String) {
+        self.calls.lock().expect("not poisoned").push("register");
+    }
+
+    fn request_default_agent(&self, _agent: ObjectPath<'_>) -> zbus::fdo::Result<()> {
+        self.calls.lock().expect("not poisoned").push("default");
+        match self.refuse_default {
+            true => Err(zbus::fdo::Error::Failed("no".to_owned())),
+            false => Ok(()),
+        }
+    }
+}
+
+async fn registered(refuse_default: bool) -> (zbus::Result<()>, Vec<&'static str>) {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let bluez = bus.connection().await;
+    bluez
+        .object_server()
+        .at(
+            "/org/bluez",
+            FakeManager {
+                calls: calls.clone(),
+                refuse_default,
+            },
+        )
+        .await
+        .expect("export the fake manager");
+    glimpse_dbus::own_name(&bluez, "org.bluez").await.unwrap();
+    let (events, _inbox) = mpsc::channel(8);
+
+    let outcome = register(&bus.connection().await, events).await;
+    let seen = calls.lock().expect("not poisoned").clone();
+    (outcome, seen)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn registering_asks_bluez_to_make_the_agent_the_default_after_registering() {
+    let (outcome, calls) = registered(false).await;
+
+    assert!(outcome.is_ok());
+    assert_eq!(calls, ["register", "default"]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_refused_default_request_keeps_the_registration() {
+    let (outcome, calls) = registered(true).await;
+
+    assert!(outcome.is_ok());
+    assert_eq!(calls, ["register", "default"]);
+}
