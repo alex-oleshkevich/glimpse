@@ -4,7 +4,7 @@
 [appearance]
 theme = "adwaita"
 theme-variant = ""
-color-scheme = "desktop"
+color-scheme = "dark"
 desktop-color-scheme = "sun"
 blur = []
 animation-speed = 1.0

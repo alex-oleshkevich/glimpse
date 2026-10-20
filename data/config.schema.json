@@ -8,7 +8,7 @@
       "default": {
         "animation-speed": 1.0,
         "blur": [],
-        "color-scheme": "desktop",
+        "color-scheme": "dark",
         "desktop-color-scheme": "sun",
         "theme": "adwaita",
         "theme-variant": ""
@@ -2080,7 +2080,7 @@
         "color-scheme": {
           "description": "Choose `desktop` to follow your desktop mode, or `light` or `dark` to keep glimpse in one mode.",
           "$ref": "#/$defs/ColorScheme",
-          "default": "desktop"
+          "default": "dark"
         },
         "desktop-color-scheme": {
           "description": "Choose `sun` to turn your desktop dark at sunset and light at sunrise, `light` or `dark` to keep it in one mode, or `external` to let another tool decide.\nWithout a known location, `sun` leaves your desktop mode alone.",

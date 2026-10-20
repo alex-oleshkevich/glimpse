@@ -78,8 +78,8 @@ For a syntax error like this one, it names the file, the line, the column and th
 ## Switch to dark mode
 
 The default `[appearance]` settings are `desktop-color-scheme = "sun"` and
-`color-scheme = "desktop"`. With a known location, your desktop turns dark at sunset and light at
-sunrise, and glimpse follows it. You can hold your desktop in one mode yourself:
+`color-scheme = "dark"`. With a known location, your desktop turns dark at sunset and light at
+sunrise, and glimpse stays dark. You can hold your desktop in one mode yourself:
 
 ```sh
 glimpsectl appearance set dark

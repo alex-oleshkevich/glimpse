@@ -35,7 +35,7 @@ impl Default for Appearance {
         Self {
             theme: "adwaita".to_owned(),
             theme_variant: String::new(),
-            color_scheme: ColorScheme::Desktop,
+            color_scheme: ColorScheme::Dark,
             desktop_color_scheme: DesktopColorScheme::Sun,
             blur: Vec::new(),
             animation_speed: 1.0,

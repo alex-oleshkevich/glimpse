@@ -7,8 +7,8 @@ theme directory of CSS. The full setting list is in the
 ## Light and dark
 
 `desktop-color-scheme` decides the desktop's mode, which your apps follow; `color-scheme` decides
-glimpse's own. The defaults are `sun` and `desktop`: with a known location, your desktop turns dark
-at sunset and light at sunrise, and glimpse follows it. Without a location, `sun` leaves your
+glimpse's own. The defaults are `sun` and `dark`: with a known location, your desktop turns dark
+at sunset and light at sunrise, and glimpse stays dark. Without a location, `sun` leaves your
 desktop mode unchanged.
 
 Choose `light` or `dark` for `desktop-color-scheme` to keep your desktop in that mode, even if

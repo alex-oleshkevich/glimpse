@@ -17,7 +17,7 @@ fn desktop_color_scheme_defaults_to_sun_and_accepts_only_its_policies() {
         let parsed: Appearance =
             toml::from_str(&format!("desktop-color-scheme = {value:?}")).unwrap();
         assert_eq!(parsed.desktop_color_scheme, expected);
-        assert_eq!(parsed.color_scheme, ColorScheme::Desktop);
+        assert_eq!(parsed.color_scheme, ColorScheme::Dark);
     }
     for value in ["auto", "system", "solar", "off", "schedule"] {
         assert!(

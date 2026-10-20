@@ -23,8 +23,7 @@ light at sunrise. Without a known location, it leaves your desktop mode unchange
 [Location](#location). Choose `light` or `dark` to set the desktop preference at startup and restore
 it whenever another tool changes it. Choose `external` to leave the preference to you or another tool.
 
-For `color-scheme`, choose `desktop` (the default) to follow that preference. Choose `light` or
-`dark` to keep your bar, popovers, notifications, lock screen and wallpaper in one mode.
+For `color-scheme`, choose `dark` (the default) or `light` to keep your bar, popovers, notifications, lock screen and wallpaper in one mode. Choose `desktop` to follow that preference.
 
 | You want | `desktop-color-scheme` | `color-scheme` |
 | --- | --- | --- |
