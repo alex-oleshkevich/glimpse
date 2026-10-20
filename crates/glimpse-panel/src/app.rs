@@ -14,8 +14,8 @@ use glimpse_config::{
 };
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
-    Answer, BluetoothHandle, CommandError, ExecState, NetworkHandle, SessionAction,
-    SessionActionsHandle,
+    Answer, BluetoothError, BluetoothHandle, CommandError, ExecState, NetworkError, NetworkHandle,
+    SessionAction, SessionActionsHandle,
 };
 use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::color_scheme;
@@ -31,7 +31,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     applet::{Report, spawn_reported},
-    applets::bluetooth::{NAME_CAP, typed},
+    applets::bluetooth::{NAME_CAP, prompt_entry},
     attached::{AttachedRegistry, SharedRegistry},
     components::{self, panel},
     config_alert::{self, Problems},
@@ -60,9 +60,11 @@ pub struct AppInit {
     pub failure: Option<String>,
 }
 
+type Pairing = (Entry, String, String, String);
+
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
-    BluetoothPrompt(Option<(Entry, String, String)>),
+    BluetoothPrompt(Option<Pairing>),
     NetworkSecret(Option<SecretPrompt>),
     SessionConfirm(SessionDialog),
     SessionRun(SessionAction),
@@ -263,24 +265,17 @@ impl SimpleComponent for App {
             AppInput::Attached | AppInput::Detached => {}
             AppInput::BluetoothPrompt(pairing) => {
                 if let Some(services) = &self.services {
-                    if pairing.is_some() {
-                        self.close_popovers();
-                    }
                     let bluetooth = services.handles.bluetooth.clone();
-                    self.show_pairing(pairing, &bluetooth);
+                    let notifications = services.handles.notifications.clone();
+                    self.show_pairing(pairing, &bluetooth, notifications);
                 }
                 return;
             }
             AppInput::NetworkSecret(request) => {
                 if let Some(services) = &self.services {
-                    if listed(&self.config, "network") {
-                        return;
-                    }
-                    if request.is_some() {
-                        self.close_popovers();
-                    }
                     let network = services.handles.network.clone();
-                    self.show_secret(request, &network);
+                    let notifications = services.handles.notifications.clone();
+                    self.show_secret(request, &network, notifications);
                 }
                 return;
             }
@@ -364,25 +359,30 @@ impl App {
 
     fn show_pairing(
         &mut self,
-        pairing: Option<(Entry, String, String)>,
+        pairing: Option<Pairing>,
         bluetooth: &BluetoothHandle,
+        notifications: NotificationsProviderHandle,
     ) {
-        let Some((entry, device, name)) = pairing else {
+        let Some((entry, code, device, name)) = pairing else {
             close(self.pairing.take());
             return;
         };
 
         let dialog = match &self.pairing {
-            Some((dialog, _)) => dialog.clone(),
-            None => {
+            Some((dialog, _)) if is_open(dialog) => dialog.clone(),
+            _ => {
+                self.close_popovers();
                 let dialog = PairingDialog::new();
                 let handle = bluetooth.clone();
                 let answered = dialog.connect_answered(move |_, answer| {
                     let handle = handle.clone();
                     let answer = answered(answer);
-                    relm4::spawn(async move {
-                        let _ = handle.answer_pairing(answer).await;
-                    });
+                    spawn_reported(
+                        "bluetooth.answer_pairing",
+                        prompt_report(notifications.clone(), gettext("Bluetooth")),
+                        |_: &BluetoothError| Some(gettext("The pairing answer was not delivered.")),
+                        async move { handle.answer_pairing(answer).await },
+                    );
                 });
                 dialog.set_title(&gettext("Bluetooth pairing"));
                 dialog.present(None::<&gtk4::Widget>);
@@ -391,13 +391,18 @@ impl App {
             }
         };
 
-        dialog.ask(&device, &name, entry);
+        dialog.ask(&device, &name, entry, &code);
     }
 
     /// The prompt is presented here rather than by the applet: an applet holds no state outliving
     /// its widget, and NetworkManager can ask for a secret at any moment — including while the
     /// popover is shut.
-    fn show_secret(&mut self, request: Option<SecretPrompt>, network: &NetworkHandle) {
+    fn show_secret(
+        &mut self,
+        request: Option<SecretPrompt>,
+        network: &NetworkHandle,
+        notifications: NotificationsProviderHandle,
+    ) {
         let Some(SecretPrompt {
             key,
             name,
@@ -405,13 +410,14 @@ impl App {
             entered,
         }) = request
         else {
-            close_secret(self.secret.take());
+            close(self.secret.take());
             return;
         };
 
         let dialog = match &self.secret {
-            Some((dialog, _)) => dialog.clone(),
-            None => {
+            Some((dialog, _)) if is_open(dialog) => dialog.clone(),
+            _ => {
+                self.close_popovers();
                 let dialog = SecretDialog::new();
                 let handle = network.clone();
                 let answered = dialog.connect_answered(move |_, answer| {
@@ -422,9 +428,12 @@ impl App {
                         }
                         SecretAnswer::Refused => glimpse_services::SecretAnswer::Refused,
                     };
-                    relm4::spawn(async move {
-                        let _ = handle.answer_secret(answer).await;
-                    });
+                    spawn_reported(
+                        "network.answer_secret",
+                        prompt_report(notifications.clone(), gettext("Network")),
+                        |_: &NetworkError| Some(gettext("The password was not delivered.")),
+                        async move { handle.answer_secret(answer).await },
+                    );
                 });
                 dialog.set_title(&gettext("Network password"));
                 dialog.present(None::<&gtk4::Widget>);
@@ -510,6 +519,19 @@ fn execute_session(
     );
 }
 
+fn prompt_report(notifications: NotificationsProviderHandle, app_name: String) -> Report {
+    Report {
+        notifications,
+        app_name,
+        icon: "dialog-password-symbolic".to_owned(),
+        summary: gettext("Could not answer the request"),
+    }
+}
+
+fn is_open(dialog: &impl IsA<adw::Dialog>) -> bool {
+    dialog.as_ref().parent().is_some()
+}
+
 fn close<D: IsA<adw::Dialog>>(open: Option<(D, glib::SignalHandlerId)>) {
     let Some((dialog, handler)) = open else {
         return;
@@ -529,32 +551,10 @@ fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()
 fn answered(answer: PairingAnswer) -> Answer {
     match answer {
         PairingAnswer::Deny => Answer::Deny,
+        PairingAnswer::Accept => Answer::Confirm,
         PairingAnswer::Pin(pin) => Answer::Pin(pin),
         PairingAnswer::Passkey(passkey) => Answer::Passkey(passkey),
     }
-}
-
-fn close_secret(open: Option<(SecretDialog, glib::SignalHandlerId)>) {
-    let Some((dialog, handler)) = open else {
-        return;
-    };
-    dialog.block_signal(&handler);
-    adw::prelude::AdwDialogExt::force_close(&dialog);
-    dialog.unblock_signal(&handler);
-}
-
-/// A secret request reaches the host as its key, the network's name and whether NetworkManager
-/// rejected the last answer.
-/// Whether a panel carries the applet by that name. The network applet asks for a secret inside
-/// its own popover, so the host's dialog is for the configuration that has no such applet and
-/// would otherwise leave NetworkManager waiting on a prompt nothing can show.
-fn listed(config: &Config, applet: &str) -> bool {
-    config.panels.iter().any(|panel| {
-        [&panel.left, &panel.center, &panel.right]
-            .into_iter()
-            .flatten()
-            .any(|name| name == applet)
-    })
 }
 
 fn spawn_network_watch(network: NetworkHandle, sender: ComponentSender<App>) -> JoinHandle<()> {
@@ -592,7 +592,7 @@ fn spawn_bluetooth_watch(
         loop {
             let next = {
                 let state = states.borrow_and_update();
-                state.pairing.as_ref().and_then(|prompt| {
+                state.pairing.as_ref().map(|prompt| {
                     let name = state
                         .name(prompt.device())
                         .filter(|name| !name.is_empty())
@@ -600,7 +600,8 @@ fn spawn_bluetooth_watch(
                             || gettext("this device"),
                             |name| glimpse_utils::clean(name, NAME_CAP),
                         );
-                    typed(prompt).map(|entry| (entry, prompt.device().as_str().to_owned(), name))
+                    let (entry, code) = prompt_entry(prompt);
+                    (entry, code, prompt.device().as_str().to_owned(), name)
                 })
             };
             if next != last {

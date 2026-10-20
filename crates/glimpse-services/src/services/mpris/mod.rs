@@ -685,12 +685,14 @@ async fn watch(
     let root = MprisRootProxy::builder(&connection)
         .destination(bus.clone())
         .map_err(say)?
+        .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
         .await
         .map_err(say)?;
     let player = MprisPlayerProxy::builder(&connection)
         .destination(bus.clone())
         .map_err(say)?
+        .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
         .await
         .map_err(say)?;
@@ -725,9 +727,6 @@ async fn watch(
     Ok(stream::once(async move { first }).chain(futures_util::stream::select(updated, seeked)))
 }
 
-/// Everything is re-read on every change, because a `Player` is rebuilt whole either way and only
-/// `Position` costs a round trip — every other property is answered from the proxy's cache, kept
-/// fresh by the same signal that woke this up.
 async fn read(bus: String, root: &MprisRootProxy<'_>, player: &MprisPlayerProxy<'_>) -> Event {
     let identity = root
         .identity()

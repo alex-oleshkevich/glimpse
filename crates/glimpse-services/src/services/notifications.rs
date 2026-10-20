@@ -953,6 +953,8 @@ impl Ids {
     fn allocate(&self, replaces: u32) -> u32 {
         use std::sync::atomic::Ordering;
         if replaces != 0 {
+            self.0
+                .fetch_max(replaces.saturating_add(1), Ordering::Relaxed);
             return replaces;
         }
         let mut current = self.0.load(Ordering::Relaxed);

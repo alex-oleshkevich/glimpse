@@ -629,7 +629,7 @@ fn a_document_edited_outside_this_table_projects_to_the_same_configuration() {
 #[tokio::test]
 async fn an_override_declares_the_sources_its_mode_needs() {
     let mut harness = harness(config(Schedule::Automatic)).await;
-    assert_eq!(harness.service.subscriptions().len(), 2);
+    assert_eq!(harness.service.subscriptions().len(), 3);
 
     harness.set(Schedule::Off).await;
     assert!(harness.service.subscriptions().is_empty());
@@ -637,8 +637,8 @@ async fn an_override_declares_the_sources_its_mode_needs() {
     harness.set(Schedule::Schedule).await;
     assert_eq!(
         harness.service.subscriptions().len(),
-        1,
-        "a manual window needs the tick but not the solar watch"
+        2,
+        "a manual window needs the tick and the resume but not the solar watch"
     );
 }
 
@@ -984,6 +984,31 @@ async fn a_daytime_or_off_pause_is_unsupported() {
 }
 
 #[tokio::test]
+async fn pause_is_offered_only_in_a_night_with_a_future_boundary() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = day(Some(sunset()));
+    let ramp = sunset() - TimeDelta::minutes(5);
+    harness.settle(ramp).await;
+    assert!(harness.state.borrow().active());
+    assert!(!harness.state.borrow().pausable);
+
+    let deadline = at(6, 0) + TimeDelta::days(1);
+    harness.service.observed = night(Some(deadline));
+    harness.settle(at(23, 0)).await;
+    assert!(harness.state.borrow().pausable);
+    let (reply, result) = oneshot::channel();
+    harness
+        .service
+        .handle_at(
+            &harness.ctx,
+            Input::Command(Command::Pause { reply }),
+            at(23, 0),
+        )
+        .await;
+    assert_eq!(result.await.expect("the handler answers"), Ok(()));
+}
+
+#[tokio::test]
 async fn a_manual_temperature_clears_a_pause_but_an_invalid_one_keeps_it() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     let deadline = at(6, 0) + TimeDelta::days(1);
@@ -1188,4 +1213,87 @@ async fn a_screen_following_the_ramp_is_never_glided() {
         assert_eq!(harness.gamma.applied().last(), Some(&ramp.value(now)));
         assert_eq!(harness.service.cadence(now), RAMPING);
     }
+}
+
+#[tokio::test]
+async fn a_schedule_declares_a_resume_source_beside_its_tick() {
+    let harness = harness(config(Schedule::Schedule)).await;
+    let declared = harness.service.subscriptions();
+    let keys: Vec<_> = declared.iter().map(|sub| sub.key()).collect();
+    assert!(keys.contains(&&Watch::Resume));
+    assert!(keys.iter().any(|key| matches!(key, Watch::Tick(_))));
+}
+
+async fn at_night() -> Harness {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = night(None);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
+    harness
+}
+
+async fn tick_while_subscribed(harness: &mut Harness, start: DateTime<Utc>) {
+    let mut now = start;
+    for _ in 0..200 {
+        if harness.service.subscriptions().is_empty() {
+            return;
+        }
+        now += TimeDelta::from_std(SOFTENING_STEP).expect("a step fits");
+        harness.at(now).await;
+    }
+}
+
+fn assert_faded_then_released(harness: &Harness, before: usize) {
+    let steps = &harness.gamma.applied()[before..];
+    assert!(steps.len() > 1, "one step is a jump, not a fade: {steps:?}");
+    assert!(steps.windows(2).all(|pair| pair[0] < pair[1]), "{steps:?}");
+    assert!(steps.iter().all(|kelvin| (NIGHT..DAY).contains(kelvin)));
+    assert!(
+        steps.windows(2).all(|pair| pair[1] - pair[0] <= 100),
+        "{steps:?}"
+    );
+    assert_eq!(harness.gamma.resets(), 1);
+}
+
+#[tokio::test]
+async fn switching_off_at_night_keeps_ticking_until_daylight_is_released() {
+    let mut harness = at_night().await;
+    let before = harness.gamma.applied().len();
+
+    harness.set_at(Schedule::Off, at(23, 1)).await;
+    tick_while_subscribed(&mut harness, at(23, 1)).await;
+
+    assert_faded_then_released(&harness, before);
+}
+
+#[tokio::test]
+async fn reloading_off_at_night_keeps_ticking_until_daylight_is_released() {
+    let mut harness = at_night().await;
+    let before = harness.gamma.applied().len();
+
+    harness
+        .feed_at(Input::Config(config(Schedule::Off)), at(23, 1))
+        .await;
+    tick_while_subscribed(&mut harness, at(23, 1)).await;
+
+    assert_faded_then_released(&harness, before);
+}
+
+#[tokio::test]
+async fn a_failing_backend_degrades_the_glide_to_off_and_recovers() {
+    let mut harness = at_night().await;
+    let before = harness.gamma.applied().len();
+    let tick = TimeDelta::from_std(SOFTENING_STEP).expect("a step fits");
+
+    harness.set_at(Schedule::Off, at(23, 1)).await;
+    harness.gamma.fail(Some("x"));
+    harness.at(at(23, 1) + tick).await;
+    assert_eq!(harness.reason().as_deref(), Some("x"));
+    assert!(!harness.service.subscriptions().is_empty());
+
+    harness.gamma.fail(None);
+    tick_while_subscribed(&mut harness, at(23, 1) + tick).await;
+
+    assert_faded_then_released(&harness, before);
+    assert!(matches!(&*harness.health.borrow(), ServiceState::Running));
 }

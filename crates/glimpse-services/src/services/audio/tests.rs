@@ -508,3 +508,85 @@ async fn a_stopped_service_maps_a_dropped_reply_to_unavailable() {
         Err(AudioError::Service(CommandError::Unavailable(_)))
     ));
 }
+
+async fn gone(service: &mut Audio, ctx: &Ctx<Audio>) {
+    service
+        .handle(ctx, Input::Event(pulse::Event::Gone("down".to_owned())))
+        .await;
+}
+
+#[tokio::test]
+async fn reconnecting_waits_longer_after_each_failure_up_to_a_cap() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    assert_eq!(service.backoff, Duration::ZERO);
+
+    let mut waits = Vec::new();
+    for _ in 0..8 {
+        gone(&mut service, &ctx).await;
+        waits.push(service.backoff.as_secs());
+    }
+
+    assert_eq!(waits, [1, 2, 4, 8, 16, 30, 30, 30]);
+}
+
+#[tokio::test]
+async fn a_ready_connection_resets_the_backoff() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    gone(&mut service, &ctx).await;
+    gone(&mut service, &ctx).await;
+    assert_eq!(service.backoff, Duration::from_secs(2));
+
+    let (tx, _requests) = mpsc::channel(1);
+    service
+        .handle(
+            &ctx,
+            Input::Event(pulse::Event::Ready(pulse::Client { tx })),
+        )
+        .await;
+    assert_eq!(service.backoff, Duration::ZERO);
+
+    gone(&mut service, &ctx).await;
+    assert_eq!(service.backoff, Duration::from_secs(1));
+}
+
+#[tokio::test]
+async fn volume_steps_reach_pulse_in_the_order_they_were_issued() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let (tx, mut requests) = mpsc::channel(8);
+    service
+        .handle(
+            &ctx,
+            Input::Event(pulse::Event::Ready(pulse::Client { tx })),
+        )
+        .await;
+    service
+        .handle(
+            &ctx,
+            Input::Event(pulse::Event::Snapshot(Box::new(snapshot(
+                vec![device("headset", 1, true)],
+                Vec::new(),
+            )))),
+        )
+        .await;
+
+    for percent in [10, 20, 30] {
+        let (reply, _result) = oneshot::channel();
+        service
+            .handle(
+                &ctx,
+                Input::Command(Command::SetDeviceVolume {
+                    dir: Direction::Output,
+                    id: DeviceId::new("headset"),
+                    percent,
+                    reply,
+                }),
+            )
+            .await;
+    }
+
+    let mut seen = Vec::new();
+    while let Ok(pulse::Request::SetDeviceVolume { percent, .. }) = requests.try_recv() {
+        seen.push(percent);
+    }
+    assert_eq!(seen, [10, 20, 30]);
+}

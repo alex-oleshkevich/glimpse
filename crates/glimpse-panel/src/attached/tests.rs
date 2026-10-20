@@ -21,7 +21,7 @@ fn validation_and_caps_reject_bad_attachments() {
     let (_dir, path) = desktop();
     let path = path.to_str().unwrap();
     let layout = vec![vec!["DP-1".to_owned()]];
-    let valid = || validate(path, 0, "", "", "{}", &layout).unwrap();
+    let valid = || validate(path, 0, "", "", "{}").unwrap();
     let numbered = |index: usize| {
         let mut valid = valid();
         valid.desktop_id = format!("me.x.A{index}");
@@ -37,24 +37,29 @@ fn validation_and_caps_reject_bad_attachments() {
         )
     };
     assert_eq!(valid().output, "");
-    assert!(validate(path, 99, "", "", "{}", &layout).is_err());
-    assert!(validate(path, 0, "missing", "", "{}", &layout).is_err());
-    assert!(validate(path, 0, "", "middle", "{}", &layout).is_err());
-    assert!(validate("relative.desktop", 0, "", "", "{}", &layout).is_err());
-    assert!(validate(&path.replace(".desktop", ".txt"), 0, "", "", "{}", &layout).is_err());
+    let mut admitting = AttachedRegistry::default();
+    admitting.set_layout(layout.clone(), vec![vec![]]);
+    let admits =
+        |panel, output| admitting.admit("one", &validate(path, panel, output, "", "{}").unwrap());
+    assert!(admits(0, "").is_ok());
+    assert_eq!(admits(99, ""), Err("unknown panel".to_owned()));
+    assert_eq!(admits(0, "missing"), Err("unknown output".to_owned()));
+    assert!(validate(path, 0, "", "middle", "{}").is_err());
+    assert!(validate("relative.desktop", 0, "", "", "{}").is_err());
+    assert!(validate(&path.replace(".desktop", ".txt"), 0, "", "", "{}").is_err());
     let bad_stem = std::path::Path::new(path).with_file_name("bad id.desktop");
     fs::copy(path, &bad_stem).unwrap();
-    assert!(validate(bad_stem.to_str().unwrap(), 0, "", "", "{}", &layout).is_err());
+    assert!(validate(bad_stem.to_str().unwrap(), 0, "", "", "{}").is_err());
     let link = std::path::Path::new(path).with_file_name("me.x.Link.desktop");
     std::os::unix::fs::symlink(path, &link).unwrap();
     assert_eq!(
-        validate(link.to_str().unwrap(), 0, "", "", "{}", &layout)
+        validate(link.to_str().unwrap(), 0, "", "", "{}")
             .unwrap()
             .desktop_id,
         "me.x.Link"
     );
-    assert!(validate(path, 0, "", "", "[1]", &layout).is_err());
-    assert!(validate(path, 0, "", "", "{", &layout).is_err());
+    assert!(validate(path, 0, "", "", "[1]").is_err());
+    assert!(validate(path, 0, "", "", "{").is_err());
     assert!(matches!(
         check_options_size(&"x".repeat(64 * 1024 + 1)),
         Err(zbus::fdo::Error::InvalidArgs(message)) if message == "options are too large"
@@ -107,7 +112,7 @@ fn reconcile_keeps_unmapped_named_output_and_moves_default_output() {
     let mut registry = AttachedRegistry::default();
     registry.set_layout(layout.clone(), vec![vec![]]);
     let attach = |registry: &mut AttachedRegistry, sender: &str, id: &str, output: &str| {
-        let mut valid = validate(path.to_str().unwrap(), 0, output, "", "{}", &layout).unwrap();
+        let mut valid = validate(path.to_str().unwrap(), 0, output, "", "{}").unwrap();
         valid.desktop_id = id.to_owned();
         registry.insert(
             sender.to_owned(),

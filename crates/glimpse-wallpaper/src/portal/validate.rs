@@ -13,6 +13,7 @@ const URI_CAP: usize = 4096;
 pub enum Reject {
     NotFileUri,
     TooLarge,
+    TooBig,
     NotImage,
     Unreadable,
 }
@@ -23,6 +24,8 @@ pub fn reason_text(reject: Reject) -> String {
         Reject::TooLarge => {
             gettext("The image is larger than {limit} MiB.").replace("{limit}", "64")
         }
+        Reject::TooBig => gettext("The image is larger than {limit} pixels on a side.")
+            .replace("{limit}", &CEILING.to_string()),
         Reject::NotImage => gettext("The file is not an image."),
         Reject::Unreadable => gettext("The file cannot be read."),
     }
@@ -69,7 +72,7 @@ fn copy_name(source: &Path) -> String {
 fn decodes(path: &Path) -> Result<(), Reject> {
     let (_, width, height) = Pixbuf::file_info(path).ok_or(Reject::NotImage)?;
     if width > CEILING || height > CEILING {
-        return Err(Reject::NotImage);
+        return Err(Reject::TooBig);
     }
     Pixbuf::from_file_at_scale(path, 512, 512, true).map_err(|_| Reject::NotImage)?;
     Ok(())

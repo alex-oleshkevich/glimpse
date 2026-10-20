@@ -185,7 +185,11 @@ impl NetworkPopover {
         };
 
         crate::set_text(&imp.prompt_network, none_if_empty(&ask.network));
-        crate::set_text(&imp.prompt_ask, none_if_empty(&ask.question));
+        crate::set_text_capped(
+            &imp.prompt_ask,
+            none_if_empty(&ask.question),
+            crate::ASK_MAX_CHARS,
+        );
         let naming = ask.entered == Entered::Name;
         imp.prompt_name.set_visible(naming);
         imp.prompt_security.set_visible(!ask.choices.is_empty());

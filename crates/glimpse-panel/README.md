@@ -4,7 +4,7 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 
 ## Contents
 
-- `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
+- `main.rs` — CLI, config load and the GTK application start
 - `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches;
   the read-only GTK `bars` action carries `a(uss)` entries of config index, connector and edge for
   every mapped bar, including empty ones
@@ -57,9 +57,10 @@ inside their popover.
 
 `ctx.interval(period)` is the only timer an applet gets, delivering `Input::Tick`. **A tick lands
 on the boundary**, not on whenever the panel started: `until_boundary` takes the time since the
-epoch modulo the period, without which a `%H:%M` clock changes up to a minute late. **A missed tick
-is skipped, not burst** — tokio's default `Burst` would deliver every missed tick in one pass after
-a long suspend; `Skip` keeps the phase, where `Delay` would restart from the stall.
+epoch modulo the period, without which a `%H:%M` clock changes up to a minute late. **The phase is
+re-derived from the wall clock before every sleep**: a counted interval runs on the monotonic clock,
+which stops during suspend and ignores a clock step, and would hold its old phase for the rest of
+the session.
 
 **The clock derives its period rather than being configured**: `%H:%M` ticks once a minute,
 `%H:%M:%S` once a second, decided by scanning for a specifier faster than a minute — reading actual
@@ -130,7 +131,8 @@ nothing inside `within` means no chip, and an event ending under an open popover
 **Images decode through `thumbnail`, never `Texture::from_bytes`** — a byte cap says nothing about
 pixel count, and a small file can decode to an enormous bitmap.
 A decoded image is also written, private, under `runtime_dir()/clipboard/<id>/` and deleted with
-its entry: a drop hands a file manager a URI, and a drag's content must exist when it starts.
+its entry: a drop hands a file manager a URI, and a drag's
+content must exist when it starts. Decoding and writing run on `gio::spawn_blocking`.
 `WaylandSelection` adapts `glimpse_wayland::selection` to the service's `Selection` trait. It
 opens a data-control watch only while the service has an events subscriber and passes read demand
 before reading an offer, so a disabled clipboard service opens no connection or reads no secret.
@@ -179,8 +181,8 @@ guessed wrong.
 
 **bluetooth** — the chip is the adapter's power state alone. **`unmap` stops a scan
 unconditionally**, since any gate on published state would lose a scan started in the last round
-trip. **A pairing prompt is a page whose `raised` keys auto-open on the device id**, not a boolean,
-because BlueZ escalates mid-flow. `BondBroken` is stated on the row, never notified.
+trip. **Every pairing prompt is the app's `PairingDialog`, never a popover page**, so it opens once
+however many bars carry the applet; only the Forget confirmation lives in the popover. `BondBroken` is stated on the row, never notified.
 
 **network** — the chip is the connection's own icon alone. **The password is asked for before the
 join**, because NetworkManager drops the working connection the moment activation is requested.

@@ -25,7 +25,7 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
   slider recovery icons stay usable. Expander heads always permit inspection, and inactivity never
   propagates to drawer children.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
-- **Untrusted text is capped and set as plain text, with no markup setter anywhere**: tray titles,
+- **Untrusted text is capped and set as plain text**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
 
 ## Indicator, IndicatorGroup, Pager, TrayStrip and InhibitorList
@@ -106,10 +106,10 @@ state without emitting `toggled`. **A detail unfolds in place, never beside the 
 `ExpanderRow` whose open state makes the whole of it one `.card`, so the head never moves. **Focus
 belongs to `PopoverShell`**: opening one detail closes every unrelated `Expandable` in the shell, and
 a press on anything else dimmed closes the detail instead of acting, claimed in the capture phase.
-**A network is asked for a password on a page of its own popover, not a window beside it**, and
-`NetworkPopover::set_prompt` clears the box whenever the key changes. **A pairing prompt is a
-`Gtk.Stack` page, not a dialog**, and `PairingDialog` clears its entry only when the **device**
-changes, not the name, so a credential cannot reach the next device.
+**A question the user starts is a page of its own popover**, and `NetworkPopover::set_prompt`
+clears the box whenever the key changes. **A question a service raises is a dialog**, so it opens
+once however many bars exist: `PairingDialog` covers every pairing kind and clears its entry only
+when the **device** changes, not the name, so a credential cannot reach the next device.
 
 ## ForecastStrip, ForecastList, the media widgets and SourceList
 
@@ -120,7 +120,7 @@ decoding, so an oversized `mpris:artUrl` is refused before anything expands it i
 `SourceList` has no template: a row and its `SliderRow` are parented as
 siblings, never nested, so the row's `activatable: false` cannot reach the slider beneath it.
 `SliderRow::set_range` takes the device's own floor and maximum and steps by a hundredth of the
-maximum, so neither `SourceList` nor `DisplayPopover` pre-clamps a value.
+maximum, and never less than 1, so neither `SourceList` nor `DisplayPopover` pre-clamps a value.
 
 ## DisplayList, DisplayPopover, AudioPopover, PowerPopover and SessionPopover
 

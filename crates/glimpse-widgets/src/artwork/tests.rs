@@ -107,3 +107,20 @@ fn the_crop_never_reaches_outside_the_scaled_image() {
         assert!(cover.y + cover.side <= cover.height, "{width}x{height}");
     }
 }
+
+#[test]
+fn a_thumbnail_keeps_the_aspect_of_an_image_wider_than_the_decode_limit() {
+    let (texture, source) = thumbnail(&png(8000, 2000), 320).expect("a thumbnail");
+
+    assert_eq!(source, (8000, 2000));
+    let aspect = f64::from(texture.width()) / f64::from(texture.height());
+    assert!((aspect - 4.0).abs() < 0.1, "got aspect {aspect}");
+}
+
+#[test]
+fn a_thumbnail_of_an_extreme_strip_stays_within_the_side_and_never_collapses() {
+    let (texture, _) = thumbnail(&png(65535, 48), 320).expect("a thumbnail");
+
+    assert!(texture.width() <= 320 && texture.height() <= 320);
+    assert!(texture.width() > 0 && texture.height() > 0);
+}

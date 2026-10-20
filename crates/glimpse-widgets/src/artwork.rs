@@ -105,7 +105,11 @@ pub fn thumbnail(bytes: &[u8], side: i32) -> Option<Thumbnail> {
             // decodes to megabytes. Both axes are clamped here, which is the bound the caller is told
             // it has — the sender chose these dimensions and is not to be trusted with them.
             if width > LARGEST || height > LARGEST {
-                loader.set_size(side.min(width), side.min(height));
+                let factor = f64::from(side) / f64::from(width.max(height));
+                loader.set_size(
+                    ((f64::from(width) * factor).round() as i32).max(1),
+                    ((f64::from(height) * factor).round() as i32).max(1),
+                );
                 return;
             }
             let Some(cover) = cover(width, height, side) else {

@@ -503,7 +503,7 @@ async fn detach_stops_the_unit_and_unlinks_the_socket() {
         "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"
     ));
     let test = configured();
-    let socket = test.config.socket_path(1);
+    let socket = test.config.socket_path(1).expect("runtime dir");
     let (handle, _sender, cancel, task, _launcher) = running_with(
         test,
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
@@ -951,6 +951,31 @@ async fn regroup_never_merges_a_dev_slot() {
     assert_eq!(alive_pids(&output.with_extension("pid"), 2).await, 2);
     handle.detach(2).await.expect("detach");
     handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn a_slot_without_a_runtime_directory_fails_instead_of_binding_in_tmp() {
+    let (_dir, entry, _output) = script(LOOP);
+    let mut test = configured();
+    test.config.runtime_base = None;
+    let (handle, _sender, cancel, task, _launcher) = running_with(
+        test,
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        None,
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let state = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+    assert!(
+        matches!(&state.status, Status::Failed(reason) if reason.contains("runtime directory")),
+        "{:?}",
+        state.status
+    );
+    let stray = std::env::temp_dir()
+        .join("applets")
+        .join(format!("{}-1.sock", std::process::id()));
+    assert!(!stray.exists());
     cancel.cancel();
     let _ = task.await;
 }

@@ -12,8 +12,7 @@ use crate::provider;
 pub struct SunsetServices {
     solar: SettingsProvider,
     night_service: Running<NightLight>,
-    /// `Option` only so `shutdown` can move it out of a type that also implements `Drop`.
-    provider: Option<provider::Runtime>,
+    provider: provider::Runtime,
     actions: Option<ActionsHandle>,
 }
 
@@ -69,7 +68,7 @@ impl SunsetServices {
         Ok(Self {
             solar,
             night_service,
-            provider: Some(provider),
+            provider,
             actions,
         })
     }
@@ -94,10 +93,7 @@ impl SunsetServices {
     /// everything it reads is still alive.
     pub async fn shutdown(mut self) {
         tracing::info!("night light shutting down");
-        if let Some(provider) = self.provider.take() {
-            provider.shutdown().await;
-        }
-        self.night_service.cancel();
+        self.provider.shutdown().await;
         self.night_service.stop().await;
         self.solar.shutdown().await;
         tracing::info!("night light service graph stopped");

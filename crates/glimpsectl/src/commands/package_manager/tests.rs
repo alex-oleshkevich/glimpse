@@ -393,6 +393,84 @@ fn package_refuses_a_reserved_metadata_file_and_symlinks_in_dist() {
     );
 }
 
+fn zip_raw(path: &Path, metadata: &[u8], entries: &[(&str, &[u8])]) {
+    let mut archive = zip::ZipWriter::new(File::create(path).unwrap());
+    let options = zip::write::SimpleFileOptions::default();
+    for (name, bytes) in entries {
+        archive.start_file(name.to_string(), options).unwrap();
+        archive.write_all(bytes).unwrap();
+    }
+    archive
+        .start_file(METADATA_FILE.to_owned(), options)
+        .unwrap();
+    archive.write_all(metadata).unwrap();
+    archive.finish().unwrap();
+}
+
+fn assert_no_control(error: &anyhow::Error) {
+    let text = format!("{error:#}");
+    assert!(!text.chars().any(char::is_control), "{text:?}");
+}
+
+#[test]
+fn install_error_for_a_hostile_metadata_path_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    let metadata = "id = \"org.example.Test\"\n\n[[files]]\npath = \"x\\u001b]0;pwned\\u0007/../y\"\nsha256 = \"00\"\n";
+    zip_raw(&package, metadata.as_bytes(), &[]);
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(error.to_string().contains("escapes"), "{error:#}");
+    assert_no_control(&error);
+}
+
+#[test]
+fn install_sha256_error_for_a_hostile_entry_name_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    let metadata = format!(
+        "id = \"org.example.Test\"\n\n[[files]]\npath = \"org.example.Test.desktop\"\nsha256 = \"{}\"\n\n[[files]]\npath = \"a\\u001b]0;pwned\\u0007b\"\nsha256 = \"00\"\n",
+        sha256_hex(DESKTOP.as_bytes())
+    );
+    zip_raw(
+        &package,
+        metadata.as_bytes(),
+        &[
+            ("org.example.Test.desktop", DESKTOP.as_bytes()),
+            ("a\u{1b}]0;pwned\u{7}b", b"wrong"),
+        ],
+    );
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(error.to_string().contains("sha256"), "{error:#}");
+    assert_no_control(&error);
+}
+
+#[test]
+fn install_error_for_unparsable_metadata_with_an_escape_byte_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    zip_raw(&package, b"id = \x1b]0;pwned\x07\n", &[]);
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(
+        error.to_string().contains("invalid metadata.toml"),
+        "{error:#}"
+    );
+    assert_no_control(&error);
+}
+
+#[test]
+fn install_error_for_an_unknown_metadata_key_with_an_escape_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    let metadata = "id = \"org.example.Test\"\n\"x\\u001b]0;pwned\\u0007\" = 1\n";
+    zip_raw(&package, metadata.as_bytes(), &[]);
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(
+        error.to_string().contains("invalid metadata.toml"),
+        "{error:#}"
+    );
+    assert_no_control(&error);
+}
+
 fn install_package_with_id(root: &Path, id: &str) -> Result<Installed> {
     let package = root.join("package.zip");
     let desktop = DESKTOP.replace("Name=Test", &format!("Name={id}"));

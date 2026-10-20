@@ -205,10 +205,6 @@ pub struct Ctx {
 pub struct Opener(relm4::Sender<runtime::HostInput>);
 
 impl Opener {
-    pub fn open_popover(&self) {
-        let _ = self.0.send(runtime::HostInput::PopoverRequested);
-    }
-
     pub fn toggle_popover(&self) {
         let _ = self.0.send(runtime::HostInput::PopoverToggled);
     }
@@ -271,17 +267,7 @@ impl Ctx {
 
         let host = self.host.clone();
         let applet = self.name.clone();
-        let start = tokio::time::Instant::now() + until_boundary(since_epoch(), period);
-        let handle = relm4::spawn(async move {
-            let mut ticks = ticker(start, period);
-            loop {
-                ticks.tick().await;
-                tracing::trace!(applet, "tick");
-                if host.send(runtime::HostInput::Ticked).is_err() {
-                    return;
-                }
-            }
-        });
+        let handle = relm4::spawn(tick_loop(host, applet, period, since_epoch));
 
         self.ticks.replace(Some(SourceGuard {
             abort: handle.abort_handle(),
@@ -321,10 +307,23 @@ fn since_epoch() -> Duration {
         .unwrap_or_default()
 }
 
-fn ticker(start: tokio::time::Instant, period: Duration) -> tokio::time::Interval {
-    let mut ticks = tokio::time::interval_at(start, period);
-    ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    ticks
+async fn tick_loop(
+    host: relm4::Sender<runtime::HostInput>,
+    applet: String,
+    period: Duration,
+    now: impl Fn() -> Duration,
+) {
+    let slot = |at: Duration| at.as_nanos() / period.as_nanos();
+    loop {
+        let started = slot(now());
+        while slot(now()) == started {
+            tokio::time::sleep(until_boundary(now(), period).min(Duration::from_secs(1))).await;
+        }
+        tracing::trace!(applet, "tick");
+        if host.send(runtime::HostInput::Ticked).is_err() {
+            return;
+        }
+    }
 }
 
 fn until_boundary(since_epoch: Duration, period: Duration) -> Duration {
@@ -346,5 +345,7 @@ impl Drop for SourceGuard {
     }
 }
 
+#[cfg(test)]
+pub(crate) mod testing;
 #[cfg(test)]
 mod tests;

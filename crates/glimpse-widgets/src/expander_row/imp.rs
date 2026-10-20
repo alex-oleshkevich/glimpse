@@ -228,22 +228,6 @@ impl ObjectImpl for ExpanderRow {
         self.parent_constructed();
         let row = self.obj().clone();
         self.head.upcast_ref::<Row>().imp().set_inspection();
-        for name in [
-            "icon-name",
-            "title",
-            "subtitle",
-            "value",
-            "tone",
-            "inactive",
-            "tooltip",
-            "typography",
-            "busy",
-        ] {
-            row.bind_property(name, &*self.head, name)
-                .sync_create()
-                .bidirectional()
-                .build();
-        }
         self.head.upcast_ref::<Row>().set_chevron(true);
         self.head
             .update_state(&[accessible::State::Expanded(Some(false))]);

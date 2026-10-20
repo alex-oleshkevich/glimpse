@@ -117,3 +117,68 @@ async fn changes_while_the_first_fetch_is_in_flight_do_not_restart_it() {
         "every restart cancels the fetch that is still running, so a steady event flow starves it"
     );
 }
+
+#[tokio::test]
+async fn a_change_before_the_first_snapshot_refetches_once_when_it_lands() {
+    let mut harness = harness(Backend::Unsupported);
+    let before = harness.service.attempt;
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Changed(Change::WorkspacesChanged(Vec::new()))),
+        )
+        .await;
+    assert_eq!(
+        harness.service.attempt, before,
+        "nothing refetches before the snapshot lands"
+    );
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                Vec::new(),
+                Vec::new(),
+            )))),
+        )
+        .await;
+    assert_eq!(harness.service.attempt, before + 1);
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                Vec::new(),
+                Vec::new(),
+            )))),
+        )
+        .await;
+    assert_eq!(
+        harness.service.attempt,
+        before + 1,
+        "a second snapshot does not refetch again"
+    );
+}
+
+#[tokio::test]
+async fn a_snapshot_with_no_change_during_the_fetch_does_not_refetch() {
+    let mut harness = harness(Backend::Unsupported);
+    let before = harness.service.attempt;
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                Vec::new(),
+                Vec::new(),
+            )))),
+        )
+        .await;
+
+    assert_eq!(harness.service.attempt, before);
+}

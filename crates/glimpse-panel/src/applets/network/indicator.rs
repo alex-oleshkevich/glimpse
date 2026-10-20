@@ -8,10 +8,7 @@ use gtk4::prelude::*;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::network_manager as nm;
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{
-    NetworkError, NetworkHandle, NetworkId, NetworkSecret, NetworkState, SecretAnswer,
-    SecretRequest,
-};
+use glimpse_services::{NetworkError, NetworkHandle, NetworkId, NetworkSecret, NetworkState};
 use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkEntered, NetworkPopover};
 
 use crate::applet::popover::Seat;
@@ -29,7 +26,6 @@ enum Asking {
     Name,
     Hidden { ssid: String },
     Joining { id: NetworkId, name: String },
-    Agent(SecretRequest),
 }
 
 const HIDDEN_SECURITY: [nm::Security; 4] = [
@@ -55,17 +51,6 @@ pub fn entered_for(setting: &str) -> NetworkEntered {
         "802-11-wireless-security" => NetworkEntered::Passphrase,
         _ => NetworkEntered::Secret,
     }
-}
-
-/// Whether a prompt outlives the popover that was showing it. NetworkManager is waiting on the one
-/// it raised itself and will not ask twice; a question the user started is theirs to abandon, and
-/// keeping it resumes a stale password page for whatever network was selected last.
-fn survives_reopen(held: Option<&Asking>) -> bool {
-    matches!(held, Some(Asking::Agent(_)))
-}
-
-fn agent_key(request: &SecretRequest) -> String {
-    format!("{}:{}", request.setting, request.name)
 }
 
 /// Which command a row's own id belongs to. A row in *Known networks* or *VPN* carries a settings
@@ -171,27 +156,6 @@ impl Network {
         applet
     }
 
-    /// A request from NetworkManager owns the prompt while it is up: it is the only one that can
-    /// arrive without the user having asked for anything, so it opens the popover to be answered.
-    fn raise(&mut self, ctx: &Ctx) {
-        let held = self.asking.borrow().clone();
-        let asked = match (&self.state.secret, held) {
-            (Some(request), Some(Asking::Agent(held)))
-                if agent_key(&held) == agent_key(request) =>
-            {
-                return;
-            }
-            (Some(request), _) => Some(Asking::Agent(request.clone())),
-            (None, Some(Asking::Agent(_))) => None,
-            (None, _) => return,
-        };
-        let raising = asked.is_some();
-        self.asking.replace(asked);
-        if raising {
-            ctx.opener().open_popover();
-        }
-    }
-
     fn refresh(&mut self) {
         self.spec = self.indicator();
         if let Some(shown) = self.shown.upgrade() {
@@ -274,27 +238,6 @@ impl Network {
                 choices: Vec::new(),
                 open_choice: None,
             }),
-            Asking::Agent(request) => Some(NetworkAsk {
-                key: agent_key(&request),
-                choices: Vec::new(),
-                open_choice: None,
-                network: glimpse_utils::clean(&request.name, render::LABEL_MAX_CHARS),
-                question: match request.retry {
-                    true => gettext("{network} refused that password. Check it and try again.")
-                        .replace(
-                            "{network}",
-                            &glimpse_utils::clean(&request.name, render::LABEL_MAX_CHARS),
-                        ),
-                    false => {
-                        gettext("The network needs a password before this computer can join it.")
-                    }
-                },
-                entered: entered_for(&request.setting),
-                accept: match request.retry {
-                    true => gettext("Try again"),
-                    false => gettext("Connect"),
-                },
-            }),
         }
     }
 
@@ -334,11 +277,10 @@ impl Applet for Network {
         self.refresh();
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
                 self.state = self.network.snapshot();
-                self.raise(ctx);
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -536,21 +478,6 @@ impl Applet for Network {
                             async move { network.connect_access_point(id, Some(secret)).await },
                         );
                     }
-                    (Some(Asking::Agent(_)), accepted) => {
-                        let answer = match accepted {
-                            true => SecretAnswer::Secret(NetworkSecret::new(entered.to_owned())),
-                            false => SecretAnswer::Refused,
-                        };
-                        tell(
-                            &notifications,
-                            &opener,
-                            None,
-                            "network.answer_secret",
-                            gettext("Could not send that password"),
-                            async move { network.answer_secret(answer).await },
-                        );
-                        return;
-                    }
                     _ => {}
                 }
                 opener.wake();
@@ -577,9 +504,7 @@ impl Applet for Network {
 
         self.expanded.set(false);
         self.all.set(false);
-        if !survives_reopen(self.asking.borrow().as_ref()) {
-            self.asking.replace(None);
-        }
+        self.asking.replace(None);
         self.shown.set(Some(&shown));
         self.dress(&shown);
 

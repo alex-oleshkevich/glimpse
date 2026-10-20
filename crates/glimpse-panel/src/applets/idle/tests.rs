@@ -3,12 +3,17 @@ use glimpse_dbus::idle::{
     IdleInhibitorRecord, IdleInhibitorSource, IdleProvider, InhibitionTargets, Login1Mode,
 };
 
+use glimpse_dbus::notifications::NotificationsProvider;
+
 use super::*;
 
 #[test]
 fn external_inhibitors_leave_the_indicator_idle() {
     let provider = IdleProvider::unavailable("idle provider unavailable");
-    let mut applet = Idle::start(provider.handle());
+    let mut applet = Idle::start(
+        provider.handle(),
+        NotificationsProvider::unavailable("no bus in tests").handle(),
+    );
     applet.state.available = true;
     applet.state.reason = None;
     applet.state.inhibitors.push(IdleInhibitorRecord {
@@ -35,7 +40,10 @@ fn external_inhibitors_leave_the_indicator_idle() {
 #[test]
 fn manual_hold_activates_the_indicator() {
     let provider = IdleProvider::unavailable("idle provider unavailable");
-    let mut applet = Idle::start(provider.handle());
+    let mut applet = Idle::start(
+        provider.handle(),
+        NotificationsProvider::unavailable("no bus in tests").handle(),
+    );
     applet.state.available = true;
     applet.state.reason = None;
     let added_at_unix = Local::now().timestamp() as u64;

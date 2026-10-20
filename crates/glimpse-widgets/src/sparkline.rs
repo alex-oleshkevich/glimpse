@@ -470,22 +470,6 @@ impl Sparkline {
         self.update_property(&[gtk4::accessible::Property::Label(&label)]);
         *imp.label.borrow_mut() = label;
     }
-
-    pub fn values(&self) -> Vec<Option<f64>> {
-        self.imp().values.borrow().clone()
-    }
-
-    pub fn fill(&self) -> bool {
-        self.imp().fill.get()
-    }
-
-    pub fn show_last(&self) -> bool {
-        self.imp().show_last.get()
-    }
-
-    pub fn label(&self) -> String {
-        self.imp().label.borrow().clone()
-    }
 }
 
 #[cfg(test)]

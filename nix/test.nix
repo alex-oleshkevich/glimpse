@@ -33,6 +33,8 @@ let
         machine.succeed("test -e /run/current-system/sw/share/dbus-1/services/me.aresa.Glimpse.Settings.service")
         machine.succeed("grep -q 'Screenshot=glimpse-shot' /etc/xdg/xdg-desktop-portal/niri-portals.conf")
         machine.succeed("grep -q 'Inhibit=glimpse' /etc/xdg/xdg-desktop-portal/glimpse-portals.conf")
+        machine.succeed("grep -q 'Inhibit=glimpse' /etc/xdg/xdg-desktop-portal/hyprland-portals.conf")
+        machine.succeed("grep -q 'Screenshot=glimpse-shot' /etc/xdg/xdg-desktop-portal/hyprland-portals.conf")
         machine.succeed("grep -q 'Wallpaper=glimpse-wallpaper' /etc/xdg/xdg-desktop-portal/hyprland-portals.conf")
         machine.fail("grep -q '^default=' /etc/xdg/xdg-desktop-portal/hyprland-portals.conf")
         machine.succeed("test -x /run/wrappers/bin/unix_chkpwd")

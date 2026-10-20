@@ -12,7 +12,7 @@ already exits the second process first; this only surfaces when the ids differ.
 
 **`Post` is how glimpse raises its own notification**, and it is the only way in besides
 `org.freedesktop.Notifications.Notify`. A posted record takes its id from the **same counter** the
-fdo server allocates from, reached through the exported object rather than a second counter, or two
+fdo server allocates from, shared with the server as one clone, never a second counter, or two
 id spaces would eventually hand out the same number for different records; with no server exported
 there is no id to give and the command is refused rather than inventing one. Everything after that
 is shared — the same capping, suppression and do-not-disturb gate a notification arriving over fdo

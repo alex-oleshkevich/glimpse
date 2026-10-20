@@ -125,7 +125,7 @@ impl Indicator {
     }
 
     pub fn set_label(&self, label: Option<&str>) {
-        set_text(&self.imp().label, label);
+        crate::set_text_capped(&self.imp().label, label, LABEL_MAX_CHARS);
         self.sync_text_only();
     }
 
@@ -138,7 +138,7 @@ impl Indicator {
     }
 
     pub fn set_badge(&self, badge: Option<&str>) {
-        set_text(&self.imp().badge, badge);
+        crate::set_text_capped(&self.imp().badge, badge, LABEL_MAX_CHARS);
         self.sync_attention_dot();
     }
 
@@ -196,15 +196,6 @@ impl Indicator {
             self.add_css_class(class);
         }
     }
-}
-
-fn set_text(label: &gtk4::Label, value: Option<&str>) {
-    let text = truncate(value.unwrap_or_default(), LABEL_MAX_CHARS);
-    if label.text().as_str() == text {
-        return;
-    }
-    label.set_text(&text);
-    label.set_visible(!text.is_empty());
 }
 
 pub(crate) fn truncate(value: &str, max: usize) -> String {

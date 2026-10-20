@@ -76,16 +76,16 @@ impl Applet for Notifications {
             let notifications = self.notifications.clone();
             let compositor = self.compositor.clone();
             let held = held.clone();
-            move |popover, key| activate(&notifications, &compositor, popover, &held, &key)
+            let opener = opener.clone();
+            move |popover, key| {
+                activate(&notifications, &compositor, popover, &held, &key);
+                opener.close_popover();
+            }
         });
         shown.connect_action_invoked({
             let notifications = self.notifications.clone();
             let held = held.clone();
-            let opener = opener.clone();
-            move |popover, key, action| {
-                invoke(&notifications, popover, &held, &key, &action);
-                opener.close_popover();
-            }
+            move |popover, key, action| invoke(&notifications, popover, &held, &key, &action)
         });
         shown.connect_dismissed({
             let notifications = self.notifications.clone();
@@ -115,10 +115,13 @@ impl Applet for Notifications {
             move |_, silenced| {
                 dnd.set(silenced);
                 let notifications = notifications.clone();
-                spawn_command("notifications.set_do_not_disturb", async move {
-                    notifications.set_do_not_disturb(silenced, 0).await
+                let refused = opener.clone();
+                relm4::spawn_local(async move {
+                    if let Err(error) = notifications.set_do_not_disturb(silenced, 0).await {
+                        tracing::warn!(operation = "notifications.set_do_not_disturb", %error, "service command failed");
+                        refused.wake();
+                    }
                 });
-                opener.wake();
             }
         });
 

@@ -32,7 +32,7 @@ impl std::fmt::Debug for Config {
 pub enum Input {
     Configure(Config),
     Reconfigure,
-    TransitionDone,
+    TransitionDone(adw::TimedAnimation),
 }
 
 #[derive(Debug)]
@@ -149,10 +149,7 @@ impl Component for Surface {
                 }
                 self.settle(&sender);
             }
-            Input::TransitionDone => {
-                self.over.set_paintable(gdk::Paintable::NONE);
-                self.animation = None;
-            }
+            Input::TransitionDone(done) => finish(&self.over, &mut self.animation, &done),
         }
     }
 
@@ -198,7 +195,7 @@ impl Surface {
         self.base
             .set_paintable(Some(&raster::solid(config.intent.color)));
 
-        if should_clear_image(config.intent.image.as_deref(), self.rendered.is_some()) {
+        if config.intent.image.is_none() && self.rendered.is_some() {
             self.clear_image();
         }
 
@@ -316,6 +313,7 @@ impl Surface {
         }
 
         self.over.set_paintable(self.under.paintable().as_ref());
+        self.over.set_content_fit(self.under.content_fit());
         self.over.set_opacity(1.0);
 
         let texture = raster::texture(&raster);
@@ -348,11 +346,22 @@ impl Surface {
             adw::PropertyAnimationTarget::new(&self.over, "opacity"),
         );
         let input_sender = sender.input_sender().clone();
-        animation.connect_done(move |_| {
-            let _ = input_sender.send(Input::TransitionDone);
+        animation.connect_done(move |animation| {
+            let _ = input_sender.send(Input::TransitionDone(animation.clone()));
         });
         animation.play();
         self.animation = Some(animation);
+    }
+}
+
+fn finish(
+    over: &gtk::Picture,
+    animation: &mut Option<adw::TimedAnimation>,
+    done: &adw::TimedAnimation,
+) {
+    if animation.as_ref() == Some(done) {
+        over.set_paintable(gdk::Paintable::NONE);
+        *animation = None;
     }
 }
 
@@ -397,10 +406,6 @@ fn watch_image(
     });
 
     Some(monitor)
-}
-
-fn should_clear_image(new_image: Option<&Path>, rendered: bool) -> bool {
-    new_image.is_none() && rendered
 }
 
 fn should_reconfigure(event: gio::FileMonitorEvent) -> bool {

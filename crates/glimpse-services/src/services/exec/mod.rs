@@ -19,8 +19,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, Sub};
 
-pub use launcher::{Launcher, SystemdLauncher, UnitSpec, UnitState};
-pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
+pub use launcher::{Launcher, SystemdLauncher, UnitState};
 
 pub use catalog::{Catalog, DesktopCatalog, Entry, expand};
 pub use tree::{
@@ -28,11 +27,11 @@ pub use tree::{
     CalendarProps, CheckButtonProps, ChoiceItem, ChoiceListProps, ClassName, ContainerProps,
     DotsProps, DropDownProps, Element, ElementKind, Ellipsize, EndProps, EntryProps,
     ExpanderRowProps, FactItem, FactListProps, ImageProps, IndicatorProps, LabelProps,
-    MAX_CHILDREN_PER_PARENT, MAX_NODES, MeterRowProps, Node, NoticeProps, Paint, PlaceholderProps,
-    PopoverProps, PopoverSize, ROOT, RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone,
-    RowTypography, ScaleProps, SectionProps, SeparatorProps, Severity, SliderRowProps,
-    SparklineProps, SpinnerProps, StackProps, SwatchProps, SwatchSize, SwitchProps,
-    ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition, Tree, Violation,
+    MeterRowProps, Node, NoticeProps, Paint, PlaceholderProps, PopoverProps, PopoverSize, ROOT,
+    RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,
+    SectionProps, SeparatorProps, Severity, SliderRowProps, SparklineProps, SpinnerProps,
+    StackProps, SwatchProps, SwatchSize, SwitchProps, ToggleButtonProps, ToggleControl,
+    ToggleRowProps, Tone, Transition, Tree,
 };
 pub use wire::{
     Edge, FromApplet, HelloEntry, MAX_LINE, Op, Orientation, Outgoing, Placement, WireNode, Zone,
@@ -116,10 +115,13 @@ impl From<&glimpse_config::Config> for Config {
 }
 
 impl Config {
-    fn socket_path(&self, slot: u64) -> PathBuf {
-        let base = self.runtime_base.clone().unwrap_or_else(std::env::temp_dir);
-        base.join("applets")
-            .join(format!("{}-{slot}.sock", std::process::id()))
+    fn socket_path(&self, slot: u64) -> Option<PathBuf> {
+        Some(
+            self.runtime_base
+                .as_ref()?
+                .join("applets")
+                .join(format!("{}-{slot}.sock", std::process::id())),
+        )
     }
 
     fn sockets_dir(&self) -> Option<PathBuf> {
@@ -190,11 +192,6 @@ pub enum Event {
     Disconnected {
         slot: u64,
         spawn: u64,
-    },
-    Misbehaved {
-        slot: u64,
-        spawn: u64,
-        reason: String,
     },
     Unit {
         slot: u64,
@@ -458,7 +455,7 @@ struct Slot {
     options: Map<String, Value>,
     spawn: u64,
     unit: String,
-    socket: PathBuf,
+    socket: Option<PathBuf>,
     restarts: u32,
     link: Option<Link>,
     stop: CancellationToken,
@@ -610,7 +607,9 @@ impl Exec {
             let launcher = Arc::clone(&self.dependencies.launcher);
             ctx.spawn_detached(move |_ctx| async move {
                 launcher.stop(&unit).await;
-                let _ = tokio::fs::remove_file(&socket).await;
+                if let Some(socket) = socket {
+                    let _ = tokio::fs::remove_file(&socket).await;
+                }
             });
         }
         let mut started: Vec<u64> = Vec::new();
@@ -713,6 +712,11 @@ impl Exec {
             slot.stop.cancel();
             slot.public.status = Status::Ended;
         }
+    }
+
+    fn commit(&mut self) {
+        self.sync_aliases();
+        self.publish();
     }
 
     fn publish(&self) {
@@ -900,15 +904,14 @@ impl Service for Exec {
                 Status::Starting | Status::Running | Status::Restarting { .. }
             ) {
                 let catalog = Arc::clone(&self.dependencies.catalog);
-                let (entry, cwd, stderr) = match &slot.dev {
+                let (entry, stderr) = match &slot.dev {
                     Some(dev) => (
                         Some(dev.entry.clone()),
-                        dev.entry.path.parent().map(Path::to_path_buf),
                         dev.stderr
                             .as_ref()
                             .and_then(|fd| fd.as_fd().try_clone_to_owned().ok()),
                     ),
-                    None => (slot.entry.clone(), None, None),
+                    None => (slot.entry.clone(), None),
                 };
                 let args = spawn::SourceArgs {
                     slot: slot_id,
@@ -917,7 +920,6 @@ impl Service for Exec {
                     env: slot.env.clone(),
                     state_base: self.config.state_base.clone(),
                     entry,
-                    cwd,
                     restart: slot.origin == Origin::Spawned,
                     stderr,
                     unit: slot.unit.clone(),
@@ -1025,7 +1027,9 @@ impl Service for Exec {
                 continue;
             }
             self.dependencies.launcher.stop(&slot.unit).await;
-            let _ = tokio::fs::remove_file(&slot.socket).await;
+            if let Some(socket) = &slot.socket {
+                let _ = tokio::fs::remove_file(socket).await;
+            }
         }
     }
 
@@ -1052,8 +1056,8 @@ impl Service for Exec {
                     let dev = self.dev_slot(slot, applet, placement, request);
                     self.slots.insert(slot, dev);
                     self.taken_dev.insert(desktop_id, slot);
+                    self.commit();
                     let _ = reply.send(Ok(()));
-                    self.publish();
                     return;
                 }
                 let config = self.config.applets.get(&applet);
@@ -1146,6 +1150,7 @@ impl Service for Exec {
                         reset_done: false,
                     },
                 );
+                self.commit();
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::DevAttach {
@@ -1198,6 +1203,7 @@ impl Service for Exec {
                     self.pending_dev.insert(id.clone(), request);
                     Ok(id.clone())
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::Restart { slot, reply }) => {
@@ -1212,6 +1218,7 @@ impl Service for Exec {
                     }
                     _ => Err(CommandError::InvalidArgument("unknown applet".to_owned())),
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevRestart { handle, reply }) => {
@@ -1223,6 +1230,7 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown applet".to_owned()))
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevTree { handle, reply }) => {
@@ -1245,6 +1253,7 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown applet".to_owned()))
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevSetOptions {
@@ -1322,7 +1331,9 @@ impl Service for Exec {
                         let socket = state.socket.clone();
                         ctx.spawn_detached(move |_ctx| async move {
                             launcher.stop(&unit).await;
-                            let _ = tokio::fs::remove_file(&socket).await;
+                            if let Some(socket) = socket {
+                                let _ = tokio::fs::remove_file(&socket).await;
+                            }
                         });
                         if let Some(&promoted) = self
                             .slots
@@ -1342,6 +1353,7 @@ impl Service for Exec {
                         }
                     }
                 }
+                self.commit();
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::SendEvent { event, reply }) => {
@@ -1444,8 +1456,7 @@ impl Service for Exec {
                     self.request(slot, request);
                 }
             }
-            Input::Event(Event::Disconnected { slot, spawn })
-            | Input::Event(Event::Misbehaved { slot, spawn, .. }) => {
+            Input::Event(Event::Disconnected { slot, spawn }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = None;
                     state.public.tree = Arc::new(Tree::default());
@@ -1692,8 +1703,7 @@ impl Service for Exec {
                 }
             }
         }
-        self.sync_aliases();
-        self.publish();
+        self.commit();
     }
 }
 

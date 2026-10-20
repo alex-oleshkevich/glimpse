@@ -1,15 +1,47 @@
 use super::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
-#[tokio::test]
-async fn a_stalled_timer_skips_what_it_missed_rather_than_firing_all_of_it() {
-    let ticks = ticker(tokio::time::Instant::now(), Duration::from_secs(1));
+#[tokio::test(start_paused = true)]
+async fn a_wall_clock_jump_moves_the_next_tick_to_the_next_boundary() {
+    let jump = Rc::new(Cell::new(Duration::ZERO));
+    let origin = tokio::time::Instant::now();
+    let wall = {
+        let jump = jump.clone();
+        move || Duration::from_secs(10) + origin.elapsed() + jump.get()
+    };
+    let (host, inputs) = relm4::channel();
+    let period = Duration::from_secs(60);
+    let local = tokio::task::LocalSet::new();
+    local
+        .run_until(async {
+            let task = tokio::task::spawn_local(tick_loop(host, "test".into(), period, wall.clone()));
 
-    assert_eq!(
-        ticks.missed_tick_behavior(),
-        tokio::time::MissedTickBehavior::Skip,
-        "tokio defaults to Burst, which after a suspend would deliver one tick per second \
-             slept, all in one pass; Skip is also the only behaviour that keeps the phase"
-    );
+            assert!(matches!(
+                inputs.recv().await,
+                Some(runtime::HostInput::Ticked)
+            ));
+            assert_eq!(wall().as_secs(), 60);
+
+            let before = wall();
+            jump.set(Duration::from_secs(90));
+            assert!(matches!(
+                inputs.recv().await,
+                Some(runtime::HostInput::Ticked)
+            ));
+            assert!(
+                wall() - before - Duration::from_secs(90) <= Duration::from_secs(1),
+                "a wall-clock jump during a long sleep ticks within a second, not at the old deadline"
+            );
+
+            assert!(matches!(
+                inputs.recv().await,
+                Some(runtime::HostInput::Ticked)
+            ));
+            assert_eq!(wall().as_secs(), 180);
+            task.abort();
+        })
+        .await;
 }
 
 #[tokio::test]

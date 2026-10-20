@@ -1,5 +1,3 @@
-use std::fmt;
-
 use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
@@ -17,13 +15,10 @@ pub struct WeatherServices {
 
 impl WeatherServices {
     pub async fn start(document: &Config) -> Result<Self> {
-        let buses = Buses::connect().await;
-        let session = buses
-            .session_bus()
-            .cloned()
-            .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
+        let session = zbus::Connection::session()
+            .await
             .context("weather provider needs the session bus")?;
-        let mut services = Self::start_with_buses(document, buses, session.clone());
+        let mut services = Self::start_with_buses(document, session.clone());
         match provider::start(session, services.weather.clone()).await {
             Ok(provider) => services.provider = Some(provider),
             Err(error) => {
@@ -34,11 +29,11 @@ impl WeatherServices {
         Ok(services)
     }
 
-    fn start_with_buses(document: &Config, buses: Buses, session: zbus::Connection) -> Self {
+    fn start_with_buses(document: &Config, session: zbus::Connection) -> Self {
         let location = SettingsProvider::start(session);
         let (weather_service, weather) = Running::spawn(
             document,
-            buses,
+            Buses::unavailable("weather has no D-Bus backend"),
             WeatherDependencies {
                 geolocation: location.subscribe_location(),
             },
@@ -58,7 +53,6 @@ impl WeatherServices {
     }
 
     pub async fn shutdown(mut self) {
-        self.cancel();
         tracing::info!("weather provider shutting down");
         if let Some(provider) = self.provider.take() {
             provider.shutdown().await;
@@ -66,18 +60,6 @@ impl WeatherServices {
         self.weather_service.stop().await;
         self.location.shutdown().await;
         tracing::info!("weather service graph stopped");
-    }
-
-    fn cancel(&self) {
-        self.weather_service.cancel();
-    }
-}
-
-impl fmt::Debug for WeatherServices {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("WeatherServices")
-            .finish_non_exhaustive()
     }
 }
 

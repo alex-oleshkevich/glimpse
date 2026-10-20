@@ -318,9 +318,9 @@ impl Panel {
                         zone,
                         name: name.clone(),
                         kind,
-                        handle: applets::configured(&name, &config.applets, &config.regional)
-                            .and_then(|applet| {
-                                let Some(build) = applets::build(
+                        handle: applets::configured(&name, &config.applets, &config.regional).map(
+                            |applet| {
+                                let build = applets::build(
                                     &applet,
                                     &config.handles,
                                     crate::applets::exec::placement(
@@ -329,23 +329,18 @@ impl Panel {
                                         connector.clone(),
                                         zone,
                                     ),
-                                    Some(&config.dialog),
-                                ) else {
-                                    tracing::debug!(
-                                        applet = name,
-                                        "applet is not implemented yet, skipping"
-                                    );
-                                    return None;
-                                };
-                                Some(AppletHandle::launch(
+                                    &config.dialog,
+                                );
+                                AppletHandle::launch(
                                     name.clone(),
                                     connector.clone(),
                                     build,
                                     applet,
                                     Rc::clone(&self.catcher),
                                     slot_info(config, zone, index, &name),
-                                ))
-                            }),
+                                )
+                            },
+                        ),
                     }),
             );
         }

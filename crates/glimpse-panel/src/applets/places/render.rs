@@ -53,9 +53,13 @@ fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
 }
 
 fn place_entry(place: &Place) -> PlacesEntry {
+    let title = match place.kind {
+        glimpse_services::PlacesKind::Home => gettext("Home"),
+        _ => glimpse_utils::clean(&place.name, NAME_CAP),
+    };
     PlacesEntry {
         id: place.id.clone(),
-        title: glimpse_utils::clean(&place.name, NAME_CAP),
+        title,
         subtitle: String::new(),
         icon: place.kind.icon_name().to_owned(),
         busy: false,

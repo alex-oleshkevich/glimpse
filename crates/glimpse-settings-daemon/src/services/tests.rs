@@ -286,3 +286,41 @@ async fn a_remembered_fix_gives_a_solar_phase_before_geoclue_answers() {
 
     assert_eq!((fix.latitude, fix.longitude), (52.2297, 21.0122));
 }
+
+#[tokio::test]
+async fn an_unavailable_schema_does_not_hang_startup_and_refuses_with_its_reason() {
+    const NAME: &str =
+        "services::tests::an_unavailable_schema_does_not_hang_startup_and_refuses_with_its_reason";
+    let schemas = tempfile::tempdir().unwrap();
+    if std::env::var_os("GLIMPSE_EMPTY_SCHEMAS").is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", NAME])
+            .env("GLIMPSE_EMPTY_SCHEMAS", "1")
+            .env("GSETTINGS_SCHEMA_DIR", schemas.path())
+            .env("XDG_DATA_DIRS", schemas.path())
+            .env("GSETTINGS_BACKEND", "memory")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let bus = PrivateBus::start();
+    let mut config = Config::default();
+    config.appearance.desktop_color_scheme = glimpse_config::DesktopColorScheme::External;
+    let services = tokio::time::timeout(
+        Duration::from_secs(5),
+        SettingsServices::start_with_buses(
+            &config,
+            Buses::for_session(bus.connection().await),
+            GeolocationDependencies::default(),
+            Ok(()),
+        ),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let proxy = Settings1Proxy::new(&bus.connection().await).await.unwrap();
+    let error = proxy.set_temporary_mode(2).await.unwrap_err().to_string();
+    services.shutdown().await;
+    assert!(error.contains("schema unavailable"), "{error}");
+}

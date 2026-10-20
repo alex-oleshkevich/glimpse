@@ -182,9 +182,11 @@ pub async fn profile_updates(ctx: Ctx<Network>) -> Events {
         return nothing();
     };
 
-    Box::pin(
-        stream.filter_map(|message| async move { message.ok().map(|_| Event::ProfilesChanged) }),
-    )
+    Box::pin(stream.filter_map(|message| async move {
+        let message = message.ok()?;
+        let path = message.header().path()?.to_string();
+        Some(Event::ProfilesChanged(path))
+    }))
 }
 
 async fn enumerate(connection: &Connection) -> Event {

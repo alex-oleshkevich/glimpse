@@ -179,12 +179,14 @@ pub async fn register(
         .await?;
 
     let path = ObjectPath::try_from(PATH)?;
-    match AgentManager1Proxy::new(connection)
-        .await?
-        .register_agent(&path, CAPABILITY)
-        .await
-    {
-        Ok(()) => Ok(()),
+    let manager = AgentManager1Proxy::new(connection).await?;
+    match manager.register_agent(&path, CAPABILITY).await {
+        Ok(()) => {
+            if let Err(error) = manager.request_default_agent(&path).await {
+                tracing::warn!(%error, "bluez did not make glimpse the default agent");
+            }
+            Ok(())
+        }
         Err(error) => {
             if exported {
                 let _ = connection.object_server().remove::<Agent, _>(PATH).await;

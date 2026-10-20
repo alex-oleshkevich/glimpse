@@ -901,28 +901,9 @@ expandable > revealer listrow {
     color: var(--gl-warning-text);
 }
 
-.prompt__code {
-    font-size: var(--gl-text-display, 2.4rem);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    font-variant-numeric: tabular-nums;
-    margin-top: 0.55rem;
-    margin-bottom: 0.25rem;
-}
-
-.prompt__progress {
-    font-size: var(--gl-text-caption, 0.85rem);
-    color: var(--gl-dim, alpha(currentColor, 0.38));
-    font-variant-numeric: tabular-nums;
-}
-
 .prompt__actions {
-    margin-top: 0.85rem;
-    margin-bottom: 0.35rem;
-}
-
-.prompt__actions--bare {
     margin-top: 1.4rem;
+    margin-bottom: 0.35rem;
 }
 
 .prompt__actions button {

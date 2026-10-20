@@ -1,6 +1,8 @@
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use chrono::format::{Item, StrftimeItems};
+use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -75,6 +77,15 @@ impl TryFrom<String> for FileTemplate {
         }
         if StrftimeItems::new(&template).any(|item| matches!(item, Item::Error)) {
             return Err("filename is not a valid strftime pattern".to_owned());
+        }
+        let mut sample = String::new();
+        let _ = write!(
+            sample,
+            "{}",
+            DateTime::<Utc>::UNIX_EPOCH.format_with_items(StrftimeItems::new(&template))
+        );
+        if sample.contains('/') {
+            return Err("filename must not contain `/`".to_owned());
         }
         Ok(Self(template))
     }

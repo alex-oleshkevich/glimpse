@@ -214,7 +214,9 @@ fn a_full_main_volume_says_so_instead_of_zero_free() {
         vec![volume("/v", "Full", "exfat", Some(full))],
     ));
     assert_eq!(row.problem, "No space left");
-    assert_eq!(row.space.expect("a meter").fraction, 1.0);
+    let space = row.space.expect("a meter");
+    assert_eq!(space.fraction, 1.0);
+    assert_eq!(space.text, "");
 }
 
 #[test]

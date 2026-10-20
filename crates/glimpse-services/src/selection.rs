@@ -35,13 +35,11 @@ pub enum SelectionEvent {
 }
 
 /// One selection, already read and already capped by the backend. `mime` is the one representation
-/// that was chosen off the offer; `sensitive` says the offer also advertised the password-manager
-/// hint, which is decided against the whole mime list and so cannot be re-derived from here.
+/// that was chosen off the offer.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Capture {
     pub mime: String,
     pub data: Arc<[u8]>,
-    pub sensitive: bool,
 }
 
 /// Never the content. A clipboard routinely holds passwords, and one `tracing::debug!(?capture)`
@@ -51,7 +49,6 @@ impl std::fmt::Debug for Capture {
         f.debug_struct("Capture")
             .field("mime", &self.mime)
             .field("bytes", &self.data.len())
-            .field("sensitive", &self.sensitive)
             .finish()
     }
 }
@@ -95,7 +92,7 @@ struct Record {
 #[cfg(feature = "testing")]
 impl FakeSelection {
     pub fn capture(&self, mime: &str, data: &[u8]) {
-        self.push(mime, data, false);
+        self.push(mime, data);
     }
 
     pub fn unavailable(&self, reason: &str) {
@@ -116,11 +113,10 @@ impl FakeSelection {
         self.record().failure = reason.map(str::to_owned);
     }
 
-    fn push(&self, mime: &str, data: &[u8], sensitive: bool) {
+    fn push(&self, mime: &str, data: &[u8]) {
         self.emit(SelectionEvent::Captured(Capture {
             mime: mime.to_owned(),
             data: Arc::from(data),
-            sensitive,
         }));
     }
 

@@ -8,6 +8,7 @@ use crate::set_css_class;
 
 pub const CANCEL: &str = "cancel";
 pub const OK: &str = "ok";
+pub const ACCEPT: &str = "accept";
 
 pub const PIN_MAX: usize = 16;
 pub const PASSKEY_DIGITS: i32 = 6;
@@ -19,6 +20,16 @@ pub enum Entry {
     #[default]
     Pin,
     Passkey,
+    Confirm,
+    Authorize,
+    ShowPin,
+    ShowPasskey,
+}
+
+impl Entry {
+    pub fn typed(self) -> bool {
+        matches!(self, Self::Pin | Self::Passkey)
+    }
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -64,20 +75,24 @@ impl ObjectImpl for PairingDialog {
 
     fn constructed(&self) {
         self.parent_constructed();
-        let dialog = self.obj().clone();
-        self.entry.connect_changed(move |_| {
-            dialog.imp().revalidate();
-        });
+        self.entry.connect_changed(glib::clone!(
+            #[weak(rename_to = dialog)]
+            self.obj(),
+            move |_| dialog.imp().revalidate()
+        ));
 
         let entry = self.entry.get();
         self.obj().connect_map(move |_| {
             entry.grab_focus();
         });
 
-        let dialog = self.obj().clone();
-        self.obj().connect_response(None, move |_, response| {
+        self.obj().connect_response(None, move |dialog, response| {
             let kind = dialog.imp().entry_kind.get();
             let value = dialog.imp().entry.text().to_string();
+            let response = match response == OK && !kind.typed() {
+                true => ACCEPT,
+                false => response,
+            };
             dialog.emit_by_name::<()>(
                 "answered",
                 &[&response.to_owned(), &value, &(kind == Entry::Passkey)],
@@ -106,6 +121,8 @@ impl PairingDialog {
     pub fn show_entry(&self, kind: Entry) {
         if self.entry_kind.replace(kind) != kind {
             self.entry.set_text("");
+            self.entry.set_visible(kind.typed());
+            self.respond(kind);
         }
         match kind {
             Entry::Pin => {
@@ -116,15 +133,37 @@ impl PairingDialog {
                 self.entry.set_max_length(PASSKEY_DIGITS);
                 self.entry.set_input_purpose(gtk4::InputPurpose::Digits);
             }
+            _ => {}
         }
         self.revalidate();
+    }
+
+    fn respond(&self, kind: Entry) {
+        let dialog = self.obj();
+        let (accept, cancel) = match kind {
+            Entry::Pin | Entry::Passkey => (Some(gettext("OK")), gettext("Cancel")),
+            Entry::Confirm => (Some(gettext("Confirm")), gettext("Cancel")),
+            Entry::Authorize => (Some(gettext("Allow")), gettext("Deny")),
+            Entry::ShowPin | Entry::ShowPasskey => (None, gettext("Cancel")),
+        };
+        dialog.set_response_label(CANCEL, &cancel);
+        if dialog.has_response(OK) {
+            dialog.remove_response(OK);
+        }
+        if let Some(accept) = accept {
+            dialog.add_response(OK, &accept);
+            dialog.set_response_appearance(OK, adw::ResponseAppearance::Suggested);
+            dialog.set_default_response(Some(OK));
+        }
     }
 
     pub fn revalidate(&self) {
         let kind = self.entry_kind.get();
         let text = self.entry.text();
         let valid = accepts(kind, &text);
-        self.obj().set_response_enabled(OK, valid);
+        if self.obj().has_response(OK) {
+            self.obj().set_response_enabled(OK, valid);
+        }
         set_css_class(&*self.entry, "error", !valid && !text.is_empty());
     }
 }
@@ -138,5 +177,6 @@ pub fn accepts(kind: Entry, text: &str) -> bool {
         Entry::Passkey => text
             .parse::<u32>()
             .is_ok_and(|passkey| passkey <= PASSKEY_MAX),
+        _ => true,
     }
 }

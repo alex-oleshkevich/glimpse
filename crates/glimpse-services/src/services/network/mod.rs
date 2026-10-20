@@ -386,7 +386,11 @@ pub enum Event {
         invalidated: Vec<String>,
     },
     Profiles(Box<Profiles>),
-    ProfilesChanged,
+    Profile {
+        path: String,
+        profile: Option<nm::Profile>,
+    },
+    ProfilesChanged(String),
     Settled {
         key: String,
     },
@@ -646,7 +650,6 @@ impl Service for Network {
         config: Self::Config,
         dependencies: Self::Dependencies,
     ) -> Self {
-        let _ = ctx;
         Self {
             state: ctx.publisher(),
             config,
@@ -699,9 +702,16 @@ impl Service for Network {
                 self.profiles = *profiles;
                 self.publish();
             }
-            Input::Event(Event::ProfilesChanged) => {
-                self.load_profiles(ctx, self.profile_paths());
+            Input::Event(Event::Profile { path, profile }) => {
+                if self.settings.contains(&path) {
+                    match profile {
+                        Some(profile) => self.profiles.insert(path, profile),
+                        None => self.profiles.remove(&path),
+                    };
+                    self.publish();
+                }
             }
+            Input::Event(Event::ProfilesChanged(path)) => self.load_profile(ctx, path),
             Input::Event(Event::Settled { key }) => {
                 self.busy.remove(&key);
                 self.publish();
@@ -709,7 +719,7 @@ impl Service for Network {
             Input::Event(Event::AgentRegistered(registered)) => self.agent = registered,
             Input::Event(Event::ScanExpired(scan)) => {
                 if self.scan == Some(scan) {
-                    self.halt(ctx);
+                    self.halt();
                 }
             }
             Input::Event(Event::Secrets(request, answer)) => {
@@ -785,7 +795,7 @@ impl Service for Network {
                 }
                 self.merge(&path, &interface, &changed);
                 if self.scan.is_some() && !self.wireless_usable() {
-                    self.halt(ctx);
+                    self.halt();
                 }
                 self.publish();
             }
@@ -854,6 +864,17 @@ impl Service for Network {
     }
 }
 
+async fn fetch_profile(connection: &zbus::Connection, path: &str) -> Option<nm::Profile> {
+    let proxy = nm::SettingsConnectionProxy::builder(connection)
+        .path(path.to_owned())
+        .ok()?
+        .build()
+        .await
+        .ok()?;
+    let settings = proxy.get_settings().await.ok()?;
+    Some(nm::decode_profile(&settings))
+}
+
 impl Network {
     fn forget_everything(&mut self) {
         self.manager = nm::ManagerProperties::default();
@@ -913,19 +934,26 @@ impl Network {
         ctx.spawn_detached(move |ctx| async move {
             let mut profiles = BTreeMap::new();
             for path in paths {
-                let built =
-                    match nm::SettingsConnectionProxy::builder(&connection).path(path.clone()) {
-                        Ok(builder) => builder.build().await,
-                        Err(error) => Err(error),
-                    };
-                let Ok(proxy) = built else { continue };
-                if let Ok(settings) = proxy.get_settings().await {
-                    profiles.insert(path, nm::decode_profile(&settings));
+                if let Some(profile) = fetch_profile(&connection, &path).await {
+                    profiles.insert(path, profile);
                 }
             }
             let _ = ctx
                 .events()
                 .send(Input::Event(Event::Profiles(Box::new(profiles))))
+                .await;
+        });
+    }
+
+    fn load_profile(&self, ctx: &Ctx<Self>, path: String) {
+        let Ok(connection) = ctx.system_bus().cloned() else {
+            return;
+        };
+        ctx.spawn_detached(move |ctx| async move {
+            let profile = fetch_profile(&connection, &path).await;
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::Profile { path, profile }))
                 .await;
         });
     }
@@ -1130,9 +1158,24 @@ impl Network {
             hardware_enabled: self.manager.wireless_hardware_enabled.unwrap_or(true),
         });
 
-        let active_point = self
+        let (device_state, point) = self
             .wireless_device()
-            .and_then(|(_, record)| record.wireless.active_access_point.clone());
+            .map(|(_, record)| {
+                (
+                    record.properties.state,
+                    record.wireless.active_access_point.clone(),
+                )
+            })
+            .unwrap_or_default();
+        let active_point = point
+            .clone()
+            .filter(|_| device_state == nm::DeviceState::Activated);
+        let connecting_point = point.filter(|_| {
+            matches!(
+                device_state,
+                nm::DeviceState::Preparing | nm::DeviceState::NeedAuth
+            )
+        });
 
         let visible = self
             .wireless_device()
@@ -1160,7 +1203,9 @@ impl Network {
                     true => wireless_address.clone(),
                     false => None,
                 },
-                busy: self.busy.get(path).copied(),
+                busy: self.busy.get(path).copied().or_else(|| {
+                    (connecting_point.as_deref() == Some(path.as_str())).then_some(Busy::Connecting)
+                }),
                 failure: point
                     .ssid
                     .as_deref()
@@ -1586,7 +1631,7 @@ impl Network {
         }
     }
 
-    fn halt(&mut self, _ctx: &Ctx<Self>) {
+    fn halt(&mut self) {
         self.scan = None;
         self.deadline = None;
         self.publish();

@@ -25,6 +25,7 @@ use event::{EventState, Shared, address};
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     output_power: true,
     blank_screens: false,
+    window_screenshot: false,
     overview_backdrop: false,
 };
 

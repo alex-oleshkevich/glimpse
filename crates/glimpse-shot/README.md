@@ -6,9 +6,6 @@ geometry parsing and the `--json`/`--annotate` wire format — and has no GTK de
 
 ## For agents
 
-`glimpse-shot capture --help` is the entry point for the annotation format; it points to
-`glimpse-shot prime`, which prints the full contract and examples.
-
 - Pass `-o -` or `-o "$XDG_RUNTIME_DIR/…"`; the default saves into `~/Pictures/Screenshots`, which
   may be synced to a cloud.
 - `--scale logical` for a smaller image; `--json` for the result object.
@@ -24,7 +21,7 @@ glimpse-shot capture [TARGET] [CAPTURE OPTIONS]    headless: capture, write, exi
 glimpse-shot list [--json]                         outputs and windows, with geometry
 glimpse-shot prime                                 print the agent guide
 TARGET: --screen [NAME] | --window [ID|focused] | --region [GEOMETRY]   (at most one)
---tool crop|arrow|rect|filled-rect|oval|number|text|blur   the tool the editor starts with
+--tool crop|arrow|line|freehand|highlighter|rect|filled-rect|oval|number|text|blur   the tool the editor starts with
 ```
 
 `capture` with no target is the current output: the compositor's focused one, or with no
@@ -72,8 +69,7 @@ The terminal facts are passed in, so every row is a unit test.
 `errors::exit` is the one mapping, by `downcast_ref`, so a `.context(…)` upstream never changes a
 code.
 
-A clap error under `--json` also ends stderr with a `usage` error object. GLib's own debug and info
-logging goes to stderr, so stdout stays data-only.
+GLib's own debug and info logging goes to stderr, so stdout stays data-only.
 
 Global options (`--config`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
 An editor option before or after `capture` or `list` is refused with exit 2 by `cli::parse`, naming
@@ -88,9 +84,8 @@ of an optional value as a flag.
 - Every coordinate in `doc` is a `BufferPx`: a source buffer pixel, before crop and before
   `--scale`. `Logical` exists only for CLI geometry parsing and output matching, never for a mark.
 - **One frame.** A document's `crop` and every mark are the same source buffer, uncropped, the same
-  numbers whether or not the shot was cropped and whichever `--scale` asked for. `--scale` changes
-  only the saved image's pixels, never an annotation's coordinates. A region becomes a crop by
-  subtracting its output's logical origin and multiplying by that output's scale.
+  numbers whether or not the shot was cropped and whichever `--scale` asked for. A region becomes a
+  crop by subtracting its output's logical origin and multiplying by that output's scale.
 
 ## Session and ports
 
@@ -102,8 +97,7 @@ time, the next only after `Effected(Ok)` of the previous; `Effected(Write(actual
 actually written, and a queued `Share` is rewritten to it. A closing key ends in `Done`; Ctrl+C and
 Ctrl+S return to `Editing` with the results and a toast, so Esc afterwards ends `Saved`/`Copied`,
 never `Cancelled`. A failed effect ends `Failed` headless and returns to `Editing` with a toast in a
-GUI face, marks and earlier results kept. `OutputGone` hands the document to a window; `Notify` is
-emitted on completion only when the face asks.
+GUI face, marks and earlier results kept. `Notify` is emitted on completion only when the face asks.
 
 `ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
 `Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
@@ -163,7 +157,7 @@ the folder. No bus or notification server is a warning; the save already happene
 bus name `me.aresa.Glimpse.Shot.Portal` and then serves `org.freedesktop.impl.portal.Screenshot`
 version 3 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor`, `version` and
 `AvailableTargets` (screen, area, active window). D-Bus activation uses `glimpse-shot-portal.service`,
-which requires and stops with `glimpse-session.target`. It never constructs the app.
+which requires and stops with `glimpse-session.target`.
 
 Each call exports an `org.freedesktop.impl.portal.Request` at its handle. `Request.Close` SIGTERMs
 its child without replying. Overlay children use fresh GApplication IDs, so SIGTERM closes their
@@ -176,9 +170,9 @@ and empty names shown as "An application". The overlay's plain-text banner says 
 after a pending crop and Esc refuses. Other finish keys, controls and window picking are disabled,
 so it never uses the clipboard or notifications. `parent_window` is ignored.
 `interactive=false` with `permission_store_checked=true` runs `glimpse-shot capture --screen
---json -o PATH` under `[screenshot] directory`, creating it if needed. Child binaries come
+--json -o PATH` under `[screenshot] directory`. Child binaries come
 from beside this binary, then `PATH`; tokio captures stdout and kills dropped children. `target` 1
-follows that rule; 4 always opens the same overlay, so interactive targets 1 and 4 are identical.
+follows that rule; 4 always opens the same overlay.
 Target 8 runs `capture --window focused` with `permission_store_checked=true`, regardless of the
 `interactive` hint, and is refused without permission. Window (2) and invalid targets return 2.
 
@@ -205,55 +199,46 @@ its crop clip. The canvas calls the two halves itself so a pending crop's dim fa
 ## Overlay
 
 The default command freezes one output: a `Layer::Overlay` surface anchored to every edge, keyboard
-`Exclusive`, on the output `headless::output_of` names, drawing the captured frame and the marks
-through `render::scene`. It drives the same `session` machine as `capture`, executing each effect in
+`Exclusive`, on the output `headless::output_of` names. It executes each `session` effect in
 `gui::overlay::Run::perform`; `headless::take` is the capture ladder for both. Nothing is captured
 while a surface of ours is mapped: the countdown pill is destroyed and `glimpse_widgets::roundtrip`
-waits for the compositor before the capture, and the overlay is hidden the same way before the save
-dialog opens.
+waits for the compositor before the capture, and the overlay is hidden before the save dialog opens.
 
-- **Coordinates.** `gui::canvas::View` maps logical widget points to buffer pixels (`factor` is
-  buffer pixels per logical pixel, so 1.25 maps (100,100) to (125,125)); a frame smaller than the
-  output is centered at its logical size, a larger one is fit.
-- **Hit.** `Document::hit` returns the topmost mark: a hollow rect or oval only on its stroke band
-  (within `max(stroke width, 6)` buffer px of the outline, so a number stamps inside a shape), a
-  filled rect anywhere inside, a number or text by the bounds measured with Pango, a legacy blur by its box, and a pixelation stroke along its brush path. A selected geometric mark shows eight handles; Shift+right-dragging one resizes the
-  mark as one undo step, while an ordinary right-click undoes the previous edit.
-- **Crop.** A dragged crop is pending: the image outside it is dimmed (marks never are) and "Apply
-  crop" shows. Enter or that button applies it as one undo step, after which only the cropped region
-  is shown; Esc discards it.
-- **Esc** goes through `doc::esc`: drop the text being typed, abort a drag, discard a pending crop,
-  deselect, close the window list, then cancel (exit 4).
+- **Coordinates.** `gui::canvas::View` maps logical widget points to buffer pixels by `factor`; a
+  frame smaller than the output is centered at its logical size, a larger one is fit.
+- **Hit.** `Document::hit` returns the topmost mark: a hollow rect or oval only within
+  `max(stroke width, 6)` buffer px of its outline, so a number stamps inside a shape; any other mark
+  by its filled area, Pango bounds, box or brush path.
+- **Crop.** A dragged crop is pending: the image outside it is dimmed (marks never are) until it is
+  applied as one undo step, after which only the cropped region is shown.
 - **Keys.**
 
   | Key | Does |
   | --- | --- |
-  | `c a l p h r f o n t b s w` | crop, arrow, line, freehand, highlighter, rect, filled rect, oval, number, text, blur, select, window list |
+  | `c a l p h r f o n t b s w` | crop, arrow, line, freehand, highlighter, rect, filled rect, oval, number, text, blur, back to the screen, window list; typed as text while typing |
   | `1`–`5`, `[` `]` | color, stroke |
   | Tap or hold `n`, `b`, `r` | select Number, Blur, or Rect; a hold borrows the tool and restores the previous one when released, except from Crop or Text |
-  | Enter | apply a pending crop, else copy and close; a held Enter never copies |
-  | Shift+Enter | save to the default path and close |
+  | Enter | commit typed text, else apply a pending crop, else copy and close; a held Enter never copies |
+  | Shift+Enter | break the line while typing, else save to the default path and close |
+  | Space | take the whole output while a region is dragged |
+  | Scroll | step the size of Text, Number, Arrow, Line or Blur from Thin to Thick for the next mark |
+  | Esc | through `doc::esc`: drop the text being typed, abort a drag, discard a pending crop, deselect, close the window list, then cancel (exit 4) |
+  | Right-click | undo the previous edit; Shift+right-drag on a selected mark's handle resizes it as one undo step |
   | Ctrl+Shift+S | Save As; Cancel returns with the marks intact |
   | Ctrl+C, Ctrl+S | copy, save, without closing |
   | Ctrl+E | hand the document to a window; ignored under `--json` |
 
-  Space takes the whole output while a region is dragged. Scrolling over the image with Text,
-  Number, Arrow, Line, or Blur selected steps its size from Thin to Thick for the next mark. Text is
-  multi-line: Enter commits, Shift+Enter breaks the line, and tool letters are ignored.
 - **Window list.** A floating window visible on the frozen output is cropped from the frozen frame,
   since a fresh capture would contain the overlay; anything else is `ScreenshotWindow`, run on a
-  `gio::spawn_blocking` thread behind a spinner, and Esc drops it. The picked window replaces the
-  screen, alone on a scrim. While the list is open it keeps the focus, so Enter picks the
-  preselected row. A picked window starts on the arrow unless `--tool` was given.
-- **Finishing.** The copy split button's menu holds Save, Save As, Open With… and Open in Window,
-  each hidden where it cannot run. stdout carries only the `--json` result line; `--timeout` exits 7 with it empty. A
+  `gio::spawn_blocking` thread behind a spinner, and Esc drops it. While the list is open it keeps
+  the focus, so Enter picks the preselected row. A picked window starts on the arrow unless `--tool`
+  was given.
+- **Finishing.** stdout carries only the `--json` result line; `--timeout` exits 7 with it empty. A
   lost output or Ctrl+E hands the `Editor` — document and undo history — to a new Result window and
   exits 0 when it closes; under `--json` a lost output fails instead (exit 1, kind `output_gone`).
-  The target buttons go insensitive once anything is drawn, and a window shown below its logical
-  size reads `· scaled NN%`. Under the Crop tool the crop has corner and edge handles.
-- **Notifications.** Each is a second, notify-only `hold` (`duties.clipboard` false, no entries),
-  started the same way as the clipboard one. A capture failure or an unreadable config posts one
-  "Screenshot failed" notice, body the error's first line, only when stderr is not a terminal.
+- **Notifications.** Each is a second, notify-only `hold` (`duties.clipboard` false, no entries). A
+  capture failure or an unreadable config posts one "Screenshot failed" notice, body the error's
+  first line, only when stderr is not a terminal.
 
 ## App
 
@@ -269,37 +254,27 @@ asynchronously under `ANNOTATIONS_CAP`, and answers through `app::reply`, then
 `-o -` is exit 2; while an overlay is up any GUI invocation is `busy`, exit 1; SIGINT and SIGTERM
 exit 130 and 143. Overlay surfaces belong to no application, so its accelerators never reach them.
 
-- **Capture page.** Its own window, sized to its content: mode, output ("Current Screen" first,
-  shown only with two or more outputs), window list labelled "Name — title" from `DesktopAppInfo`,
-  delay and pointer, which start from `[screenshot]` and are never written back. Take hides the
-  window, waits the unmap barrier and runs the overlay with `in_window`: a concrete target hands off
-  at once, Region shows only the selection (release or Space commits), and Esc or the countdown's ✕
-  brings the window back. The window closes when a Result window opens; ‹ New opens a fresh one.
-  Open Image… (Ctrl+O) picks a PNG and opens it as `FILE.png` does, and so does a file dropped on
-  the window; Ctrl+V opens the clipboard's image, unsaved.
+- **Capture page.** Delay and pointer start from `[screenshot]` and are never written back. Take
+  hides the window, waits the unmap barrier and runs the overlay with `in_window`: a concrete target
+  hands off at once, Region shows only the selection (release or Space commits), and Esc or the
+  countdown's ✕ brings the window back. The window closes when a Result window opens.
 - **Result.** `gui::result` is a face of its own over the same `session` machine, always in a window
   of its own: after Take, a hand-off, `--editor window`, `FILE.png`, Open Image… or D-Bus `Open`.
-  Its title is the file name; its size and maximized state are kept in
-  `state_dir()/shot-window.json`. The
-  page's `Gtk.Picture` shows a `canvas::Sheet`, a paintable that draws the same `Editor` fitted with
-  no margin, so Fit and 1:1 are the picture's own; pointer points are mapped back through
-  `Sheet::origin`. The header holds Copy and its Save, Save As and Open With menu; the rename popover
-  holds the name, while Preferences owns the default folder. Save uses that folder, never over another file (a second save overwrites its
-  own), then `RecentManager::add_item`. Dirtiness is marks and crop against the last save or copy;
-  closing or ‹ New asks first. `FILE.png` refuses a side over 16384 from its IHDR. Open With… saves
-  first, then shows the system's app chooser (`FileLauncher` with `always-ask`), holding the app
-  until it answers — in the overlay too, whose surface is gone by then. Ctrl+drag drags the image out as a 0600 file
-  under `runtime_dir()` plus its PNG bytes; a plain drag draws, and pans instead while Space is held
-  with the image focused or the Hand toggle is on — a capture-phase drag on the scroller, so its
-  offsets do not move with the picture. Choosing a tool turns Hand off. Ctrl+scroll and Ctrl+plus/minus zoom
-  by 1.25 per step between 10% and 800%, anchored at the pointer, leaving Fit and 1:1 both unset; a
-  plain scroll only scrolls. A screen capture flashes white
-  before the window opens, starting on the flash surface's first frame.
-- **Preferences.** Saving, Behavior, Annotations and Keyboard Shortcuts are fixed groups. Only `[screenshot]` of
-  `glimpse_config::screenshot_file` — `shot.toml` beside the `--config` file or in `user_dir()` —
-  is written, through `glimpse_config::write_table` 500 ms after the last change and on close, typed
-  values only; config.toml is never written, and its `[screenshot]` still supplies any key shot.toml
-  leaves out. The dialog holds its state until closed; a file that does not parse or validate makes the page read-only behind a banner; any other write failure is a toast.
+  Its size and maximized state are kept in `state_dir()/shot-window.json`. The page's `Gtk.Picture`
+  shows a `canvas::Sheet`, a paintable that draws the same `Editor` fitted with no margin, so Fit
+  and 1:1 are the picture's own; pointer points are mapped back through `Sheet::origin`. Save uses the Preferences folder, never over
+  another file (a second save overwrites its own), then `RecentManager::add_item`. Dirtiness is
+  marks and crop against the last save or copy; closing or ‹ New asks first. `FILE.png` refuses a
+  side over 16384 from its IHDR. Open With… saves first, then shows the system's app chooser
+  (`FileLauncher` with `always-ask`), holding the app until it answers — in the overlay too, whose
+  surface is gone by then. Ctrl+drag drags the image out as a 0600 file under `runtime_dir()` plus
+  its PNG bytes.
+- **Preferences.** Only `[screenshot]` of `glimpse_config::screenshot_file` — `shot.toml` beside the
+  `--config` file or in `user_dir()` — is written, through `glimpse_config::write_table` 500 ms
+  after the last change and on close, typed values only; config.toml is never written, and its
+  `[screenshot]` still supplies any key shot.toml leaves out. The dialog holds its state until
+  closed; a file that does not parse or validate makes the page read-only behind a banner; any other
+  write failure is a toast.
 - **Inhibits.** A countdown holds `IDLE` ("Waiting to take a screenshot") until the capture, so the
   screen neither blanks nor locks into the shot; a result window with unsaved work holds `LOGOUT`
   until it is saved, copied or closed. Both go through `gtk::Application::inhibit`, so they reach

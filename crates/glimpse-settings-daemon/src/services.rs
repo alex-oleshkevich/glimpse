@@ -48,11 +48,12 @@ impl SettingsServices {
         let (location_pending, location) = Running::<Geolocation>::build(document, buses.clone());
         let (solar_pending, solar) = Running::<Solar>::build(document, buses.clone());
         let (mode_pending, mode) = Running::<DesktopMode>::build(document, buses);
+        let (backend, dependencies) =
+            mode::Backend::start(solar.subscribe()).context("cannot start desktop mode backend")?;
+        let _ = dependencies.observed.clone().changed().await;
         let provider = provider::start(session, solar.clone(), location.clone(), mode)
             .await
             .context("cannot acquire the settings D-Bus name")?;
-        let (backend, dependencies) =
-            mode::Backend::start(solar.subscribe()).context("cannot start desktop mode backend")?;
         let mode = mode_pending.start(dependencies);
         let location_service = location_pending.start(location_dependencies);
         let solar = solar_pending.start(SolarDependencies {

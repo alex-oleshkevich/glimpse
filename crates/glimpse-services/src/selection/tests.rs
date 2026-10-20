@@ -28,7 +28,6 @@ fn neither_content_nor_preview_reaches_a_debug_line() {
     let capture = Capture {
         mime: "text/plain".to_owned(),
         data: Arc::from(&b"hunter2"[..]),
-        sensitive: false,
     };
 
     let rendered = format!("{capture:?}");

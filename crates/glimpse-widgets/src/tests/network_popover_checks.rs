@@ -472,6 +472,21 @@ pub(super) fn check() {
         !can_submit(&network),
         "a new question starts empty; carrying the name over would submit it as a password"
     );
+    let long = "word ".repeat(40);
+    network.set_prompt(Some(&NetworkAsk {
+        key: "secret:Long".to_owned(),
+        network: "Skylink Guest".to_owned(),
+        question: long.clone(),
+        entered: NetworkEntered::Secret,
+        accept: "Connect".to_owned(),
+        choices: Vec::new(),
+        open_choice: None,
+    }));
+    assert_eq!(
+        network.imp().prompt_ask.text(),
+        long,
+        "a question longer than the shared text cap is shown whole"
+    );
 
     type_in(&network, "wrongpassword");
     assert!(can_submit(&network));

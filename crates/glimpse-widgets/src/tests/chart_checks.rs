@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn check() {
     let bars = Bars::new();
     assert!(
-        bars.highlight_last(),
+        bars.imp().highlight_last.get(),
         "the newest bar is highlighted by default"
     );
     assert_eq!(bars.accessible_role(), gtk4::AccessibleRole::Img);
@@ -15,27 +15,31 @@ pub(super) fn check() {
         Some(f64::INFINITY),
     ]);
     assert_eq!(
-        bars.values(),
+        *bars.imp().values.borrow(),
         vec![Some(1.0), None, None, None, None],
         "negative and non-finite values are no data"
     );
     let many: Vec<Option<f64>> = (0..500).map(|i| Some(i as f64)).collect();
     bars.set_values(&many);
-    assert_eq!(bars.values().len(), 366, "a series is capped");
-    assert_eq!(bars.values()[365], Some(499.0), "the cap keeps the newest");
+    assert_eq!(bars.imp().values.borrow().len(), 366, "a series is capped");
+    assert_eq!(
+        bars.imp().values.borrow()[365],
+        Some(499.0),
+        "the cap keeps the newest"
+    );
     bars.set_maximum(Some(-1.0));
     assert_eq!(
-        bars.maximum(),
+        bars.imp().maximum.get(),
         None,
         "a maximum that cannot scale falls back to autoscale"
     );
     bars.set_maximum(Some(10.0));
-    assert_eq!(bars.maximum(), Some(10.0));
+    assert_eq!(bars.imp().maximum.get(), Some(10.0));
     bars.set_highlight_last(false);
-    assert!(!bars.highlight_last());
+    assert!(!bars.imp().highlight_last.get());
     bars.set_label(&"é".repeat(500));
     assert_eq!(
-        bars.label().chars().count(),
+        bars.imp().label.borrow().chars().count(),
         120,
         "the label is capped by chars"
     );
@@ -74,16 +78,23 @@ pub(super) fn check() {
     let spark = Sparkline::new();
     assert_eq!(spark.accessible_role(), gtk4::AccessibleRole::Img);
     spark.set_values(&[Some(1.0), None, Some(f64::NAN), Some(3.0)]);
-    assert_eq!(spark.values(), vec![Some(1.0), None, None, Some(3.0)]);
+    assert_eq!(
+        *spark.imp().values.borrow(),
+        vec![Some(1.0), None, None, Some(3.0)]
+    );
     spark.set_values(&many);
-    assert_eq!(spark.values().len(), 366, "a series is capped");
-    assert_eq!(spark.values()[365], Some(499.0), "the cap keeps the newest");
+    assert_eq!(spark.imp().values.borrow().len(), 366, "a series is capped");
+    assert_eq!(
+        spark.imp().values.borrow()[365],
+        Some(499.0),
+        "the cap keeps the newest"
+    );
     spark.set_fill(true);
     spark.set_show_last(true);
-    assert!(spark.fill() && spark.show_last());
+    assert!(spark.imp().fill.get() && spark.imp().show_last.get());
     spark.set_label(&"é".repeat(500));
     assert_eq!(
-        spark.label().chars().count(),
+        spark.imp().label.borrow().chars().count(),
         120,
         "the label is capped by chars"
     );

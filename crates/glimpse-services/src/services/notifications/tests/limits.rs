@@ -108,9 +108,17 @@ fn ids_are_handed_out_in_order_and_a_sender_naming_one_gets_it_back() {
     assert_eq!(next.allocate(7), 7);
     assert_eq!(
         next.allocate(0),
-        3,
-        "naming a replacement does not spend an id"
+        8,
+        "the counter moves past an id a sender named"
     );
+}
+
+#[test]
+fn an_id_named_by_a_sender_is_never_handed_to_another_notification() {
+    let next = Ids::default();
+
+    assert_eq!(next.allocate(9999), 9999);
+    assert!((0..10_000).all(|_| next.allocate(0) != 9999));
 }
 
 #[test]

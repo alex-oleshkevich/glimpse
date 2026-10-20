@@ -91,7 +91,9 @@ impl Service for Solar {
             if let Some(at) = self.next_change {
                 declared.push(Sub::deadline(Watch::Change(at), at, Event::Tick));
             }
-            declared.push(Sub::stream(Watch::Resume, resumes));
+            declared.push(Sub::stream(Watch::Resume, |ctx| {
+                resumes(ctx, || Event::Tick)
+            }));
         }
         declared
     }
@@ -151,7 +153,10 @@ fn solar_date(now: DateTime<Utc>, longitude: f64) -> NaiveDate {
     (now + TimeDelta::seconds((longitude * 240.0) as i64)).date_naive()
 }
 
-async fn resumes(ctx: Ctx<Solar>) -> BoxStream<'static, Event> {
+pub(crate) async fn resumes<S: Service>(
+    ctx: Ctx<S>,
+    tick: fn() -> S::Event,
+) -> BoxStream<'static, S::Event> {
     let Ok(bus) = ctx.system_bus() else {
         return stream::empty().boxed();
     };
@@ -160,13 +165,8 @@ async fn resumes(ctx: Ctx<Solar>) -> BoxStream<'static, Event> {
     };
     match manager.receive_prepare_for_sleep().await {
         Ok(signals) => signals
-            .filter_map(|signal| {
-                future::ready(
-                    signal
-                        .args()
-                        .is_ok_and(|args| !args.start)
-                        .then_some(Event::Tick),
-                )
+            .filter_map(move |signal| {
+                future::ready(signal.args().is_ok_and(|args| !args.start).then(tick))
             })
             .boxed(),
         Err(_) => stream::empty().boxed(),

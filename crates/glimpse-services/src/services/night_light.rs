@@ -12,12 +12,13 @@ use crate::{
     gamma::Gamma,
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint},
+    services::solar::resumes,
     subscription::Sub,
 };
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 const RAMPING: time::Duration = time::Duration::from_secs(10);
-const SOFTENING_STEP: time::Duration = time::Duration::from_secs(1);
+const SOFTENING_STEP: time::Duration = time::Duration::from_millis(50);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -54,6 +55,7 @@ pub struct NightLightState {
     pub configured: Schedule,
     pub manual: bool,
     pub paused_until: Option<DateTime<Utc>>,
+    pub pausable: bool,
 }
 
 impl NightLightState {
@@ -72,6 +74,7 @@ fn initial_state(config: &Config) -> NightLightState {
         configured: config.schedule,
         manual: false,
         paused_until: None,
+        pausable: false,
     }
 }
 
@@ -164,6 +167,7 @@ pub enum Command {
 pub enum Watch {
     Solar,
     Tick(time::Duration),
+    Resume,
 }
 
 pub struct Dependencies {
@@ -232,13 +236,16 @@ impl Service for NightLight {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        if self.effective() == Schedule::Off {
+        if self.effective() == Schedule::Off && self.glide.is_none() {
             return Vec::new();
         }
         let cadence = self.cadence(Utc::now());
         let mut declared = vec![Sub::interval(Watch::Tick(cadence), cadence, |_ctx| async {
             Event::Tick
         })];
+        declared.push(Sub::stream(Watch::Resume, |ctx| {
+            resumes(ctx, || Event::Tick)
+        }));
         if self.effective() == Schedule::Automatic {
             declared.push(Sub::watch(
                 Watch::Solar,
@@ -385,7 +392,7 @@ impl NightLight {
 
     async fn evaluate(&mut self, ctx: &Ctx<Self>, now: DateTime<Utc>) {
         self.settle(ctx, now);
-        self.publish();
+        self.publish(now);
     }
 
     fn settle(&mut self, ctx: &Ctx<Self>, now: DateTime<Utc>) {
@@ -503,7 +510,7 @@ impl NightLight {
         }
     }
 
-    fn publish(&self) {
+    fn publish(&self, now: DateTime<Utc>) {
         self.state.set(NightLightState {
             schedule: self.effective(),
             overridden: self.forced.is_some(),
@@ -512,6 +519,10 @@ impl NightLight {
             configured: self.config.schedule,
             manual: self.manual.is_some(),
             paused_until: self.paused_until,
+            pausable: matches!(
+                self.boundary(now),
+                Some((SolarPhase::Night, Some(deadline))) if deadline > now
+            ),
         });
     }
 }

@@ -4,8 +4,9 @@ use std::rc::Rc;
 use chrono::{DateTime, Local};
 use gettextrs::gettext;
 use glimpse_dbus::idle::{IdleInhibitorRecord, IdleProviderError, IdleProviderHandle, SourceKind};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
 
-use crate::applet::Opener;
+use crate::applet::{Opener, Report, report_failure};
 
 pub type Failure = Rc<dyn Fn(&'static str, IdleProviderError)>;
 
@@ -99,15 +100,37 @@ async fn release(idle: &IdleProviderHandle, id: u64) -> Result<(), IdleProviderE
     release_result(idle.release(id).await)
 }
 
-fn release_result(result: Result<(), IdleProviderError>) -> Result<(), IdleProviderError> {
+pub fn release_result(result: Result<(), IdleProviderError>) -> Result<(), IdleProviderError> {
     match result {
         Err(IdleProviderError::UnknownObject) => Ok(()),
         result => result,
     }
 }
 
-pub fn log_failure(operation: &'static str, error: IdleProviderError) {
-    tracing::warn!(operation, %error, "service command failed");
+pub fn hold_failure(
+    notifications: &NotificationsProviderHandle,
+    app_name: String,
+    icon: &str,
+) -> Failure {
+    let report = Report {
+        notifications: notifications.clone(),
+        app_name,
+        icon: icon.to_owned(),
+        summary: gettext("Could not change keep awake"),
+    };
+    Rc::new(move |operation, error| {
+        let body = match &error {
+            IdleProviderError::Unavailable(_) => gettext("The idle service is unavailable."),
+            IdleProviderError::TimedOut => gettext("That took too long."),
+            IdleProviderError::Call(_) | IdleProviderError::UnknownObject => {
+                gettext("That did not work.")
+            }
+        };
+        let report = report.clone();
+        relm4::spawn_local(async move {
+            report_failure(operation, report, Some(body), error).await;
+        });
+    })
 }
 
 pub fn settling<F, T>(operation: &'static str, opener: Opener, future: F, failed: Failure)

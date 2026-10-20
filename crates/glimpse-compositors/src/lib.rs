@@ -28,6 +28,7 @@ use futures_util::stream::BoxStream;
 pub struct Capabilities {
     pub output_power: bool,
     pub blank_screens: bool,
+    pub window_screenshot: bool,
     pub overview_backdrop: bool,
 }
 
@@ -35,6 +36,7 @@ impl Capabilities {
     pub const NONE: Self = Self {
         output_power: false,
         blank_screens: false,
+        window_screenshot: false,
         overview_backdrop: false,
     };
 }

@@ -95,20 +95,17 @@ pub use exec::{
     CalendarProps, Catalog as ExecCatalog, CheckButtonProps, ChoiceItem, ChoiceListProps,
     ClassName, ContainerProps, DesktopCatalog, DotsProps, DropDownProps, Edge, Element,
     ElementKind, Ellipsize, EndProps, Entry as ExecEntry, EntryProps, ExpanderRowProps, FactItem,
-    FactListProps, FromApplet, HelloEntry, ImageProps, IndicatorProps, LabelProps,
-    MAX_CHILDREN_PER_PARENT, MAX_LINE, MAX_NODES, MeterRowProps, Node, NoticeProps, Op,
-    Orientation, Outgoing, Paint, PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT,
+    FactListProps, ImageProps, IndicatorProps, LabelProps, MeterRowProps, Node, NoticeProps, Op,
+    Orientation, Paint, PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT,
     RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,
     SectionProps, SeparatorProps, Severity, SliderRowProps, SparklineProps, SpinnerProps,
     StackProps, SwatchProps, SwatchSize, SwitchProps, ToggleButtonProps, ToggleControl,
-    ToggleRowProps, Tone, Transition, Tree, Violation, WireNode, Zone, expand as exec_expand,
+    ToggleRowProps, Tone, Transition, Tree, WireNode, Zone, expand as exec_expand,
 };
 pub use exec::{
     BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,
-    DevRequest as ExecDevRequest, EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, Exec, ExecHandle, ExecState,
-    Launcher as ExecLauncher, Origin as ExecOrigin, SlotState as ExecSlotState,
-    Status as ExecStatus, SystemdLauncher, UnitSpec as ExecUnitSpec, UnitState as ExecUnitState,
-    UserEvent as ExecUserEvent, exec_state_dir,
+    DevRequest as ExecDevRequest, Exec, ExecHandle, ExecState, SlotState as ExecSlotState,
+    Status as ExecStatus, SystemdLauncher, UserEvent as ExecUserEvent,
 };
 pub use geolocation::{Geolocation, GeolocationDependencies, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};

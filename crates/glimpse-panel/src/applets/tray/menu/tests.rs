@@ -162,3 +162,23 @@ fn a_leaf_has_no_submenu_at_all() {
 fn an_empty_menu_builds_no_sections_rather_than_one_empty_one() {
     assert!(sections(&root(Vec::new())).is_empty());
 }
+
+#[test]
+fn an_underscore_in_a_label_reaches_the_menu_escaped_rather_than_as_a_mnemonic() {
+    let layout = root(vec![
+        node(1, &glimpse_dbus::dbusmenu::strip_mnemonic("a__b")),
+        node(2, &glimpse_dbus::dbusmenu::strip_mnemonic("_Open")),
+    ]);
+    let menu = model(&sections(&layout));
+    let section = menu
+        .item_link(0, gio::MENU_LINK_SECTION)
+        .expect("a section");
+    let label = |index| {
+        section
+            .item_attribute_value(index, gio::MENU_ATTRIBUTE_LABEL, None)
+            .and_then(|value| value.get::<String>())
+    };
+
+    assert_eq!(label(0).as_deref(), Some("a__b"));
+    assert_eq!(label(1).as_deref(), Some("Open"));
+}

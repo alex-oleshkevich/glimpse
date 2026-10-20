@@ -15,7 +15,6 @@ fn capture(mime: &str, data: &[u8]) -> Capture {
     Capture {
         mime: mime.to_owned(),
         data: Arc::from(data),
-        sensitive: false,
     }
 }
 
@@ -77,30 +76,12 @@ fn re_reading_what_was_just_offered_does_not_grow_the_history() {
             Capture {
                 mime: offered.mime,
                 data: offered.data,
-                sensitive: false,
             },
             now(),
         )
         .expect("recorded");
 
     assert_eq!(history.entries().len(), 1);
-}
-
-#[test]
-fn a_sensitive_capture_is_refused_before_it_is_stored() {
-    let mut history = History::new(limits());
-
-    let refused = history.insert(
-        Capture {
-            mime: TEXT.to_owned(),
-            data: Arc::from(&b"hunter2"[..]),
-            sensitive: true,
-        },
-        now(),
-    );
-
-    assert_eq!(refused, Err(Refused::Sensitive));
-    assert!(history.entries().is_empty());
 }
 
 #[test]

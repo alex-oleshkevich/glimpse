@@ -1,6 +1,4 @@
-use gtk4::{CompositeTemplate, gdk, glib, prelude::*, subclass::prelude::*};
-use std::cell::RefCell;
-use std::rc::Rc;
+use gtk4::{CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/action_row.ui")]
@@ -50,46 +48,16 @@ impl ObjectImpl for ActionRow {
     fn constructed(&self) {
         self.parent_constructed();
         let row = self.obj();
-        let click = gtk4::GestureClick::new();
-        click.set_button(gdk::BUTTON_PRIMARY);
-        click.connect_released(glib::clone!(
-            #[weak]
-            row,
-            move |gesture, _n_press, x, y| {
-                if row.contains(x, y) {
-                    gesture.set_state(gtk4::EventSequenceState::Claimed);
+        crate::row::wire_activation(
+            row.upcast_ref::<gtk4::Widget>(),
+            glib::clone!(
+                #[weak]
+                row,
+                move || {
                     row.activate();
                 }
-            }
-        ));
-        let keys = gtk4::EventControllerKey::new();
-        let pressed = Rc::new(RefCell::new(Vec::new()));
-        keys.connect_key_pressed(glib::clone!(
-            #[weak]
-            row,
-            #[strong]
-            pressed,
-            #[upgrade_or]
-            glib::Propagation::Proceed,
-            move |_controller, key, _code, _mods| {
-                if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space) {
-                    let mut held = pressed.borrow_mut();
-                    if !held.contains(&key) {
-                        held.push(key);
-                        drop(held);
-                        row.activate();
-                    }
-                    glib::Propagation::Stop
-                } else {
-                    glib::Propagation::Proceed
-                }
-            }
-        ));
-        keys.connect_key_released(move |_, key, _, _| {
-            pressed.borrow_mut().retain(|held| *held != key);
-        });
-        row.add_controller(click);
-        row.add_controller(keys);
+            ),
+        );
     }
 
     fn dispose(&self) {

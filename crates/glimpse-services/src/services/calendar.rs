@@ -26,13 +26,14 @@ const AHEAD: i64 = 62;
 const SPAN: i64 = 400;
 const OCCURRENCES: u16 = 512;
 const EVENTS: usize = 512;
-const FILES: usize = 256;
+const DIRECTORY_BYTES: u64 = 16 * 1024 * 1024;
 const SUMMARY: usize = 120;
 const DETAIL: usize = 120;
 const ORGANIZER: usize = 80;
 const MEETING_URL: usize = 512;
 const SIDECAR: usize = 2048;
 const REASON: usize = 240;
+const ADVANCE: Duration = Duration::from_secs(3600);
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
 use super::{AGENT, transport};
@@ -117,6 +118,7 @@ pub enum Event {
         id: String,
         reason: String,
     },
+    Advanced,
 }
 
 pub struct Fetch {
@@ -216,6 +218,7 @@ pub enum Watch {
     Expand {
         generation: u64,
     },
+    Advance,
 }
 
 pub struct Calendar {
@@ -225,7 +228,7 @@ pub struct Calendar {
     poll: u64,
     attempt: u64,
     generation: u64,
-    window: Window,
+    window: Option<Window>,
     fetched: BTreeMap<String, Fetch>,
     failures: BTreeMap<String, String>,
 }
@@ -295,8 +298,12 @@ impl Service for Calendar {
         }
 
         let generation = self.generation;
-        let window = self.window;
+        let window = self.window.unwrap_or_else(|| Window::around(Utc::now()));
         let loaded = self.loaded();
+
+        declared.push(Sub::interval(Watch::Advance, ADVANCE, |_ctx| async {
+            Event::Advanced
+        }));
 
         declared.push(Sub::stream(
             Watch::Expand { generation },
@@ -340,7 +347,7 @@ impl Service for Calendar {
             poll: config.poll_interval,
             attempt: 0,
             generation: 0,
-            window: Window::around(Utc::now()),
+            window: None,
             fetched: BTreeMap::new(),
             failures: BTreeMap::new(),
         }
@@ -362,6 +369,9 @@ impl Service for Calendar {
                     }
                 }
                 self.report(ctx);
+                self.generation += 1;
+            }
+            Input::Event(Event::Advanced) => {
                 self.generation += 1;
             }
             Input::Event(Event::Expanded { payload, .. }) => {
@@ -390,8 +400,8 @@ impl Service for Calendar {
             }
             Input::Command(Command::Range { from, to, reply }) => {
                 let window = Window::asked(from, to);
-                if window != self.window {
-                    self.window = window;
+                if self.window != Some(window) {
+                    self.window = Some(window);
                     self.generation += 1;
                 }
                 let _ = reply.send(Ok(()));
@@ -443,10 +453,18 @@ struct Loaded {
 }
 
 fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
+    let near = Window::around(Utc::now());
+    let windows = match window.from <= near.to && near.from <= window.to {
+        true => vec![Window {
+            from: window.from.min(near.from),
+            to: window.to.max(near.to),
+        }],
+        false => vec![near, window],
+    };
     let mut events = Vec::new();
     for source in &loaded {
         for calendar in &source.calendars {
-            for occurrence in expand(calendar, window) {
+            for occurrence in windows.iter().flat_map(|window| expand(calendar, *window)) {
                 events.push(CalendarEvent {
                     source: source.id.clone(),
                     calendar: source.name.clone().unwrap_or_else(|| source.id.clone()),
@@ -578,7 +596,8 @@ async fn directory(uri: &str) -> Result<Vec<String>, String> {
         .map_err(|error| format!("its directory cannot be read: {}", error.kind()))?;
 
     let mut documents = Vec::new();
-    while documents.len() < FILES {
+    let mut bytes = 0;
+    while bytes < DIRECTORY_BYTES {
         let Ok(Some(entry)) = entries.next_entry().await else {
             break;
         };
@@ -590,7 +609,10 @@ async fn directory(uri: &str) -> Result<Vec<String>, String> {
             continue;
         }
         match fs::read_to_string(&path).await {
-            Ok(text) => documents.push(text),
+            Ok(text) => {
+                bytes += text.len() as u64;
+                documents.push(text);
+            }
             Err(error) => tracing::warn!(kind = ?error.kind(), "an .ics file could not be read"),
         }
     }
@@ -616,7 +638,7 @@ async fn read(
 
     let mut calendars = Vec::new();
     for document in &documents {
-        let calendar: ICalendar = document
+        let calendar: ICalendar = zones::iana_names(document)
             .parse()
             .map_err(|_| "its document is not iCalendar".to_owned())?;
         calendars.push(Arc::new(calendar));
@@ -720,7 +742,13 @@ fn watching(
     };
 
     let leading = stream::once(reread(client.clone(), id.clone(), uri.clone(), kind));
-    let changes = glimpse_config::watch(root).then(move |update| {
+    let changes = glimpse_config::watch_all(
+        root.ancestors()
+            .take(2)
+            .map(std::path::Path::to_path_buf)
+            .collect::<Vec<_>>(),
+    )
+    .then(move |update| {
         let client = client.clone();
         let id = id.clone();
         let uri = uri.clone();
@@ -946,6 +974,8 @@ fn under(host: &str, domain: &str) -> bool {
             .strip_suffix(domain)
             .is_some_and(|rest| rest.ends_with('.'))
 }
+
+mod zones;
 
 #[cfg(test)]
 mod tests;
