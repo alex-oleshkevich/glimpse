@@ -8,6 +8,8 @@ libadwaita.
   <img alt="The glimpse panel over the default wallpaper" src="docs/screenshots/shell-light.png">
 </picture>
 
+[![Watch the glimpse demo](website/public/video/demo-poster.jpg)](website/public/video/demo.mp4)
+
 ## About
 
 glimpse adds what a bare Wayland compositor leaves out: a bar, notifications, a wallpaper, a lock
