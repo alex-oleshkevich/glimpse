@@ -15,7 +15,7 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 | --- | --- |
 | `lib.rs` | `detect_compositor()`, `Compositor`, `Capabilities` |
 | `model.rs` | `Snapshot` and everything in it, the id and target types, the text caps |
-| `event.rs` | `Event` and `Resync` |
+| `event.rs` | `Event`, `Resync`, and the line loop both backends' event streams share |
 | `error.rs` | `CompositorError` |
 | `keyboard.rs` | `layout_code()` — the short badge a panel renders, and the table behind it |
 | `niri/` | the JSON protocol, action shapes, event decoding |
@@ -40,20 +40,17 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 - **`StopCast` only ends a `CastKind::PipeWire` session** — wlr-screencopy casts cannot be stopped
   through niri's IPC, and under Hyprland every cast is synthetic with `session_id: None`.
 - **`Capabilities` carries only differences a caller acts on** — a flag holding the same value on
-  every backend is documentation charging runtime rent. `workspace_reorder` is false under
-  Hyprland, where a workspace's index *is* its identity, so a popover disables `Move up`/`Move down`
-  rather than omitting the rows. `blank_screens` is false under Hyprland, whose `dpms off` does not
-  wake on input, so the blank row is omitted there while `output_power` stays true on both.
+  every backend is documentation charging runtime rent. `blank_screens` is false under Hyprland,
+  whose `dpms off` does not wake on input, so the blank row is omitted there while `output_power`
+  stays true on both.
+- **A caller that needs only the keyboard layouts calls `keyboard_layouts()`**, one request per
+  backend, rather than a whole `snapshot()` that fails when any unrelated part does.
 - **`Unsupported` and `Unavailable` are different failures.** `Unsupported` means there is no
   compositor to ask, so every operation answers it and the daemon degrades rather than refusing to
   start. `Unavailable` means a compositor is running and cannot do this one thing, is knowable in
   advance through `Capabilities`, and is what a disabled popover row means.
-- **Every action names its subject explicitly.** niri's `MoveWorkspaceUp`/`Down` take no argument
-  and move *the focused* workspace, so a popover row uses `MoveWorkspaceToIndex` instead.
-  `MoveWindowToWorkspace`'s `focus` argument defaults to `true` and is passed `false` explicitly, or
-  a move drags the user after the window they just sent away. A relative workspace (`Next`/`Prev`)
-  is not a reference niri accepts for a window move and answers `Unavailable`; Hyprland's selector
-  grammar accepts `+1`/`-1` and is left supported there — the backend is right when they disagree.
+- **Every action names its subject explicitly.** A rename or a window focus carries the id it acts
+  on rather than relying on what is focused; only `Next`/`Prev` targets lean on focus, by design.
 
 ## Window geometry and screenshotting a window
 
@@ -87,7 +84,7 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
   This crate does not work around that here — restoring the clipboard afterward is the caller's job.
 - **Hyprland has no equivalent action.** `screenshot_window` on `Hyprland` returns
   `CompositorError::Unavailable` — a compositor is running and simply cannot do this, the same
-  reason `reorder_workspace` and `stop_screencast` answer the same way there.
+  reason `stop_screencast` answers the same way there.
 
 ## Where the two compositors differ
 
@@ -100,9 +97,9 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 | Output disabled | `current_mode: null`, no `enabled` field | `"disabled": true` |
 | Refresh rate | integer mHz | float Hz |
 | Output geometry / transform | `logical` is size after scaling; transform is a name (`"Normal"`) | pixels divided by `scale` here to match; transform is an integer (`0`) — `Logical` carries no shared `transform` field until something needs rotation |
-| Keyboard layouts | `{names, current_idx}` gives descriptions ("Polish") | codes from `j/getoption input:kb_layout` ("pl"), matched to `j/devices`; `KeyboardLayouts` fills both `names` and `codes` on both backends |
+| Keyboard layouts | `{names, current_idx}` gives descriptions ("Polish") | codes and the active index from `j/devices` (`layout`, `active_layout_index`); `KeyboardLayouts` fills both `names` and `codes` on both backends |
 | Event granularity | per-field events | mostly `Resync` — the payload is rarely enough to rebuild a record; niri emits one too, for its own missing output event |
-| Monitor toggle | stateless | `keyword monitor <name>,disable` **discards the mode**, so it is cached to restore |
+| Monitor toggle | stateless | disabling sends the monitor's `disable` rule (a Lua config refuses `keyword` and takes the `eval` form); enabling sends a plain `reload`, so Hyprland re-applies its own monitor rules and also drops other runtime monitor and keyword changes |
 | Concurrent requests | accepted freely | backlog is tiny and `connect` answers `EAGAIN`; `snapshot()`'s five `j/` requests retry with a short backoff |
 
 ## Tests

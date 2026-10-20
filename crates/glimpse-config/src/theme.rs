@@ -111,20 +111,37 @@ pub fn user_dark_stylesheet() -> Option<PathBuf> {
 }
 
 pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {
-    let dirs = watch_dirs_in(&theme_dirs(), user_dir().as_deref(), &selected(theme));
-    let watched = watch_all(dirs).filter_map(|update| async move {
-        match update {
-            Update::Changed(_) | Update::Rearmed => Some(()),
-            Update::Unavailable(reason) => {
-                tracing::warn!(
-                    reason,
-                    "the theme is not being watched; SIGHUP still reloads it"
-                );
-                None
-            }
-        }
+    let user = user_dir();
+    let dirs = watch_dirs_in(&theme_dirs(), user.as_deref(), &selected(theme));
+    let watched = watch_all(dirs).filter_map(move |update| {
+        let reload = reload(update, user.as_deref());
+        async move { reload }
     });
     stream::select(Box::pin(watched), Box::pin(hangups()))
+}
+
+fn reads_theme(user: Option<&Path>, path: &Path) -> bool {
+    path.parent() != user
+        || path.file_name().is_some_and(|name| {
+            name == STYLES_FILE || name == DARK_STYLESHEET || name == THEMES_DIR
+        })
+}
+
+fn reload(update: Update, user: Option<&Path>) -> Option<()> {
+    match update {
+        Update::Changed(paths) => paths
+            .iter()
+            .any(|path| reads_theme(user, path))
+            .then_some(()),
+        Update::Rearmed => Some(()),
+        Update::Unavailable(reason) => {
+            tracing::warn!(
+                reason,
+                "the theme is not being watched; SIGHUP still reloads it"
+            );
+            None
+        }
+    }
 }
 
 #[cfg(test)]

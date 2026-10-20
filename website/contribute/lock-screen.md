@@ -89,7 +89,8 @@ prompt shows the text-console instruction.
 A stopped locker is a locked session with nothing to authenticate against. The unit is part of
 `graphical-session.target` only, and `glimpse-session.target` starts it through `Wants=` alone. `PartOf=`,
 `BindsTo=` or another unit's `Conflicts=` could stop the locker as a side effect; `Wants=` cannot. The unit
-sets `Restart=always` with `StartLimitIntervalSec=0`, so systemd never gives up restarting it, and reload
+sets `Restart=always` with `StartLimitIntervalSec=0`, so systemd never gives up restarting it, except that `ExecCondition=` skips the start while the Wayland display
+socket is missing, and reload
 propagation from the session target skips it.
 
 For packagers: do not add hardening options or unit relationships that can stop this unit, and install

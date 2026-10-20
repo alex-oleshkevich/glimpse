@@ -167,3 +167,39 @@ async fn connected_client_observes_snapshot_changes() {
     assert!(updates.borrow().unavailable.is_none());
     provider.shutdown().await;
 }
+
+struct FailingSnapshot;
+
+#[zbus::interface(name = "me.aresa.Glimpse.Notifications1")]
+impl FailingSnapshot {
+    #[zbus(property)]
+    fn snapshot(&self) -> zbus::fdo::Result<NotificationsSnapshot> {
+        Err(zbus::fdo::Error::Failed("x".repeat(5000)))
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_foreign_name_owner_cannot_publish_an_unbounded_reason() {
+    let bus = PrivateBus::start();
+    let owner = bus.connection().await;
+    owner
+        .object_server()
+        .at(GLIMPSE_NOTIFICATIONS_OBJECT_PATH, FailingSnapshot)
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&owner, GLIMPSE_NOTIFICATIONS_BUS_NAME)
+        .await
+        .unwrap();
+    let mut provider = NotificationsProvider::start(bus.connection().await);
+    let mut state = provider.handle().subscribe();
+    wait_until(&mut state, |state| {
+        state
+            .unavailable
+            .as_deref()
+            .is_some_and(|reason| reason.contains("xxxx"))
+    })
+    .await;
+    let reason = provider.handle().snapshot().unavailable.unwrap();
+    assert!(reason.chars().count() <= 241);
+    provider.shutdown().await;
+}

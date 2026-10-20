@@ -1,4 +1,40 @@
+use std::sync::{Arc, Mutex};
+
 use super::*;
+
+#[derive(Clone, Default)]
+struct Logged(Arc<Mutex<Vec<u8>>>);
+
+impl Logged {
+    fn lines(&self) -> String {
+        let bytes = self.0.lock().expect("not poisoned").clone();
+        String::from_utf8(bytes).expect("tracing writes utf-8")
+    }
+
+    fn capture(&self) -> tracing::subscriber::DefaultGuard {
+        let sink = self.clone();
+        let guard = tracing::subscriber::set_default(
+            tracing_subscriber::fmt()
+                .with_writer(move || sink.clone())
+                .with_max_level(tracing::Level::WARN)
+                .without_time()
+                .finish(),
+        );
+        tracing::callsite::rebuild_interest_cache();
+        guard
+    }
+}
+
+impl std::io::Write for Logged {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().expect("not poisoned").extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
 #[test]
 fn the_runtime_dir_is_glimpse_under_the_sessions_runtime_dir() {
@@ -168,6 +204,29 @@ fn the_screenshot_file_overrides_screenshot_keys_and_nothing_else() {
 }
 
 #[test]
+fn a_dropin_named_shot_toml_is_an_ordinary_dropin() {
+    let root = tempfile::tempdir().expect("a temporary directory");
+    let system = root.path().join("etc");
+    let user = root.path().join("config");
+    std::fs::create_dir_all(system.join(DROPIN_DIR)).expect("creates");
+    std::fs::create_dir_all(user.join(DROPIN_DIR)).expect("creates");
+    std::fs::write(
+        user.join(DROPIN_DIR).join(SCREENSHOT_FILE_NAME),
+        "[appearance]\ncolor-scheme = \"dark\"\n[screenshot]\nflash = false\n",
+    )
+    .expect("writes");
+
+    let loaded = load_from(&system, Some(&user), None).expect("the layers merge");
+
+    assert_eq!(
+        loaded.appearance.color_scheme,
+        crate::ColorScheme::Dark,
+        "a drop-in named shot.toml is read in full, not stripped to [screenshot]"
+    );
+    assert!(!loaded.screenshot.flash);
+}
+
+#[test]
 fn a_tilde_prefixed_path_expands_against_home() {
     let home = Path::new("/home/u");
     let resolved = expand_tilde(Path::new("~/wallpapers/city.jpg"), Some(home));
@@ -233,4 +292,41 @@ fn a_relative_path_resolving_nowhere_is_a_miss() {
 
     let resolved = resolve_in(Path::new("city.jpg"), None, Some(&user), &data);
     assert_eq!(resolved, None);
+}
+
+#[test]
+fn a_missing_explicit_config_warns() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let path = dir.path().join("typo.toml");
+    let logged = Logged::default();
+    let _guard = logged.capture();
+
+    let loaded =
+        load_from(dir.path(), None, Some(&path)).expect("a missing explicit file is not an error");
+
+    assert_eq!(loaded, Config::default());
+    let lines = logged.lines();
+    assert_eq!(
+        lines
+            .matches("the configuration file does not exist")
+            .count(),
+        1,
+        "one warning for the missing file: {lines}"
+    );
+    assert!(
+        lines.contains(&path.display().to_string()),
+        "the warning names the path: {lines}"
+    );
+}
+
+#[test]
+fn a_missing_layer_without_an_explicit_config_stays_silent() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let logged = Logged::default();
+    let _guard = logged.capture();
+
+    let loaded = load_from(dir.path(), Some(dir.path()), None).expect("the layers are absent");
+
+    assert_eq!(loaded, Config::default());
+    assert!(logged.lines().is_empty(), "no warning: {}", logged.lines());
 }

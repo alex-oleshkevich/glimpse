@@ -27,15 +27,7 @@ async fn an_unsupported_session_answers_every_operation_rather_than_panicking() 
         Err(CompositorError::Unsupported(_))
     ));
     assert!(matches!(
-        compositor.close_window(WindowId(1)).await,
-        Err(CompositorError::Unsupported(_))
-    ));
-    assert!(matches!(
-        compositor.reorder_workspace(WorkspaceId(1), 0).await,
-        Err(CompositorError::Unsupported(_))
-    ));
-    assert!(matches!(
-        compositor.focus_output("eDP-1").await,
+        compositor.keyboard_layouts().await,
         Err(CompositorError::Unsupported(_))
     ));
     assert!(matches!(
@@ -51,15 +43,26 @@ async fn an_unsupported_session_answers_every_operation_rather_than_panicking() 
 }
 
 #[test]
-fn the_two_backends_disagree_about_floating_and_about_reordering() {
+fn blank_screens_is_niri_only_and_output_power_is_on_both() {
     let niri = Compositor::Niri(Niri::at("/nonexistent")).capabilities();
     let hyprland = Compositor::Hyprland(Hyprland::at("/nonexistent")).capabilities();
 
-    assert!(!niri.floating && niri.workspace_reorder);
-    assert!(
-        hyprland.floating && !hyprland.workspace_reorder,
-        "a Hyprland workspace's index is its identity, so there is no position to change"
-    );
     assert!(niri.output_power && hyprland.output_power);
     assert!(niri.blank_screens && !hyprland.blank_screens);
+}
+
+#[tokio::test]
+async fn a_compositor_without_the_restore_option_allows_a_restarted_locker() {
+    assert!(
+        Compositor::Unsupported
+            .allows_session_lock_restore()
+            .await
+            .unwrap()
+    );
+    assert!(
+        Compositor::Niri(Niri::at("/nonexistent"))
+            .allows_session_lock_restore()
+            .await
+            .unwrap()
+    );
 }

@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use glimpse_config::{Idle, IdleListener};
 use tokio::process::Command as TokioCommand;
@@ -9,6 +10,7 @@ use tokio::sync::{Mutex as AsyncMutex, mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 const COMMAND_QUEUE_SIZE: usize = 16;
+const COMMAND_WAIT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PowerSource {
@@ -30,7 +32,6 @@ pub struct State {
     pub enabled: bool,
     pub power_source: PowerSource,
     pub listeners: Vec<ActiveListener>,
-    pub fired_listeners: Vec<usize>,
     pub generation: u64,
 }
 
@@ -41,6 +42,7 @@ pub enum Event {
     ListenerIdle { generation: u64, id: usize },
     ListenerResume { generation: u64, id: usize },
     RegistryChanged(bool),
+    BackendReset,
 }
 
 type BoxFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
@@ -148,6 +150,7 @@ impl Actor {
                     Some(Event::ListenerIdle { generation, id }) => self.listener_idle(generation, id),
                     Some(Event::ListenerResume { generation, id }) => self.listener_resume(generation, id),
                     Some(Event::RegistryChanged(value)) => self.set_any_idle_target(value),
+                    Some(Event::BackendReset) => self.backend_reset(),
                     None => break,
                 }
             }
@@ -219,13 +222,11 @@ impl Actor {
         if !self.fired.remove(&id) {
             return;
         }
-        self.publish_fired();
         self.spawn_command(id, listener.on_resume);
     }
 
     fn fire(&mut self, id: usize, on_idle: String) {
         self.fired.insert(id);
-        self.publish_fired();
         self.spawn_command(id, on_idle);
     }
 
@@ -240,6 +241,12 @@ impl Actor {
             };
             self.fire(id, listener.on_idle);
         }
+    }
+
+    fn backend_reset(&mut self) {
+        self.resume_fired_before_replace();
+        self.fired.clear();
+        self.suppressed.clear();
     }
 
     fn resume_fired_before_replace(&mut self) {
@@ -261,7 +268,17 @@ impl Actor {
         };
         let runner = self.runner.clone();
         tokio::spawn(async move {
-            let _guard = lock.lock().await;
+            let _guard = match tokio::time::timeout(COMMAND_WAIT, lock.lock()).await {
+                Ok(guard) => Some(guard),
+                Err(_) => {
+                    tracing::warn!(
+                        listener = id,
+                        command,
+                        "previous listener command still running, running queued command anyway"
+                    );
+                    None
+                }
+            };
             runner.run(&command).await;
         });
     }
@@ -273,18 +290,6 @@ impl Actor {
             .iter()
             .find(|listener| listener.id == id)
             .cloned()
-    }
-
-    fn publish_fired(&self) {
-        let fired = sorted(&self.fired);
-        self.state_tx.send_if_modified(|state| {
-            if state.fired_listeners == fired {
-                false
-            } else {
-                state.fired_listeners = fired;
-                true
-            }
-        });
     }
 
     fn sync_command_locks(&mut self, listeners: &[ActiveListener]) {
@@ -311,7 +316,6 @@ fn state_for_config(config: &Idle, power_source: PowerSource, generation: u64) -
         enabled: config.enabled,
         power_source,
         listeners: effective_listeners(config, power_source),
-        fired_listeners: vec![],
         generation,
     }
 }

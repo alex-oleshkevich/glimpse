@@ -21,6 +21,7 @@ const MAX_PACKAGE_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_METADATA_BYTES: u64 = 1024 * 1024;
 const MAX_ENTRIES: usize = 10_000;
 const DIST_DIR: &str = "dist";
+const APPLET_INTERFACE: &str = "me.aresa.Glimpse.Applet1";
 
 pub(super) fn has_justfile(dir: &Path) -> bool {
     ["justfile", "Justfile", ".justfile"]
@@ -65,6 +66,7 @@ pub struct Removed {
 pub struct PackageManager {
     applets_dir: PathBuf,
     applications_dir: PathBuf,
+    system_data_dirs: Vec<PathBuf>,
 }
 
 fn sha256_file(path: &Path) -> Result<(String, u64)> {
@@ -151,15 +153,36 @@ fn find_desktop(dir: &Path) -> Result<(String, PathBuf)> {
     Ok((id, path))
 }
 
+fn system_entries(dir: &Path, name: &str, found: &mut Vec<PathBuf>) {
+    let file = dir.join(format!("{name}.desktop"));
+    if fs::symlink_metadata(&file).is_ok() {
+        found.push(file);
+    }
+    for (dash, _) in name.match_indices('-') {
+        let subdir = dir.join(&name[..dash]);
+        if subdir.is_dir() {
+            system_entries(&subdir, &name[dash + 1..], found);
+        }
+    }
+}
+
+fn implements_applet(path: &Path) -> bool {
+    let desktop = glib::KeyFile::new();
+    desktop
+        .load_from_file(path, glib::KeyFileFlags::NONE)
+        .is_ok()
+        && desktop
+            .string_list(GROUP, "Implements")
+            .is_ok_and(|items| items.iter().any(|item| item.as_str() == APPLET_INTERFACE))
+}
+
 fn check_exec(dist: &Path, desktop_path: &Path) -> Result<()> {
     let desktop = glib::KeyFile::new();
     desktop.load_from_file(desktop_path, glib::KeyFileFlags::NONE)?;
     ensure!(
         desktop
             .string_list(GROUP, "Implements")
-            .is_ok_and(|items| items
-                .iter()
-                .any(|item| item.as_str() == "me.aresa.Glimpse.Applet1")),
+            .is_ok_and(|items| items.iter().any(|item| item.as_str() == APPLET_INTERFACE)),
         "desktop entry does not implement me.aresa.Glimpse.Applet1"
     );
     let exec = desktop
@@ -186,6 +209,7 @@ impl PackageManager {
         Ok(Self {
             applets_dir,
             applications_dir: glib::user_data_dir().join("applications"),
+            system_data_dirs: glib::system_data_dirs(),
         })
     }
 
@@ -499,7 +523,23 @@ impl PackageManager {
         Ok(())
     }
 
+    fn check_system_entries(&self, id: &str) -> Result<()> {
+        let mut found = Vec::new();
+        for dir in &self.system_data_dirs {
+            system_entries(&dir.join("applications"), id, &mut found);
+        }
+        match found.iter().find(|path| !implements_applet(path)) {
+            Some(path) => Err(Refused(format!(
+                "{id} is the desktop id of {}, which is not a glimpse applet",
+                path.display()
+            ))
+            .into()),
+            None => Ok(()),
+        }
+    }
+
     fn install_staged(&self, staging: &Path, metadata: &Metadata) -> Result<Installed> {
+        self.check_system_entries(&metadata.id)?;
         fs::create_dir_all(&self.applets_dir)?;
         fs::create_dir_all(&self.applications_dir)?;
         let target = self.applets_dir.join(&metadata.id);

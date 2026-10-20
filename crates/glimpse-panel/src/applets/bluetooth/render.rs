@@ -444,6 +444,7 @@ fn codec_name(codec: Codec) -> String {
         Codec::AptX => "aptX".to_owned(),
         Codec::AptXHd => "aptX HD".to_owned(),
         Codec::Lhdc => "LHDC".to_owned(),
+        Codec::Lc3 => "LC3".to_owned(),
         Codec::Vendor => gettext("Vendor codec"),
     }
 }

@@ -35,7 +35,7 @@ pub trait Encrypted {
     fn lock(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
 }
 
-use super::{Properties, flag, text};
+use super::{Properties, flag, path, text};
 
 const NAME: usize = 64;
 const LABEL: usize = 24;
@@ -186,13 +186,6 @@ pub struct BlockProperties {
 pub struct FilesystemProperties {
     pub mount_points: Option<Vec<String>>,
     pub size: Option<u64>,
-}
-
-fn path(properties: &Properties, key: &str) -> Option<String> {
-    match &**properties.get(key)? {
-        Value::ObjectPath(value) if value.as_str() != "/" => Some(value.as_str().to_owned()),
-        _ => None,
-    }
 }
 
 fn bytes(properties: &Properties, key: &str) -> Option<String> {

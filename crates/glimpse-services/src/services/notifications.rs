@@ -614,7 +614,7 @@ fn application_id(
     id: u32,
 ) -> String {
     desktop_entry
-        .filter(|app_id| !app_id.is_empty())
+        .filter(|app_id| !app_id.trim().is_empty())
         .or(process_desktop_entry)
         .or_else(|| {
             Some(glimpse_utils::text::clean(
@@ -780,7 +780,10 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     } = incoming;
 
     let app_name = glimpse_utils::text::clean(&app_name, APP_NAME_MAX_CHARS);
-    let app_id = glimpse_utils::text::clean(&app_id, APP_NAME_MAX_CHARS);
+    let app_id = match glimpse_utils::text::clean(&app_id, APP_NAME_MAX_CHARS) {
+        app_id if app_id.is_empty() => format!("notification-{id}"),
+        app_id => app_id,
+    };
 
     let image = image
         .map(|image| glimpse_utils::text::clean(&image, IMAGE_PATH_MAX_CHARS))

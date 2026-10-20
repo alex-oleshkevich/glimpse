@@ -45,8 +45,8 @@ installs it (older releases lack GTK 4.22 and libadwaita 1.9):
 curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/install.sh | bash
 ```
 
-On NixOS, import the flake's module and start `glimpse-session.target` from your compositor's
-startup (for example niri's `spawn-at-startup` or Hyprland's `exec-once`):
+On NixOS, import the flake's module and start `glimpse-session.target` from your compositor, as
+under [Start the shell](#start-the-shell):
 
 ```nix
 {
@@ -68,10 +68,30 @@ just install
 
 ### Start the shell
 
-glimpse runs as a set of systemd user services. Enable them once from inside your Wayland session:
+glimpse runs as a set of systemd user services under `glimpse-session.target`, which follows
+`graphical-session.target`. If your session starts that target (niri's `niri-session`, uwsm), enable
+it once from inside your Wayland session:
 
 ```sh
 systemctl --user enable --now glimpse-session.target
+```
+
+Otherwise (plain Hyprland, NixOS) start it with the compositor and stop it on exit. In `hyprland.lua`:
+
+```lua
+hl.on("hyprland.start", function()
+    hl.exec_cmd("systemctl --user start glimpse-session.target")
+end)
+hl.on("hyprland.shutdown", function()
+    hl.exec_cmd("systemctl --user stop glimpse-session.target")
+end)
+```
+
+In a legacy `hyprland.conf`:
+
+```ini
+exec-once = systemctl --user start glimpse-session.target
+exec-shutdown = systemctl --user stop glimpse-session.target
 ```
 
 The configuration lives in `~/.config/glimpse/config.toml`. Every setting and its default is listed,

@@ -37,8 +37,8 @@ systemctl --user status glimpse-panel.service
 
 If the bar appears and your session reaches `graphical-session.target`, enable glimpse once with
 `systemctl --user enable --now glimpse-session.target` and it starts with every graphical session. If
-your session does not reach that target, start `glimpse-session.target` from your compositor's startup
-commands instead.
+your session does not reach that target, start and stop glimpse with your compositor as shown in
+[Start the shell](/start/install#start-the-shell).
 
 ## Restart one part
 

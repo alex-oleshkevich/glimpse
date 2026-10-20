@@ -34,6 +34,7 @@ pub enum Notice {
     NotLocked(Reason),
     SuspendingUnlocked(Reason),
     PasswordExpired,
+    RestoreDisabled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

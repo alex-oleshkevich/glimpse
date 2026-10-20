@@ -1,6 +1,9 @@
 use std::sync::{Arc as StdArc, Mutex};
 use std::time::Duration;
 
+use tokio::sync::watch;
+
+use crate::clients::follower::replace_unavailable;
 use crate::testing::PrivateBus;
 
 use super::*;

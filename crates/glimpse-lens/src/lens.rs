@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use glimpse_config::ColorFormat;
 use glimpse_widgets::{Lens, Swatch, rgba, zoomed};
-use gtk4::{gdk, glib, prelude::*};
+use gtk4::{gdk, gio, glib, prelude::*};
 
 use glimpse_wayland::capture::{Frame, Layout};
 
@@ -51,6 +51,7 @@ struct Surface {
 pub struct Session {
     surfaces: Rc<Vec<Surface>>,
     invalidated: Vec<(gdk::Monitor, glib::SignalHandlerId)>,
+    added: (gio::ListModel, glib::SignalHandlerId),
 }
 
 impl Session {
@@ -113,13 +114,20 @@ impl Session {
             surface.window.present();
         }
 
+        let added = crate::overlay::on_output_added(&display.monitors(), {
+            let finish = finish.clone();
+            move || finish(Outcome::Cancelled)
+        });
+
         Ok(Self {
             surfaces,
             invalidated,
+            added,
         })
     }
 
     pub fn close(self) {
+        self.added.0.disconnect(self.added.1);
         for (monitor, handler) in self.invalidated {
             monitor.disconnect(handler);
         }

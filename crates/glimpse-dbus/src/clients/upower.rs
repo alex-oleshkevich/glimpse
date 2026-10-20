@@ -1,6 +1,6 @@
 use zbus::zvariant::{ObjectPath, OwnedObjectPath};
 
-use super::{Properties, flag, text};
+use super::{Properties, code, flag, text};
 
 pub const SERVICE: &str = "org.freedesktop.UPower";
 pub const PATH: &str = "/org/freedesktop/UPower";
@@ -388,13 +388,6 @@ pub fn decode_device(properties: &Properties) -> DeviceProperties {
         warning: WarningLevel::from_code(code(properties, "WarningLevel")),
         charge_threshold: threshold(properties),
     }
-}
-
-fn code(properties: &Properties, key: &str) -> u32 {
-    properties
-        .get(key)
-        .and_then(|value| u32::try_from(value).ok())
-        .unwrap_or_default()
 }
 
 fn float(properties: &Properties, key: &str) -> Option<f64> {

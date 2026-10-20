@@ -8,11 +8,14 @@ use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 use zbus::zvariant::{OwnedValue, Type, Value};
 
+use super::follower::{
+    Follow, Provider, ProviderError, ProviderHandle, REASON, call, replace_unavailable,
+};
+
 pub const GLIMPSE_IDLE_BUS_NAME: &str = "me.aresa.Glimpse.Idle";
 pub const GLIMPSE_IDLE_OBJECT_PATH: &str = "/me/aresa/Glimpse/Idle";
 
 const MOST_INHIBITORS: usize = 64;
-const REASON: usize = 240;
 const IDENTIFIER: usize = 120;
 const HANDLE: usize = 255;
 
@@ -230,6 +233,9 @@ pub trait Idle1 {
     fn release(&self, id: u64) -> zbus::Result<()>;
 }
 
+pub type IdleProvider = Provider<IdleProviderState>;
+pub type IdleProviderHandle = ProviderHandle<IdleProviderState>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdleProviderState {
     pub inhibitors: Vec<IdleInhibitorRecord>,
@@ -240,16 +246,25 @@ pub struct IdleProviderState {
     pub owner: bool,
 }
 
-impl IdleProviderState {
-    fn unavailable(reason: impl Into<String>, health: Option<InhibitorsHealth>) -> Self {
+impl Follow for IdleProviderState {
+    type Proxy = Idle1Proxy<'static>;
+    type Error = IdleProviderError;
+
+    const NAME: &'static str = "idle";
+
+    fn lost(reason: String, previous: Option<&Self>) -> Self {
         Self {
             inhibitors: Vec::new(),
             hold_expiries: BTreeMap::new(),
-            health: health.unwrap_or_else(InhibitorsHealth::unknown),
+            health: previous.map_or_else(InhibitorsHealth::unknown, |state| state.health.clone()),
             available: false,
-            reason: Some(clean(&reason.into(), REASON)),
+            reason: Some(reason),
             owner: false,
         }
+    }
+
+    fn reason(&self) -> Option<&str> {
+        self.reason.as_deref()
     }
 }
 
@@ -265,84 +280,36 @@ pub enum IdleProviderError {
     Call(String),
 }
 
-#[derive(Clone)]
-pub struct IdleProviderHandle {
-    state: watch::Receiver<IdleProviderState>,
-    proxy: Arc<RwLock<Option<Idle1Proxy<'static>>>>,
-}
+impl ProviderError for IdleProviderError {
+    fn unavailable(reason: String) -> Self {
+        Self::Unavailable(reason)
+    }
 
-pub struct IdleProvider {
-    handle: IdleProviderHandle,
-    task: Option<tokio::task::JoinHandle<()>>,
+    fn timed_out() -> Self {
+        Self::TimedOut
+    }
+
+    fn call(reason: String) -> Self {
+        Self::Call(reason)
+    }
+
+    fn named(name: &str, _: String) -> Option<Self> {
+        (name == "org.freedesktop.DBus.Error.UnknownObject").then_some(Self::UnknownObject)
+    }
+
+    fn typed(error: &zbus::Error) -> Option<Self> {
+        matches!(error, zbus::Error::FDO(error) if matches!(**error, zbus::fdo::Error::UnknownObject(_)))
+            .then_some(Self::UnknownObject)
+    }
 }
 
 impl IdleProvider {
-    pub fn unavailable(reason: impl Into<String>) -> Self {
-        let (_, state) = watch::channel(IdleProviderState::unavailable(reason, None));
-        Self {
-            handle: IdleProviderHandle {
-                state,
-                proxy: Default::default(),
-            },
-            task: None,
-        }
-    }
-
     pub fn start(connection: zbus::Connection) -> Self {
-        let (updates, state) = watch::channel(IdleProviderState::unavailable(
-            "provider has no bus owner",
-            None,
-        ));
-        let proxy = Arc::new(RwLock::new(None));
-        let task = tokio::spawn(follow_provider(connection, updates, proxy.clone()));
-        Self {
-            handle: IdleProviderHandle { state, proxy },
-            task: Some(task),
-        }
-    }
-
-    pub fn handle(&self) -> IdleProviderHandle {
-        self.handle.clone()
-    }
-
-    pub async fn shutdown(&mut self) {
-        if let Some(task) = self.task.take() {
-            task.abort();
-            let _ = task.await;
-            tracing::debug!("idle provider follower stopped");
-        }
-    }
-}
-
-impl Drop for IdleProvider {
-    fn drop(&mut self) {
-        if let Some(task) = &self.task {
-            task.abort();
-        }
+        Self::spawn(|updates, current| follow_provider(connection, updates, current))
     }
 }
 
 impl IdleProviderHandle {
-    pub fn snapshot(&self) -> IdleProviderState {
-        self.state.borrow().clone()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<IdleProviderState> {
-        self.state.clone()
-    }
-
-    async fn proxy(&self) -> Result<Idle1Proxy<'static>, IdleProviderError> {
-        self.proxy.read().await.clone().ok_or_else(|| {
-            IdleProviderError::Unavailable(
-                self.state
-                    .borrow()
-                    .reason
-                    .clone()
-                    .unwrap_or_else(|| "provider has no bus owner".to_owned()),
-            )
-        })
-    }
-
     pub async fn hold(&self, seconds: u32) -> Result<u64, IdleProviderError> {
         tracing::debug!(seconds, "requesting idle hold");
         call(self.proxy().await?.hold(seconds)).await
@@ -351,26 +318,6 @@ impl IdleProviderHandle {
     pub async fn release(&self, id: u64) -> Result<(), IdleProviderError> {
         tracing::debug!(id, "releasing idle hold");
         call(self.proxy().await?.release(id)).await
-    }
-}
-
-async fn call<T>(request: impl Future<Output = zbus::Result<T>>) -> Result<T, IdleProviderError> {
-    match tokio::time::timeout(super::DEADLINE, request).await {
-        Ok(Ok(value)) => Ok(value),
-        Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
-            let reason = clean(&reason.unwrap_or_default(), REASON);
-            match name.as_str() {
-                "org.freedesktop.DBus.Error.ServiceUnknown"
-                | "org.freedesktop.DBus.Error.NameHasNoOwner" => {
-                    Err(IdleProviderError::Unavailable(reason))
-                }
-                "org.freedesktop.DBus.Error.NoReply" => Err(IdleProviderError::TimedOut),
-                "org.freedesktop.DBus.Error.UnknownObject" => Err(IdleProviderError::UnknownObject),
-                _ => Err(IdleProviderError::Call(reason)),
-            }
-        }
-        Ok(Err(error)) => Err(IdleProviderError::Call(clean(&error.to_string(), REASON))),
-        Err(_) => Err(IdleProviderError::TimedOut),
     }
 }
 
@@ -637,9 +584,6 @@ async fn follow_provider(
                     let Ok(args) = owner.args() else {
                         continue;
                     };
-                    if args.name().as_str() != GLIMPSE_IDLE_BUS_NAME {
-                        continue;
-                    }
                     if args.old_owner().is_some() {
                         break match args.new_owner().is_some() {
                             true => "provider owner changed",
@@ -660,18 +604,6 @@ async fn follow_provider(
             tracing::debug!(reason, "idle provider rebuilding its proxy");
         }
     }
-}
-
-fn replace_unavailable(updates: &watch::Sender<IdleProviderState>, reason: impl Into<String>) {
-    let reason = reason.into();
-    updates.send_if_modified(|previous| {
-        let next = IdleProviderState::unavailable(reason, Some(previous.health.clone()));
-        if *previous == next {
-            return false;
-        }
-        *previous = next;
-        true
-    });
 }
 
 fn decode_inhibitors(records: Vec<IdleInhibitorRecord>) -> Vec<IdleInhibitorRecord> {

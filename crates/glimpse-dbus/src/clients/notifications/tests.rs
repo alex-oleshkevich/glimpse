@@ -84,6 +84,80 @@ fn wire_signatures_match_the_versioned_contract() {
 }
 
 #[test]
+fn an_action_key_and_an_application_id_round_trip_unchanged() {
+    let mut record = wire(
+        "Summary".to_owned(),
+        String::new(),
+        vec![
+            (" reply".to_owned(), "Reply".to_owned()),
+            ("open  url".to_owned(), "Open".to_owned()),
+            ("a\tb".to_owned(), "Tab".to_owned()),
+        ],
+    );
+    record.1 = "my  app".to_owned();
+
+    let decoded = decode_notification(record).expect("the wire is readable");
+
+    assert_eq!(decoded.app_id, "my  app");
+    let keys: Vec<&str> = decoded
+        .actions
+        .iter()
+        .map(|action| action.key.as_str())
+        .collect();
+    assert_eq!(keys, [" reply", "open  url", "a\tb"]);
+}
+
+#[test]
+fn an_action_key_that_is_empty_or_over_its_cap_drops_only_that_action() {
+    let at_cap = "k".repeat(ACTION_KEY);
+    let mut actions = vec![
+        (String::new(), "Empty".to_owned()),
+        ("k".repeat(ACTION_KEY + 1), "Long".to_owned()),
+    ];
+    actions.extend((0..MOST_ACTIONS).map(|_| (String::new(), "Dropped".to_owned())));
+    actions.push((at_cap.clone(), "Kept".to_owned()));
+    actions.push(("reply".to_owned(), "Reply".to_owned()));
+
+    let decoded = decode_notification(wire("Summary".to_owned(), String::new(), actions))
+        .expect("the wire is readable");
+
+    assert_eq!(decoded.summary, "Summary");
+    let keys: Vec<&str> = decoded
+        .actions
+        .iter()
+        .map(|action| action.key.as_str())
+        .collect();
+    assert_eq!(keys, [at_cap.as_str(), "reply"]);
+}
+
+#[test]
+fn an_application_id_that_is_empty_or_over_its_cap_drops_the_notification() {
+    let mut empty = wire("Empty".to_owned(), String::new(), Vec::new());
+    empty.1 = String::new();
+    let mut oversized = wire("Oversized".to_owned(), String::new(), Vec::new());
+    oversized.1 = "a".repeat(APP_ID + 1);
+
+    let view = decode_snapshot((
+        vec![
+            empty,
+            oversized,
+            wire("Kept".to_owned(), String::new(), Vec::new()),
+        ],
+        (false, 0),
+        true,
+        String::new(),
+    ))
+    .expect("the snapshot is readable");
+
+    let summaries: Vec<&str> = view
+        .notifications
+        .iter()
+        .map(|record| record.summary.as_str())
+        .collect();
+    assert_eq!(summaries, ["Kept"]);
+}
+
+#[test]
 fn a_body_keeps_its_markup_and_line_breaks_and_stays_bounded() {
     let kept = decode_notification(wire(
         "s".to_owned(),
@@ -104,4 +178,53 @@ fn a_body_keeps_its_markup_and_line_breaks_and_stays_bounded() {
     .expect("the wire is readable");
     let body = long.body.expect("a body");
     assert!(body.starts_with("<b>") && body.ends_with("</b>"));
+}
+
+fn method_error(name: &str, reason: String) -> zbus::Error {
+    let message = zbus::Message::method_call("/", "Probe")
+        .unwrap()
+        .build(&())
+        .unwrap();
+    zbus::Error::MethodError(name.try_into().unwrap(), Some(reason), message)
+}
+
+#[tokio::test]
+async fn a_peer_reason_is_capped_on_every_call_error() {
+    let long = "x".repeat(5000);
+
+    let invalid = call(async {
+        Err::<(), _>(method_error(
+            "me.aresa.Glimpse.Notifications1.Error.InvalidAction",
+            long.clone(),
+        ))
+    })
+    .await;
+    let Err(NotificationsProviderError::InvalidAction(reason)) = invalid else {
+        panic!("an invalid action keeps its variant");
+    };
+    assert!(reason.chars().count() <= REASON + 1);
+
+    let unavailable = call(async {
+        Err::<(), _>(method_error(
+            "me.aresa.Glimpse.Notifications1.Error.Unavailable",
+            long.clone(),
+        ))
+    })
+    .await;
+    let Err(NotificationsProviderError::Unavailable(reason)) = unavailable else {
+        panic!("an unavailable provider keeps its variant");
+    };
+    assert!(reason.chars().count() <= REASON + 1);
+
+    let other = call(async {
+        Err::<(), _>(method_error(
+            "org.freedesktop.DBus.Error.Failed",
+            long.clone(),
+        ))
+    })
+    .await;
+    let Err(NotificationsProviderError::Call(reason)) = other else {
+        panic!("another failure keeps its variant");
+    };
+    assert!(reason.chars().count() <= REASON + 1);
 }

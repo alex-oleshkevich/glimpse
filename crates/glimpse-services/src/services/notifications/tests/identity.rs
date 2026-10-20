@@ -136,3 +136,36 @@ fn a_declared_app_name_remains_authoritative() {
         "Ghostty Developer Build"
     );
 }
+
+#[test]
+fn an_app_id_that_is_blank_is_never_stored() {
+    assert_eq!(
+        application_id(
+            Some(" ".to_owned()),
+            None,
+            "Telegram",
+            Some(":1.42".to_owned()),
+            5
+        ),
+        "name:Telegram",
+        "a whitespace desktop-entry hint is no hint"
+    );
+    for blank in ["", " ", "\t\n"] {
+        let stored = record(
+            5,
+            Incoming {
+                app_id: blank.to_owned(),
+                ..incoming("Telegram", "Marta")
+            },
+        );
+        assert_eq!(stored.app_id, "notification-5", "blank {blank:?}");
+    }
+    let named = record(
+        6,
+        Incoming {
+            app_id: "org.telegram.desktop".to_owned(),
+            ..incoming("Telegram", "Marta")
+        },
+    );
+    assert_eq!(named.app_id, "org.telegram.desktop");
+}

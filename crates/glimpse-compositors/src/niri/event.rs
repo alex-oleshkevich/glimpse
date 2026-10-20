@@ -1,19 +1,18 @@
 use std::collections::HashSet;
+use std::future::Future;
 
 use serde::{Deserialize, Deserializer};
 
-use crate::event::{Event, Resync};
+use crate::event::{Event, LineDecoder, Resync};
 use crate::keyboard::layout_code;
 use crate::model::{
     Cast, CastKind, CastTarget, KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId,
 };
 
-/// The little niri does not repeat in every event: which layouts exist, so a switch carrying only
-/// an index can be named, and which outputs the workspace list mentioned, because niri has no
-/// output event and a monitor appearing or disappearing shows up here first.
+/// The little niri does not repeat in every event: which outputs the workspace list mentioned,
+/// because niri has no output event and a monitor appearing or disappearing shows up here first.
 #[derive(Default)]
 pub struct EventState {
-    layout_names: Vec<String>,
     output_names: HashSet<String>,
 }
 
@@ -67,21 +66,22 @@ impl EventState {
                     .collect(),
             )],
             Wire::KeyboardLayoutsChanged { keyboard_layouts } => {
-                self.layout_names = keyboard_layouts.names.clone();
                 vec![Event::KeyboardLayoutsChanged(keyboard_layouts.into())]
             }
-            Wire::KeyboardLayoutSwitched { idx } => vec![Event::KeyboardLayoutSwitched {
-                idx: usize::from(idx),
-                name: self.layout_names.get(usize::from(idx)).cloned(),
-            }],
+            Wire::KeyboardLayoutSwitched { idx } => {
+                vec![Event::KeyboardLayoutSwitched(usize::from(idx))]
+            }
             Wire::CastsChanged { casts } => vec![Event::CastsChanged(into_casts(casts))],
             Wire::CastStartedOrChanged { cast } => vec![Event::CastStartedOrChanged {
                 cast: cast.into_model(),
             }],
             Wire::CastStopped { stream_id } => vec![Event::CastStopped(stream_id)],
-            // Niri reloads its own configuration without restarting, and the layout list is the one
-            // thing in this snapshot that a reload can change under us.
-            Wire::ConfigLoaded { failed: false } => vec![Event::Resync(Resync::Keyboard)],
+            // Niri reloads its own configuration without restarting, which can change the layout
+            // list and an output's scale or mode, and niri sends no output event for either.
+            Wire::ConfigLoaded { failed: false } => vec![
+                Event::Resync(Resync::Keyboard),
+                Event::Resync(Resync::Outputs),
+            ],
             Wire::ConfigLoaded { failed: true } => Vec::new(),
         }
     }
@@ -103,6 +103,12 @@ impl EventState {
             ],
             false => vec![Event::WorkspacesChanged(workspaces)],
         }
+    }
+}
+
+impl LineDecoder for EventState {
+    fn decode(&mut self, line: &str) -> impl Future<Output = Vec<Event>> + Send {
+        std::future::ready(self.decode(line))
     }
 }
 

@@ -238,7 +238,7 @@ async fn inhibit_reports_capacity_rejection_as_limits_exceeded() {
     );
 }
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_second_acquisition_attempt_degrades_health_but_keeps_serving() {
+async fn a_name_owned_by_another_process_is_unsupported_naming_the_owner_but_keeps_serving() {
     let bus = PrivateBus::start();
     let first = bus.connection().await;
     let (first_registry, _any_idle_target, _generation) = SharedRegistry::new();
@@ -260,11 +260,15 @@ async fn a_second_acquisition_attempt_degrades_health_but_keeps_serving() {
     .await;
 
     let health = second_health.snapshot();
+    let comm = std::fs::read_to_string("/proc/self/comm").unwrap();
     assert_eq!(
         health.screen_saver.kind,
-        glimpse_dbus::idle::HealthKind::Degraded
+        glimpse_dbus::idle::HealthKind::Unsupported
     );
-    assert_eq!(health.screen_saver.message, "Bus name already owned");
+    assert_eq!(
+        health.screen_saver.message,
+        format!("served by {}", comm.trim())
+    );
 
     assert!(
         second

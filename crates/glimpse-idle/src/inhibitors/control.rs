@@ -8,9 +8,9 @@ use glimpse_dbus::idle::{
 use glimpse_dbus::login1::{Login1ManagerProxy, current_uid};
 use zbus::message::Header;
 
-use super::{Health, SharedRegistry, unix_now};
+use super::{Health, SharedRegistry, WHY_CAP, unix_now};
 
-const REASON_CAP: usize = 240;
+const MAX_SLEEP_SECS: u64 = 30;
 
 pub struct Idle1Server {
     registry: Arc<SharedRegistry>,
@@ -70,28 +70,13 @@ impl Idle1Server {
             .map(|name| name.as_str().to_owned())
             .unwrap_or_default();
 
-        let bus_name_for_check = bus_name.clone();
+        let uid = current_uid();
+        let added_at_unix = unix_now();
         let id = self
             .registry
             .mutate(move |registry| -> Result<u64, String> {
-                registry.check_capacity(Some(&bus_name_for_check))?;
-                Ok(registry.mint_id())
-            })
-            .await
-            .map_err(zbus::fdo::Error::LimitsExceeded)?;
-
-        let fd = login1
-            .inhibit("idle:sleep", "glimpse-idle", "Manual hold", "block")
-            .await
-            .map_err(|error| {
-                zbus::fdo::Error::Failed(glimpse_utils::clean(&error.to_string(), REASON_CAP))
-            })?;
-
-        let uid = current_uid();
-        let added_at_unix = unix_now();
-        self.registry
-            .mutate(move |registry| -> Result<(), String> {
                 registry.check_capacity(Some(&bus_name))?;
+                let id = registry.mint_id();
                 let record = IdleInhibitorRecord {
                     id,
                     who: "glimpse-idle".to_owned(),
@@ -103,24 +88,49 @@ impl Idle1Server {
                     can_release: true,
                     added_at_unix,
                 };
-                registry.insert(record, Some(fd));
+                registry.insert(record, None);
                 if seconds > 0 {
                     registry.set_hold_expiry(id, added_at_unix + u64::from(seconds));
                 }
-                Ok(())
+                Ok(id)
             })
             .await
             .map_err(zbus::fdo::Error::LimitsExceeded)?;
 
+        let fd = match login1
+            .inhibit("idle:sleep", "glimpse-idle", "Manual hold", "block")
+            .await
+        {
+            Ok(fd) => fd,
+            Err(error) => {
+                self.registry
+                    .mutate(move |registry| registry.release_record(id))
+                    .await;
+                return Err(zbus::fdo::Error::Failed(glimpse_utils::clean(
+                    &error.to_string(),
+                    WHY_CAP,
+                )));
+            }
+        };
+        self.registry
+            .mutate(move |registry| registry.attach_fd(id, fd))
+            .await;
+
         if seconds > 0 {
-            spawn_auto_release(self.registry.clone(), id, seconds);
+            let deadline = added_at_unix + u64::from(seconds);
+            tokio::spawn(release_at(self.registry.clone(), id, deadline, unix_now));
         }
 
         Ok(id)
     }
 
-    async fn release(&self, id: u64) -> zbus::fdo::Result<()> {
-        self.registry
+    async fn release(
+        &self,
+        id: u64,
+        #[zbus(object_server)] object_server: &zbus::ObjectServer,
+    ) -> zbus::fdo::Result<()> {
+        let handles = self
+            .registry
             .mutate(|registry| match registry.can_release(id) {
                 None => Err(zbus::fdo::Error::UnknownObject(format!(
                     "no such idle inhibitor: {id}"
@@ -129,21 +139,28 @@ impl Idle1Server {
                     "this idle inhibitor is not releasable through Idle1".to_owned(),
                 )),
                 Some(true) => {
+                    let handles = registry.portal_handle(id).into_iter().collect();
                     registry.release_record(id);
-                    Ok(())
+                    Ok(handles)
                 }
             })
-            .await
+            .await?;
+        super::portal::remove_requests(object_server, handles).await;
+        Ok(())
     }
 }
 
-fn spawn_auto_release(registry: Arc<SharedRegistry>, id: u64, seconds: u32) {
-    tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(u64::from(seconds))).await;
-        registry
-            .mutate(|registry| registry.release_record(id))
-            .await;
-    });
+async fn release_at(registry: Arc<SharedRegistry>, id: u64, deadline: u64, now: impl Fn() -> u64) {
+    loop {
+        let left = deadline.saturating_sub(now());
+        if left == 0 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(left.min(MAX_SLEEP_SECS))).await;
+    }
+    registry
+        .mutate(|registry| registry.release_record(id))
+        .await;
 }
 
 #[cfg(test)]

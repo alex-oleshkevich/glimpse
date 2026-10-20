@@ -321,4 +321,14 @@ window-rule {
     open-floating true
 }
 ```
-On Hyprland: `windowrulev2 = float, class:^(me\.aresa\.Glimpse\.Shot)$`.
+On Hyprland, in `hyprland.lua`:
+
+```lua
+hl.window_rule({
+    name  = "glimpse-shot",
+    match = { class = "^me\\.aresa\\.Glimpse\\.Shot$" },
+    float = true,
+})
+```
+
+In a legacy `hyprland.conf`: `windowrule = match:class ^(me\.aresa\.Glimpse\.Shot)$, float on`.

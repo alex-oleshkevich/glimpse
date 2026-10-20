@@ -176,6 +176,32 @@ async fn a_refusal_carries_the_reason_niri_gave() {
 }
 
 #[tokio::test]
+async fn a_disconnected_output_is_refused_naming_the_connector() {
+    let server = FakeNiri::spawn(|_| {
+        vec![json!({ "Ok": { "OutputConfigChanged": "OutputWasMissing" } }).to_string()]
+    });
+
+    let failure = Niri::at(&server.socket)
+        .set_output_enabled("DP-9", false)
+        .await
+        .expect_err("missing");
+
+    assert!(matches!(&failure, CompositorError::Refused(reason) if reason.contains("DP-9")));
+}
+
+#[tokio::test]
+async fn an_applied_output_change_succeeds() {
+    let server = FakeNiri::spawn(|_| {
+        vec![json!({ "Ok": { "OutputConfigChanged": "Applied" } }).to_string()]
+    });
+
+    Niri::at(&server.socket)
+        .set_output_enabled("DP-3", true)
+        .await
+        .expect("applied");
+}
+
+#[tokio::test]
 async fn a_connection_closed_before_a_reply_is_not_a_protocol_error() {
     let server = FakeNiri::silent();
 
@@ -210,51 +236,6 @@ async fn a_missing_socket_names_the_path_it_tried() {
         failure.to_string().contains("/nonexistent/niri.sock"),
         "expected the path in {failure}"
     );
-}
-
-#[test]
-fn every_addon_names_its_subject_rather_than_acting_on_the_focused_one() {
-    assert_eq!(
-        move_to_output_action(WorkspaceId(4), "DP-3"),
-        json!({ "MoveWorkspaceToMonitor": { "output": "DP-3", "reference": { "Id": 4 } } })
-    );
-    assert_eq!(
-        reorder_action(WorkspaceId(4), 2),
-        json!({ "MoveWorkspaceToIndex": { "index": 2, "reference": { "Id": 4 } } })
-    );
-    assert_eq!(
-        close_action(WindowId(9)),
-        json!({ "CloseWindow": { "id": 9 } })
-    );
-    assert_eq!(
-        focus_output_action("DP-3"),
-        json!({ "FocusMonitor": { "output": "DP-3" } })
-    );
-}
-
-#[test]
-fn moving_a_window_to_a_workspace_does_not_follow_it_there() {
-    let action = move_window_action(WindowId(9), &WorkspaceTarget::Id(WorkspaceId(4)))
-        .expect("an id is a reference");
-    assert_eq!(
-        action,
-        json!({
-            "MoveWindowToWorkspace": {
-                "reference": { "Id": 4 },
-                "window_id": 9,
-                "focus": false
-            }
-        }),
-        "niri defaults focus to true, which would drag the user after the window"
-    );
-}
-
-#[test]
-fn a_relative_workspace_is_not_a_reference_a_window_can_be_moved_to() {
-    assert!(matches!(
-        move_window_action(WindowId(9), &WorkspaceTarget::Next),
-        Err(CompositorError::Unavailable(_))
-    ));
 }
 
 #[test]
@@ -582,7 +563,7 @@ async fn an_unrecognized_event_is_skipped_and_the_stream_survives() {
 }
 
 #[tokio::test]
-async fn a_layout_switch_is_named_from_the_layouts_last_announced() {
+async fn a_layout_switch_carries_its_index() {
     let events = events_from(vec![
         json!({ "KeyboardLayoutsChanged": {
             "keyboard_layouts": { "names": ["Polish", "Russian"], "current_idx": 0 } } }),
@@ -590,13 +571,29 @@ async fn a_layout_switch_is_named_from_the_layouts_last_announced() {
     ])
     .await;
 
-    assert_eq!(
-        events[1],
-        Event::KeyboardLayoutSwitched {
-            idx: 1,
-            name: Some("Russian".to_owned()),
-        }
-    );
+    assert_eq!(events[1], Event::KeyboardLayoutSwitched(1));
+}
+
+#[tokio::test]
+async fn reading_the_layouts_asks_for_nothing_else() {
+    let requests: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = requests.clone();
+    let server = FakeNiri::spawn(move |request| {
+        sink.lock().expect("lock").push(request.to_owned());
+        reply(
+            "KeyboardLayouts",
+            json!({ "names": ["Polish", "Russian"], "current_idx": 1 }),
+        )
+    });
+
+    let layouts = Niri::at(&server.socket)
+        .keyboard_layouts()
+        .await
+        .expect("layouts");
+
+    assert_eq!(layouts.codes, ["PL", "RU"]);
+    assert_eq!(layouts.current, Some(1));
+    assert_eq!(*requests.lock().expect("lock"), ["\"KeyboardLayouts\""]);
 }
 
 #[tokio::test]
@@ -693,14 +690,20 @@ async fn screencasts_report_the_full_set_changes_and_stops() {
 }
 
 #[tokio::test]
-async fn a_successful_config_reload_asks_for_a_keyboard_resync() {
+async fn a_successful_config_reload_asks_for_a_keyboard_and_output_resync() {
     let events = events_from(vec![
         json!({ "ConfigLoaded": { "failed": true } }),
         json!({ "ConfigLoaded": { "failed": false } }),
     ])
     .await;
 
-    assert_eq!(events, [Event::Resync(Resync::Keyboard)]);
+    assert_eq!(
+        events,
+        [
+            Event::Resync(Resync::Keyboard),
+            Event::Resync(Resync::Outputs),
+        ]
+    );
 }
 
 #[tokio::test]

@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use futures_util::{StreamExt, stream};
 use glimpse_compositors::{
-    Compositor as Backend, CompositorError, Event as Change, KeyboardLayouts as BackendLayouts,
-    LayoutTarget, Resync, detect_compositor, layout_code,
+    Compositor as Backend, Event as Change, KeyboardLayouts as BackendLayouts, LayoutTarget,
+    Resync, detect_compositor, layout_code,
 };
 use glimpse_config::Remember;
 use tokio::sync::oneshot;
@@ -16,7 +16,7 @@ use crate::{
     subscription::Sub,
 };
 
-use super::compositor::CompositorHandle;
+use super::compositor::{CompositorHandle, command_error};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +45,8 @@ pub enum Event {
     Snapshot(BackendLayouts),
     Changed(Change),
     Windows(Option<CompositorWindows>),
+    Switched(StoreKey, u8),
+    FetchFailed(String),
     Failed(String),
 }
 
@@ -88,7 +90,7 @@ impl From<&glimpse_config::Config> for Config {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum StoreKey {
+pub enum StoreKey {
     Window(u64),
     App(String),
 }
@@ -102,6 +104,7 @@ pub struct Keyboard {
     store: HashMap<StoreKey, u8>,
     focused: Option<WindowInfo>,
     attempt: u64,
+    fetch_failed: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -146,14 +149,7 @@ impl Service for Keyboard {
                 Watch::Fetch {
                     attempt: self.attempt,
                 },
-                move |_ctx| async move {
-                    stream::once(async move {
-                        match read.snapshot().await {
-                            Ok(snapshot) => Event::Snapshot(snapshot.keyboard),
-                            Err(error) => Event::Failed(error.to_string()),
-                        }
-                    })
-                },
+                move |_ctx| async move { stream::once(async move { fetch_layouts(&read).await }) },
             ),
         ];
         if self.config.remember != Remember::Global {
@@ -182,6 +178,7 @@ impl Service for Keyboard {
             store: HashMap::new(),
             focused: None,
             attempt: 0,
+            fetch_failed: false,
         }
     }
 
@@ -195,7 +192,10 @@ impl Service for Keyboard {
                 self.publish();
             }
             Input::Event(Event::Changed(change)) => {
-                if let Change::KeyboardLayoutSwitched { idx, .. } = &change {
+                if std::mem::take(&mut self.fetch_failed) {
+                    self.attempt += 1;
+                }
+                if let Change::KeyboardLayoutSwitched(idx) = &change {
                     self.remember(*idx);
                 }
                 match apply_keyboard(&mut self.state, change) {
@@ -204,11 +204,18 @@ impl Service for Keyboard {
                     Apply::Ignore => {}
                 }
             }
-            Input::Event(Event::Windows(Some(windows))) => self.windows_changed(windows).await,
+            Input::Event(Event::Windows(Some(windows))) => self.windows_changed(ctx, windows),
+            Input::Event(Event::Switched(key, index)) => {
+                self.store.insert(key, index);
+            }
             Input::Event(Event::Windows(None)) => self.focused = None,
+            Input::Event(Event::FetchFailed(reason)) => {
+                self.fetch_failed = true;
+                ctx.degraded(reason);
+            }
             Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
             Input::Command(Command::Switch { target, reply }) => {
-                self.switch(target, reply).await;
+                self.switch(ctx, target, reply);
             }
             Input::Config(config) => {
                 let labels_moved = config.labels != self.config.labels;
@@ -235,38 +242,40 @@ impl Keyboard {
         }
     }
 
-    async fn switch(
-        &mut self,
+    fn switch(
+        &self,
+        ctx: &Ctx<Self>,
         target: LayoutRef,
         reply: oneshot::Sender<Result<(), CommandError>>,
     ) {
-        match self
-            .backend
-            .switch_keyboard_layout(layout_target(target))
-            .await
-        {
-            Ok(()) => {
-                let index = match target {
-                    LayoutRef::Index { index } => Some(index),
-                    LayoutRef::Next | LayoutRef::Prev => payload(&self.state, &self.config.labels)
-                        .current
-                        .and_then(|current| stepped(current, target, self.state.names.len())),
-                };
-                if let (Some(index), Some(key)) = (
-                    index,
-                    remember_key(self.config.remember, self.focused.as_ref()),
-                ) {
-                    self.store.insert(key, index);
+        let backend = self.backend.clone();
+        let index = match target {
+            LayoutRef::Index { index } => Some(index),
+            LayoutRef::Next | LayoutRef::Prev => payload(&self.state, &self.config.labels)
+                .current
+                .and_then(|current| stepped(current, target, self.state.names.len())),
+        };
+        let remembered = index.zip(remember_key(self.config.remember, self.focused.as_ref()));
+
+        ctx.spawn_detached(move |ctx| async move {
+            match backend.switch_keyboard_layout(layout_target(target)).await {
+                Ok(()) => {
+                    let _ = reply.send(Ok(()));
+                    if let Some((index, key)) = remembered {
+                        let _ = ctx
+                            .events()
+                            .send(Input::Event(Event::Switched(key, index)))
+                            .await;
+                    }
                 }
-                let _ = reply.send(Ok(()));
+                Err(error) => {
+                    let _ = reply.send(Err(command_error(&error)));
+                }
             }
-            Err(error) => {
-                let _ = reply.send(Err(command_error(&error)));
-            }
-        }
+        });
     }
 
-    async fn windows_changed(&mut self, windows: CompositorWindows) {
+    fn windows_changed(&mut self, ctx: &Ctx<Self>, windows: CompositorWindows) {
         self.store.retain(|key, _| match key {
             StoreKey::App(_) => true,
             StoreKey::Window(id) => windows.windows.iter().any(|window| window.id == *id),
@@ -293,10 +302,19 @@ impl Keyboard {
         if current == Some(index) {
             return;
         }
-        let _ = self
-            .backend
-            .switch_keyboard_layout(LayoutTarget::Index(index))
-            .await;
+        let backend = self.backend.clone();
+        ctx.spawn_detached(move |_| async move {
+            let _ = backend
+                .switch_keyboard_layout(LayoutTarget::Index(index))
+                .await;
+        });
+    }
+}
+
+async fn fetch_layouts(backend: &Backend) -> Event {
+    match backend.keyboard_layouts().await {
+        Ok(layouts) => Event::Snapshot(layouts),
+        Err(error) => Event::FetchFailed(error.to_string()),
     }
 }
 
@@ -312,7 +330,7 @@ fn apply_keyboard(state: &mut BackendLayouts, change: Change) -> Apply {
             *state = layouts;
             Apply::Publish
         }
-        Change::KeyboardLayoutSwitched { idx, .. } => {
+        Change::KeyboardLayoutSwitched(idx) => {
             state.current = (idx < state.names.len()).then_some(idx);
             Apply::Publish
         }
@@ -393,22 +411,6 @@ fn stepped(current: u8, target: LayoutRef, len: usize) -> Option<u8> {
         LayoutRef::Prev => current.checked_sub(1).unwrap_or(n - 1),
         LayoutRef::Index { index } => index,
     })
-}
-
-fn command_error(error: &CompositorError) -> CommandError {
-    match error {
-        CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
-            CommandError::Unsupported(reason.to_string())
-        }
-        CompositorError::Connect { .. } | CompositorError::Closed => {
-            CommandError::Unavailable(error.to_string())
-        }
-        CompositorError::Refused(reason) => CommandError::InvalidArgument(reason.to_string()),
-        CompositorError::Protocol(reason) => CommandError::Internal(reason.to_string()),
-        CompositorError::NoFile(_)
-        | CompositorError::InvalidPath(_)
-        | CompositorError::Watch { .. } => CommandError::Internal(error.to_string()),
-    }
 }
 
 #[cfg(test)]

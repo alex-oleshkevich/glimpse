@@ -176,10 +176,11 @@ pub async fn start(
 
         for entry in &diff.added {
             let process_name = read_process_name(entry.5).await.unwrap_or_default();
-            let id = registry.mutate(|registry| registry.mint_id()).await;
-            let record = entry_to_record(entry, id, process_name.clone());
-            registry
-                .mutate(|registry| registry.insert(record, None))
+            let id = registry
+                .mutate(|registry| {
+                    let id = registry.mint_id();
+                    registry.insert(entry_to_record(entry, id, process_name.clone()), None)
+                })
                 .await;
             observed.insert(observed_key(entry), ObservedInhibitor { id, process_name });
         }

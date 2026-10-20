@@ -3,6 +3,9 @@ use std::time::{Duration, Instant};
 
 use glimpse_wayland::capture::{self, CaptureError};
 use gtk4::gdk;
+use gtk4::gio;
+use gtk4::glib;
+use gtk4::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 const SETUP_GRACE: Duration = Duration::from_secs(1);
@@ -17,6 +20,18 @@ pub(crate) fn capture_within(timeout: Duration) -> Result<Vec<capture::Frame>, C
     frames
         .recv_timeout(timeout + SETUP_GRACE)
         .unwrap_or(Err(CaptureError::TimedOut))
+}
+
+pub(crate) fn on_output_added(
+    monitors: &gio::ListModel,
+    ended: impl Fn() + 'static,
+) -> (gio::ListModel, glib::SignalHandlerId) {
+    let handler = monitors.connect_items_changed(move |_, _, _, added| {
+        if added > 0 {
+            ended();
+        }
+    });
+    (monitors.clone(), handler)
 }
 
 pub(crate) fn overlay(monitor: &gdk::Monitor) -> gtk4::Window {
@@ -47,3 +62,6 @@ pub(crate) fn pill_origin(
     let left = (pointer.0 - pill.0 / 2.0).clamp(0.0, (area.0 - pill.0).max(0.0));
     (left.round(), top.max(0.0).round())
 }
+
+#[cfg(test)]
+mod tests;

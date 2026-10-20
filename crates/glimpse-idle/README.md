@@ -9,7 +9,7 @@ tolerates.
 ## Contents
 
 - `main.rs` — `run(cli) -> anyhow::Result<()>`; `main` maps the outcome to an `ExitCode`
-- `errors.rs` — exit codes and the single `downcast_ref` mapping an error to one
+- `errors.rs` — `exit` maps every error to `Exit::Failed`; success is `Exit::Ok`
 - `cli.rs` — argument surface, flattening shared structs from `glimpse-utils`
 - `services.rs` — composition root: takes `me.aresa.Glimpse.Idle`, serves `Idle1Server`, starts
   every other task, wires config reloads into the actor
@@ -75,7 +75,9 @@ replay a value that changed before the subscription began. A machine with no
 
 **The actor never awaits a listener's command.** `Actor::spawn_command` fires a `tokio::spawn`ed
 task guarded by a per-listener `tokio::sync::Mutex`, so a slow `on_idle` script serializes against
-that listener's own next command but never blocks the event loop or any other listener.
+that listener's own next command but never blocks the event loop or any other listener. A queued
+command waits at most `COMMAND_WAIT` for the mutex, then runs anyway; the earlier command is never
+killed, because a blocking locker as `on_idle` must keep running.
 
 **Health is one value with one slot per backend; the actor holds none of it, and the Wayland slot
 is load-bearing** — a compositor with no `ext-idle-notify-v1` fires no listener ever, and without
@@ -113,30 +115,30 @@ pair, alias to the same key. It never calls `check_capacity`, unlike `Hold` and
 dropping one for being over capacity would make `any_idle_target()` wrongly conclude nothing is
 inhibiting the machine.
 
-**`Idle1Server::hold` checks capacity, calls `login1.Inhibit`, then re-checks and inserts** — a
-synchronous `mutate` closure can't wrap the outbound call, at the cost of a bounded overshoot equal
-to the Holds concurrently in flight. **`PortalInhibit` identifies a caller by `app_id`, not by
+**`Idle1Server::hold` and `PortalInhibit::inhibit` check capacity and insert the record without an
+fd in one `mutate`, then call `login1.Inhibit`, then `Registry::attach_fd`** — a disconnect or
+`Close()` that lands during the call finds the record and releases it, and `attach_fd` returns false
+and drops the fd once the record is gone; a failed `Hold` call releases the record it inserted.
+**`PortalInhibit` identifies a caller by `app_id`, not by
 D-Bus sender**, since every backend call arrives on xdg-desktop-portal's own connection where
-`header.sender()` is identical for every sandboxed app; `check_capacity` matches a record by either
-the bus name or the `app_id`. Its `login1` hold carries the caller's `app_id` and reason as `who`
+`header.sender()` is identical for every sandboxed app; `check_capacity` is keyed by `app_id`. The
+sender is kept as the record's `bus_name` only so `watch_disconnects` releases the records when
+xdg-desktop-portal leaves the bus. Its `login1` hold carries the caller's `app_id` and reason as `who`
 and `why`, so `systemd-inhibit --list` and the session menu name the app; an empty one falls back
 to `glimpse-idle` and `Portal inhibit`. A missing `login1` proxy, or a failed `login1.Inhibit` call, degrades
 a portal `Inhibit` to a trackless record rather than refusing it, since `Inhibit` has no return
 value in the portal spec.
 
 **`PortalRequest` is a per-call object registered at the caller's own `handle`, removed by its own
-`Close()`.** `release_record` and `ObjectServer::remove` both return gracefully on an unknown id or
+`Close()`, by `Idle1.Release` and when its frontend leaves the bus.** `release_record` and `ObjectServer::remove` both return gracefully on an unknown id or
 an already-removed path, so a double `Close()` — or one racing a removal — can't panic the server.
 `ObjectServer::at` reports a path already in use as `Ok(false)`, not an `Err`, so `Inhibit` matches
 on the bool rather than the result before trusting its own registration.
 
-- `MAX_INHIBITORS_PER_BUS` (32) narrows `MAX_INHIBITORS_TOTAL` (128) per client; both bound only
-  bus-identified records.
-- `RATE_BURST` (5) / `RATE_REFILL_PER_SEC` (1.0) bound a token bucket per bus name against
-  Inhibit/UnInhibit churn; a record with no bus name is never rate-limited.
-- `clamp_label(text, cap)` truncates a caller-supplied `who`/`why` through `glimpse_utils::clean`,
-  the same function the client side of this wire contract uses. The cap is per field (`IDENTIFIER`
-  = 120, `REASON` = 240); a resolved `process_name` is clamped the same way, since
-  `/proc/<pid>/comm` is attacker-controlled.
+- `MAX_INHIBITORS_TOTAL` (128) caps every record; `MAX_INHIBITORS_PER_BUS` (32) caps the records
+  one bus name or app id owns.
+- A caller-supplied `who` and `why` pass through `glimpse_utils::clean` capped at
+  `inhibitors::WHO_CAP` (120) and `inhibitors::WHY_CAP` (240). A resolved `process_name` is capped
+  with `WHO_CAP` too, since `/proc/<pid>/comm` is attacker-controlled.
 - `Registry::release_record` is the one path that removes a record from every secondary map and
   drops its `logind_fd`; every release trigger must go through it, or an outbound inhibit fd leaks.

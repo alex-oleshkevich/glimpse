@@ -1,9 +1,9 @@
 mod control;
 mod health;
-pub mod login1_observer;
-pub mod portal;
+pub(crate) mod login1_observer;
+pub(crate) mod portal;
 mod registry;
-pub mod screen_saver;
+pub(crate) mod screen_saver;
 mod shared;
 #[cfg(test)]
 pub(crate) mod test_support;

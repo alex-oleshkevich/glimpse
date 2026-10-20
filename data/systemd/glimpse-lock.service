@@ -7,6 +7,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=exec
+ExecCondition=/usr/bin/test -S ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}
 ExecStart=/usr/bin/glimpse-lock
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
