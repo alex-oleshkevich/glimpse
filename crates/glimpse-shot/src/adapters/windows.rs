@@ -50,20 +50,17 @@ impl Windows for CompositorWindows<'_> {
             return Ok(Frame { connector, ..frame });
         }
         let visible = visible_crop(window, &snapshot);
-        match (&self.compositor, visible) {
-            (Compositor::Niri(_), Some(crop)) if window.is_floating => {
-                crop_output(&connector, crop)
-            }
-            (Compositor::Niri(_), _) => {
+        let can_screenshot = self.compositor.capabilities().window_screenshot;
+        match visible {
+            Some(crop) if window.is_floating || !can_screenshot => crop_output(&connector, crop),
+            _ if can_screenshot => {
                 let frame = self.screenshot(window)?;
                 Ok(Frame { connector, ..frame })
             }
-            (Compositor::Hyprland(_), Some(crop)) => crop_output(&connector, crop),
-            (Compositor::Hyprland(_), None) => Err(CaptureError::Failed(
+            _ => Err(CaptureError::Failed(
                 "the window is not on a visible workspace, and Hyprland renders no hidden window"
                     .to_owned(),
             )),
-            (Compositor::Unsupported, _) => Err(CaptureError::Unsupported),
         }
     }
 }

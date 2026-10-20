@@ -18,7 +18,6 @@ glimpse-utils.workspace = true
 rustix.workspace = true
 shadow-rs.workspace = true
 tokio.workspace = true
-tokio-util.workspace = true
 tracing.workspace = true
 wayland-client.workspace = true
 wayland-protocols-wlr.workspace = true
@@ -30,3 +29,4 @@ shadow-rs.workspace = true
 [dev-dependencies]
 glimpse-services = { workspace = true, features = ["testing"] }
 glimpse-dbus = { workspace = true, features = ["testing"] }
+tokio-util.workspace = true

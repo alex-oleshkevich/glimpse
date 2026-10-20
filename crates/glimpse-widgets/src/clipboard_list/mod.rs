@@ -74,7 +74,7 @@ impl ClipboardList {
             self,
             &mut imp.holders.borrow_mut(),
             &clips,
-            |clip| clip.id,
+            |clip| (clip.id, clip.image.is_some()),
             |clip| self.build(clip),
             |holder, clip| self.apply(holder, clip),
         );
@@ -190,7 +190,7 @@ impl ClipboardList {
             .holders
             .borrow()
             .iter()
-            .find(|(held, _)| *held == id)
+            .find(|(held, _)| held.0 == id)
             .map(|(_, holder)| holder.clone());
         let clip = self
             .imp()

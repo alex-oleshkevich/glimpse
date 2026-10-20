@@ -32,8 +32,6 @@ pub struct Ask {
     pub key: String,
     pub device: String,
     pub question: String,
-    pub code: String,
-    pub progress: String,
     pub accept: String,
     pub cancel: String,
     pub destructive: bool,
@@ -54,12 +52,6 @@ pub struct BluetoothPopover {
     pub prompt_device: TemplateChild<gtk4::Label>,
     #[template_child]
     pub prompt_ask: TemplateChild<gtk4::Label>,
-    #[template_child]
-    pub prompt_code: TemplateChild<gtk4::Label>,
-    #[template_child]
-    pub prompt_progress: TemplateChild<gtk4::Label>,
-    #[template_child]
-    pub prompt_actions: TemplateChild<gtk4::Box>,
     #[template_child]
     pub prompt_cancel: TemplateChild<gtk4::Button>,
     #[template_child]

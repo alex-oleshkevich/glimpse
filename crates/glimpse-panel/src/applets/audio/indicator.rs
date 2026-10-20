@@ -15,7 +15,7 @@ use gtk4::prelude::*;
 use crate::applet::popover::Seat;
 use crate::applet::themed;
 use crate::applet::{
-    Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
+    Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure,
 };
 
 use super::render;
@@ -45,17 +45,11 @@ impl Applet for Audio {
         self.refresh();
     }
 
-    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => self.state = self.audio.snapshot(),
-            Input::Pointer(Pointer::Scroll(direction)) => {
-                self.nudge(*direction);
-                return;
-            }
-            Input::Pointer(Pointer::Press(Button::Middle)) => {
-                self.toggle_mute();
-                return;
-            }
+            Input::Pointer(Pointer::Scroll(direction)) => self.nudge(ctx, *direction),
+            Input::Pointer(Pointer::Press(Button::Middle)) => self.toggle_mute(ctx),
             Input::Tick | Input::Pointer(_) => return,
         }
         self.refresh();
@@ -71,6 +65,7 @@ impl Applet for Audio {
         shown.connect_level_changed({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, dir, value| {
                 let Some(direction) = direction_of(dir) else {
                     return;
@@ -84,6 +79,7 @@ impl Applet for Audio {
                 let percent = value.round().clamp(0.0, 100.0) as u32;
                 tell(
                     &notifications,
+                    &opener,
                     "audio.set_device_volume",
                     gettext("Could not change the volume"),
                     async move { audio.set_device_volume(direction, id, percent).await },
@@ -94,6 +90,7 @@ impl Applet for Audio {
         shown.connect_level_toggled({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, dir, muted| {
                 let Some(direction) = direction_of(dir) else {
                     return;
@@ -106,6 +103,7 @@ impl Applet for Audio {
                 };
                 tell(
                     &notifications,
+                    &opener,
                     "audio.set_device_muted",
                     gettext("Could not change that setting"),
                     async move { audio.set_device_muted(direction, id, muted).await },
@@ -139,6 +137,7 @@ impl Applet for Audio {
         shown.connect_app_level_changed({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, app, dir, value| {
                 let Some(direction) = direction_of(dir) else {
                     return;
@@ -148,6 +147,7 @@ impl Applet for Audio {
                 let percent = value.round().clamp(0.0, 100.0) as u32;
                 tell(
                     &notifications,
+                    &opener,
                     "audio.set_app_volume",
                     gettext("Could not change the volume"),
                     async move { audio.set_app_volume(direction, app, percent).await },
@@ -158,6 +158,7 @@ impl Applet for Audio {
         shown.connect_app_level_toggled({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, app, dir, muted| {
                 let Some(direction) = direction_of(dir) else {
                     return;
@@ -166,6 +167,7 @@ impl Applet for Audio {
                 let app = AudioAppId::new(app);
                 tell(
                     &notifications,
+                    &opener,
                     "audio.set_app_muted",
                     gettext("Could not change that setting"),
                     async move { audio.set_app_muted(direction, app, muted).await },
@@ -219,12 +221,13 @@ impl Applet for Audio {
 
 fn tell<F, T>(
     notifications: &NotificationsProviderHandle,
+    opener: &Opener,
     operation: &'static str,
     summary: String,
     future: F,
 ) where
-    F: std::future::Future<Output = Result<T, AudioError>> + Send + 'static,
-    T: Send + 'static,
+    F: std::future::Future<Output = Result<T, AudioError>> + 'static,
+    T: 'static,
 {
     let report = Report {
         notifications: notifications.clone(),
@@ -232,7 +235,13 @@ fn tell<F, T>(
         icon: ICON.to_owned(),
         summary,
     };
-    spawn_reported(operation, report, wording, future);
+    let opener = opener.clone();
+    relm4::spawn_local(async move {
+        if let Err(error) = future.await {
+            opener.wake();
+            report_failure(operation, report, wording(&error), error).await;
+        }
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -429,22 +438,32 @@ fn details(state: &AudioState, id: &AudioAppId) -> Option<AudioDetails> {
 }
 
 impl Audio {
-    fn nudge(&self, direction: Direction) {
-        let Some(device) = self.state.default_output() else {
-            return;
-        };
+    fn adjust(&mut self, direction: Direction) -> Option<(AudioDeviceId, u32)> {
         let step = match direction {
             Direction::Up | Direction::Right => self.scroll_step,
             Direction::Down | Direction::Left => -self.scroll_step,
         };
+        let device = self
+            .state
+            .outputs
+            .iter_mut()
+            .find(|device| device.default)?;
         let target = (device.volume as i32 + step).clamp(0, 100) as u32;
         if target == device.volume {
-            return;
+            return None;
         }
+        device.volume = target;
+        Some((device.id.clone(), target))
+    }
+
+    fn nudge(&mut self, ctx: &Ctx, direction: Direction) {
+        let Some((id, target)) = self.adjust(direction) else {
+            return;
+        };
         let audio = self.audio.clone();
-        let id = device.id.clone();
         tell(
             &self.notifications,
+            &ctx.opener(),
             "audio.set_volume",
             gettext("Could not change the volume"),
             async move {
@@ -455,15 +474,17 @@ impl Audio {
         );
     }
 
-    fn toggle_mute(&self) {
-        let Some(device) = self.state.default_output() else {
+    fn toggle_mute(&mut self, ctx: &Ctx) {
+        let Some(device) = self.state.outputs.iter_mut().find(|device| device.default) else {
             return;
         };
         let audio = self.audio.clone();
         let id = device.id.clone();
-        let muted = !device.muted;
+        device.muted = !device.muted;
+        let muted = device.muted;
         tell(
             &self.notifications,
+            &ctx.opener(),
             "audio.set_device_muted",
             gettext("Could not change that setting"),
             async move {
@@ -505,7 +526,9 @@ impl Audio {
                 output.map_or(0, |device| device.volume),
                 output.is_none_or(|device| device.muted),
             ),
-            output.map(|device| device.name.as_str()),
+            output
+                .map(|device| glimpse_utils::clean(&device.name, AUDIO_NAME_CAP))
+                .as_deref(),
             output.is_some_and(|device| device.muted),
         );
 

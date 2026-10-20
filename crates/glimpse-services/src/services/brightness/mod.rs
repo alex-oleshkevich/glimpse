@@ -797,9 +797,6 @@ pub enum Command {
         delta: i32,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    Refresh {
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -830,13 +827,6 @@ impl ServiceEndpoint<Brightness> {
             "brightness stopped before accepting the adjustment",
             |reply| Command::AdjustLevel { id, delta, reply },
         )
-        .await?
-    }
-
-    pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call("brightness stopped before refreshing", |reply| {
-            Command::Refresh { reply }
-        })
         .await?
     }
 }
@@ -959,10 +949,6 @@ impl Service for Brightness {
                 entry,
             }) => {
                 self.reprobed(&connector, enumeration, entry);
-            }
-            Input::Command(Command::Refresh { reply }) => {
-                self.refresh_all(ctx);
-                let _ = reply.send(Ok(()));
             }
             Input::Command(Command::SetLevel { id, value, reply }) => {
                 let minimum = self.minimum;
@@ -1158,20 +1144,6 @@ impl Brightness {
         self.sources.insert(at, record);
         self.warn_inert();
         self.publish();
-    }
-
-    fn refresh_all(&self, ctx: &Ctx<Self>) {
-        for record in &self.sources {
-            let id = record.id.clone();
-            let backend = Arc::clone(&self.backend);
-            let events = ctx.events();
-            ctx.spawn_detached(move |_ctx| async move {
-                let outcome = backend.read(id.clone()).await;
-                if let Some(event) = rescan_event(id, outcome) {
-                    let _ = events.send(Input::Event(event)).await;
-                }
-            });
-        }
     }
 
     fn publish(&self) {

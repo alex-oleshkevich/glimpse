@@ -167,9 +167,6 @@ impl RemovableError {
 
 pub enum Command {
     Mount { id: VolumeId, reply: Reply },
-    Unmount { id: VolumeId, reply: Reply },
-    Eject { id: DriveId, reply: Reply },
-    PowerOff { id: DriveId, reply: Reply },
     Remove { id: DriveId, reply: Reply },
 }
 
@@ -235,27 +232,6 @@ impl crate::ServiceEndpoint<Removable> {
     pub async fn mount(&self, id: VolumeId) -> Result<(), RemovableError> {
         self.call("removable stopped before completing the command", |reply| {
             Command::Mount { id, reply }
-        })
-        .await?
-    }
-
-    pub async fn unmount(&self, id: VolumeId) -> Result<(), RemovableError> {
-        self.call("removable stopped before completing the command", |reply| {
-            Command::Unmount { id, reply }
-        })
-        .await?
-    }
-
-    pub async fn eject(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call("removable stopped before completing the command", |reply| {
-            Command::Eject { id, reply }
-        })
-        .await?
-    }
-
-    pub async fn power_off(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call("removable stopped before completing the command", |reply| {
-            Command::PowerOff { id, reply }
         })
         .await?
     }
@@ -437,27 +413,6 @@ impl Removable {
                     call::mount(&connection, &path).await
                 });
             }
-            Command::Unmount { id, reply } => {
-                let path = id.as_str().to_owned();
-                self.spawned_volume(
-                    ctx,
-                    id,
-                    Busy::Unmounting,
-                    Action::Unmount,
-                    reply,
-                    async move { call::unmount(&connection, &path).await },
-                );
-            }
-            Command::Eject { id, reply } => {
-                let path = id.as_str().to_owned();
-                let (mounted, locks) = (self.mounted_on(&path), self.unlocked_on(&path));
-                self.spawned_drive(ctx, id, Busy::Ejecting, Action::Eject, reply, async move {
-                    remove(mounted, locks, Finish::Eject, |step| {
-                        step.run(&connection, &path)
-                    })
-                    .await
-                });
-            }
             Command::Remove { id, reply } => {
                 let path = id.as_str().to_owned();
                 let (mounted, locks) = (self.mounted_on(&path), self.unlocked_on(&path));
@@ -470,17 +425,6 @@ impl Removable {
                 self.spawned_drive(ctx, id, busy, action, reply, async move {
                     remove(mounted, locks, finish, |step| step.run(&connection, &path)).await
                 });
-            }
-            Command::PowerOff { id, reply } => {
-                let path = id.as_str().to_owned();
-                self.spawned_drive(
-                    ctx,
-                    id,
-                    Busy::PoweringOff,
-                    Action::PowerOff,
-                    reply,
-                    async move { call::power_off(&connection, &path).await },
-                );
             }
         }
     }
@@ -789,11 +733,7 @@ fn reject(command: Command, reason: &str) {
     let refused: Result<(), RemovableError> =
         Err(CommandError::Unavailable(reason.to_owned()).into());
     match command {
-        Command::Mount { reply, .. }
-        | Command::Unmount { reply, .. }
-        | Command::Eject { reply, .. }
-        | Command::PowerOff { reply, .. }
-        | Command::Remove { reply, .. } => {
+        Command::Mount { reply, .. } | Command::Remove { reply, .. } => {
             let _ = reply.send(refused);
         }
     }

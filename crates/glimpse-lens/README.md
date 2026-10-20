@@ -7,19 +7,20 @@ magnification, defaulting to ×3 and clamped to 1–200. `--format` and `--json`
 
 ```
 glimpse-lens [--tool picker|ruler] [--radius PIXELS] [--zoom TIMES]
-glimpse-lens --tool picker [--format hex|rgb|hsl|hsv|oklch|cmyk] [--json]
-glimpse-lens --tool ruler [--radius PIXELS] [--zoom TIMES]
+glimpse-lens --tool picker [--format hex|rgb|hsl|hsv|oklch|cmyk] [--json] [--copy]
+glimpse-lens --tool ruler [--radius PIXELS] [--zoom TIMES] [--copy]
 ```
 
 ## Color picker
 
 The picker defaults to hex output. `--json` prints one object —
-`{"format":"hex","value":"#E0563F","red":224,"green":86,"blue":63}` — and plain output is the
+`{"blue":63,"format":"hex","green":86,"red":224,"value":"#E0563F"}` — and plain output is the
 value alone. Exit code 0 means a color was picked; 4 means the lens was cancelled or an output went
 away; 1 means another failure. Errors go to stderr.
 
-The command owns no clipboard, since a selection dies with the process that set it. Pipe its output
-to `wl-copy`.
+`--copy` requires `--tool`. After writing stdout, it sends the printed line (picker) or the last
+segment's distance in whole pixels (ruler) to `me.aresa.Glimpse.Clipboard1.CopyText`, and exits 1 if
+the panel does not answer within 3 seconds.
 
 Enter or a left click picks; Esc or a right click cancels. Arrow keys nudge one buffer pixel, since
 Wayland cannot warp the pointer. The crosshair is black and white so it reads on arbitrary content.
@@ -38,7 +39,7 @@ away; 1 means another failure. Errors go to stderr.
 Segments stay on their own output. The first click anchors a point; each later click confirms a
 segment and becomes the next anchor. Moving to another output drops the pending anchor without
 joining points across outputs. Esc ends the session, and a right click clears the chain. Shift
-constrains the next point to the horizontal or vertical axis. Shift plus scroll changes the radius.
+constrains the next point to the horizontal or vertical axis.
 
 ## Capture and rendering
 
@@ -55,4 +56,5 @@ upright, so the tools do not handle output transforms. Capture and the lens widg
 `glimpse-wayland` and `glimpse-widgets`.
 
 The scroll wheel zooms from ×1 to ×200, multiplying or dividing by 1.25 per notch with at least one
-step. The pixel grid appears from ×6.
+step. Shift plus scroll resizes the lens in both tools, multiplying or dividing the radius by 1.15 per
+notch with at least 4 pixels, within 10–200. The pixel grid appears from ×6.

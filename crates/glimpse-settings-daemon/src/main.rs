@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::Parser as _;
 use cli::Cli;
 use futures_util::StreamExt as _;
-use glimpse_utils::{init_app_tracing, init_locale};
+use glimpse_utils::init_app_tracing;
 use services::SettingsServices;
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -30,7 +30,6 @@ async fn main() -> ExitCode {
 
 async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
-    init_locale();
 
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;

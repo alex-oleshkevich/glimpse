@@ -231,3 +231,62 @@ async fn dev_set_options_reach_the_running_slot() {
     cancel.cancel();
     let _ = task.await;
 }
+
+struct CapturingLauncher(Arc<Mutex<Vec<UnitSpec>>>);
+
+impl Launcher for CapturingLauncher {
+    fn start(&self, spec: UnitSpec) -> BoxFuture<'static, Result<(), String>> {
+        self.0.lock().expect("captured").push(spec);
+        Box::pin(async { Ok(()) })
+    }
+    fn stop(&self, _name: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+    fn kill(&self, _name: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+    fn reset_failed(&self, _name: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+    fn watch(&self, _name: &str) -> BoxStream<'static, UnitState> {
+        Box::pin(futures_util::stream::pending())
+    }
+    fn sweep(&self, _prefix: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+}
+
+#[tokio::test]
+async fn a_dev_slot_runs_in_the_working_directory_its_entry_names() {
+    let (_dir, entry, _output) = script(PID_LOOP);
+    let working = tempfile::tempdir().expect("working directory");
+    let dev = Entry {
+        cwd: Some(working.path().to_path_buf()),
+        ..dev_entry(&entry)
+    };
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    let test = configured();
+    let (handle, _sender, cancel, task, _launcher) = running_with(
+        test,
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        Some(Arc::new(CapturingLauncher(Arc::clone(&captured)))),
+    );
+    handle
+        .attach_dev("test", dev_request(dev))
+        .await
+        .expect("dev attach");
+    handle.attach(1, "test", placement()).await.expect("attach");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while captured.lock().expect("captured").is_empty() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the unit starts");
+    assert_eq!(
+        captured.lock().expect("captured")[0].cwd.as_deref(),
+        Some(working.path())
+    );
+    cancel.cancel();
+    let _ = task.await;
+}

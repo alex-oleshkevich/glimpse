@@ -27,7 +27,6 @@ impl ShotCountdown {
         }
         imp.seconds.set(seconds);
         let text = gettext("Capturing in {n}").replace("{n}", &seconds.to_string());
-        imp.label.set_use_markup(false);
         imp.label.set_text(&text);
     }
 

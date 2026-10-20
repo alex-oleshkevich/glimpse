@@ -117,7 +117,6 @@ fn row(entry: &ShotWindowEntry, list: &ShotWindowList) -> gtk4::Button {
 
     let app = gtk4::Label::builder()
         .label(primary(entry))
-        .use_markup(false)
         .xalign(0.0)
         .ellipsize(gtk4::pango::EllipsizeMode::End)
         .max_width_chars(40)
@@ -127,7 +126,6 @@ fn row(entry: &ShotWindowEntry, list: &ShotWindowList) -> gtk4::Button {
 
     let title = gtk4::Label::builder()
         .label(capped(&entry.title, TITLE_MAX))
-        .use_markup(false)
         .xalign(0.0)
         .ellipsize(gtk4::pango::EllipsizeMode::End)
         .max_width_chars(40)
@@ -139,7 +137,6 @@ fn row(entry: &ShotWindowEntry, list: &ShotWindowList) -> gtk4::Button {
 
     let note = gtk4::Label::builder()
         .label(gettext("captured when picked"))
-        .use_markup(false)
         .xalign(0.0)
         .visible(entry.captured_when_picked)
         .build();

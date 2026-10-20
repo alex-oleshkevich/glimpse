@@ -97,3 +97,15 @@ fn a_window_nobody_could_render_is_clipped_rather_than_refused() {
         from + TimeDelta::days(SPAN)
     );
 }
+
+#[test]
+fn browsing_a_past_range_keeps_the_upcoming_events() {
+    let today = Utc::now();
+    let calendar = parsed(&ics("soon@example", "Soon", today + TimeDelta::days(10)));
+    let past = Window::asked(today - TimeDelta::days(200), today - TimeDelta::days(170));
+
+    let found = payload(expanding(0, vec![loaded("soon", calendar)], past));
+
+    assert_eq!(found.events.len(), 1);
+    assert_eq!(found.events[0].summary, "Soon");
+}

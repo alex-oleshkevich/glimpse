@@ -181,23 +181,45 @@ async fn a_path_that_cannot_be_listed_as_a_directory_reports_a_failure() {
 }
 
 #[tokio::test]
-async fn the_directory_read_stops_at_the_entry_cap() {
+async fn the_network_listing_stops_at_the_entry_cap() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let gvfs = root.path().join("gvfs");
+    tokio::fs::create_dir_all(&gvfs).await.expect("gvfs dir");
+    for index in 0..(ENTRIES + 20) {
+        tokio::fs::write(gvfs.join(format!("f{index}")), b"")
+            .await
+            .expect("a share");
+    }
+
+    let Event::Network(Ok(places)) = network(gvfs).await else {
+        panic!("expected a successful, capped read");
+    };
+    assert_eq!(places.len(), ENTRIES);
+}
+
+#[tokio::test]
+async fn trash_counts_every_entry_past_the_listing_cap() {
     let root = tempfile::tempdir().expect("a scratch directory");
     let files = root.path().join("files");
     tokio::fs::create_dir_all(&files).await.expect("files dir");
-    for index in 0..(ENTRIES + 20) {
+    for index in 0..300 {
         tokio::fs::write(files.join(format!("f{index}")), b"")
             .await
             .expect("a trashed file");
     }
 
-    let Event::Trash(Ok(count)) = trash(files).await else {
-        panic!("expected a successful, capped read");
-    };
-    assert_eq!(
-        count, ENTRIES,
-        "the read must stop at the cap rather than growing unbounded"
-    );
+    assert!(matches!(trash(files).await, Event::Trash(Ok(300))));
+}
+
+#[tokio::test]
+async fn an_unreadable_trash_path_reports_a_failure() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let blocked = root.path().join("files");
+    tokio::fs::write(&blocked, b"not a directory")
+        .await
+        .expect("a file blocking the trash folder");
+
+    assert!(matches!(trash(blocked).await, Event::Trash(Err(_))));
 }
 
 #[tokio::test]
@@ -215,4 +237,69 @@ async fn the_first_value_arrives_without_waiting_for_a_watch_event() {
         .expect("the stream is not empty");
 
     assert!(matches!(first, Event::Xdg(Ok(_))));
+}
+
+#[tokio::test]
+async fn a_missing_user_dirs_file_yields_only_home() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let home = root.path().join("alex");
+    let config = root.path().join("config");
+    tokio::fs::create_dir_all(&home).await.expect("home");
+    tokio::fs::create_dir_all(&config).await.expect("config");
+
+    let Event::Xdg(Ok(places)) = xdg(config, home).await else {
+        panic!("expected a successful read");
+    };
+    assert_eq!(places.len(), 1);
+}
+
+#[tokio::test]
+async fn a_missing_trash_folder_is_not_a_failure_and_is_followed_once_created() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let files = root.path().join("Trash").join("files");
+    let mut source = trash_source(files.clone());
+
+    let Some(Event::Trash(first)) = source.next().await else {
+        panic!("a leading read");
+    };
+    assert_eq!(first, Ok(0));
+
+    tokio::fs::create_dir_all(&files)
+        .await
+        .expect("trash files");
+    tokio::fs::write(files.join("a"), "")
+        .await
+        .expect("a trashed file");
+
+    let next = tokio::time::timeout(Duration::from_secs(3), source.next()).await;
+    match next {
+        Ok(Some(Event::Trash(result))) => assert_eq!(result, Ok(1), "got {result:?}"),
+        Ok(_) => panic!("stream ended"),
+        Err(_) => panic!("no event after the folder was created"),
+    }
+}
+
+#[tokio::test]
+async fn a_disabled_xdg_directory_pointing_at_home_is_not_a_second_home() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let home = root.path().join("alex");
+    let config = root.path().join("config");
+    tokio::fs::create_dir_all(&home).await.expect("home");
+    tokio::fs::create_dir_all(&config).await.expect("config");
+    tokio::fs::write(
+        config.join("user-dirs.dirs"),
+        "XDG_TEMPLATES_DIR=\"$HOME/\"\nXDG_PUBLICSHARE_DIR=\"$HOME/\"\n",
+    )
+    .await
+    .expect("user-dirs.dirs");
+
+    let Event::Xdg(Ok(places)) = xdg(config, home.clone()).await else {
+        panic!("expected a successful read");
+    };
+    let at_home: Vec<_> = places
+        .iter()
+        .filter(|place| place.path == home)
+        .map(|place| (place.id.clone(), place.name.clone()))
+        .collect();
+    assert_eq!(at_home.len(), 1, "places at home: {at_home:?}");
 }

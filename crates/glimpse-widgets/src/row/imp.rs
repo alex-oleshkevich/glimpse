@@ -42,6 +42,8 @@ pub struct Row {
     #[template_child]
     pub start: TemplateChild<gtk4::Box>,
     #[template_child]
+    pub text: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub title: TemplateChild<gtk4::Label>,
     #[template_child]
     pub subtitle: TemplateChild<gtk4::Label>,
@@ -165,6 +167,7 @@ impl Row {
         }
         reveal(&*self.end, !busy && occupied);
         reveal(&*self.value, show_value);
+        self.text.set_hexpand(!show_value);
     }
 
     fn icon_name(&self) -> Option<String> {

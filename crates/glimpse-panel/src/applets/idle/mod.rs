@@ -8,17 +8,19 @@ use chrono::{Local, Utc};
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::idle::{IdleProviderHandle, IdleProviderState};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_widgets::{IdlePopover, IndicatorSpec, Severity};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
-use keep_awake::{deadline, manual_holds, settling};
+use keep_awake::{deadline, hold_failure, manual_holds, release_result, settling};
 
 const MINUTE: Duration = Duration::from_secs(60);
 
 pub struct Idle {
     idle: IdleProviderHandle,
+    notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
     state: IdleProviderState,
     twelve: bool,
@@ -59,6 +61,7 @@ impl Applet for Idle {
         shown.connect_hold_requested({
             let idle = self.idle.clone();
             let opener = seat.opener();
+            let failed = hold_failure(&self.notifications, gettext("Idle"), render::ICON_IDLE);
             move |popover, seconds| {
                 popover.set_hold_active(true);
                 let popover = popover.downgrade();
@@ -71,7 +74,7 @@ impl Applet for Idle {
                             popover.collapse_hold();
                         }
                     },
-                    Rc::new(keep_awake::log_failure),
+                    Rc::clone(&failed),
                 );
             }
         });
@@ -79,21 +82,21 @@ impl Applet for Idle {
         shown.connect_hold_toggled({
             let idle = self.idle.clone();
             let opener = seat.opener();
-            move |_, on| {
-                keep_awake::toggle(&idle, opener.clone(), on, Rc::new(keep_awake::log_failure));
-            }
+            let failed = hold_failure(&self.notifications, gettext("Idle"), render::ICON_IDLE);
+            move |_, on| keep_awake::toggle(&idle, opener.clone(), on, Rc::clone(&failed))
         });
 
         shown.connect_release_requested({
             let idle = self.idle.clone();
             let opener = seat.opener();
+            let failed = hold_failure(&self.notifications, gettext("Idle"), render::ICON_IDLE);
             move |_, id| {
                 let idle = idle.clone();
                 settling(
                     "idle.release",
                     opener.clone(),
-                    async move { idle.release(id).await },
-                    Rc::new(keep_awake::log_failure),
+                    async move { release_result(idle.release(id).await) },
+                    Rc::clone(&failed),
                 );
             }
         });
@@ -105,10 +108,11 @@ impl Applet for Idle {
 }
 
 impl Idle {
-    pub fn start(idle: IdleProviderHandle) -> Self {
+    pub fn start(idle: IdleProviderHandle, notifications: NotificationsProviderHandle) -> Self {
         let state = idle.snapshot();
         Self {
             idle,
+            notifications,
             tooltip_format: None,
             state,
             twelve: false,

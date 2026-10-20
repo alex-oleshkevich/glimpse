@@ -178,3 +178,33 @@ mod batches;
 mod props;
 mod rows;
 mod widgets;
+
+#[test]
+fn an_oversized_string_prop_is_refused_on_insert_and_on_set() {
+    let huge = "x".repeat(500_000);
+    let refused = Tree::default().apply(vec![insert(
+        ROOT,
+        wire(1, "indicator", json!({"tooltip": huge}), Vec::new()),
+        None,
+    )]);
+    assert_eq!(refused.unwrap_err(), Violation::StringTooLong);
+
+    let tree = Tree::default()
+        .apply(vec![insert(
+            ROOT,
+            wire(
+                1,
+                "indicator",
+                json!({"tooltip": "x".repeat(4096)}),
+                Vec::new(),
+            ),
+            None,
+        )])
+        .unwrap();
+    let refused = tree.apply(vec![Op::Set {
+        id: 1,
+        props: props(json!({"tooltip": huge})),
+        seq: None,
+    }]);
+    assert_eq!(refused.unwrap_err(), Violation::StringTooLong);
+}

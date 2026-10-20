@@ -97,7 +97,7 @@ child whose name contains "aux". **A built-in panel connector (`eDP`, `LVDS`, `D
 at all**, since one DDC/CI transaction there can freeze the panel on its last frame until the next
 modeset; `[brightness] ddc` turns it off.
 
-**compositor** — mirrors `glimpse-compositors` into one aggregate state and ten typed commands.
+**compositor** — mirrors `glimpse-compositors` into one aggregate state and typed commands.
 Disabling the last enabled output is refused from the service's own snapshot rather than a round
 trip. **Urgency is derived here so every client sees one answer** — a workspace is urgent when the
 compositor says so *or* any window on it is, the only way Hyprland works. **keyboard** owns

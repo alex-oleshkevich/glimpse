@@ -16,7 +16,7 @@ use glimpse_widgets::{
     Clip, ClipAction, ClipActions, ClipboardPopover, Fact, IndicatorSpec, Thumbnail, rgba,
 };
 use gtk4::prelude::*;
-use gtk4::{gdk, gio, glib};
+use gtk4::{gio, glib};
 
 use super::render;
 
@@ -25,6 +25,8 @@ use super::render;
 const THUMBNAIL: i32 = 320;
 const EXCERPT_LINES: usize = 6;
 const EXCERPT_CHARS: usize = 200;
+
+type Decoded = (Thumbnail, Option<gio::File>);
 use crate::applet::popover::Seat;
 use crate::applet::{
     Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, tell, wording,
@@ -41,8 +43,7 @@ pub struct Clipboard {
     spec: Vec<IndicatorSpec>,
     /// Decoded thumbnails, keyed by entry id. Decoding is the expensive half and an entry's bytes
     /// never change, so a texture is built once and pruned when its entry leaves.
-    images: HashMap<ClipboardEntryId, Option<Thumbnail>>,
-    files: HashMap<ClipboardEntryId, Option<gio::File>>,
+    images: Rc<RefCell<HashMap<ClipboardEntryId, Option<Decoded>>>>,
     icon: gtk4::gio::Icon,
     query: Rc<RefCell<String>>,
     expanded: Rc<Cell<bool>>,
@@ -63,8 +64,7 @@ impl Clipboard {
             tooltip_format: None,
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
-            images: HashMap::new(),
-            files: HashMap::new(),
+            images: Rc::new(RefCell::new(HashMap::new())),
             icon: gtk4::gio::ThemedIcon::new(render::ICON).upcast(),
             query: Rc::new(RefCell::new(String::new())),
             expanded: Rc::new(Cell::new(false)),
@@ -104,11 +104,11 @@ impl Clipboard {
         };
         match self.spec.is_empty() {
             true => opener.close_popover(),
-            false => self.dress(&shown),
+            false => self.dress(&shown, opener),
         }
     }
 
-    fn clips(&mut self, pinned: bool) -> (Vec<Clip>, usize) {
+    fn clips(&mut self, pinned: bool, opener: &Opener) -> (Vec<Clip>, usize) {
         let query = self.query.borrow().clone();
         let searching = !query.trim().is_empty();
         let entries: Vec<ClipboardEntry> = self
@@ -128,20 +128,20 @@ impl Clipboard {
         let clips = entries
             .iter()
             .take(cap)
-            .map(|entry| self.clip(entry))
+            .map(|entry| self.clip(entry, opener))
             .collect();
         (clips, hidden)
     }
 
-    fn clip(&mut self, entry: &ClipboardEntry) -> Clip {
+    fn clip(&mut self, entry: &ClipboardEntry, opener: &Opener) -> Clip {
         let size = render::size(entry.data.len());
         if entry.kind == ClipboardKind::Image {
-            let decoded = self.texture(entry.id, &entry.data);
+            let decoded = self.image(entry, opener, decode);
             let title = gettext("Image · {size}").replace("{size}", &size);
             let facts = vec![Fact::new(
                 gettext("Size"),
                 match &decoded {
-                    Some((_, (width, height))) => format!("{size} · {width} × {height}"),
+                    Some(((_, (width, height)), _)) => format!("{size} · {width} × {height}"),
                     None => size.clone(),
                 },
             )];
@@ -149,8 +149,8 @@ impl Clipboard {
                 id: entry.id,
                 title,
                 icon: render::IMAGE_ICON.to_owned(),
-                file: decoded.as_ref().and_then(|_| self.spill(entry)),
-                image: decoded.map(|(texture, _)| texture),
+                file: decoded.as_ref().and_then(|(_, file)| file.clone()),
+                image: decoded.map(|((texture, _), _)| texture),
                 actions: vec![
                     action(SAVE, gettext("Save as…"), String::new()),
                     action(OPEN_WITH, gettext("Open with…"), String::new()),
@@ -230,30 +230,32 @@ impl Clipboard {
 
     /// An image another application chose, decoded once. A picture that will not decode is not an
     /// error: the entry is still restorable, only its preview failed.
-    fn texture(&mut self, id: ClipboardEntryId, data: &[u8]) -> Option<(gdk::Texture, (i32, i32))> {
-        if let Some(held) = self.images.get(&id) {
+    fn image(
+        &self,
+        entry: &ClipboardEntry,
+        opener: &Opener,
+        decode: impl FnOnce(&ClipboardEntry) -> Option<(Thumbnail, Option<PathBuf>)> + Send + 'static,
+    ) -> Option<Decoded> {
+        if let Some(held) = self.images.borrow().get(&entry.id) {
             return held.clone();
         }
-        let built = glimpse_widgets::thumbnail(data, THUMBNAIL);
-        if built.is_none() {
-            tracing::debug!(id, "a clipboard image would not decode");
-        }
-        self.images.insert(id, built.clone());
-        built
-    }
-
-    fn spill(&mut self, entry: &ClipboardEntry) -> Option<gio::File> {
-        if let Some(held) = self.files.get(&entry.id) {
-            return held.clone();
-        }
-        let written = spill_path(entry).and_then(|path| {
-            write_private(&path, &entry.data)
-                .inspect_err(|error| tracing::warn!("cannot write {}: {error}", path.display()))
+        self.images.borrow_mut().insert(entry.id, None);
+        let (images, opener, entry) = (self.images.clone(), opener.clone(), entry.clone());
+        relm4::spawn_local(async move {
+            let id = entry.id;
+            let decoded = gio::spawn_blocking(move || decode(&entry))
+                .await
                 .ok()
-                .map(|()| gio::File::for_path(path))
+                .flatten()
+                .map(|(thumbnail, path)| (thumbnail, path.map(gio::File::for_path)));
+            if images.borrow().contains_key(&id) {
+                images.borrow_mut().insert(id, decoded);
+            } else {
+                let _ = gio::spawn_blocking(move || forget_spill(id)).await;
+            }
+            opener.wake();
         });
-        self.files.insert(entry.id, written.clone());
-        written
+        None
     }
 
     fn send(&self) -> Option<ClipAction> {
@@ -277,9 +279,9 @@ impl Clipboard {
         })
     }
 
-    fn dress(&mut self, shown: &ClipboardPopover) {
-        let (pinned, _) = self.clips(true);
-        let (recent, hidden) = self.clips(false);
+    fn dress(&mut self, shown: &ClipboardPopover, opener: &Opener) {
+        let (pinned, _) = self.clips(true, opener);
+        let (recent, hidden) = self.clips(false, opener);
         let total = self.state.entries.len();
 
         shown.set_actions(ClipActions {
@@ -318,6 +320,19 @@ const SAVE: &str = "save";
 const SEND: &str = "send:";
 const DEVICE_CHARS: usize = 40;
 const OPEN_WITH: &str = "open-with";
+
+fn decode(entry: &ClipboardEntry) -> Option<(Thumbnail, Option<PathBuf>)> {
+    let Some(thumbnail) = glimpse_widgets::thumbnail(&entry.data, THUMBNAIL) else {
+        tracing::debug!(id = entry.id, "a clipboard image would not decode");
+        return None;
+    };
+    let written = spill_path(entry).filter(|path| {
+        write_private(path, &entry.data)
+            .inspect_err(|error| tracing::warn!("cannot write {}: {error}", path.display()))
+            .is_ok()
+    });
+    Some((thumbnail, written))
+}
 
 fn spill_path(entry: &ClipboardEntry) -> Option<PathBuf> {
     Some(
@@ -522,8 +537,7 @@ impl Applet for Clipboard {
             Input::Woken => {
                 self.state = self.service.snapshot();
                 let live: Vec<_> = self.state.entries.iter().map(|entry| entry.id).collect();
-                self.images.retain(|id, _| live.contains(id));
-                self.files.retain(|id, _| {
+                self.images.borrow_mut().retain(|id, _| {
                     let kept = live.contains(id);
                     if !kept {
                         forget_spill(*id);
@@ -720,3 +734,6 @@ impl Applet for Clipboard {
         Some(shown.upcast())
     }
 }
+
+#[cfg(test)]
+mod tests;

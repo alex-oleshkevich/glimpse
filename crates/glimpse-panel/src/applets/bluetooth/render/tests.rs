@@ -339,147 +339,96 @@ fn pixel() -> DeviceId {
     device("Pixel", false).id
 }
 
-#[test]
-fn one_rule_decides_which_prompts_become_a_page() {
-    let every = [
-        Prompt::Confirm {
-            device: pixel(),
-            passkey: 0,
-        },
-        Prompt::Authorize(pixel()),
-        Prompt::RequestPin(pixel()),
-        Prompt::RequestPasskey(pixel()),
-        Prompt::DisplayPin {
-            device: pixel(),
-            pin: "0000".to_owned(),
-        },
-        Prompt::DisplayPasskey {
-            device: pixel(),
-            passkey: 0,
-            entered: 0,
-        },
-    ];
-
-    for one in every {
-        let is_typed = typed(&one).is_some();
-        let named = format!("{one:?}");
-        assert_eq!(
-            prompt(&asking(one)).is_none(),
-            is_typed,
-            "the watch and the page disagree about who answers {named}"
-        );
-    }
-
-    assert!(prompt(&state(Power::On, false, vec![])).is_none());
+fn forgetting() -> BluetoothState {
+    let mut state = state(Power::On, false, vec![device("Pixel", false)]);
+    state.confirm = Some(Confirmation::Forget {
+        device: pixel(),
+        connected: false,
+    });
+    state
 }
 
 #[test]
-fn the_chip_says_a_question_is_waiting_for_exactly_the_prompts_it_has_to_show() {
-    assert_eq!(waiting(&state(Power::On, false, vec![])), None);
-
+fn a_pairing_prompt_never_becomes_a_page_or_a_waiting_chip() {
     for one in [
         Prompt::Confirm {
             device: pixel(),
             passkey: 0,
         },
         Prompt::Authorize(pixel()),
+        Prompt::RequestPin(pixel()),
         Prompt::DisplayPin {
             device: pixel(),
             pin: "0000".to_owned(),
         },
-        Prompt::DisplayPasskey {
-            device: pixel(),
-            passkey: 0,
-            entered: 0,
-        },
     ] {
         let named = format!("{one:?}");
-        assert!(
-            waiting(&asking(one)).is_some(),
-            "closing the popover on {named} leaves the bar the only way back to it"
-        );
+        let state = asking(one);
+        assert!(prompt(&state).is_none(), "{named} is answered in a dialog");
+        assert_eq!(waiting(&state), None, "{named} is answered in a dialog");
     }
 
-    for one in [Prompt::RequestPin(pixel()), Prompt::RequestPasskey(pixel())] {
-        let named = format!("{one:?}");
-        assert_eq!(
-            waiting(&asking(one)),
-            None,
-            "{named} raises a dialog of its own, so the chip has nothing to add"
-        );
-    }
-
-    let mut forgetting = state(Power::On, false, vec![device("Pixel", false)]);
-    forgetting.confirm = Some(Confirmation::Forget {
-        device: pixel(),
-        connected: false,
-    });
-    assert!(waiting(&forgetting).is_some());
+    assert_eq!(waiting(&state(Power::On, false, vec![])), None);
+    assert!(prompt(&forgetting()).is_some());
+    assert!(waiting(&forgetting()).is_some());
 }
 
 #[test]
-fn a_question_offers_an_answer_and_a_display_offers_only_a_way_out() {
-    let confirm = prompt(&asking(Prompt::Confirm {
-        device: pixel(),
-        passkey: 418_209,
-    }))
-    .unwrap();
-    assert_eq!(confirm.device, "Pixel");
-    assert_eq!(confirm.code, "418 209");
-    assert!(!confirm.accept.is_empty(), "a question can be answered yes");
+fn every_prompt_has_a_dialog_mode_and_the_code_it_shows() {
+    let of = |prompt: Prompt| prompt_entry(&prompt);
+    let pin = || "0000".to_owned();
 
-    let authorize = prompt(&asking(Prompt::Authorize(pixel()))).unwrap();
-    assert!(authorize.code.is_empty());
-    assert!(!authorize.accept.is_empty());
-
-    let pin = prompt(&asking(Prompt::DisplayPin {
-        device: pixel(),
-        pin: "0000".to_owned(),
-    }))
-    .unwrap();
-    assert_eq!(pin.code, "0000");
-    assert!(
-        pin.accept.is_empty(),
-        "nothing on this computer can confirm what was typed on the device"
+    assert_eq!(
+        of(Prompt::Confirm {
+            device: pixel(),
+            passkey: 418_209
+        }),
+        (PairingEntry::Confirm, "418 209".to_owned())
     );
-    assert!(!pin.cancel.is_empty());
+    assert_eq!(
+        of(Prompt::Authorize(pixel())),
+        (PairingEntry::Authorize, String::new())
+    );
+    assert_eq!(
+        of(Prompt::RequestPin(pixel())),
+        (PairingEntry::Pin, String::new())
+    );
+    assert_eq!(
+        of(Prompt::RequestPasskey(pixel())),
+        (PairingEntry::Passkey, String::new())
+    );
+    assert_eq!(
+        of(Prompt::DisplayPin {
+            device: pixel(),
+            pin: pin()
+        }),
+        (PairingEntry::ShowPin, pin())
+    );
 }
 
 #[test]
 fn a_passkey_is_six_zero_padded_digits_and_its_progress_stops_at_six() {
     let shown = |passkey, entered| {
-        prompt(&asking(Prompt::DisplayPasskey {
+        prompt_entry(&Prompt::DisplayPasskey {
             device: pixel(),
             passkey,
             entered,
-        }))
-        .unwrap()
+        })
     };
 
-    assert_eq!(shown(18_402, 3).code, "018 402");
-    assert_eq!(shown(u32::MAX, 0).code, "999 999");
-    assert_eq!(shown(418_209, 3).progress, "3 of 6 entered");
+    assert_eq!(shown(18_402, 3).1, "018 402\n3 of 6 entered");
+    assert_eq!(shown(u32::MAX, 0).1, "999 999\n0 of 6 entered");
     assert_eq!(
-        shown(418_209, 9).progress,
-        "6 of 6 entered",
+        shown(418_209, 9).1,
+        "418 209\n6 of 6 entered",
         "a remote count past the passkey length is clamped, never rendered"
     );
 }
 
 #[test]
-fn an_unnamed_device_is_still_named_on_the_page() {
-    let mut state = asking(Prompt::Authorize(DeviceId::new(
-        "/org/bluez/hci0/dev_ghost",
-    )));
-    state.devices.clear();
-
-    assert_eq!(prompt(&state).unwrap().device, "Unknown device");
-}
-
-#[test]
 fn a_hostile_device_name_is_capped_before_it_reaches_the_page() {
     let long = "Наушники ".repeat(20);
-    let mut state = asking(Prompt::Authorize(pixel()));
+    let mut state = forgetting();
     state.devices[0].name = long.clone();
 
     let shown = prompt(&state).unwrap();

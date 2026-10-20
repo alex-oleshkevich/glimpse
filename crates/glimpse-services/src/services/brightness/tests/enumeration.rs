@@ -111,41 +111,6 @@ async fn a_rescan_after_our_own_write_settles_does_not_trigger_a_second_write() 
 }
 
 #[tokio::test]
-async fn a_refresh_command_rereads_every_known_source() {
-    let mut harness = harness(
-        vec![
-            entry("panel", "raw", 50, 100, None),
-            entry("kbd", "raw", 20, 100, None),
-        ],
-        0,
-    )
-    .await;
-    harness.backend.set_brightness("panel", 66);
-    harness.backend.set_brightness("kbd", 33);
-    let (reply, result) = oneshot::channel();
-
-    harness
-        .feed(Input::Command(Command::Refresh { reply }))
-        .await;
-    assert!(result.await.expect("answered").is_ok());
-
-    harness.settle_next().await;
-    harness.settle_next().await;
-
-    let sources = harness.state.borrow().sources.clone();
-    let panel = sources
-        .iter()
-        .find(|source| source.id == "panel")
-        .expect("the panel source is still published");
-    let keyboard = sources
-        .iter()
-        .find(|source| source.id == "kbd")
-        .expect("the keyboard source is still published");
-    assert_eq!(panel.current, 66);
-    assert_eq!(keyboard.current, 33);
-}
-
-#[tokio::test]
 async fn a_rescan_reconciles_a_value_that_moved_out_of_band() {
     let mut harness = harness(vec![entry("panel", "raw", 50, 100, None)], 0).await;
     assert_eq!(harness.state.borrow().sources[0].current, 50);

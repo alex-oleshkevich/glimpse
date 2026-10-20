@@ -61,7 +61,7 @@ pub enum Command {
 
 #[derive(Debug)]
 pub enum Event {
-    Located(Option<GeoCoordinates>),
+    Located(GeoCoordinates),
     Unavailable(String),
     Retry,
 }
@@ -111,8 +111,6 @@ impl ServiceEndpoint<Geolocation> {
         .await?
     }
 }
-
-impl Geolocation {}
 
 /// `attempt` carries nothing but its own difference: `geolocation.refresh` has no parameter to
 /// change, and a key that does not move would leave the watch running untouched.
@@ -183,13 +181,11 @@ impl Service for Geolocation {
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(_) if !matches!(self.provider, Provider::Geoclue) => {}
-            Input::Event(Event::Located(coordinates)) => {
-                if let Some(fix) = &coordinates {
-                    ctx.running();
-                    self.has_fix = true;
-                    self.remember(ctx, fix);
-                }
-                self.publish(coordinates);
+            Input::Event(Event::Located(fix)) => {
+                ctx.running();
+                self.has_fix = true;
+                self.remember(ctx, &fix);
+                self.publish(Some(fix));
             }
             // A fix that cannot be obtained is a degraded service, not a dead one: the daemon
             // keeps running and a manual `[geolocation]` still works.
@@ -403,7 +399,7 @@ async fn first_fix(
 ) -> Option<Event> {
     loop {
         match updates.next().await? {
-            Ok(Some(coordinates)) => return Some(Event::Located(Some(coordinates))),
+            Ok(Some(coordinates)) => return Some(Event::Located(coordinates)),
             Ok(None) => continue,
             Err(error) => return Some(Event::Unavailable(error)),
         }

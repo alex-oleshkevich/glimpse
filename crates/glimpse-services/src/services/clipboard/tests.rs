@@ -28,7 +28,6 @@ impl Harness {
         self.feed(Input::Event(SelectionEvent::Captured(Capture {
             mime: TEXT.to_owned(),
             data: Arc::from(body.as_bytes()),
-            sensitive: false,
         })))
         .await;
     }
@@ -158,21 +157,6 @@ async fn the_echo_of_our_own_offer_does_not_grow_the_history() {
 
     assert_eq!(harness.state.borrow().entries.len(), 2);
     assert_eq!(harness.state.borrow().entries[0].id, id);
-}
-
-#[tokio::test]
-async fn a_sensitive_capture_never_reaches_the_state() {
-    let mut harness = harness().await;
-
-    harness
-        .feed(Input::Event(SelectionEvent::Captured(Capture {
-            mime: TEXT.to_owned(),
-            data: Arc::from(&b"hunter2"[..]),
-            sensitive: true,
-        })))
-        .await;
-
-    assert!(harness.state.borrow().entries.is_empty());
 }
 
 #[tokio::test]

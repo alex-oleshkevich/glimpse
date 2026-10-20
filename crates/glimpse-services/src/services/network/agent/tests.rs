@@ -8,10 +8,7 @@ fn agent() -> (Agent, mpsc::Receiver<Input<Network>>) {
 fn connection_named(id: &str) -> Secrets {
     HashMap::from([(
         "connection".to_owned(),
-        HashMap::from([(
-            "id".to_owned(),
-            OwnedValue::try_from(Value::from(id)).expect("a string"),
-        )]),
+        HashMap::from([("id".to_owned(), OwnedValue::from(Str::from(id)))]),
     )])
 }
 

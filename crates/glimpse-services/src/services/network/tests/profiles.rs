@@ -211,6 +211,51 @@ async fn a_profile_setting_reached_from_an_access_point_row_resolves_to_the_prof
 }
 
 #[tokio::test]
+async fn a_changed_profile_replaces_only_its_own_entry_and_a_failed_read_drops_it() {
+    let mut harness = harness().await;
+    let first = "/org/freedesktop/NetworkManager/Settings/1";
+    let second = "/org/freedesktop/NetworkManager/Settings/2";
+    let third = "/org/freedesktop/NetworkManager/Settings/3";
+    harness
+        .service
+        .settings
+        .extend([first, second, third].map(str::to_owned));
+    harness.service.profiles = BTreeMap::from([
+        (first.to_owned(), profile("Cafe", 1)),
+        (second.to_owned(), profile("Office", 2)),
+        (third.to_owned(), profile("Home", 3)),
+    ]);
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Profile {
+                path: second.to_owned(),
+                profile: Some(profile("Office", 9)),
+            }),
+        )
+        .await;
+    assert_eq!(harness.service.profiles[second].timestamp, 9);
+    assert_eq!(harness.service.profiles[first].timestamp, 1);
+    assert_eq!(harness.service.profiles[third].timestamp, 3);
+
+    harness
+        .service
+        .handle(
+            &harness.ctx,
+            Input::Event(Event::Profile {
+                path: third.to_owned(),
+                profile: None,
+            }),
+        )
+        .await;
+    assert!(!harness.service.profiles.contains_key(third));
+    assert_eq!(harness.service.profiles[first].timestamp, 1);
+    assert_eq!(harness.service.profiles[second].timestamp, 9);
+}
+
+#[tokio::test]
 async fn a_network_with_no_saved_profile_has_none() {
     let mut harness = harness().await;
     enumerate(&mut harness, measured_objects()).await;

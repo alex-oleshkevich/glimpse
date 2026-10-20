@@ -41,7 +41,7 @@ in the machine's own zone.
   `off` there is nothing left in it for a UI to switch back to; `manual` tracks `SetTemperature` only.
 - **`Snapshot` is append-only.** Decoding requires the first seven fields and defaults missing
   trailing fields. `paused_until` is a Unix timestamp in seconds; zero means no pause, including
-  snapshots from an older provider. Existing fields keep their positions.
+  snapshots from an older provider. `pausable` is true only while `Pause` would be accepted: a night with a future boundary. Existing fields keep their positions.
 - **The method answers after the display has been driven, not when the command was queued.**
   `SetSchedule` carries a `oneshot` sent *after* `evaluate` rather than firing and forgetting on the
   `try_send`. A backend that refused the ramp is a health condition, reported through
@@ -64,8 +64,9 @@ in the machine's own zone.
   `glimpse_dbus::own_name`'s `DoNotQueue`, since plain `request_name` lets a duplicate steal it.
 - **Gamma control is exclusive — one client at a time.** A user already running `wlsunset` or
   `gammastep` makes every output answer `failed`, reported as `degraded: another gamma client holds
-  the outputs`; it does not retry in a spin, the next scheduled tick tries again. `hyprsunset` does
-  not take gamma control: it drives Hyprland's CTM protocol (`hyprland_ctm_control_manager_v1`), which
+  the outputs, or they have no gamma table` — an output without a gamma table answers the same
+  `failed`, before any `gamma_size`, so the two cannot be told apart; it does not retry in a spin,
+  the next scheduled tick tries again. `hyprsunset` does not take gamma control: it drives Hyprland's CTM protocol (`hyprland_ctm_control_manager_v1`), which
   tints on top of this ramp.
 - **A `wl_output` is bound only after a roundtrip has drained the queue** — nothing reads the socket
   while the light is handed back all day under `automatic`, so binding straight from the `Global`

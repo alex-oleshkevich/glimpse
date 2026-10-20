@@ -25,6 +25,14 @@ on typing code or grepping for facts.
 
 ## Workers
 
+Every worker brief starts by loading the `ponytail:ponytail` skill (Skill tool for a Claude
+subagent; the path `~/.claude/plugins/cache/ponytail/ponytail/<version>/skills/ponytail/SKILL.md`
+for a CLI) and applying it for the whole task.
+
+Live tests, shell fact-finding and unit-test runs go to sonnet, haiku, luna or pi with DeepSeek,
+never opus, and never Claude itself. When the live-test queue is long, spread it over up to five
+Hetzner servers (`hcloud`, 4 cores, 8 GB) and delete every one when the queue is done.
+
 Pick by complexity, cheapest that will get it right:
 
 - **haiku** (Agent tool, `model: haiku`) — mechanical edits, a one-line config change, a rename.

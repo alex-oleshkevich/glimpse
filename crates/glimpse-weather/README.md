@@ -2,8 +2,8 @@
 
 `glimpse-weather` owns weather fetching independently of the panel. `Here` follows the settings
 daemon's geolocation property through an injected watch receiver; fixed coordinates and named
-places are independent of it. This process acquires no location and exports only
-`me.aresa.Glimpse.Weather1` on the session bus.
+places are independent of it. This process acquires no location, owns `me.aresa.Glimpse.Weather`
+and exports only the `me.aresa.Glimpse.Weather1` interface.
 
 The interface exposes one coherent `Snapshot` property plus `WatchPlace` and `Refresh`.
 `WatchPlace(kind, latitude, longitude, location)` uses kind `0` for here, kind `1` for fixed

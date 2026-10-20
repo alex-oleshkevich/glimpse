@@ -281,6 +281,10 @@ fn install_refuses_a_package_whose_contents_do_not_match_the_metadata() {
     let error = manager.install(&tampered).unwrap_err();
     assert!(error.to_string().contains("sha256"), "{error:#}");
     assert!(!root.path().join("applets/org.example.Test").exists());
+    assert_eq!(
+        fs::read_dir(root.path().join("applets")).unwrap().count(),
+        0
+    );
 }
 
 #[test]
@@ -389,6 +393,84 @@ fn package_refuses_a_reserved_metadata_file_and_symlinks_in_dist() {
     );
 }
 
+fn zip_raw(path: &Path, metadata: &[u8], entries: &[(&str, &[u8])]) {
+    let mut archive = zip::ZipWriter::new(File::create(path).unwrap());
+    let options = zip::write::SimpleFileOptions::default();
+    for (name, bytes) in entries {
+        archive.start_file(name.to_string(), options).unwrap();
+        archive.write_all(bytes).unwrap();
+    }
+    archive
+        .start_file(METADATA_FILE.to_owned(), options)
+        .unwrap();
+    archive.write_all(metadata).unwrap();
+    archive.finish().unwrap();
+}
+
+fn assert_no_control(error: &anyhow::Error) {
+    let text = format!("{error:#}");
+    assert!(!text.chars().any(char::is_control), "{text:?}");
+}
+
+#[test]
+fn install_error_for_a_hostile_metadata_path_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    let metadata = "id = \"org.example.Test\"\n\n[[files]]\npath = \"x\\u001b]0;pwned\\u0007/../y\"\nsha256 = \"00\"\n";
+    zip_raw(&package, metadata.as_bytes(), &[]);
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(error.to_string().contains("escapes"), "{error:#}");
+    assert_no_control(&error);
+}
+
+#[test]
+fn install_sha256_error_for_a_hostile_entry_name_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    let metadata = format!(
+        "id = \"org.example.Test\"\n\n[[files]]\npath = \"org.example.Test.desktop\"\nsha256 = \"{}\"\n\n[[files]]\npath = \"a\\u001b]0;pwned\\u0007b\"\nsha256 = \"00\"\n",
+        sha256_hex(DESKTOP.as_bytes())
+    );
+    zip_raw(
+        &package,
+        metadata.as_bytes(),
+        &[
+            ("org.example.Test.desktop", DESKTOP.as_bytes()),
+            ("a\u{1b}]0;pwned\u{7}b", b"wrong"),
+        ],
+    );
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(error.to_string().contains("sha256"), "{error:#}");
+    assert_no_control(&error);
+}
+
+#[test]
+fn install_error_for_unparsable_metadata_with_an_escape_byte_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    zip_raw(&package, b"id = \x1b]0;pwned\x07\n", &[]);
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(
+        error.to_string().contains("invalid metadata.toml"),
+        "{error:#}"
+    );
+    assert_no_control(&error);
+}
+
+#[test]
+fn install_error_for_an_unknown_metadata_key_with_an_escape_holds_no_control_characters() {
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("hostile.zip");
+    let metadata = "id = \"org.example.Test\"\n\"x\\u001b]0;pwned\\u0007\" = 1\n";
+    zip_raw(&package, metadata.as_bytes(), &[]);
+    let error = manager(root.path()).install(&package).unwrap_err();
+    assert!(
+        error.to_string().contains("invalid metadata.toml"),
+        "{error:#}"
+    );
+    assert_no_control(&error);
+}
+
 fn install_package_with_id(root: &Path, id: &str) -> Result<Installed> {
     let package = root.join("package.zip");
     let desktop = DESKTOP.replace("Name=Test", &format!("Name={id}"));
@@ -486,4 +568,78 @@ fn install_refuses_an_id_that_a_system_subdirectory_entry_maps_to() {
     );
     assert!(install_package_with_id(root.path(), "my-app.Victim").is_err());
     assert_nothing_installed(root.path(), "my-app.Victim");
+}
+
+#[test]
+fn uninstall_finishes_with_a_symlink_and_a_socket_in_the_applet_dir() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let installed = manager.install(&dir).unwrap();
+    std::os::unix::fs::symlink("/nonexistent", installed.dir.join("cache")).unwrap();
+    let _socket = std::os::unix::net::UnixListener::bind(installed.dir.join("run.sock")).unwrap();
+    let removed = manager.uninstall("org.example.Test").unwrap();
+    assert!(removed.leftovers.contains(&installed.dir.join("cache")));
+    assert!(removed.leftovers.contains(&installed.dir.join("run.sock")));
+    assert!(!installed.dir.join("applet.py").exists());
+    assert!(
+        !root
+            .path()
+            .join("applications/org.example.Test.desktop")
+            .exists()
+    );
+}
+
+#[test]
+fn uninstall_refuses_metadata_that_escapes_the_applet_dir() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let installed = manager.install(&dir).unwrap();
+    let metadata = installed.dir.join(METADATA_FILE);
+    let text = fs::read_to_string(&metadata).unwrap();
+    fs::write(
+        &metadata,
+        format!("{text}[[files]]\npath = \"../x\"\nsha256 = \"00\"\n"),
+    )
+    .unwrap();
+    assert!(manager.uninstall("org.example.Test").is_err());
+    assert!(installed.dir.join("applet.py").is_file());
+}
+
+#[test]
+fn install_sweeps_leftovers_of_dead_processes_only() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let applets = root.path().join("applets");
+    let mut child = std::process::Command::new("sleep")
+        .arg("30")
+        .spawn()
+        .unwrap();
+    let mut dead = std::process::Command::new("true").spawn().unwrap();
+    dead.wait().unwrap();
+    let dead = dead.id();
+    for name in [
+        format!(".org.example.Test.new-{dead}"),
+        format!(".org.example.Test.old-{dead}"),
+        format!(".install.new-{dead}-abc"),
+        format!(".org.example.Test.new-{}", child.id()),
+    ] {
+        fs::create_dir_all(applets.join(name)).unwrap();
+    }
+    manager(root.path()).install(&dir).unwrap();
+    let mut left: Vec<String> = fs::read_dir(&applets)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    left.sort();
+    let _ = child.kill();
+    let _ = child.wait();
+    assert_eq!(
+        left,
+        [
+            format!(".org.example.Test.new-{}", child.id()),
+            "org.example.Test".to_owned()
+        ]
+    );
 }

@@ -80,7 +80,6 @@ pub struct Limits {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refused {
-    Sensitive,
     TooLarge,
     UnsupportedKind,
     ImagesDisabled,
@@ -131,9 +130,6 @@ impl History {
     /// that entry to the front rather than duplicating it — which is also what makes re-reading our
     /// own `offer` harmless, and is the only guard the echo has.
     pub fn insert(&mut self, capture: Capture, at: DateTime<Utc>) -> Result<bool, Refused> {
-        if capture.sensitive {
-            return Err(Refused::Sensitive);
-        }
         let kind = kind_of(&capture.mime).ok_or(Refused::UnsupportedKind)?;
         if kind == Kind::Image && !self.limits.images {
             return Err(Refused::ImagesDisabled);

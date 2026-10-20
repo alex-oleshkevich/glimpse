@@ -29,6 +29,7 @@ const SCREENSHOT_DEADLINE: Duration = Duration::from_secs(2);
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     output_power: true,
     blank_screens: true,
+    window_screenshot: true,
     overview_backdrop: true,
 };
 

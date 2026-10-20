@@ -64,6 +64,14 @@ pub struct Cli {
 }
 
 impl Cli {
+    pub fn clamped_radius(&self) -> f32 {
+        self.radius.clamp(crate::MIN_RADIUS, crate::MAX_RADIUS) as f32
+    }
+
+    pub fn clamped_zoom(&self) -> u32 {
+        self.zoom.clamp(crate::MIN_ZOOM, crate::MAX_ZOOM)
+    }
+
     pub fn validate(&self) -> Result<(), clap::Error> {
         if self.tool != Some(Tool::Picker) && (self.format.is_some() || self.json) {
             return Err(Self::command().error(

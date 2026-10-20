@@ -55,19 +55,25 @@ pub fn plan(source: Target, output: Target, fit: Fit) -> Option<Plan> {
     let horizontal = f64::from(output.width) / f64::from(source.width);
     let vertical = f64::from(output.height) / f64::from(source.height);
 
-    let load = clamp(match fit {
+    let wanted = match fit {
         Fit::Fill => output,
         Fit::Cover => scaled(source, horizontal.max(vertical)),
         Fit::Contain => scaled(source, horizontal.min(vertical)),
         Fit::Center => scaled(source, horizontal.min(vertical).min(1.0)),
-    });
+    };
+    let shrink = match fit {
+        Fit::Cover => (f64::from(CEILING) / f64::from(wanted.width.max(wanted.height))).min(1.0),
+        Fit::Fill | Fit::Contain | Fit::Center => 1.0,
+    };
+    let load = clamp(scaled(wanted, shrink));
+    let view = scaled(output, shrink);
 
     let crop = match fit {
         Fit::Cover => Some(Region {
-            x: ((load.width - output.width) / 2).max(0),
-            y: ((load.height - output.height) / 2).max(0),
-            width: load.width.min(output.width),
-            height: load.height.min(output.height),
+            x: ((load.width - view.width) / 2).max(0),
+            y: ((load.height - view.height) / 2).max(0),
+            width: load.width.min(view.width),
+            height: load.height.min(view.height),
         }),
         Fit::Fill | Fit::Contain | Fit::Center => None,
     };

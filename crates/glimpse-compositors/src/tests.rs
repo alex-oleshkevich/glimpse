@@ -49,6 +49,7 @@ fn blank_screens_is_niri_only_and_output_power_is_on_both() {
 
     assert!(niri.output_power && hyprland.output_power);
     assert!(niri.blank_screens && !hyprland.blank_screens);
+    assert!(niri.window_screenshot && !hyprland.window_screenshot);
 }
 
 #[tokio::test]

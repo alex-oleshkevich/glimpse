@@ -560,6 +560,9 @@ impl Service for Bluetooth {
                     self.confirm = None;
                     self.scan = None;
                     self.deadline = None;
+                    self.adapters.clear();
+                    self.devices.clear();
+                    self.transports.clear();
                     self.publish();
                     ctx.degraded("org.bluez left the bus");
                 }

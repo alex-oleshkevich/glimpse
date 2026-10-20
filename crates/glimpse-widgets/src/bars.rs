@@ -337,22 +337,6 @@ impl Bars {
         imp.hovered.set(slot);
         self.trigger_tooltip_query();
     }
-
-    pub fn values(&self) -> Vec<Option<f64>> {
-        self.imp().values.borrow().clone()
-    }
-
-    pub fn maximum(&self) -> Option<f64> {
-        self.imp().maximum.get()
-    }
-
-    pub fn highlight_last(&self) -> bool {
-        self.imp().highlight_last.get()
-    }
-
-    pub fn label(&self) -> String {
-        self.imp().label.borrow().clone()
-    }
 }
 
 #[cfg(test)]

@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 use adw::prelude::*;
 use chrono::{DateTime, Local};
 use gettextrs::gettext;
-use gio_unix::DesktopAppInfo;
 use glimpse_compositors::{Snapshot, detect_compositor};
 use glimpse_config::ScreenshotConfig;
 use glimpse_shot::doc::document::{Document, Mark, Source, Style, Tool};
@@ -20,7 +19,7 @@ use glimpse_wayland::capture::CaptureError;
 use glimpse_wayland::selection::Entry;
 use glimpse_widgets::{
     ShotBanner, ShotCountdown, ShotRegion, ShotToolbar, ShotWindowEntry, ShotWindowList,
-    duration_ms, roundtrip,
+    duration_ms,
 };
 use gtk4::{gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -29,6 +28,7 @@ use super::canvas::{
     Canvas, Editor, palette, palette_index, resize_text_entry, set_cursor, spring_tool, stroke,
     text_entry, tool_name, tool_named,
 };
+use super::{barrier, desktop_entry};
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::clock::SystemClock;
 use crate::adapters::files::Disk;
@@ -1731,14 +1731,6 @@ fn monitor_named(connector: &str) -> Option<gdk::Monitor> {
         .find(|monitor| monitor.connector().is_some_and(|name| name == connector))
 }
 
-fn barrier() {
-    if let Some(display) = gdk::Display::default()
-        && let Err(error) = roundtrip(&display)
-    {
-        tracing::warn!("no unmap barrier: {error}");
-    }
-}
-
 fn move_column(
     overlay: &gtk4::Overlay,
     column: &gtk4::Box,
@@ -1774,13 +1766,6 @@ fn remaining(until: Instant) -> u32 {
         .saturating_duration_since(Instant::now())
         .as_secs_f64()
         .ceil() as u32
-}
-
-fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
-    if app_id.is_empty() || app_id.contains('/') || app_id.contains('\0') {
-        return None;
-    }
-    DesktopAppInfo::new(&format!("{app_id}.desktop"))
 }
 
 fn overlay_text_entry() -> (gtk4::ScrolledWindow, gtk4::TextView) {

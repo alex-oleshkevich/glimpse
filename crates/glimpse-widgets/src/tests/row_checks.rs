@@ -21,6 +21,57 @@ pub(super) fn checks() {
     roles();
     gap();
     inactive_input();
+    value_width();
+}
+
+fn value_width() {
+    let long = "2a02:8109:1234:5678:9abc:def0:1234:5678";
+    let row = Row::new();
+    row.set_title(Some("IPv6"));
+    row.set_value(Some(long));
+    let natural = row.measure(gtk4::Orientation::Horizontal, -1).1;
+    let window = gtk4::Window::new();
+    window.set_child(Some(&row));
+    window.present();
+    let context = glib::MainContext::default();
+    while context.iteration(false) {}
+    row.allocate(
+        400,
+        row.measure(gtk4::Orientation::Vertical, 400).1,
+        -1,
+        None,
+    );
+    assert!(!row.imp().value.layout().is_ellipsized());
+
+    row.allocate(
+        120,
+        row.measure(gtk4::Orientation::Vertical, 120).1,
+        -1,
+        None,
+    );
+    assert!(row.imp().value.layout().is_ellipsized());
+    assert_eq!(row.measure(gtk4::Orientation::Horizontal, -1).1, natural);
+
+    let bare = Row::new();
+    bare.set_title(Some("Title"));
+    let end = gtk4::Button::new();
+    bare.set_end(&end);
+    window.set_child(Some(&bare));
+    while context.iteration(false) {}
+    bare.allocate(
+        400,
+        bare.measure(gtk4::Orientation::Vertical, 400).1,
+        -1,
+        None,
+    );
+    let bounds = end.compute_bounds(&bare).expect("allocated end widget");
+    let content = bare
+        .imp()
+        .content
+        .compute_bounds(&bare)
+        .expect("allocated content");
+    assert_eq!(bounds.x() + bounds.width(), content.x() + content.width());
+    window.close();
 }
 
 fn gap() {

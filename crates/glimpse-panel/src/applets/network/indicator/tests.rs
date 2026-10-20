@@ -24,25 +24,6 @@ fn a_wired_row_routes_to_its_device_and_never_to_an_access_point() {
 }
 
 #[test]
-fn only_the_question_networkmanager_is_waiting_on_survives_the_popover_closing() {
-    assert!(survives_reopen(Some(&Asking::Agent(SecretRequest {
-        name: "Skylink".to_owned(),
-        path: "/s/1".to_owned(),
-        setting: "802-11-wireless-security".to_owned(),
-        retry: false,
-    }))));
-    assert!(!survives_reopen(Some(&Asking::Name)));
-    assert!(!survives_reopen(Some(&Asking::Hidden {
-        ssid: "Skylink".to_owned()
-    })));
-    assert!(!survives_reopen(Some(&Asking::Joining {
-        id: NetworkId::new("/ap/1".to_owned()),
-        name: "Skylink".to_owned(),
-    })));
-    assert!(!survives_reopen(None));
-}
-
-#[test]
 fn a_vpn_token_is_not_held_to_a_wifi_passphrase_length() {
     assert_eq!(
         entered_for("802-11-wireless-security"),

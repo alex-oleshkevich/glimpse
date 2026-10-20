@@ -1,39 +1,13 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::time::Duration;
+use anyhow::Result;
 
-use anyhow::{Context as _, Result, anyhow};
-use glimpse_widgets::Styles;
-use gtk4::glib;
-
-use crate::overlay::capture_within;
 use crate::session::{Outcome, Segment, Session, Settings};
 
-const CAPTURE_TIMEOUT: Duration = Duration::from_secs(3);
-
 pub fn measure(settings: Settings) -> Result<Vec<Segment>> {
-    let frames = capture_within(CAPTURE_TIMEOUT).context("cannot capture the screen")?;
-    gtk4::init().context("cannot initialize GTK")?;
-    adw::init().context("cannot initialize libadwaita")?;
-    glimpse_widgets::register_resources()?;
-
-    let _styles = Styles::install(adw::ColorScheme::Default);
-
-    let main = glib::MainLoop::new(None, false);
-    let outcome = Rc::new(RefCell::new(None));
-    let session = Session::open(frames, settings, {
-        let main = main.clone();
-        let outcome = Rc::clone(&outcome);
-        move |ended| {
-            outcome.replace(Some(ended));
-            main.quit();
-        }
-    })
-    .map_err(|missing| anyhow!("{missing} was not captured"))?;
-    main.run();
-    session.close();
-
-    Ok(confirmed(outcome.take()))
+    let outcome = crate::overlay::run(
+        |frames, done| Session::open(frames, settings, done),
+        Session::close,
+    )?;
+    Ok(confirmed(outcome))
 }
 
 fn confirmed(outcome: Option<Outcome>) -> Vec<Segment> {

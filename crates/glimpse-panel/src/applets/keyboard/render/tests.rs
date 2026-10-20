@@ -64,3 +64,14 @@ fn next_and_prev_wrap() {
     assert_eq!(step(&layouts(Some(2)), LayoutRef::Next), Some(0));
     assert_eq!(step(&layouts(Some(0)), LayoutRef::Prev), Some(2));
 }
+
+#[test]
+fn a_layout_name_that_looks_like_a_placeholder_is_rendered_as_written() {
+    let mut layouts = layouts(Some(0));
+    layouts.layouts[0].code = "{name}".to_owned();
+
+    assert_eq!(
+        tooltip(&layouts, Some("{code} {foo}")).as_deref(),
+        Some("{name} {foo}")
+    );
+}

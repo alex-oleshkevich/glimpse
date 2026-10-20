@@ -105,3 +105,15 @@ fn activating_trash_opens_the_trash_uri() {
         _ => panic!("expected an open request"),
     }
 }
+
+#[test]
+fn the_home_place_is_titled_by_the_panel_not_by_the_service() {
+    let home = place(
+        "home",
+        "service name",
+        glimpse_services::PlacesKind::Home,
+        "/home/user",
+    );
+
+    assert_eq!(place_entry(&home).title, gettext("Home"));
+}

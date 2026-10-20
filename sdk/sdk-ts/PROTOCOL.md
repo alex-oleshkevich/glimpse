@@ -87,7 +87,7 @@ tree still records that set.
 
 | Handler | Elements | `args` |
 | --- | --- | --- |
-| `onPress` | indicator | `[button]` — pointer button code: `1` left, `2` middle, `3` right, otherwise the code as reported |
+| `onPress` | indicator | `[button]` — pointer button code: `2` middle, `3` right, otherwise the code as reported. A left click opens the popover and never fires `onPress` |
 | `onScroll` | indicator | `[dx, dy]` — scroll deltas, numbers |
 | `onActivate` | actionrow | `[]` |
 | `onToggle` | switch, togglerow, expanderrow | `[active]` or `[open]` — boolean. `seq` is a number |

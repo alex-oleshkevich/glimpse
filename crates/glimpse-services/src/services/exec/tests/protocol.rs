@@ -133,7 +133,7 @@ async fn connection_cancellation_precedes_buffered_commits() {
     let (_dir, entry, _output) =
         raw_script("#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n");
     let test = configured();
-    let socket = test.config.socket_path(1);
+    let socket = test.config.socket_path(1).expect("runtime dir");
     let launcher = Arc::new(ProcessLauncher::new());
     let source = spawn::source(
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
@@ -144,11 +144,10 @@ async fn connection_cancellation_precedes_buffered_commits() {
             env: BTreeMap::new(),
             state_base: test.config.state_base.clone(),
             entry: None,
-            cwd: None,
             restart: false,
             stderr: None,
             unit: launcher::unit_name(&test.config.panel, "me.example.Test", 1, 1),
-            socket: socket.clone(),
+            socket: Some(socket.clone()),
             launcher: Arc::clone(&launcher) as Arc<dyn Launcher>,
             stop: CancellationToken::new(),
         },
@@ -172,7 +171,7 @@ async fn connection_cancellation_precedes_buffered_commits() {
     link.stop.cancel();
     assert!(matches!(
         source.next().await,
-        Some(Event::Misbehaved { reason, .. }) if reason == "not reading its socket"
+        Some(Event::Disconnected { .. })
     ));
     assert_eq!(launcher.kill_count(), 1);
 }

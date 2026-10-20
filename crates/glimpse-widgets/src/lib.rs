@@ -207,6 +207,7 @@ pub use workspaces_popover::WorkspacesPopover;
 pub use world_clock::{WorldClock, Zone};
 
 pub(crate) const TEXT_MAX_CHARS: usize = 128;
+pub(crate) const ASK_MAX_CHARS: usize = 512;
 
 pub(crate) fn replace_children(container: &gtk4::Box, child: Option<&gtk4::Widget>) {
     use gtk4::prelude::*;

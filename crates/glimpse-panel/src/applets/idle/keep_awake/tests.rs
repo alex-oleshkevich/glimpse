@@ -45,3 +45,31 @@ fn newest_manual_hold_controls_the_deadline() {
     assert_eq!(deadline(&[timed, manual(3)], &expiries).unwrap().1, 1_800);
     assert_eq!(deadline(&[manual(1)], &BTreeMap::new()), None);
 }
+
+#[tokio::test]
+async fn a_refused_hold_is_reported_once_and_wakes_the_applet() {
+    use crate::applet::runtime::HostInput;
+    use crate::applet::testing::{driven, run_in};
+    use glimpse_dbus::idle::IdleProvider;
+    use std::cell::RefCell;
+
+    let provider = IdleProvider::unavailable("idle provider unavailable");
+    let (sender, inbox) = relm4::channel();
+    let opener = crate::applet::Ctx::new("idle".into(), None, sender).opener();
+    let failures = Rc::new(RefCell::new(Vec::new()));
+    let failed: Failure = {
+        let failures = Rc::clone(&failures);
+        Rc::new(move |operation, _| failures.borrow_mut().push(operation))
+    };
+    let context = gtk4::glib::MainContext::new();
+
+    run_in(&context, || {
+        toggle(&provider.handle(), opener, true, failed)
+    });
+
+    assert!(matches!(
+        driven(&context, inbox.recv()).await,
+        Some(HostInput::Woken)
+    ));
+    assert_eq!(*failures.borrow(), ["idle.hold"]);
+}

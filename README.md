@@ -14,6 +14,15 @@ glimpse adds what a bare Wayland compositor leaves out: a bar, notifications, a 
 screen, idle timers and a night light. It follows your light or dark theme and accent color, and
 blurs what sits behind it.
 
+## Demo
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/demo-dark.gif">
+  <img alt="glimpse in use" src="docs/screenshots/demo.gif">
+</picture>
+
+Watch it in full quality: [light](website/public/video/demo.mp4), [dark](website/public/video/demo-dark.mp4).
+
 ## Features
 
 - Quick popovers for Wi-Fi, Bluetooth, audio, the calendar and the weather, and a few more.
@@ -21,6 +30,8 @@ blurs what sits behind it.
 - The lock screen authenticates through PAM.
 - Idle timers blank the screens, lock and suspend, and can differ between AC and battery.
 - The night light follows sunset and sunrise where you are.
+- Exec applets put your own program on the panel, with its own indicator and popover. SDKs exist
+  for TypeScript, Python, Go and Rust.
 - All settings live in one `config.toml`. Saving it applies the change, and a JSON schema gives your
   editor completion.
 

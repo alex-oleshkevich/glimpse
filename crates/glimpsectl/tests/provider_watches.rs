@@ -53,6 +53,7 @@ impl NightLight {
             configured: "automatic".into(),
             manual: false,
             paused_until: 0,
+            pausable: false,
         }
     }
 }

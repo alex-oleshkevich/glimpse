@@ -65,39 +65,32 @@ pub fn hero(state: &BluetoothState) -> Hero {
     }
 }
 
-pub fn typed(prompt: &Prompt) -> Option<PairingEntry> {
+pub fn prompt_entry(prompt: &Prompt) -> (PairingEntry, String) {
     match prompt {
-        Prompt::RequestPin(_) => Some(PairingEntry::Pin),
-        Prompt::RequestPasskey(_) => Some(PairingEntry::Passkey),
-        _ => None,
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Asked {
-    Pairing(DeviceId),
-    Forget(DeviceId),
-}
-
-impl Asked {
-    fn key(&self) -> String {
-        match self {
-            Self::Pairing(device) => format!("pair:{}", device.as_str()),
-            Self::Forget(device) => format!("forget:{}", device.as_str()),
+        Prompt::RequestPin(_) => (PairingEntry::Pin, String::new()),
+        Prompt::RequestPasskey(_) => (PairingEntry::Passkey, String::new()),
+        Prompt::Confirm { passkey, .. } => (PairingEntry::Confirm, digits(*passkey)),
+        Prompt::Authorize(_) => (PairingEntry::Authorize, String::new()),
+        Prompt::DisplayPin { pin, .. } => {
+            (PairingEntry::ShowPin, glimpse_utils::clean(pin, PIN_MAX))
         }
+        Prompt::DisplayPasskey {
+            passkey, entered, ..
+        } => (
+            PairingEntry::ShowPasskey,
+            format!(
+                "{}\n{}",
+                digits(*passkey),
+                gettext("{entered} of 6 entered")
+                    .replace("{entered}", &(*entered).min(6).to_string())
+            ),
+        ),
     }
 }
 
-pub fn asked(state: &BluetoothState) -> Option<Asked> {
-    if let Some(prompt) = state
-        .pairing
-        .as_ref()
-        .filter(|prompt| typed(prompt).is_none())
-    {
-        return Some(Asked::Pairing(prompt.device().clone()));
-    }
+pub fn asked(state: &BluetoothState) -> Option<DeviceId> {
     let Confirmation::Forget { device, .. } = state.confirm.as_ref()?;
-    Some(Asked::Forget(device.clone()))
+    Some(device.clone())
 }
 
 pub fn powered(state: &BluetoothState) -> bool {
@@ -112,13 +105,9 @@ pub fn waiting(state: &BluetoothState) -> Option<String> {
 }
 
 pub fn prompt(state: &BluetoothState) -> Option<Ask> {
-    pairing(state).or_else(|| confirmation(state))
-}
-
-fn confirmation(state: &BluetoothState) -> Option<Ask> {
     let Confirmation::Forget { device, connected } = state.confirm.as_ref()?;
     Some(Ask {
-        key: Asked::Forget(device.clone()).key(),
+        key: format!("forget:{}", device.as_str()),
         device: named(state, device),
         question: match connected {
             true => gettext(
@@ -128,8 +117,6 @@ fn confirmation(state: &BluetoothState) -> Option<Ask> {
                 "This computer will stop connecting to it, and it will not connect on its own. To use it again you will have to pair it, with the device in pairing mode.",
             ),
         },
-        code: String::new(),
-        progress: String::new(),
         accept: gettext("Forget"),
         destructive: true,
         cancel: gettext("Cancel"),
@@ -144,59 +131,6 @@ fn named(state: &BluetoothState, device: &DeviceId) -> String {
             || gettext("Unknown device"),
             |name| glimpse_utils::clean(name, NAME_CAP),
         )
-}
-
-fn pairing(state: &BluetoothState) -> Option<Ask> {
-    let prompt = state.pairing.as_ref()?;
-    let key = Asked::Pairing(prompt.device().clone()).key();
-    let device = named(state, prompt.device());
-
-    Some(match prompt {
-        Prompt::Confirm { passkey, .. } => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("Is this the code shown on the device?"),
-            code: digits(*passkey),
-            progress: String::new(),
-            accept: gettext("Confirm"),
-            destructive: false,
-            cancel: gettext("Cancel"),
-        },
-        Prompt::Authorize(_) => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("This device wants to pair with this computer."),
-            code: String::new(),
-            progress: String::new(),
-            accept: gettext("Allow"),
-            destructive: false,
-            cancel: gettext("Deny"),
-        },
-        Prompt::DisplayPin { pin, .. } => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("Type this PIN on the device. It will not ask again."),
-            code: glimpse_utils::clean(pin, PIN_MAX),
-            progress: String::new(),
-            accept: String::new(),
-            destructive: false,
-            cancel: gettext("Cancel"),
-        },
-        Prompt::DisplayPasskey {
-            passkey, entered, ..
-        } => Ask {
-            key: key.clone(),
-            device,
-            question: gettext("Type this passkey on the device."),
-            code: digits(*passkey),
-            progress: gettext("{entered} of 6 entered")
-                .replace("{entered}", &(*entered).min(6).to_string()),
-            accept: String::new(),
-            destructive: false,
-            cancel: gettext("Cancel"),
-        },
-        Prompt::RequestPin(_) | Prompt::RequestPasskey(_) => return None,
-    })
 }
 
 fn digits(passkey: u32) -> String {

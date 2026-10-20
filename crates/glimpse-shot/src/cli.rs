@@ -347,7 +347,7 @@ impl GuiArgs {
     }
 }
 
-fn paired(yes: bool, no: bool) -> Option<bool> {
+pub(crate) fn paired(yes: bool, no: bool) -> Option<bool> {
     match (yes, no) {
         (true, _) => Some(true),
         (_, true) => Some(false),

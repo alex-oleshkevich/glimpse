@@ -4,12 +4,11 @@ use std::rc::Rc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{Answer, BluetoothError, BluetoothHandle, BluetoothState, DeviceId, Hold};
+use glimpse_services::{BluetoothError, BluetoothHandle, BluetoothState, DeviceId, Hold};
 
 use glimpse_widgets::{BluetoothPopover, IndicatorSpec};
 use gtk4::glib;
 use gtk4::prelude::*;
-use render::Asked;
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
@@ -27,8 +26,7 @@ pub struct Bluetooth {
     nearby: usize,
     nearby_toggled: Rc<Cell<bool>>,
     expanded: Rc<Cell<(bool, bool)>>,
-    asked: Rc<RefCell<Option<Asked>>>,
-    raised: Option<Asked>,
+    asked: Rc<RefCell<Option<DeviceId>>>,
     shown: glib::WeakRef<BluetoothPopover>,
 }
 
@@ -44,7 +42,7 @@ impl Applet for Bluetooth {
         self.refresh();
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
                 let was = render::powered(&self.state);
@@ -53,9 +51,8 @@ impl Applet for Bluetooth {
                     && render::powered(&self.state)
                     && self.shown.upgrade().is_some_and(|shown| shown.is_mapped())
                 {
-                    look(self.bluetooth.clone(), self.raised.is_some());
+                    look(self.bluetooth.clone(), self.asked.borrow().is_some());
                 }
-                self.raise(ctx);
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -169,35 +166,20 @@ impl Applet for Bluetooth {
             let opener = seat.opener();
             move |_, accepted| {
                 let bluetooth = bluetooth.clone();
-                let Some(asked) = asked.borrow().clone() else {
+                let Some(id) = asked.borrow().clone() else {
                     return;
                 };
-                match asked {
-                    Asked::Pairing(_) => {
-                        let answer = match accepted {
-                            true => Answer::Confirm,
-                            false => Answer::Deny,
-                        };
-                        tell(
-                            &notifications,
-                            &opener,
-                            "bluetooth.answer_pairing",
-                            gettext("Could not pair"),
-                            async move { bluetooth.answer_pairing(answer).await },
-                        );
-                    }
-                    Asked::Forget(id) if accepted => tell(
+                match accepted {
+                    true => tell(
                         &notifications,
                         &opener,
                         "bluetooth.forget_device",
                         gettext("Could not remove the device"),
                         async move { bluetooth.forget(id, true).await },
                     ),
-                    Asked::Forget(_) => {
-                        spawn_command("bluetooth.dismiss_confirmation", async move {
-                            bluetooth.dismiss_confirmation().await
-                        })
-                    }
+                    false => spawn_command("bluetooth.dismiss_confirmation", async move {
+                        bluetooth.dismiss_confirmation().await
+                    }),
                 }
             }
         });
@@ -225,7 +207,7 @@ impl Applet for Bluetooth {
             }
         });
 
-        let prompting = self.raised.is_some();
+        let prompting = self.asked.borrow().is_some();
         shown.connect_map({
             let bluetooth = self.bluetooth.clone();
             move |_| {
@@ -239,7 +221,7 @@ impl Applet for Bluetooth {
             let bluetooth = self.bluetooth.clone();
             let asked = Rc::clone(&self.asked);
             move |_| {
-                if matches!(*asked.borrow(), Some(Asked::Forget(_))) {
+                if asked.borrow().is_some() {
                     let bluetooth = bluetooth.clone();
                     spawn_command("bluetooth.dismiss_confirmation", async move {
                         bluetooth.dismiss_confirmation().await
@@ -348,19 +330,7 @@ impl Bluetooth {
             expanded: Rc::new(Cell::new((false, false))),
             nearby_toggled: Rc::new(Cell::new(false)),
             asked: Rc::new(RefCell::new(None)),
-            raised: None,
             shown: glib::WeakRef::new(),
-        }
-    }
-
-    fn raise(&mut self, ctx: &Ctx) {
-        let asking = render::asked(&self.state);
-        if asking == self.raised {
-            return;
-        }
-        self.raised = asking;
-        if self.raised.is_some() {
-            ctx.opener().open_popover();
         }
     }
 

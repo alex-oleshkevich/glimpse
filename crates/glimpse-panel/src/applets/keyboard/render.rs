@@ -22,9 +22,11 @@ pub fn badge(layouts: &KeyboardLayouts) -> Option<&str> {
 pub fn tooltip(layouts: &KeyboardLayouts, format: Option<&str>) -> Option<String> {
     let layout = current(layouts)?;
     Some(match format {
-        Some(format) => format
-            .replace("{code}", &layout.code)
-            .replace("{name}", &layout.name),
+        Some(format) => crate::applets::tokens::render(format, |token| match token {
+            "code" => Some(layout.code.as_str()),
+            "name" => Some(layout.name.as_str()),
+            _ => None,
+        }),
         None => layout.name.clone(),
     })
 }

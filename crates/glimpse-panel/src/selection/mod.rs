@@ -246,7 +246,6 @@ fn translated(event: Watched) -> SelectionEvent {
         Watched::Incoming(entry) => SelectionEvent::Captured(Capture {
             mime: entry.mime,
             data: entry.data,
-            sensitive: false,
         }),
     }
 }

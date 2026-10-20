@@ -10,7 +10,7 @@ use super::*;
 
 #[test]
 fn the_wire_signature_matches_the_versioned_contract() {
-    assert_eq!(NightLightSnapshot::SIGNATURE, "(sbuubbssbx)");
+    assert_eq!(NightLightSnapshot::SIGNATURE, "(sbuubbssbxb)");
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,6 +51,7 @@ impl TestProvider {
             configured: "automatic".to_owned(),
             manual: false,
             paused_until: 0,
+            pausable: false,
         }
     }
 
@@ -357,7 +358,9 @@ fn a_nine_field_snapshot_defaults_the_pause_and_a_new_one_round_trips() {
     ));
     let mut snapshot = NightLightSnapshot::try_from(old).unwrap();
     assert_eq!(snapshot.paused_until, 0);
+    assert!(!snapshot.pausable);
     snapshot.paused_until = 1_800_000_000;
+    snapshot.pausable = true;
     assert_eq!(
         NightLightSnapshot::try_from(Value::from(snapshot.clone())).unwrap(),
         snapshot

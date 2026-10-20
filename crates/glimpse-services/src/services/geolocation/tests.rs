@@ -83,10 +83,10 @@ async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
         .await
         .expect("queued");
     sender
-        .send(Input::Event(Event::Located(Some(GeoCoordinates {
+        .send(Input::Event(Event::Located(GeoCoordinates {
             latitude: 52.2297,
             longitude: 21.0122,
-        }))))
+        })))
         .await
         .expect("queued");
 
@@ -124,7 +124,7 @@ async fn first_fix_skips_no_fix_updates_and_returns_the_first_real_one() {
     let updates = boxed(vec![Ok(None), Ok(None), Ok(Some(coordinates.clone()))]);
 
     match first_fix(updates).await {
-        Some(Event::Located(Some(got))) => assert_eq!(got, coordinates),
+        Some(Event::Located(got)) => assert_eq!(got, coordinates),
         other => panic!("expected a fix, got {other:?}"),
     }
 }
@@ -295,10 +295,10 @@ async fn an_unavailable_geoclue_source_marks_degraded_without_erasing_the_cached
 
     let sender = runtime.sender();
     sender
-        .send(Input::Event(Event::Located(Some(GeoCoordinates {
+        .send(Input::Event(Event::Located(GeoCoordinates {
             latitude: 41.9028,
             longitude: 12.4964,
-        }))))
+        })))
         .await
         .expect("queued");
     sender
@@ -438,7 +438,7 @@ async fn a_geoclue_fix_is_written_private_and_starts_the_refresh_ticker() {
     let mut service = Geolocation::start(&ctx, config, dependencies).await;
 
     service
-        .handle(&ctx, Input::Event(Event::Located(Some(WARSAW))))
+        .handle(&ctx, Input::Event(Event::Located(WARSAW)))
         .await;
 
     assert_eq!(*health.borrow(), ServiceState::Running);
@@ -479,7 +479,7 @@ async fn a_remembered_fix_out_of_range_is_ignored() {
 }
 
 fn located(fix: GeoCoordinates) -> Attempt {
-    Box::pin(async move { Ok(Some(Event::Located(Some(fix)))) })
+    Box::pin(async move { Ok(Some(Event::Located(fix))) })
 }
 
 #[tokio::test]
@@ -502,7 +502,7 @@ async fn a_failed_first_attempt_is_retried_until_a_fix_ends_the_stream() {
 
     assert!(matches!(&events[..], [
         Event::Unavailable(reason),
-        Event::Located(Some(fix)),
+        Event::Located(fix),
     ] if reason == "GeoClue not activatable" && *fix == WARSAW));
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
 }
@@ -530,7 +530,7 @@ async fn a_silent_first_attempt_is_abandoned_at_its_bound_and_retried() {
 
     assert!(matches!(&events[..], [
         Event::Unavailable(reason),
-        Event::Located(Some(_)),
+        Event::Located(_),
     ] if reason.contains("no fix")));
     assert!(
         released.await.is_err(),

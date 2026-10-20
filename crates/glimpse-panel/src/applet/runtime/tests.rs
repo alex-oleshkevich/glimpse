@@ -778,9 +778,8 @@ fn a_clock_interval_repaints_its_group() {
             zone: glimpse_services::Zone::Center,
             size: 32,
         },
-        None,
-    )
-    .expect("the clock builder");
+        &relm4::channel().0,
+    );
     struct Ticking {
         applet: Box<dyn Applet>,
         ticks: Rc<Cell<u32>>,

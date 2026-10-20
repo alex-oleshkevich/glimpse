@@ -72,13 +72,6 @@ impl FakeBacklight {
         self.record().late = Some((connector.to_owned(), misses, entry));
     }
 
-    pub fn set_brightness(&self, id: &str, brightness: u32) {
-        let mut record = self.record();
-        if let Some(entry) = record.entries.iter_mut().find(|entry| entry.id == id) {
-            entry.brightness = brightness;
-        }
-    }
-
     fn record(&self) -> std::sync::MutexGuard<'_, FakeRecord> {
         self.record.lock().unwrap_or_else(|held| held.into_inner())
     }

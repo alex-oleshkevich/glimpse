@@ -16,9 +16,9 @@ pub(super) fn check() {
 
     const KEYBOARD: &str = "/org/bluez/hci0/dev_K3";
 
-    dialog.ask(KEYBOARD, "Keychron K3", PairingEntry::Pin);
+    dialog.ask(KEYBOARD, "Keychron K3", PairingEntry::Pin, "");
     assert_eq!(rewrites.get(), 1);
-    dialog.ask(KEYBOARD, "Keychron K3", PairingEntry::Pin);
+    dialog.ask(KEYBOARD, "Keychron K3", PairingEntry::Pin, "");
     assert_eq!(
         rewrites.get(),
         1,
@@ -31,7 +31,7 @@ pub(super) fn check() {
     );
     dialog.imp().entry.set_text("0000");
     assert!(dialog.is_response_enabled("ok"));
-    dialog.ask(KEYBOARD, "Keychron K3 Keyboard", PairingEntry::Pin);
+    dialog.ask(KEYBOARD, "Keychron K3 Keyboard", PairingEntry::Pin, "");
     assert_eq!(
         dialog.imp().entry.text(),
         "0000",
@@ -41,13 +41,14 @@ pub(super) fn check() {
         "/org/bluez/hci0/dev_OTHER",
         "Pixel 9 Pro",
         PairingEntry::Pin,
+        "",
     );
     assert!(
         dialog.imp().entry.text().is_empty(),
         "a second device asking must not inherit the PIN typed for the first"
     );
     assert!(!dialog.is_response_enabled("ok"));
-    dialog.ask(KEYBOARD, "Keychron K3", PairingEntry::Pin);
+    dialog.ask(KEYBOARD, "Keychron K3", PairingEntry::Pin, "");
     dialog.imp().entry.set_text("0000");
     dialog.imp().entry.set_max_length(0);
     dialog.imp().entry.set_text(&"a".repeat(PIN_MAX + 1));
@@ -61,6 +62,7 @@ pub(super) fn check() {
         "/org/bluez/hci0/dev_BO_SE",
         "Bose QuietComfort 45",
         PairingEntry::Passkey,
+        "",
     );
     assert_eq!(rewrites.get(), 2, "a different prompt does write it");
     dialog.imp().entry.set_max_length(0);

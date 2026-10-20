@@ -13,6 +13,7 @@ fn snapshot() -> NightLightSnapshot {
         configured: "automatic".to_owned(),
         manual: false,
         paused_until: 0,
+        pausable: false,
     }
 }
 

@@ -45,23 +45,25 @@ pub fn label(format: &str, player: &PlayerStatus, now: DateTime<Utc>) -> String 
         .filter(|length| *length > 0)
         .map(|length| clock(length - at))
         .unwrap_or_default();
+    let duration = player
+        .length_us
+        .filter(|length| *length > 0)
+        .map(clock)
+        .unwrap_or_default();
+    let state = state(player.playback);
+    let position = clock(at);
 
-    format
-        .replace("{player}", &player.identity)
-        .replace("{title}", player.title.as_deref().unwrap_or_default())
-        .replace("{artist}", player.artist.as_deref().unwrap_or_default())
-        .replace("{album}", player.album.as_deref().unwrap_or_default())
-        .replace("{state}", &state(player.playback))
-        .replace("{position}", &clock(at))
-        .replace(
-            "{duration}",
-            &player
-                .length_us
-                .filter(|length| *length > 0)
-                .map(clock)
-                .unwrap_or_default(),
-        )
-        .replace("{remaining}", &remaining)
+    crate::applets::tokens::render(format, |token| match token {
+        "player" => Some(player.identity.as_str()),
+        "title" => Some(player.title.as_deref().unwrap_or_default()),
+        "artist" => Some(player.artist.as_deref().unwrap_or_default()),
+        "album" => Some(player.album.as_deref().unwrap_or_default()),
+        "state" => Some(state.as_str()),
+        "position" => Some(position.as_str()),
+        "duration" => Some(duration.as_str()),
+        "remaining" => Some(remaining.as_str()),
+        _ => None,
+    })
 }
 
 /// A format whose placeholders were all empty renders as separators with nothing between them —

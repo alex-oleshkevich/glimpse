@@ -791,6 +791,8 @@ pub enum Violation {
     TooManyChildren { parent: u32 },
     #[error("an array prop has more than 64 items")]
     TooManyItems,
+    #[error("a string prop is longer than 16384 characters")]
+    StringTooLong,
     #[error("{parent} holds a number of children its element does not allow")]
     ChildCount { parent: u32 },
     #[error("the root cannot be changed")]
@@ -1744,6 +1746,17 @@ fn clean(value: &str) -> String {
 }
 
 fn check_items(props: &Map<String, Value>) -> Result<(), Violation> {
+    fn long(value: &Value) -> bool {
+        match value {
+            Value::String(text) => text.chars().nth(ENTRY_CAP * 4).is_some(),
+            Value::Array(items) => items.iter().any(long),
+            Value::Object(fields) => fields.values().any(long),
+            _ => false,
+        }
+    }
+    if props.values().any(long) {
+        return Err(Violation::StringTooLong);
+    }
     fn oversized(value: &Value, limit: usize) -> bool {
         match value {
             Value::Array(items) => {

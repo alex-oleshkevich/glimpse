@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-20 13:16+0200\n"
+"POT-Creation-Date: 2026-10-20 18:27+0200\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,13 +16,13 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: crates/glimpse-lens/src/session.rs:291
+#: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"
 msgstr[0] "yhteensä {length} px, {count} osa"
 msgstr[1] "yhteensä {length} px, {count} osaa"
 
-#: crates/glimpse-lens/src/session.rs:304
+#: crates/glimpse-lens/src/session.rs:252
 msgid "segment {length}px · {angle}°"
 msgstr "osa {length} px · {angle}°"
 
@@ -127,48 +127,74 @@ msgstr "Järjestelmää ei voitu sammuttaa"
 msgid "Blocked by {who}: {why}"
 msgstr "{who} estää: {why}"
 
-#: crates/glimpse-notifications/src/app.rs:462
+#: crates/glimpse-notifications/src/app.rs:467
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "nyt"
+
+#: crates/glimpse-panel/src/app.rs:382
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:271
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:296
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+#: crates/glimpse-panel/src/app.rs:383
+msgid "The pairing answer was not delivered."
+msgstr "Parinmuodostuksen vastausta ei toimitettu."
 
 #: crates/glimpse-panel/src/app.rs:387
 msgid "Bluetooth pairing"
 msgstr "Bluetooth-paritus"
 
-#: crates/glimpse-panel/src/app.rs:429
+#: crates/glimpse-panel/src/app.rs:433
+#: crates/glimpse-panel/src/applets/network/indicator.rs:99
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+msgid "Network"
+msgstr "Verkko"
+
+#: crates/glimpse-panel/src/app.rs:434
+msgid "The password was not delivered."
+msgstr "Salasanaa ei toimitettu."
+
+#: crates/glimpse-panel/src/app.rs:438
 msgid "Network password"
 msgstr "Verkon salasana"
 
-#: crates/glimpse-panel/src/app.rs:441
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:135
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:163
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:183
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:196
+#: crates/glimpse-panel/src/app.rs:450
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:122
 #: crates/glimpse-shot/src/gui/result.rs:973
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
-#: crates/glimpse-widgets/blueprints/network_popover.blp:165
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
+#: crates/glimpse-widgets/blueprints/network_popover.blp:164
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:99
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:149
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:199
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:103
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:144
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:145
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:147
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:125
 msgid "Cancel"
 msgstr "Peru"
 
-#: crates/glimpse-panel/src/app.rs:504
+#: crates/glimpse-panel/src/app.rs:513
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "Istunto"
 
-#: crates/glimpse-panel/src/app.rs:506
+#: crates/glimpse-panel/src/app.rs:515
 msgid "Could not complete the session action"
 msgstr "Istuntotoimintoa ei voitu suorittaa"
 
-#: crates/glimpse-panel/src/app.rs:508
+#: crates/glimpse-panel/src/app.rs:517
 msgid "The session manager refused that action."
 msgstr "Istunnonhallinta hylkäsi toiminnon."
+
+#: crates/glimpse-panel/src/app.rs:527
+msgid "Could not answer the request"
+msgstr "Pyyntöön ei voitu vastata"
 
 #: crates/glimpse-panel/src/app.rs:600
 msgid "this device"
@@ -179,26 +205,26 @@ msgid "That change was refused."
 msgstr "Muutos hylättiin."
 
 #: crates/glimpse-panel/src/applet/mod.rs:164
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:281
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:290
 #: crates/glimpse-panel/src/applets/display/indicator.rs:388
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:153
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:167
 msgid "That is not supported."
 msgstr "Sitä ei tueta."
 
 #: crates/glimpse-panel/src/applet/mod.rs:165
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:282
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:291
 #: crates/glimpse-panel/src/applets/display/indicator.rs:389
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:154
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:168
 msgid "That could not be completed."
 msgstr "Toimintoa ei voitu suorittaa loppuun."
 
 #: crates/glimpse-panel/src/applet/mod.rs:166
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:283
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:292
 #: crates/glimpse-panel/src/applets/display/indicator.rs:390
 #: crates/glimpse-panel/src/applets/display/indicator.rs:401
-#: crates/glimpse-panel/src/applets/network/render.rs:98
-#: crates/glimpse-panel/src/applets/power/mod.rs:355
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:126
+#: crates/glimpse-panel/src/applets/network/render.rs:97
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:169
 msgid "That did not work."
 msgstr "Toiminto ei onnistunut."
 
@@ -311,70 +337,70 @@ msgstr "{days} pv"
 msgid "{days} d {hours} h"
 msgstr "{days} pv {hours} t"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:88
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:84
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:152
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:449
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:468
 msgid "Could not change the volume"
 msgstr "Äänenvoimakkuutta ei voitu muuttaa"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:110
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:170
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:468
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:108
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:172
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:489
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:156
 #: crates/glimpse-panel/src/applets/display/indicator.rs:379
-#: crates/glimpse-panel/src/applets/network/indicator.rs:482
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:95
+#: crates/glimpse-panel/src/applets/network/indicator.rs:424
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:105
 msgid "Could not change that setting"
 msgstr "Asetusta ei voitu muuttaa"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:130
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:128
 msgid "Could not switch device"
 msgstr "Laitetta ei voitu vaihtaa"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:192
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:194
 msgid "Could not move the application"
 msgstr "Sovellusta ei voitu siirtää"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:231
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:250
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:234
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:259
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:12
 msgid "Sound"
 msgstr "Ääni"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:271
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:280
 msgid "The audio server refused that."
 msgstr "Äänipalvelin hylkäsi pyynnön."
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:272
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:280
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:281
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:289
 msgid "The audio server is unavailable."
 msgstr "Äänipalvelin ei ole käytettävissä."
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:279
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:288
 #: crates/glimpse-panel/src/applets/display/indicator.rs:386
 #: crates/glimpse-panel/src/applets/display/indicator.rs:397
 msgid "That was not a valid value."
 msgstr "Arvo ei ollut kelvollinen."
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:304
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:313
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:24
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
 msgid "Output"
 msgstr "Ulostulo"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:305
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:314
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:50
 msgid "Input"
 msgstr "Sisääntulo"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:329
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:285
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:338
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:219
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
 #: crates/glimpse-panel/src/applets/places/render.rs:49
 msgid "Show fewer"
 msgstr "Näytä vähemmän"
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:330
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:339
 msgid "{count} more app"
 msgid_plural "{count} more apps"
 msgstr[0] "{count} sovellus lisää"
@@ -388,7 +414,7 @@ msgstr "Mykistetty"
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:358
+#: crates/glimpse-widgets/src/lib.rs:359
 msgid "{percent}%"
 msgstr "{percent} %"
 
@@ -397,40 +423,32 @@ msgstr "{percent} %"
 msgid "Unknown application"
 msgstr "Tuntematon sovellus"
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:82
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:79
 msgid "Could not switch Bluetooth"
 msgstr "Bluetoothia ei voitu kytkeä"
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
-#: crates/glimpse-panel/src/applets/network/indicator.rs:404
-#: crates/glimpse-panel/src/applets/network/indicator.rs:412
-#: crates/glimpse-panel/src/applets/network/indicator.rs:420
-#: crates/glimpse-panel/src/applets/network/indicator.rs:524
-#: crates/glimpse-panel/src/applets/network/indicator.rs:535
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:99
+#: crates/glimpse-panel/src/applets/network/indicator.rs:346
+#: crates/glimpse-panel/src/applets/network/indicator.rs:354
+#: crates/glimpse-panel/src/applets/network/indicator.rs:362
+#: crates/glimpse-panel/src/applets/network/indicator.rs:466
+#: crates/glimpse-panel/src/applets/network/indicator.rs:477
 msgid "Could not connect"
 msgstr "Yhdistäminen epäonnistui"
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:114
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:185
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:111
 msgid "Could not pair"
 msgstr "Paritus epäonnistui"
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:126
-#: crates/glimpse-panel/src/applets/network/indicator.rs:443
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:123
+#: crates/glimpse-panel/src/applets/network/indicator.rs:385
 msgid "Could not disconnect"
 msgstr "Yhteyden katkaisu epäonnistui"
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:137
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:134
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:177
 msgid "Could not remove the device"
 msgstr "Laitetta ei voitu poistaa"
-
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:289
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:314
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
-msgid "Bluetooth"
-msgstr "Bluetooth"
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
 msgid "Bluetooth is blocked"
@@ -462,11 +480,15 @@ msgid_plural "{count} devices connected"
 msgstr[0] "{count} laite yhdistetty"
 msgstr[1] "{count} laitetta yhdistetty"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:111
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:84
+msgid "{entered} of 6 entered"
+msgstr "{entered}/6 syötetty"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:104
 msgid "Bluetooth is waiting for an answer"
 msgstr "Bluetooth odottaa vastausta"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:125
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:114
 msgid ""
 "It will be disconnected, and this computer will stop connecting to it. To "
 "use it again you will have to pair it, with the device in pairing mode."
@@ -474,7 +496,7 @@ msgstr ""
 "Laitteen yhteys katkaistaan, eikä tämä tietokone enää yhdistä siihen. Jos "
 "haluat käyttää sitä uudelleen, aseta laite paritustilaan ja parita se."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:128
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:117
 msgid ""
 "This computer will stop connecting to it, and it will not connect on its "
 "own. To use it again you will have to pair it, with the device in pairing "
@@ -483,147 +505,113 @@ msgstr ""
 "Tämä tietokone ei enää yhdistä laitteeseen, eikä laite yhdistä itsestään. "
 "Jos haluat käyttää sitä uudelleen, aseta laite paritustilaan ja parita se."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:133
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:120
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:290
 msgid "Forget"
 msgstr "Unohda"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:144
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:131
 msgid "Unknown device"
 msgstr "Tuntematon laite"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:158
-msgid "Is this the code shown on the device?"
-msgstr "Onko tämä laitteessa näkyvä koodi?"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:161
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
-msgid "Confirm"
-msgstr "Vahvista"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
-msgid "This device wants to pair with this computer."
-msgstr "Tämä laite haluaa muodostaa parin tämän tietokoneen kanssa."
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:171
-msgid "Allow"
-msgstr "Salli"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:173
-msgid "Deny"
-msgstr "Kiellä"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
-msgid "Type this PIN on the device. It will not ask again."
-msgstr "Kirjoita tämä PIN-koodi laitteeseen. Sitä ei kysytä uudelleen."
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:190
-msgid "Type this passkey on the device."
-msgstr "Kirjoita tämä tunnusluku laitteeseen."
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
-msgid "{entered} of 6 entered"
-msgstr "{entered}/6 syötetty"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:264
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:198
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:220
 msgid "{count} more device"
 msgid_plural "{count} more devices"
 msgstr[0] "{count} laite lisää"
 msgstr[1] "{count} laitetta lisää"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:305
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:239
 msgid "{level}%"
 msgstr "{level} %"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:312
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:246
 msgid "Blocked"
 msgstr "Estetty"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:249
 msgid "Pairing lost"
 msgstr "Paritus kadonnut"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:318
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:252
 msgid "Pairing will not survive a restart"
 msgstr "Paritus ei säily uudelleenkäynnistyksessä"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:259
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
-#: crates/glimpse-panel/src/applets/network/render.rs:324
+#: crates/glimpse-panel/src/applets/network/render.rs:323
 msgid "Type"
 msgstr "Tyyppi"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:260
 #: crates/glimpse-panel/src/applets/power/render.rs:111
 #: crates/glimpse-widgets/blueprints/power_popover.blp:41
 msgid "Battery"
 msgstr "Akku"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
 msgid "Codec"
 msgstr "Koodekki"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:340
-#: crates/glimpse-panel/src/applets/network/render.rs:243
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:274
+#: crates/glimpse-panel/src/applets/network/render.rs:242
 msgid "Disconnect"
 msgstr "Katkaise yhteys"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:342
-#: crates/glimpse-panel/src/applets/network/indicator.rs:264
-#: crates/glimpse-panel/src/applets/network/indicator.rs:273
-#: crates/glimpse-panel/src/applets/network/indicator.rs:295
-#: crates/glimpse-panel/src/applets/network/render.rs:251
-#: crates/glimpse-widgets/blueprints/network_popover.blp:169
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:276
+#: crates/glimpse-panel/src/applets/network/indicator.rs:228
+#: crates/glimpse-panel/src/applets/network/indicator.rs:237
+#: crates/glimpse-panel/src/applets/network/render.rs:250
+#: crates/glimpse-widgets/blueprints/network_popover.blp:168
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
 msgid "Connect"
 msgstr "Yhdistä"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:344
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:278
 msgid "Pair"
 msgstr "Parita"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
-#: crates/glimpse-panel/src/applets/network/render.rs:279
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:290
+#: crates/glimpse-panel/src/applets/network/render.rs:278
 #: crates/glimpse-widgets/blueprints/network_row.blp:25
 msgid "Connect automatically"
 msgstr "Yhdistä automaattisesti"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:298
 msgid "Forget this device"
 msgstr "Unohda tämä laite"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:380
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:314
 msgid "The device is switched off or out of range."
 msgstr "Laite on sammutettu tai kantaman ulkopuolella."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:381
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
 msgid "The device refused the connection."
 msgstr "Laite hylkäsi yhteyden."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:316
 msgid "The device offers nothing this computer can connect to."
 msgstr "Laite ei tarjoa mitään, mihin tämä tietokone voisi yhdistää."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:317
 msgid "The PIN or passkey did not match."
 msgstr "PIN-koodi tai tunnusluku ei täsmännyt."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
 msgid "The device rejected the pairing. Put it in pairing mode and try again."
 msgstr "Laite hylkäsi parituksen. Aseta se paritustilaan ja yritä uudelleen."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:321
 msgid "The pairing timed out."
 msgstr "Parituksen aikaraja ylittyi."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:322
 msgid "The pairing was cancelled."
 msgstr "Paritus peruttiin."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:324
 msgid ""
 "This panel could not register a pairing agent, so it cannot pair. Devices "
 "that are already paired still connect."
@@ -631,23 +619,23 @@ msgstr ""
 "Tämä paneeli ei voinut rekisteröidä paritusagenttia, joten se ei voi "
 "parittaa. Jo paritetut laitteet yhdistyvät edelleen."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
 msgid "The device is busy, possibly connected to another device."
 msgstr "Laite on varattu, ehkä yhdistettynä toiseen laitteeseen."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:327
 msgid "Bluetooth is switched off."
 msgstr "Bluetooth on pois päältä."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:394
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
 msgid "The device disconnected."
 msgstr "Laitteen yhteys katkesi."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:329
 msgid "The pairing with this device is no longer valid."
 msgstr "Paritus tämän laitteen kanssa ei ole enää voimassa."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
 msgid ""
 "This computer could not open a connection to the device. Try again, or "
 "switch Bluetooth off and on."
@@ -655,64 +643,65 @@ msgstr ""
 "Tämä tietokone ei voinut avata yhteyttä laitteeseen. Yritä uudelleen tai "
 "kytke Bluetooth pois ja takaisin päälle."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:399
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:333
 msgid "Bluetooth could not complete that."
 msgstr "Bluetooth ei voinut suorittaa toimintoa loppuun."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:422
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
 msgid "Headset"
 msgstr "Kuulokemikrofoni"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:423
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:357
 msgid "Headphones"
 msgstr "Kuulokkeet"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:424
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:358
 msgid "Speaker"
 msgstr "Kaiutin"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:359
 #: crates/glimpse-panel/src/applets/display/render.rs:78
 #: crates/glimpse-panel/src/applets/display/render/tests.rs:195
+#: crates/glimpse-panel/src/applets/keyboard/indicator.rs:101
 #: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
 msgid "Keyboard"
 msgstr "Näppäimistö"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:426
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:360
 msgid "Mouse"
 msgstr "Hiiri"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:427
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:361
 msgid "Gamepad"
 msgstr "Peliohjain"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:428
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:362
 msgid "Tablet"
 msgstr "Tabletti"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:429
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:363
 msgid "Phone"
 msgstr "Puhelin"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
 msgid "Computer"
 msgstr "Tietokone"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:431
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:365
 #: crates/glimpse-widgets/blueprints/display_popover.blp:12
 msgid "Display"
 msgstr "Näyttö"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:366
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:154
 msgid "Printer"
 msgstr "Tulostin"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:367
 msgid "Device"
 msgstr "Laite"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:448
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
 msgid "Vendor codec"
 msgstr "Valmistajan koodekki"
 
@@ -756,7 +745,7 @@ msgid "Path"
 msgstr "Polku"
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
-#: crates/glimpse-panel/src/applets/network/render.rs:104
+#: crates/glimpse-panel/src/applets/network/render.rs:103
 #: crates/glimpse-widgets/blueprints/removable_device.blp:30
 msgid "Open"
 msgstr "Avaa"
@@ -765,19 +754,19 @@ msgstr "Avaa"
 msgid "Lines"
 msgstr "Rivit"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:278
 msgid "Send to device"
 msgstr "Lähetä laitteeseen"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:286
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
 msgid "Pin"
 msgstr "Kiinnitä"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:287
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:289
 msgid "Unpin"
 msgstr "Poista kiinnitys"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:300
 #: crates/glimpse-panel/src/applets/places/render.rs:50
 #: crates/glimpse-panel/src/applets/removable/render.rs:47
 msgid "{count} more"
@@ -785,66 +774,66 @@ msgid_plural "{count} more"
 msgstr[0] "{count} lisää"
 msgstr[1] "{count} lisää"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:310
 msgid "Clear history"
 msgstr "Tyhjennä historia"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:428
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:443
 msgid "Save image"
 msgstr "Tallenna kuva"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:442
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:457
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:601
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:632
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:660
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:682
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:704
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:472
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:615
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:646
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:674
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:696
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:718
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:12
 msgid "Clipboard"
 msgstr "Leikepöytä"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:444
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
 msgid "Could not save the image"
 msgstr "Kuvaa ei voitu tallentaa"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:474
 msgid "Could not send that"
 msgstr "Lähettäminen epäonnistui"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:476
 msgid "KDE Connect is not running."
 msgstr "KDE Connect ei ole käynnissä."
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:503
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:518
 msgid "That entry is no longer in the history."
 msgstr "Merkintä ei ole enää historiassa."
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:603
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:617
 msgid "Could not copy that"
 msgstr "Kopiointi epäonnistui"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:613
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:644
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:667
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:689
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:711
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:627
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:658
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:681
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:703
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:725
 msgid "The clipboard is unavailable."
 msgstr "Leikepöytä ei ole käytettävissä."
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:634
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:648
 msgid "Could not copy that entry"
 msgstr "Merkintää ei voitu kopioida"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:662
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:676
 msgid "Could not pin that entry"
 msgstr "Merkintää ei voitu kiinnittää"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:684
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:698
 msgid "Could not forget that entry"
 msgstr "Merkintää ei voitu unohtaa"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:706
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:720
 msgid "Could not clear the history"
 msgstr "Historiaa ei voitu tyhjentää"
 
@@ -894,7 +883,7 @@ msgstr "Näyttöä ei voitu muuttaa"
 
 #: crates/glimpse-panel/src/applets/display/indicator.rs:250
 #: crates/glimpse-panel/src/applets/display/indicator.rs:272
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:166
 #: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:218
 msgid "The compositor is unavailable."
 msgstr "Koostin ei ole käytettävissä."
@@ -929,7 +918,7 @@ msgid "The night light is not running."
 msgstr "Yövalo ei ole käynnissä."
 
 #: crates/glimpse-panel/src/applets/display/indicator.rs:400
-#: crates/glimpse-panel/src/applets/power/mod.rs:353
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:124
 msgid "That took too long."
 msgstr "Toiminto kesti liian kauan."
 
@@ -938,12 +927,12 @@ msgid "{name}: {percent}%"
 msgstr "{name}: {percent} %"
 
 #: crates/glimpse-panel/src/applets/exec/dom.rs:1197
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:405
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:406
 msgid "Unsupported: {name}"
 msgstr "Ei tuettu: {name}"
 
 #: crates/glimpse-panel/src/applets/exec/dom.rs:1202
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:410
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:411
 msgid "This applet asked for an element glimpse does not render"
 msgstr "Tämä sovelma pyysi elementtiä, jota glimpse ei piirrä"
 
@@ -983,18 +972,29 @@ msgstr "Käynnistä uudelleen"
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
 msgid "The applet stopped"
-msgstr "Sovelma pysähtyi"
+msgstr "Sovellus pysähtyi"
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:21
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:128
 msgid "The applet keeps exiting. It restarts on its own."
-msgstr "Sovelma sulkeutuu jatkuvasti. Se käynnistyy itsestään uudelleen."
+msgstr "Sovellus sulkeutuu jatkuvasti. Se käynnistyy itsestään uudelleen."
 
-#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:14
 msgid "Awake until {time}"
 msgstr "Valveilla klo {time} asti"
 
-#: crates/glimpse-panel/src/applets/idle/mod.rs:185
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:119
+msgid "Could not change keep awake"
+msgstr "Valveilla pitoa ei voitu muuttaa"
+
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:123
+msgid "The idle service is unavailable."
+msgstr "Joutotilapalvelu ei ole käytettävissä."
+
+#: crates/glimpse-panel/src/applets/idle/mod.rs:64
+#: crates/glimpse-panel/src/applets/idle/mod.rs:85
+#: crates/glimpse-panel/src/applets/idle/mod.rs:92
+#: crates/glimpse-panel/src/applets/idle/mod.rs:189
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
 msgid "Idle"
 msgstr "Joutotila"
@@ -1080,6 +1080,14 @@ msgstr "Glimpse"
 msgid "Manual hold"
 msgstr "Manuaalinen esto"
 
+#: crates/glimpse-panel/src/applets/keyboard/indicator.rs:103
+msgid "Could not switch the keyboard layout"
+msgstr "Näppäimistöasettelua ei voitu vaihtaa"
+
+#: crates/glimpse-panel/src/applets/keyboard/indicator.rs:108
+msgid "The keyboard layout service is unavailable."
+msgstr "Näppäimistöasettelupalvelu ei ole käytettävissä."
+
 #: crates/glimpse-panel/src/applets/mod.rs:47
 msgid "Built-in display"
 msgstr "Sisäänrakennettu näyttö"
@@ -1103,126 +1111,107 @@ msgstr "Tauolla"
 msgid "Stopped"
 msgstr "Pysäytetty"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:44
+#: crates/glimpse-panel/src/applets/network/indicator.rs:40
 msgid "None"
 msgstr "Ei mitään"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:45
+#: crates/glimpse-panel/src/applets/network/indicator.rs:41
 msgid "WEP"
 msgstr "WEP"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:46
+#: crates/glimpse-panel/src/applets/network/indicator.rs:42
 msgid "WPA & WPA2 Personal"
 msgstr "WPA & WPA2 Personal"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:47
+#: crates/glimpse-panel/src/applets/network/indicator.rs:43
 msgid "WPA3 Personal"
 msgstr "WPA3 Personal"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:114
-#: crates/glimpse-widgets/blueprints/places_popover.blp:51
-msgid "Network"
-msgstr "Verkko"
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:207
+#: crates/glimpse-panel/src/applets/network/indicator.rs:171
 #: crates/glimpse-widgets/blueprints/network_popover.blp:16
 #: crates/glimpse-widgets/blueprints/network_popover.blp:54
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:252
+#: crates/glimpse-panel/src/applets/network/indicator.rs:216
 msgid "Hidden network"
 msgstr "Piilotettu verkko"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+#: crates/glimpse-panel/src/applets/network/indicator.rs:217
 msgid "Type the name the network broadcasts nothing about."
 msgstr "Kirjoita verkon nimi, sillä verkko ei lähetä sitä."
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+#: crates/glimpse-panel/src/applets/network/indicator.rs:219
 msgid "Continue"
 msgstr "Jatka"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+#: crates/glimpse-panel/src/applets/network/indicator.rs:226
 msgid "Choose how the network is secured, then type its password."
 msgstr "Valitse verkon suojaustapa ja kirjoita sitten sen salasana."
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:271
-#: crates/glimpse-panel/src/applets/network/indicator.rs:289
+#: crates/glimpse-panel/src/applets/network/indicator.rs:235
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
 msgid "The network needs a password before this computer can join it."
 msgstr "Verkko vaatii salasanan, ennen kuin tämä tietokone voi liittyä siihen."
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:283
-msgid "{network} refused that password. Check it and try again."
-msgstr "Verkko {network} hylkäsi salasanan. Tarkista se ja yritä uudelleen."
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:294
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
-msgid "Try again"
-msgstr "Yritä uudelleen"
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:316
+#: crates/glimpse-panel/src/applets/network/indicator.rs:259
 msgid "VPN is connected"
 msgstr "VPN on yhdistetty"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:366
+#: crates/glimpse-panel/src/applets/network/indicator.rs:308
 msgid "Could not switch Wi-Fi"
 msgstr "Wi-Fiä ei voitu kytkeä"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:396
+#: crates/glimpse-panel/src/applets/network/indicator.rs:338
 msgid "Could not connect the VPN"
 msgstr "VPN-yhteyttä ei voitu muodostaa"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:451
+#: crates/glimpse-panel/src/applets/network/indicator.rs:393
 msgid "Could not forget that network"
 msgstr "Verkkoa ei voitu unohtaa"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:459
+#: crates/glimpse-panel/src/applets/network/indicator.rs:401
 msgid "Could not disconnect the VPN"
 msgstr "VPN-yhteyttä ei voitu katkaista"
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:549
-msgid "Could not send that password"
-msgstr "Salasanaa ei voitu lähettää"
 
 #: crates/glimpse-panel/src/applets/network/render.rs:14
 msgid "Networking is off"
 msgstr "Verkkoyhteydet ovat pois päältä"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:19
+#: crates/glimpse-panel/src/applets/network/render.rs:18
 msgid "Connected by cable"
 msgstr "Yhdistetty kaapelilla"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:20
+#: crates/glimpse-panel/src/applets/network/render.rs:19
 msgid "Connected, no internet"
 msgstr "Yhdistetty, ei internetyhteyttä"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:24
+#: crates/glimpse-panel/src/applets/network/render.rs:23
 msgid "No network adapter"
 msgstr "Ei verkkosovitinta"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:27
+#: crates/glimpse-panel/src/applets/network/render.rs:26
 msgid "Wi-Fi is blocked by hardware"
 msgstr "Wi-Fi on estetty laitteistotasolla"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:30
+#: crates/glimpse-panel/src/applets/network/render.rs:29
 msgid "Wi-Fi is off"
 msgstr "Wi-Fi on pois päältä"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:38
-#: crates/glimpse-panel/src/applets/network/render.rs:128
+#: crates/glimpse-panel/src/applets/network/render.rs:37
+#: crates/glimpse-panel/src/applets/network/render.rs:127
 msgid "Unnamed network"
 msgstr "Nimetön verkko"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:41
+#: crates/glimpse-panel/src/applets/network/render.rs:40
 msgid "{network}: connected, no internet"
 msgstr "{network}: yhdistetty, ei internetyhteyttä"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:44
+#: crates/glimpse-panel/src/applets/network/render.rs:43
 msgid "Not connected"
 msgstr "Ei yhdistetty"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:51
+#: crates/glimpse-panel/src/applets/network/render.rs:50
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:56
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:64
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:77
@@ -1230,66 +1219,66 @@ msgstr "Ei yhdistetty"
 msgid "Metered connection"
 msgstr "Käytön mukaan laskutettava yhteys"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:81
+#: crates/glimpse-panel/src/applets/network/render.rs:80
 msgid "Signal {signal}%"
 msgstr "Signaali {signal} %"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:82
+#: crates/glimpse-panel/src/applets/network/render.rs:81
 msgid "VPN: {vpn}"
 msgstr "VPN: {vpn}"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:89
+#: crates/glimpse-panel/src/applets/network/render.rs:88
 msgid "That network needs a password."
 msgstr "Verkko vaatii salasanan."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:90
+#: crates/glimpse-panel/src/applets/network/render.rs:89
 msgid "The password was not accepted."
 msgstr "Salasanaa ei hyväksytty."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:91
+#: crates/glimpse-panel/src/applets/network/render.rs:90
 msgid "That network is no longer in range."
 msgstr "Verkko on poistunut kantamalta."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:92
+#: crates/glimpse-panel/src/applets/network/render.rs:91
 msgid "The connection timed out."
 msgstr "Yhteyden aikaraja ylittyi."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:93
+#: crates/glimpse-panel/src/applets/network/render.rs:92
 msgid "The connection could not be configured."
 msgstr "Yhteyttä ei voitu määrittää."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:94
+#: crates/glimpse-panel/src/applets/network/render.rs:93
 msgid "The connection was dropped."
 msgstr "Yhteys katkesi."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:95
+#: crates/glimpse-panel/src/applets/network/render.rs:94
 msgid "That network has been forgotten."
 msgstr "Verkko on unohdettu."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:96
+#: crates/glimpse-panel/src/applets/network/render.rs:95
 msgid "There is no network device to use."
 msgstr "Käytettävissä ei ole verkkolaitetta."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:97
+#: crates/glimpse-panel/src/applets/network/render.rs:96
 msgid "NetworkManager refused that."
 msgstr "NetworkManager hylkäsi pyynnön."
 
-#: crates/glimpse-panel/src/applets/network/render.rs:109
+#: crates/glimpse-panel/src/applets/network/render.rs:108
 msgid "Enterprise"
 msgstr "Enterprise"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:110
+#: crates/glimpse-panel/src/applets/network/render.rs:109
 msgid "Open, encrypted"
 msgstr "Avoin, salattu"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:207
+#: crates/glimpse-panel/src/applets/network/render.rs:206
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:291
 msgid "{count} more network"
 msgid_plural "{count} more networks"
 msgstr[0] "{count} verkko lisää"
 msgstr[1] "{count} verkkoa lisää"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:233
+#: crates/glimpse-panel/src/applets/network/render.rs:232
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/printing/render.rs:163
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
@@ -1298,36 +1287,36 @@ msgstr[1] "{count} verkkoa lisää"
 msgid "Status"
 msgstr "Tila"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:235
+#: crates/glimpse-panel/src/applets/network/render.rs:234
 msgid "Metered"
 msgstr "Käytön mukaan laskutettava"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:239
+#: crates/glimpse-panel/src/applets/network/render.rs:238
 msgid "IP address"
 msgstr "IP-osoite"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:266
+#: crates/glimpse-panel/src/applets/network/render.rs:265
 msgid "Security"
 msgstr "Suojaus"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:267
+#: crates/glimpse-panel/src/applets/network/render.rs:266
 msgid "Band"
 msgstr "Taajuusalue"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:294
+#: crates/glimpse-panel/src/applets/network/render.rs:293
 #: crates/glimpse-widgets/blueprints/network_row.blp:34
 msgid "Forget this network"
 msgstr "Unohda tämä verkko"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:306
+#: crates/glimpse-panel/src/applets/network/render.rs:305
 msgid "Cable unplugged"
 msgstr "Kaapeli irrotettu"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:314
+#: crates/glimpse-panel/src/applets/network/render.rs:313
 msgid "Speed"
 msgstr "Nopeus"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:315
+#: crates/glimpse-panel/src/applets/network/render.rs:314
 msgid "{speed} Mb/s"
 msgstr "{speed} Mb/s"
 
@@ -1384,7 +1373,7 @@ msgstr "Linkki"
 msgid "Conflicts"
 msgstr "Päällekkäisyydet"
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:211
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:214
 msgid "Clear all"
 msgstr "Tyhjennä kaikki"
 
@@ -1433,24 +1422,30 @@ msgid_plural "{count} windows"
 msgstr[0] "{count} ikkuna"
 msgstr[1] "{count} ikkunaa"
 
-#: crates/glimpse-panel/src/applets/places/indicator.rs:76
+#: crates/glimpse-panel/src/applets/places/indicator.rs:80
 #: crates/glimpse-panel/src/applets/places/render.rs:20
 #: crates/glimpse-widgets/blueprints/places_popover.blp:12
 #: crates/glimpse-widgets/blueprints/places_popover.blp:24
 msgid "Places"
 msgstr "Sijainnit"
 
-#: crates/glimpse-panel/src/applets/places/indicator.rs:78
+#: crates/glimpse-panel/src/applets/places/indicator.rs:82
 msgid "Could not empty the trash"
 msgstr "Roskakoria ei voitu tyhjentää"
 
-#: crates/glimpse-panel/src/applets/places/indicator.rs:106
+#: crates/glimpse-panel/src/applets/places/indicator.rs:110
 msgid "Some items could not be deleted."
 msgstr "Joitakin kohteita ei voitu poistaa."
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:297
-#: crates/glimpse-panel/src/applets/power/mod.rs:325
-#: crates/glimpse-panel/src/applets/power/mod.rs:346
+#: crates/glimpse-panel/src/applets/places/render.rs:57
+#: crates/glimpse-panel/src/applets/places/render/tests.rs:118
+msgid "Home"
+msgstr "Koti"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:224
+#: crates/glimpse-panel/src/applets/power/mod.rs:246
+#: crates/glimpse-panel/src/applets/power/mod.rs:299
+#: crates/glimpse-panel/src/applets/power/mod.rs:327
 #: crates/glimpse-panel/src/applets/power/render.rs:27
 #: crates/glimpse-widgets/blueprints/power_popover.blp:12
 #: crates/glimpse-widgets/blueprints/status_island.blp:34
@@ -1458,26 +1453,18 @@ msgstr "Joitakin kohteita ei voitu poistaa."
 msgid "Power"
 msgstr "Virta"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:299
+#: crates/glimpse-panel/src/applets/power/mod.rs:301
 msgid "Could not change the power mode"
 msgstr "Virtatilaa ei voitu muuttaa"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:304
-#: crates/glimpse-panel/src/applets/power/mod.rs:332
+#: crates/glimpse-panel/src/applets/power/mod.rs:306
+#: crates/glimpse-panel/src/applets/power/mod.rs:334
 msgid "The battery service is unavailable."
 msgstr "Akkupalvelu ei ole käytettävissä."
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:327
+#: crates/glimpse-panel/src/applets/power/mod.rs:329
 msgid "Could not change the charge limit"
 msgstr "Latausrajaa ei voitu muuttaa"
-
-#: crates/glimpse-panel/src/applets/power/mod.rs:348
-msgid "Could not change keep awake"
-msgstr "Valveilla pitoa ei voitu muuttaa"
-
-#: crates/glimpse-panel/src/applets/power/mod.rs:352
-msgid "The idle service is unavailable."
-msgstr "Joutotilapalvelu ei ole käytettävissä."
 
 #: crates/glimpse-panel/src/applets/power/render.rs:130
 msgid "Power draw"
@@ -1708,19 +1695,20 @@ msgstr "Keskeytynyt"
 msgid "Not accepting jobs"
 msgstr "Ei ota vastaan töitä"
 
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:93
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:134
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:83
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:165
+msgid "That share had already ended."
+msgstr "Jakaminen oli jo päättynyt."
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:103
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 #: crates/glimpse-widgets/blueprints/privacy_popover.blp:12
 msgid "Privacy"
 msgstr "Yksityisyys"
 
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:136
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:159
 msgid "Could not stop that screen share"
 msgstr "Näytön jakamista ei voitu lopettaa"
-
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:151
-msgid "That share had already ended."
-msgstr "Jakaminen oli jo päättynyt."
 
 #: crates/glimpse-panel/src/applets/privacy/render.rs:70
 msgid "Camera"
@@ -1749,74 +1737,74 @@ msgstr "mykistetty"
 msgid "a window"
 msgstr "ikkuna"
 
-#: crates/glimpse-panel/src/applets/removable/indicator.rs:78
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:81
 msgid "Could not open that drive"
 msgstr "Asemaa ei voitu avata"
 
-#: crates/glimpse-panel/src/applets/removable/indicator.rs:112
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:116
 msgid "Could not eject that drive"
 msgstr "Asemaa ei voitu irrottaa"
 
-#: crates/glimpse-panel/src/applets/removable/indicator.rs:154
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:158
 #: crates/glimpse-panel/src/applets/removable/render.rs:27
 #: crates/glimpse-widgets/blueprints/removable_popover.blp:12
 msgid "Removable"
 msgstr "Irrotettava"
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:115
+#: crates/glimpse-panel/src/applets/removable/render.rs:118
 msgid "{available} free"
 msgstr "{available} vapaana"
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:151
+#: crates/glimpse-panel/src/applets/removable/render.rs:154
 #: crates/glimpse-widgets/blueprints/removable_device.blp:20
 msgid "Space"
 msgstr "Tallennustila"
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:181
+#: crates/glimpse-panel/src/applets/removable/render.rs:184
 msgid "In use by an app"
 msgstr "Sovelluksen käytössä"
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:184
+#: crates/glimpse-panel/src/applets/removable/render.rs:187
 msgid "No space left"
 msgstr "Tallennustila on täynnä"
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:231
+#: crates/glimpse-panel/src/applets/removable/render.rs:234
 msgid "That drive is not mounted."
 msgstr "Asemaa ei ole liitetty."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:232
+#: crates/glimpse-panel/src/applets/removable/render.rs:235
 msgid "The drive is busy with something else."
 msgstr "Asema on muun toiminnon käytössä."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:233
+#: crates/glimpse-panel/src/applets/removable/render.rs:236
 msgid "That drive is already mounted."
 msgstr "Asema on jo liitetty."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:234
+#: crates/glimpse-panel/src/applets/removable/render.rs:237
 msgid "This computer is not authorized to do that."
 msgstr "Tällä tietokoneella ei ole siihen oikeutta."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:235
+#: crates/glimpse-panel/src/applets/removable/render.rs:238
 msgid "That is not supported for this drive."
 msgstr "Toimintoa ei tueta tällä asemalla."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:236
+#: crates/glimpse-panel/src/applets/removable/render.rs:239
 msgid "That option is not permitted."
 msgstr "Asetus ei ole sallittu."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:237
+#: crates/glimpse-panel/src/applets/removable/render.rs:240
 msgid "The drive did not respond in time."
 msgstr "Asema ei vastannut ajoissa."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:238
+#: crates/glimpse-panel/src/applets/removable/render.rs:241
 msgid "That would wake a sleeping drive."
 msgstr "Toiminto herättäisi lepotilassa olevan aseman."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:239
+#: crates/glimpse-panel/src/applets/removable/render.rs:242
 msgid "The action was cancelled."
 msgstr "Toiminto peruttiin."
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:240
+#: crates/glimpse-panel/src/applets/removable/render.rs:243
 msgid "The drive could not complete that."
 msgstr "Asema ei voinut suorittaa toimintoa loppuun."
 
@@ -2158,61 +2146,61 @@ msgstr "Glimpsen määrityksessä on virheitä"
 msgid "a screenshot is already being taken"
 msgstr "kuvakaappausta otetaan jo"
 
-#: crates/glimpse-shot/src/gui/app.rs:218
+#: crates/glimpse-shot/src/gui/app.rs:222
 msgid "_Open Image…"
 msgstr "_Avaa kuva…"
 
-#: crates/glimpse-shot/src/gui/app.rs:220
+#: crates/glimpse-shot/src/gui/app.rs:224
 msgid "_Preferences"
 msgstr "_Asetukset"
 
-#: crates/glimpse-shot/src/gui/app.rs:221
+#: crates/glimpse-shot/src/gui/app.rs:225
 msgid "_Keyboard Shortcuts"
 msgstr "_Pikanäppäimet"
 
-#: crates/glimpse-shot/src/gui/app.rs:222
+#: crates/glimpse-shot/src/gui/app.rs:226
 msgid "_About Screenshot"
 msgstr "_Tietoja sovelluksesta Kuvakaappaus"
 
-#: crates/glimpse-shot/src/gui/app.rs:372
+#: crates/glimpse-shot/src/gui/app.rs:376
 msgid "--portal needs a screen target"
 msgstr "--portal vaatii näyttökohteen"
 
-#: crates/glimpse-shot/src/gui/app.rs:532
-#: crates/glimpse-shot/src/gui/app.rs:640
-#: crates/glimpse-shot/src/gui/app.rs:892 crates/glimpse-shot/src/notify.rs:284
+#: crates/glimpse-shot/src/gui/app.rs:536
+#: crates/glimpse-shot/src/gui/app.rs:644
+#: crates/glimpse-shot/src/gui/app.rs:896 crates/glimpse-shot/src/notify.rs:284
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr "Kuvakaappaus"
 
-#: crates/glimpse-shot/src/gui/app.rs:567
+#: crates/glimpse-shot/src/gui/app.rs:571
 msgid "The clipboard holds no image"
 msgstr "Leikepöydällä ei ole kuvaa"
 
-#: crates/glimpse-shot/src/gui/app.rs:764
+#: crates/glimpse-shot/src/gui/app.rs:768
 msgid "There is no window to capture"
 msgstr "Kaapattavaa ikkunaa ei ole"
 
-#: crates/glimpse-shot/src/gui/app.rs:834
+#: crates/glimpse-shot/src/gui/app.rs:838
 msgid "That window has closed"
 msgstr "Ikkuna on suljettu"
 
-#: crates/glimpse-shot/src/gui/app.rs:851
+#: crates/glimpse-shot/src/gui/app.rs:855
 msgid "PNG Images"
 msgstr "PNG-kuvat"
 
-#: crates/glimpse-shot/src/gui/app.rs:856
+#: crates/glimpse-shot/src/gui/app.rs:860
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr "Avaa kuva"
 
-#: crates/glimpse-shot/src/gui/app.rs:969
+#: crates/glimpse-shot/src/gui/app.rs:972
 msgid "Untitled window"
 msgstr "Nimetön ikkuna"
 
-#: crates/glimpse-shot/src/gui/app.rs:1078
+#: crates/glimpse-shot/src/gui/app.rs:1073
 msgid "Screenshot failed"
 msgstr "Kuvakaappaus epäonnistui"
 
@@ -2229,11 +2217,11 @@ msgstr "Tallenna kuvakaappaus"
 msgid "{size} · scaled {percent}%"
 msgstr "{size} · skaalattu {percent} %"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1816
+#: crates/glimpse-shot/src/gui/overlay.rs:1801
 msgid "Saved"
 msgstr "Tallennettu"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1817
+#: crates/glimpse-shot/src/gui/overlay.rs:1802
 msgid "Copied"
 msgstr "Kopioitu"
 
@@ -2313,21 +2301,21 @@ msgctxt "notification action"
 msgid "Open"
 msgstr "Avaa"
 
-#: crates/glimpse-shot/src/portal.rs:138
+#: crates/glimpse-shot/src/portal.rs:126
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:654
+#: crates/glimpse-shot/src/portal/tests.rs:605
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Sovellus"
 
 #: crates/glimpse-wallpaper/src/portal/notify.rs:18
 msgid "Wallpaper changed"
-msgstr "Taustakuva muutettu"
+msgstr "Taustakuva vaihdettu"
 
 #: crates/glimpse-wallpaper/src/portal/notify.rs:22
 msgid "Wallpaper not changed"
-msgstr "Taustakuvaa ei muutettu"
+msgstr "Taustakuvaa ei vaihdettu"
 
 #: crates/glimpse-wallpaper/src/portal/notify.rs:29
 msgid "{count} output keeps its own image."
@@ -2356,19 +2344,23 @@ msgstr "Taustakuva"
 msgid "Undo"
 msgstr "Kumoa"
 
-#: crates/glimpse-wallpaper/src/portal/validate.rs:22
+#: crates/glimpse-wallpaper/src/portal/validate.rs:23
 msgid "Only a file on this computer can be set as the wallpaper."
-msgstr "Taustakuvaksi voi asettaa vain tämän tietokoneen tiedoston."
+msgstr "Vain tämän tietokoneen tiedoston voi asettaa taustakuvaksi."
 
-#: crates/glimpse-wallpaper/src/portal/validate.rs:24
+#: crates/glimpse-wallpaper/src/portal/validate.rs:25
 msgid "The image is larger than {limit} MiB."
-msgstr "Kuva on suurempi kuin {limit} MiB."
+msgstr "Kuva on suurempi kuin {limit} Mt."
 
-#: crates/glimpse-wallpaper/src/portal/validate.rs:26
+#: crates/glimpse-wallpaper/src/portal/validate.rs:27
+msgid "The image is larger than {limit} pixels on a side."
+msgstr "Kuva on yhdeltä sivulta suurempi kuin {limit} kuvapistettä."
+
+#: crates/glimpse-wallpaper/src/portal/validate.rs:29
 msgid "The file is not an image."
 msgstr "Tiedosto ei ole kuva."
 
-#: crates/glimpse-wallpaper/src/portal/validate.rs:27
+#: crates/glimpse-wallpaper/src/portal/validate.rs:30
 msgid "The file cannot be read."
 msgstr "Tiedostoa ei voi lukea."
 
@@ -2379,6 +2371,11 @@ msgstr "Sovellukset"
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
 msgid "Nearby devices"
 msgstr "Lähellä olevat laitteet"
+
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:117
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:145
+msgid "Confirm"
+msgstr "Vahvista"
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
 msgid "Show the whole year"
@@ -2553,7 +2550,7 @@ msgstr "Tyhjennä roskakori"
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:300
+#: crates/glimpse-widgets/src/lib.rs:301
 msgid "Play"
 msgstr "Toista"
 
@@ -2634,7 +2631,7 @@ msgstr "Sammutetaanko nyt?"
 msgid "Power Off"
 msgstr "Sammuta"
 
-#: crates/glimpse-widgets/blueprints/shot_banner.blp:33
+#: crates/glimpse-widgets/blueprints/shot_banner.blp:32
 msgid "Enter shares · Esc refuses"
 msgstr "Enter jakaa · Esc hylkää"
 
@@ -2686,7 +2683,7 @@ msgstr "_Ota kuvakaappaus"
 msgid "Take Screenshot (Enter)"
 msgstr "Ota kuvakaappaus (Enter)"
 
-#: crates/glimpse-widgets/blueprints/shot_countdown.blp:26
+#: crates/glimpse-widgets/blueprints/shot_countdown.blp:25
 msgid "Cancel the screenshot"
 msgstr "Peru kuvakaappaus"
 
@@ -2824,7 +2821,7 @@ msgstr "Kaappaa ikkuna"
 msgid "Copy the Screen to the Clipboard"
 msgstr "Kopioi näyttö leikepöydälle"
 
-#: crates/glimpse-widgets/blueprints/shot_region.blp:24
+#: crates/glimpse-widgets/blueprints/shot_region.blp:23
 msgid "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
 msgstr "Valitse vetämällä  ·  Välilyönti: koko näyttö  ·  Esc: peru"
 
@@ -3205,31 +3202,90 @@ msgstr "Nimeä tämä työtila"
 msgid "Unmute"
 msgstr "Poista mykistys"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:105
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:144
 msgid "OK"
 msgstr "OK"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:42
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:146
+msgid "Allow"
+msgstr "Salli"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:146
+msgid "Deny"
+msgstr "Kiellä"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
 msgid "Enter the PIN"
 msgstr "Syötä PIN-koodi"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:44
 msgid "Type the PIN shown on {device}, then press OK."
 msgstr "Kirjoita laitteessa {device} näkyvä PIN-koodi ja paina OK."
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:47
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
 msgid "Enter the passkey"
 msgstr "Syötä tunnusluku"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:49
 msgid "Type the passkey shown on {device}."
 msgstr "Kirjoita laitteessa {device} näkyvä tunnusluku."
 
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:52
+msgid "Confirm the code"
+msgstr "Vahvista koodi"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:53
+msgid ""
+"Is this the code shown on {device}?\n"
+"\n"
+"{code}"
+msgstr ""
+"Onko tämä laitteessa {device} näkyvä koodi?\n"
+"\n"
+"{code}"
+
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
+msgid "Allow pairing"
+msgstr "Salli parinmuodostus"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
+msgid "{device} wants to pair with this computer."
+msgstr "{device} haluaa muodostaa parin tämän tietokoneen kanssa."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:63
+msgid "Type this PIN"
+msgstr "Kirjoita tämä PIN-koodi"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:64
+msgid ""
+"Type this PIN on {device}. It will not ask again.\n"
+"\n"
+"{code}"
+msgstr ""
+"Kirjoita tämä PIN-koodi laitteessa {device}. Sitä ei kysytä uudelleen.\n"
+"\n"
+"{code}"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:69
+msgid "Type this passkey"
+msgstr "Kirjoita tämä avain"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:70
+msgid ""
+"Type this passkey on {device}.\n"
+"\n"
+"{code}"
+msgstr ""
+"Kirjoita tämä avain laitteessa {device}.\n"
+"\n"
+"{code}"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:82
 msgid "1 to 16 letters or digits"
 msgstr "1–16 kirjainta tai numeroa"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:83
 msgid "Up to 999999"
 msgstr "Enintään 999999"
 
@@ -3334,7 +3390,7 @@ msgstr "Valmiustilanäppäin"
 msgid "Hibernate key"
 msgstr "Lepotilanäppäin"
 
-#: crates/glimpse-widgets/src/lib.rs:299
+#: crates/glimpse-widgets/src/lib.rs:300
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr "Keskeytä"
@@ -3350,6 +3406,10 @@ msgstr "{network} hylkäsi sen. Tarkista se ja yritä uudelleen."
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
 msgid "Enter the password for {network}"
 msgstr "Syötä verkon {network} salasana"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
+msgid "Try again"
+msgstr "Yritä uudelleen"
 
 #: crates/glimpse-widgets/src/notification_card/imp.rs:155
 msgid "Unread"
@@ -3421,7 +3481,7 @@ msgstr "Nykyinen näyttö"
 msgid "Capturing in {n}"
 msgstr "Kaapataan {n} kuluttua"
 
-#: crates/glimpse-widgets/src/shot_window_list/mod.rs:141
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:139
 msgid "captured when picked"
 msgstr "kaapataan valittaessa"
 
@@ -3439,11 +3499,11 @@ msgstr "Värinpoimija"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:4
 msgid "Pick a color from the screen and copy it"
-msgstr "Valitse väri näytöltä ja kopioi se"
+msgstr "Poimi väri näytöltä ja kopioi se"
 
 #: data/me.aresa.Glimpse.Lens.Picker.desktop:11
 msgid "color;picker;eyedropper;pipette;hex;"
-msgstr "väri;värinpoimija;pipetti;hex;"
+msgstr "väri;poimija;pipetti;hex;color;picker;"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:3
 msgid "Ruler"
@@ -3455,7 +3515,7 @@ msgstr "Mittaa etäisyyksiä näytöllä"
 
 #: data/me.aresa.Glimpse.Lens.Ruler.desktop:11
 msgid "ruler;measure;distance;pixels;"
-msgstr "viivain;mittaa;etäisyys;pikselit;"
+msgstr "viivoitin;mittaa;etäisyys;kuvapisteet;ruler;"
 
 #: data/me.aresa.Glimpse.Lens.desktop:3
 msgid "Magnifier"
@@ -3467,7 +3527,7 @@ msgstr "Suurenna osa näytöstä"
 
 #: data/me.aresa.Glimpse.Lens.desktop:11
 msgid "magnifier;zoom;lens;enlarge;"
-msgstr "suurennuslasi;zoom;linssi;suurenna;"
+msgstr "suurennuslasi;zoomaus;suurenna;magnifier;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"
@@ -3478,6 +3538,12 @@ msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "screenshot;capture;annotate;print "
 "screen;snip;grab;kuvakaappaus;kaappaa;merkitse;näyttökuva;leikkaa;"
+
+#~ msgid "{network} refused that password. Check it and try again."
+#~ msgstr "Verkko {network} hylkäsi salasanan. Tarkista se ja yritä uudelleen."
+
+#~ msgid "Could not send that password"
+#~ msgstr "Salasanaa ei voitu lähettää"
 
 #~ msgid "That color is no longer in the palette."
 #~ msgstr "Väri ei ole enää paletissa."

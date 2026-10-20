@@ -3,26 +3,13 @@ use std::rc::{Rc, Weak};
 
 use gettextrs::{gettext, ngettext};
 use glimpse_widgets::{Lens, zoomed};
-use gtk4::{gdk, gio, glib, prelude::*};
+use gtk4::{gdk, glib, prelude::*};
 
 use crate::marks::Marks;
-use glimpse_wayland::capture::{Frame, Layout};
+use glimpse_wayland::capture::Frame;
 
-use crate::overlay::pill_origin;
-use crate::{MAX_RADIUS, MAX_ZOOM, MIN_RADIUS};
-
-const RADIUS_STEP: f32 = 1.15;
-
-fn resized(radius: f32, notches: f64) -> f32 {
-    let next = if notches < 0.0 {
-        (radius * RADIUS_STEP).max(radius + 4.0)
-    } else if notches > 0.0 {
-        (radius / RADIUS_STEP).min(radius - 4.0)
-    } else {
-        radius
-    };
-    next.clamp(MIN_RADIUS as f32, MAX_RADIUS as f32)
-}
+use crate::MAX_ZOOM;
+use crate::overlay::{self, Watch, resized};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
@@ -140,39 +127,22 @@ type Shared = Rc<RefCell<Chain>>;
 
 pub struct Session {
     surfaces: Surfaces,
-    invalidated: Vec<(gdk::Monitor, glib::SignalHandlerId)>,
-    added: (gio::ListModel, glib::SignalHandlerId),
+    watch: Watch,
 }
 
 impl Session {
     pub fn open(
-        mut frames: Vec<Frame>,
+        frames: Vec<Frame>,
         settings: Settings,
         done: impl Fn(Outcome) + 'static,
     ) -> Result<Self, String> {
         let display = gdk::Display::default().ok_or_else(|| "the display".to_owned())?;
         let zoom = Rc::new(Cell::new(settings.zoom));
-        let radius = Rc::new(Cell::new(
-            settings.radius.clamp(MIN_RADIUS as f32, MAX_RADIUS as f32),
-        ));
-        let mut surfaces: Vec<Surface> = Vec::new();
-        for monitor in display.monitors().iter::<gdk::Monitor>().flatten() {
-            let connector = monitor
-                .connector()
-                .map(|name| name.to_string())
-                .unwrap_or_default();
-            let Some(index) = frames.iter().position(|frame| frame.connector == connector) else {
-                for surface in &surfaces {
-                    surface.window.destroy();
-                }
-                return Err(format!("output {connector:?}"));
-            };
-            surfaces.push(surface(&monitor, frames.swap_remove(index), settings));
-        }
-
-        if surfaces.is_empty() {
-            return Err("any output".to_owned());
-        }
+        let radius = Rc::new(Cell::new(settings.radius));
+        let surfaces: Vec<Surface> = overlay::matched(overlay::connectors(&display), frames)?
+            .into_iter()
+            .map(|(monitor, frame)| surface(&monitor, frame, settings))
+            .collect();
 
         let surfaces = Rc::new(surfaces);
         let chain: Shared = Rc::default();
@@ -194,31 +164,19 @@ impl Session {
             );
         }
 
-        let mut invalidated = Vec::new();
+        let watch = Watch::new(
+            &display,
+            surfaces.iter().map(|surface| &surface.monitor),
+            Rc::new(move || finish(Outcome::Invalidated)),
+        );
         for surface in surfaces.iter() {
-            let handler = surface.monitor.connect_invalidate({
-                let finish = finish.clone();
-                move |_| finish(Outcome::Invalidated)
-            });
-            invalidated.push((surface.monitor.clone(), handler));
             surface.window.present();
         }
-        let added = crate::overlay::on_output_added(&display.monitors(), {
-            let finish = finish.clone();
-            move || finish(Outcome::Invalidated)
-        });
-        Ok(Self {
-            surfaces,
-            invalidated,
-            added,
-        })
+        Ok(Self { surfaces, watch })
     }
 
     pub fn close(self) {
-        self.added.0.disconnect(self.added.1);
-        for (monitor, handler) in self.invalidated {
-            monitor.disconnect(handler);
-        }
+        self.watch.close();
         for surface in self.surfaces.iter() {
             surface.window.destroy();
         }
@@ -226,21 +184,11 @@ impl Session {
 }
 
 fn surface(monitor: &gdk::Monitor, frame: Frame, settings: Settings) -> Surface {
-    let window = crate::overlay::overlay(monitor);
+    let window = overlay::overlay(monitor);
     window.add_css_class("ruler");
     window.set_cursor(gdk::Cursor::from_name("none", None).as_ref());
 
-    let texture: gdk::Texture = gdk::MemoryTexture::new(
-        frame.width as i32,
-        frame.height as i32,
-        match frame.layout {
-            Layout::Rgbx => gdk::MemoryFormat::R8g8b8x8,
-            Layout::Bgrx => gdk::MemoryFormat::B8g8r8x8,
-        },
-        &frame.pixels,
-        frame.width as usize * 4,
-    )
-    .upcast();
+    let texture = overlay::texture(&frame);
     let buffer = (frame.width, frame.height);
     let lens = Lens::new(&texture, buffer, settings.zoom, settings.radius);
     let marks = Marks::new(buffer, settings.radius);
@@ -346,21 +294,15 @@ fn dress(surface: &Surface, index: usize, chain: &Chain, radius: f32, shift: boo
             changed = true;
         }
     }
-    if changed {
-        let (_, width, _, _) = surface.pill.measure(gtk4::Orientation::Horizontal, -1);
-        let (_, height, _, _) = surface.pill.measure(gtk4::Orientation::Vertical, width);
-        surface.size.set((f64::from(width), f64::from(height)));
-    }
-    let (left, top) = pill_origin(
+    overlay::place_pill(
+        &surface.layer,
+        &surface.pill,
+        &surface.size,
+        changed,
+        &surface.lens,
         (x, y),
-        f64::from(radius),
-        surface.size.get(),
-        (
-            f64::from(surface.lens.width()),
-            f64::from(surface.lens.height()),
-        ),
+        radius,
     );
-    surface.layer.move_(&surface.pill, left, top);
 }
 
 fn place(surfaces: &Surfaces, index: usize, chain: &Shared, radius: f32, shift: bool) {

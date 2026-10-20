@@ -164,7 +164,7 @@ async fn introspection_and_the_typed_property_match_the_frozen_interface() {
     <method name="SetTemperature">
       <arg name="kelvin" type="u" direction="in"/>
     </method>
-    <property name="Snapshot" type="(sbuubbssbx)" access="read"/>
+    <property name="Snapshot" type="(sbuubbssbxb)" access="read"/>
   </interface>"#
     );
 

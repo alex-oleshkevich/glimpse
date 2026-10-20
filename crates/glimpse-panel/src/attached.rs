@@ -51,7 +51,6 @@ fn validate(
     output: &str,
     zone: &str,
     options: &str,
-    layout: &[Vec<String>],
 ) -> Result<Validated, String> {
     let path = Path::new(desktop_file);
     if !path.is_absolute() {
@@ -74,15 +73,6 @@ fn validate(
         return Err("desktop file must be a regular file".to_owned());
     }
     let panel = panel as usize;
-    let outputs = layout
-        .get(panel)
-        .ok_or_else(|| "unknown panel".to_owned())?;
-    if !outputs
-        .iter()
-        .any(|mapped| output.is_empty() || mapped == output)
-    {
-        return Err("unknown output".to_owned());
-    }
     let zone = match zone {
         "" => None,
         "left" => Some(Zone::Left),
@@ -125,12 +115,14 @@ impl AttachedRegistry {
     }
 
     fn admit(&self, sender: &str, valid: &Validated) -> Result<(), String> {
-        if !self.layout.get(valid.panel).is_some_and(|outputs| {
-            if valid.output.is_empty() {
-                !outputs.is_empty()
-            } else {
-                outputs.contains(&valid.output)
-            }
+        let outputs = self
+            .layout
+            .get(valid.panel)
+            .ok_or_else(|| "unknown panel".to_owned())?;
+        if !(if valid.output.is_empty() {
+            !outputs.is_empty()
+        } else {
+            outputs.contains(&valid.output)
         }) {
             return Err("unknown output".to_owned());
         }
@@ -365,20 +357,12 @@ impl AppletHost {
                 .as_fd()
                 .try_clone_to_owned()
                 .map_err(|error| zbus::fdo::Error::InvalidArgs(error.to_string()))?;
-            let layout = self.registry.lock().map_err(poisoned)?.layout.clone();
             let path = desktop_path.to_owned();
             let requested_output = output.to_owned();
             let requested_zone = zone.to_owned();
             let options = options_json.to_owned();
             let valid = tokio::task::spawn_blocking(move || {
-                validate(
-                    &path,
-                    panel,
-                    &requested_output,
-                    &requested_zone,
-                    &options,
-                    &layout,
-                )
+                validate(&path, panel, &requested_output, &requested_zone, &options)
             })
             .await
             .map_err(|error| zbus::fdo::Error::InvalidArgs(error.to_string()))?

@@ -2,4 +2,4 @@ mod indicator;
 mod render;
 
 pub use indicator::Bluetooth;
-pub(crate) use render::{NAME_CAP, typed};
+pub(crate) use render::{NAME_CAP, prompt_entry};

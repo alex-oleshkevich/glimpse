@@ -152,7 +152,9 @@ impl WaylandGamma {
             return "there are no outputs to apply a temperature to".to_owned();
         }
         match self.outputs.taken {
-            true => "another gamma client holds the outputs".to_owned(),
+            true => {
+                "another gamma client holds the outputs, or they have no gamma table".to_owned()
+            }
             false => "no output accepted gamma control".to_owned(),
         }
     }

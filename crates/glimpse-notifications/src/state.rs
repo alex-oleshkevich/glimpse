@@ -15,6 +15,7 @@ pub struct Delta {
     pub appeared: Vec<u32>,
     pub replaced: Vec<u32>,
     pub removed: Vec<u32>,
+    pub skipped: Vec<u32>,
 }
 
 pub struct PopupState {
@@ -139,17 +140,20 @@ impl PopupState {
 
         let mut appeared = Vec::new();
         let mut replaced = Vec::new();
-        if !self.gated() {
-            let mut fresh: Vec<&NotificationRecord> = next
-                .values()
-                .filter(|record| record.unread && !self.records.contains_key(&record.id))
-                .collect();
-            fresh.sort_by(|left, right| {
-                right
-                    .created
-                    .cmp(&left.created)
-                    .then_with(|| right.id.cmp(&left.id))
-            });
+        let mut skipped = Vec::new();
+        let mut fresh: Vec<&NotificationRecord> = next
+            .values()
+            .filter(|record| record.unread && !self.records.contains_key(&record.id))
+            .collect();
+        fresh.sort_by(|left, right| {
+            right
+                .created
+                .cmp(&left.created)
+                .then_with(|| right.id.cmp(&left.id))
+        });
+        if self.gated() {
+            skipped.extend(fresh.iter().map(|record| record.id));
+        } else {
             for record in fresh.iter().rev() {
                 self.visible.insert(0, record.id);
             }
@@ -181,6 +185,7 @@ impl PopupState {
             appeared,
             replaced,
             removed,
+            skipped,
         }
     }
 

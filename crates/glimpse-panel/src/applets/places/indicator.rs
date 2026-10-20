@@ -60,12 +60,16 @@ impl Applet for Places {
 
         shown.connect_activated({
             let places_state = Rc::clone(&self.places_state);
-            move |_, id| match render::activation(&places_state.borrow(), id) {
-                Some(render::Activation::Open(path)) => {
-                    open(gio::File::for_path(&path).uri().to_string())
+            let opener = seat.opener();
+            move |_, id| {
+                match render::activation(&places_state.borrow(), id) {
+                    Some(render::Activation::Open(path)) => {
+                        open(gio::File::for_path(&path).uri().to_string())
+                    }
+                    Some(render::Activation::OpenUri(uri)) => open(uri.to_owned()),
+                    None => return,
                 }
-                Some(render::Activation::OpenUri(uri)) => open(uri.to_owned()),
-                None => {}
+                opener.close_popover();
             }
         });
 
@@ -167,3 +171,6 @@ impl Places {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;

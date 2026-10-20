@@ -61,7 +61,7 @@ hover docs and diagnostics.
 
 **Theme directory structure is load-bearing** — `themes/<name>/panel.css` is found by name, so a
 flat glob into one destination would collapse every theme's sheets together; `install.sh` and
-`package-binary.sh` walk `data/themes/*/*.css` and rebuild `<name>/`, since the static asset lists
+`package-binary.sh` walk `data/themes/*/*` and rebuild `<name>/`, since the static asset lists
 cannot compute a destination and each theme needs its own line in both. **Each package installs its
 own PAM stack at `/etc/pam.d/glimpse-lock`**: `data/pam.d/glimpse-lock` (Arch/binary tarball, on
 `system-auth`), `data/pam.d/fedora/…` (rpm, on `password-auth`, since

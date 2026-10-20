@@ -397,15 +397,16 @@ pub fn tooltip(format: &str, place: &str, current: &CurrentWeather) -> String {
         .apparent_temperature
         .map(reading)
         .unwrap_or_else(|| reading(current.temperature));
+    let temperature = reading(current.temperature);
+    let condition = wording(current.condition).unwrap_or_default();
 
-    format
-        .replace("{place}", place)
-        .replace("{temperature}", &reading(current.temperature))
-        .replace("{feels-like}", &feels)
-        .replace(
-            "{condition}",
-            &wording(current.condition).unwrap_or_default(),
-        )
+    crate::applets::tokens::render(format, |token| match token {
+        "place" => Some(place),
+        "temperature" => Some(temperature.as_str()),
+        "feels-like" => Some(feels.as_str()),
+        "condition" => Some(condition.as_str()),
+        _ => None,
+    })
 }
 
 #[cfg(test)]

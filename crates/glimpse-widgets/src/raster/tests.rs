@@ -349,3 +349,24 @@ fn color_logs_exactly_one_warning_on_garbage() {
         "{lines}"
     );
 }
+
+#[test]
+fn a_cover_plan_past_the_ceiling_keeps_the_source_and_output_aspects() {
+    let source = Target {
+        width: 1080,
+        height: 2400,
+    };
+    let output = Target {
+        width: 3840,
+        height: 2160,
+    };
+    let plan = plan(source, output, Fit::Cover).expect("a plan");
+    let crop = plan.crop.expect("cover always crops");
+
+    let aspect = |width: i32, height: i32| f64::from(width) / f64::from(height);
+    assert!(
+        (aspect(plan.load.width, plan.load.height) - aspect(source.width, source.height)).abs()
+            < 0.01
+    );
+    assert!((aspect(crop.width, crop.height) - aspect(output.width, output.height)).abs() < 0.01);
+}

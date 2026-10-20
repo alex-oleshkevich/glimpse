@@ -83,6 +83,7 @@ fn output_power_is_mirrored_into_compositor_capabilities() {
     let mapped = capabilities(Capabilities {
         output_power: true,
         blank_screens: true,
+        window_screenshot: false,
         overview_backdrop: true,
     });
 

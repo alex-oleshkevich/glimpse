@@ -62,8 +62,6 @@ impl ServiceEndpoint<Heartbeat> {
     }
 }
 
-impl Heartbeat {}
-
 #[derive(PartialEq, Eq, Hash)]
 pub struct Tick {
     period_ms: u64,

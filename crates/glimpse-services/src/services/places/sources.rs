@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use futures_util::{StreamExt as _, stream, stream::BoxStream};
+use futures_util::{Stream, StreamExt as _, stream, stream::BoxStream};
 use glimpse_config::Update;
 use glimpse_utils::clean;
 
@@ -39,6 +39,20 @@ async fn read_dir_names(dir: &Path) -> Result<Vec<String>, String> {
         }
     }
     Ok(names)
+}
+
+async fn count_entries(dir: &Path) -> Result<usize, String> {
+    let mut entries = match tokio::fs::read_dir(dir).await {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(format!("its directory cannot be read: {}", error.kind())),
+    };
+
+    let mut count = 0;
+    while let Ok(Some(_)) = entries.next_entry().await {
+        count += 1;
+    }
+    Ok(count)
 }
 
 async fn exists(path: &Path) -> bool {
@@ -85,7 +99,7 @@ async fn xdg(config_dir: PathBuf, home: PathBuf) -> Event {
 
     if let Some(text) = text {
         for (key, dir) in parse_user_dirs(&text, &home) {
-            if exists(&dir).await {
+            if dir != home && exists(&dir).await {
                 places.push(Place {
                     id: key.clone(),
                     name: display_name(&dir, &key),
@@ -142,10 +156,16 @@ async fn network(gvfs: PathBuf) -> Event {
 }
 
 async fn trash(trash_files: PathBuf) -> Event {
-    match read_dir_names(&trash_files).await {
-        Ok(names) => Event::Trash(Ok(names.len())),
-        Err(reason) => Event::Trash(Err(reason)),
-    }
+    Event::Trash(count_entries(&trash_files).await)
+}
+
+fn follow(dir: &Path, depth: usize) -> impl Stream<Item = Update> + Send + 'static {
+    glimpse_config::watch_all(
+        dir.ancestors()
+            .take(depth)
+            .map(Path::to_path_buf)
+            .collect::<Vec<_>>(),
+    )
 }
 
 fn unwatched(reason: String) -> String {
@@ -170,7 +190,7 @@ pub(crate) fn xdg_source(config_dir: PathBuf, home: PathBuf) -> BoxStream<'stati
 pub(crate) fn bookmarks_source(config_dir: PathBuf) -> BoxStream<'static, Event> {
     let bookmarks_dir = config_dir.join("gtk-3.0");
     let leading = stream::once(bookmarks(bookmarks_dir.clone()));
-    let changes = glimpse_config::watch(bookmarks_dir.clone()).then(move |update| {
+    let changes = follow(&bookmarks_dir, 2).then(move |update| {
         let bookmarks_dir = bookmarks_dir.clone();
         async move {
             match update {
@@ -184,7 +204,7 @@ pub(crate) fn bookmarks_source(config_dir: PathBuf) -> BoxStream<'static, Event>
 
 pub(crate) fn network_source(gvfs: PathBuf) -> BoxStream<'static, Event> {
     let leading = stream::once(network(gvfs.clone()));
-    let changes = glimpse_config::watch(gvfs.clone()).then(move |update| {
+    let changes = follow(&gvfs, 2).then(move |update| {
         let gvfs = gvfs.clone();
         async move {
             match update {
@@ -198,7 +218,7 @@ pub(crate) fn network_source(gvfs: PathBuf) -> BoxStream<'static, Event> {
 
 pub(crate) fn trash_source(trash_files: PathBuf) -> BoxStream<'static, Event> {
     let leading = stream::once(trash(trash_files.clone()));
-    let changes = glimpse_config::watch(trash_files.clone()).then(move |update| {
+    let changes = follow(&trash_files, 3).then(move |update| {
         let trash_files = trash_files.clone();
         async move {
             match update {

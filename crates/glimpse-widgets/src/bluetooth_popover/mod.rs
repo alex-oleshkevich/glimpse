@@ -11,7 +11,6 @@ pub use imp::{Ask, Details, Entry, Line, Place};
 
 const DEVICES_PAGE: &str = "devices";
 const PROMPT_PAGE: &str = "prompt";
-const BARE: &str = "prompt__actions--bare";
 const ACCEPT: &str = "prompt__accept";
 const DESTRUCTIVE: &str = "prompt__accept--danger";
 
@@ -178,14 +177,15 @@ impl BluetoothPopover {
         };
 
         crate::set_text(&imp.prompt_device, none_if_empty(&ask.device));
-        crate::set_text(&imp.prompt_ask, none_if_empty(&ask.question));
-        crate::set_text(&imp.prompt_code, none_if_empty(&ask.code));
-        crate::set_text(&imp.prompt_progress, none_if_empty(&ask.progress));
+        crate::set_text_capped(
+            &imp.prompt_ask,
+            none_if_empty(&ask.question),
+            crate::ASK_MAX_CHARS,
+        );
         set_button(&imp.prompt_cancel, &ask.cancel);
         set_button(&imp.prompt_accept, &ask.accept);
         crate::set_css_class(&*imp.prompt_accept, ACCEPT, true);
         crate::set_css_class(&*imp.prompt_accept, DESTRUCTIVE, ask.destructive);
-        crate::set_css_class(&*imp.prompt_actions, BARE, ask.code.is_empty());
 
         for (_, device) in self.devices() {
             device.imp().row.set_open(false);

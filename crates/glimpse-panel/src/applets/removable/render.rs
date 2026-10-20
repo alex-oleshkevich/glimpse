@@ -112,6 +112,9 @@ fn drive_icon(drive: &ServiceDrive) -> &'static str {
 }
 
 fn free_text(capacity: RemovableCapacity) -> String {
+    if capacity.available == 0 {
+        return String::new();
+    }
     gettext("{available} free").replace(
         "{available}",
         &glimpse_utils::size::bytes(capacity.available),

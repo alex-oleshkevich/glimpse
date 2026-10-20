@@ -7,7 +7,7 @@ use std::time::Duration;
 use chrono::{DateTime, Local};
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, PowerAppletConfig};
-use glimpse_dbus::idle::{IdleProviderError, IdleProviderHandle, IdleProviderState};
+use glimpse_dbus::idle::{IdleProviderHandle, IdleProviderState};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_dbus::upower::ChargeState;
 use glimpse_services::{BatteryHandle, BatteryHistoryPoint, BatteryState};
@@ -17,7 +17,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::Seat;
-use crate::applet::{Applet, Ctx, Input, Report, report_failure, tell, wording};
+use crate::applet::{Applet, Ctx, Input, Report, tell, wording};
 use crate::applets::idle::keep_awake;
 
 pub struct Power {
@@ -220,7 +220,8 @@ impl Applet for Power {
         shown.connect_hold_requested({
             let idle = self.idle.clone();
             let opener = seat.opener();
-            let failed = hold_failure(&self.notifications);
+            let failed =
+                keep_awake::hold_failure(&self.notifications, gettext("Power"), "battery-symbolic");
             move |popover, seconds| {
                 popover.set_hold_active(true);
                 let popover = popover.downgrade();
@@ -241,7 +242,8 @@ impl Applet for Power {
         shown.connect_hold_toggled({
             let idle = self.idle.clone();
             let opener = seat.opener();
-            let failed = hold_failure(&self.notifications);
+            let failed =
+                keep_awake::hold_failure(&self.notifications, gettext("Power"), "battery-symbolic");
             move |_, on| keep_awake::toggle(&idle, opener.clone(), on, Rc::clone(&failed))
         });
 
@@ -338,26 +340,4 @@ impl Applet for Power {
         self.refresh();
         Some(shown.upcast())
     }
-}
-
-fn hold_failure(notifications: &NotificationsProviderHandle) -> keep_awake::Failure {
-    let report = Report {
-        notifications: notifications.clone(),
-        app_name: gettext("Power"),
-        icon: "battery-symbolic".to_owned(),
-        summary: gettext("Could not change keep awake"),
-    };
-    Rc::new(move |operation, error| {
-        let body = match &error {
-            IdleProviderError::Unavailable(_) => gettext("The idle service is unavailable."),
-            IdleProviderError::TimedOut => gettext("That took too long."),
-            IdleProviderError::Call(_) | IdleProviderError::UnknownObject => {
-                gettext("That did not work.")
-            }
-        };
-        let report = report.clone();
-        relm4::spawn_local(async move {
-            report_failure(operation, report, Some(body), error).await;
-        });
-    })
 }

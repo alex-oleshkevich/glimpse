@@ -408,6 +408,11 @@ impl App {
 
     fn apply(&mut self, delta: Delta, sender: &ComponentSender<Self>) {
         self.place();
+        if let Some(services) = &self.services {
+            for id in delta.skipped {
+                expire(services.notifications.clone(), id);
+            }
+        }
         for id in delta.removed {
             self.remove(id);
         }

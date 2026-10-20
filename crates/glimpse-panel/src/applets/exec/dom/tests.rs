@@ -1,5 +1,6 @@
 use super::*;
 use glimpse_services::{Op, WireNode};
+use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use serde_json::json;
 
 fn init() {
@@ -703,16 +704,22 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
     let bars = get(&dom, 20, ElementKind::Bars)
         .downcast::<Bars>()
         .expect("bars");
-    assert_eq!(bars.values(), vec![Some(1.0), None, Some(3.0)]);
-    assert_eq!(bars.maximum(), Some(5.0));
-    assert!(!bars.highlight_last());
-    assert_eq!(bars.label(), "Cost");
+    assert_eq!(
+        *bars.imp().values.borrow(),
+        vec![Some(1.0), None, Some(3.0)]
+    );
+    assert_eq!(bars.imp().maximum.get(), Some(5.0));
+    assert!(!bars.imp().highlight_last.get());
+    assert_eq!(*bars.imp().label.borrow(), "Cost");
     let line = get(&dom, 21, ElementKind::Sparkline)
         .downcast::<Sparkline>()
         .expect("sparkline");
-    assert_eq!(line.values(), vec![Some(1.0), Some(2.0), None, Some(4.0)]);
-    assert!(line.fill() && line.show_last());
-    assert_eq!(line.label(), "Trend");
+    assert_eq!(
+        *line.imp().values.borrow(),
+        vec![Some(1.0), Some(2.0), None, Some(4.0)]
+    );
+    assert!(line.imp().fill.get() && line.imp().show_last.get());
+    assert_eq!(*line.imp().label.borrow(), "Trend");
 
     let next = first
         .apply(vec![
