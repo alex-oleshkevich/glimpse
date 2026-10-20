@@ -7,7 +7,6 @@ use std::rc::Rc;
 use adw::prelude::*;
 use anyhow::{Context as _, Result, anyhow, bail};
 use gettextrs::gettext;
-use gio_unix::DesktopAppInfo;
 use glimpse_compositors::Snapshot;
 use glimpse_config::{
     Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet, user_stylesheet,
@@ -17,17 +16,17 @@ use glimpse_shot::ports::Notice;
 use glimpse_shot::session::{Outcome, Target};
 use glimpse_utils::init_translations;
 use glimpse_widgets::color_scheme;
-use glimpse_widgets::{Sheets, ShotCapturePage, Styles, roundtrip};
+use glimpse_widgets::{Sheets, ShotCapturePage, Styles};
 use gtk4::{gdk, gio, glib};
 use tokio::signal::unix::{SignalKind, signal};
 
-use super::canvas;
 use super::overlay::{self, Ended, Handoff, Options};
 use super::prefs;
 use super::result::{self, Opened, ResultFace, Setup};
+use super::{barrier, canvas};
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::screens::compositor_snapshot;
-use crate::cli::{self, GuiArgs, ScaleMode, missing_directory};
+use crate::cli::{self, GuiArgs, ScaleMode, missing_directory, paired};
 use crate::errors::{self, Busy, Cancelled, TimedOut, Usage};
 use crate::headless;
 
@@ -143,7 +142,12 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     });
     let activated = Rc::clone(&shell);
     app.connect_activate(move |_| activated.present(None));
-    listen_for_signals();
+    if app
+        .register(gio::Cancellable::NONE)
+        .is_ok_and(|()| !app.is_remote())
+    {
+        listen_for_signals();
+    }
     let argv: Vec<String> = gtk_args(gui, std::env::args_os().collect())
         .into_iter()
         .map(|arg| arg.to_string_lossy().into_owned())
@@ -957,8 +961,7 @@ impl Main {
 
 fn window_label(app_id: Option<&str>, title: Option<&str>) -> String {
     let name = app_id
-        .filter(|id| !id.is_empty() && !id.contains('/') && !id.contains('\0'))
-        .and_then(|id| DesktopAppInfo::new(&format!("{id}.desktop")))
+        .and_then(super::desktop_entry)
         .map(|info| info.name().to_string())
         .or_else(|| app_id.map(str::to_owned));
     let clean = |text: &str| glimpse_utils::text::clean(text, TITLE_MAX);
@@ -1058,14 +1061,6 @@ fn toast(toasts: &adw::ToastOverlay, text: &str) {
     toasts.add_toast(toast);
 }
 
-fn barrier() {
-    if let Some(display) = gdk::Display::default()
-        && let Err(error) = roundtrip(&display)
-    {
-        tracing::warn!("no unmap barrier: {error}");
-    }
-}
-
 fn portal_target_allowed(target: &Target) -> bool {
     matches!(target, Target::CurrentScreen | Target::Screen(_))
 }
@@ -1125,14 +1120,6 @@ fn interrupted(code: u8) {
         }
     }
     app.quit();
-}
-
-fn paired(yes: bool, no: bool) -> Option<bool> {
-    match (yes, no) {
-        (true, _) => Some(true),
-        (_, true) => Some(false),
-        _ => None,
-    }
 }
 
 #[cfg(test)]

@@ -133,9 +133,7 @@ impl PowerPopover {
     }
 
     pub fn set_hold_preset(&self, seconds: Option<u32>) {
-        for (row, preset) in self.imp().presets() {
-            row.set_active(seconds == Some(preset));
-        }
+        crate::apply_hold_preset(self.imp().presets().map(|(row, _)| row), seconds);
     }
 
     pub fn collapse_hold(&self) {

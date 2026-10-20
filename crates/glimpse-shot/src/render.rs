@@ -10,6 +10,15 @@ use glimpse_wayland::capture::{Frame, Layout};
 use gtk4::prelude::*;
 use gtk4::{gdk, glib, graphene, gsk, pango};
 
+fn ink_origin(layout: &pango::Layout, (x, y): (f32, f32)) -> (f32, f32) {
+    let (ink, _) = layout.extents();
+    let scale = pango::SCALE as f32;
+    (
+        x - (ink.x() as f32 + ink.width() as f32 / 2.0) / scale,
+        y - (ink.y() as f32 + ink.height() as f32 / 2.0) / scale,
+    )
+}
+
 pub struct Png {
     pub bytes: Vec<u8>,
     pub width: u32,
@@ -471,12 +480,9 @@ impl Ink<'_> {
             .append_fill(&disc.to_path(), gsk::FillRule::Winding, &rgba(style.color));
 
         let layout = self.layout(&n.to_string(), radius * 1.2);
-        let (_, logical) = layout.pixel_extents();
+        let (left, top) = ink_origin(&layout, (x, y));
         self.snapshot.save();
-        self.snapshot.translate(&graphene::Point::new(
-            x - logical.width() as f32 / 2.0,
-            y - logical.height() as f32 / 2.0,
-        ));
+        self.snapshot.translate(&graphene::Point::new(left, top));
         self.snapshot.append_layout(&layout, &contrast(style.color));
         self.snapshot.restore();
     }

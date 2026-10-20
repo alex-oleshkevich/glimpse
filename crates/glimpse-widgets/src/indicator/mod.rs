@@ -22,7 +22,6 @@ pub(crate) const DOT_SIZE: f32 = 7.0;
 #[derive(Debug, Default, Clone)]
 pub struct IndicatorSpec {
     pub icon: Option<gio::Icon>,
-    /// An emblem on the icon's trailing corner, for a state the icon itself does not carry.
     pub overlay: Option<gio::Icon>,
     pub dot: Option<gtk4::gdk::RGBA>,
     pub extension: Option<gtk4::Widget>,
@@ -30,11 +29,7 @@ pub struct IndicatorSpec {
     pub tooltip: Option<String>,
     pub badge: Option<String>,
     pub attention: bool,
-    /// The calm counterpart to `attention`: something worth noticing, not something demanding it.
-    /// Both can be true, and attention wins.
     pub notice: bool,
-    /// What the chip is reporting, when it is reporting a condition rather than a reading.
-    /// `None` leaves it in the bar's own colour; `Info` is a state worth an icon and no colour.
     pub severity: Option<crate::Severity>,
     pub class: Option<String>,
 }
@@ -125,7 +120,7 @@ impl Indicator {
     }
 
     pub fn set_label(&self, label: Option<&str>) {
-        set_text(&self.imp().label, label);
+        crate::set_text_capped(&self.imp().label, label, LABEL_MAX_CHARS);
         self.sync_text_only();
     }
 
@@ -138,7 +133,7 @@ impl Indicator {
     }
 
     pub fn set_badge(&self, badge: Option<&str>) {
-        set_text(&self.imp().badge, badge);
+        crate::set_text_capped(&self.imp().badge, badge, LABEL_MAX_CHARS);
         self.sync_attention_dot();
     }
 
@@ -196,15 +191,6 @@ impl Indicator {
             self.add_css_class(class);
         }
     }
-}
-
-fn set_text(label: &gtk4::Label, value: Option<&str>) {
-    let text = truncate(value.unwrap_or_default(), LABEL_MAX_CHARS);
-    if label.text().as_str() == text {
-        return;
-    }
-    label.set_text(&text);
-    label.set_visible(!text.is_empty());
 }
 
 pub(crate) fn truncate(value: &str, max: usize) -> String {

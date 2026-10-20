@@ -58,9 +58,6 @@ impl WorkspaceSection {
         )
     }
 
-    /// Every workspace row, `(id, row)`, for a caller that must reach across every section's rows
-    /// at once — reveal and recede are a property of the whole popover, not of one output's
-    /// section.
     pub(crate) fn holders(&self) -> Vec<(u64, ExpanderRow)> {
         self.imp().held.borrow().clone()
     }

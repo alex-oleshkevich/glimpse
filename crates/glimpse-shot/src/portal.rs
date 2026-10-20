@@ -5,10 +5,7 @@ use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::{Context as _, Result, bail};
-use chrono::Local;
 use futures_util::future::BoxFuture;
-use glimpse_config::{FileTemplate, ScreenshotConfig};
-use glimpse_shot::doc::naming::file_name;
 use glimpse_shot::doc::wire::ResultV1;
 use serde::Deserialize;
 use std::process::Stdio;
@@ -67,41 +64,22 @@ trait Spawner: Send + Sync + 'static {
 pub fn run(config_path: Option<&Path>) -> Result<()> {
     let config = glimpse_config::load(config_path)?;
     glimpse_utils::init_translations(config.regional.language());
-    let screenshot = config.screenshot;
     let runtime = tokio::runtime::Runtime::new()?;
     runtime.block_on(async move {
         let connection = zbus::Connection::session().await?;
         glimpse_dbus::own_name(&connection, BUS_NAME)
             .await
             .context("me.aresa.Glimpse.Shot.Portal is already owned")?;
-        serve_at(&connection, Arc::new(ProcessSpawner), screenshot).await?;
+        serve_at(&connection, Arc::new(ProcessSpawner)).await?;
         tracing::info!(bus_name = BUS_NAME, "serving the screenshot portal");
         std::future::pending::<Result<()>>().await
     })
 }
 
-fn screenshot_directory(config: &ScreenshotConfig) -> Result<PathBuf> {
-    match crate::finish::Destination::of(None, false, config)? {
-        crate::finish::Destination::Directory(directory) => Ok(directory),
-        crate::finish::Destination::File(path) => path
-            .parent()
-            .map(Path::to_path_buf)
-            .context("screenshot destination has no directory"),
-        crate::finish::Destination::Stdout | crate::finish::Destination::Nowhere => {
-            bail!("screenshot destination is not a directory")
-        }
-    }
-}
-
-async fn serve_at(
-    connection: &Connection,
-    spawner: Arc<dyn Spawner>,
-    screenshot: ScreenshotConfig,
-) -> Result<()> {
+async fn serve_at(connection: &Connection, spawner: Arc<dyn Spawner>) -> Result<()> {
     let portal = ScreenshotPortal {
         inner: Arc::new(Inner {
             spawner,
-            screenshot,
             flight: Mutex::new(None),
         }),
     };
@@ -168,17 +146,13 @@ fn overlay_command(label: &str) -> Vec<OsString> {
     ]
 }
 
-fn headless_command(output: &Path, window: bool) -> Vec<OsString> {
+fn headless_command(window: bool) -> Vec<OsString> {
     let mut argv = vec![executable("glimpse-shot").into(), OsString::from("capture")];
     argv.push(OsString::from(if window { "--window" } else { "--screen" }));
     if window {
         argv.push(OsString::from("focused"));
     }
-    argv.extend([
-        OsString::from("--json"),
-        OsString::from("-o"),
-        output.as_os_str().to_os_string(),
-    ]);
+    argv.push(OsString::from("--json"));
     argv
 }
 
@@ -189,14 +163,6 @@ fn picker_command() -> Vec<OsString> {
         OsString::from("picker"),
         OsString::from("--json"),
     ]
-}
-
-fn headless_output(directory: &Path, template: &FileTemplate) -> PathBuf {
-    let path = directory.join(file_name(template, Local::now()));
-    match std::path::absolute(&path) {
-        Ok(absolute) => absolute,
-        Err(_) => path,
-    }
 }
 
 fn file_uri(path: &Path) -> Option<String> {
@@ -244,7 +210,7 @@ fn parse_success(kind: RequestKind, stdout: &[u8]) -> Option<Reply> {
         RequestKind::Shot => {
             let result: ResultV1 = serde_json::from_str(text).ok()?;
             let path = result.path?;
-            uri_reply(file_uri(&path)?)
+            uri_reply(file_uri(&std::path::absolute(path).ok()?)?)
         }
         RequestKind::Color => {
             let picked: Picked = serde_json::from_str(text).ok()?;
@@ -402,7 +368,6 @@ impl Flight {
 
 struct Inner {
     spawner: Arc<dyn Spawner>,
-    screenshot: ScreenshotConfig,
     flight: Mutex<Option<Arc<Flight>>>,
 }
 
@@ -554,27 +519,7 @@ impl ScreenshotPortal {
                 let label = app_label(app_id);
                 match decision {
                     CaptureKind::Overlay => Some(overlay_command(&label)),
-                    CaptureKind::Headless => {
-                        let directory = match screenshot_directory(&self.inner.screenshot) {
-                            Ok(directory) => directory,
-                            Err(error) => {
-                                tracing::warn!(%error, "cannot resolve the screenshot directory");
-                                return None;
-                            }
-                        };
-                        let output = headless_output(&directory, &self.inner.screenshot.filename);
-                        if let Some(parent) = output.parent()
-                            && let Err(error) = tokio::fs::create_dir_all(parent).await
-                        {
-                            tracing::warn!(
-                                %error,
-                                directory = %parent.display(),
-                                "cannot create the screenshot directory"
-                            );
-                            return None;
-                        }
-                        Some(headless_command(&output, window))
-                    }
+                    CaptureKind::Headless => Some(headless_command(window)),
                 }
             }
         }

@@ -110,10 +110,7 @@ pub struct Settings {
 fn settings(config_path: Option<PathBuf>) -> Option<Settings> {
     let copies = glimpse_config::state_dir()?.join("wallpaper");
     let user_dir = glimpse_config::user_dir();
-    let user_config = match &config_path {
-        Some(path) => path.clone(),
-        None => user_dir.as_ref()?.join("config.toml"),
-    };
+    let user_config = glimpse_config::user_file(config_path.as_deref())?;
     Some(Settings {
         config_path,
         user_config,
@@ -227,18 +224,6 @@ impl WallpaperPortal {
         options: HashMap<String, OwnedValue>,
         #[zbus(connection)] connection: &Connection,
     ) -> zbus::fdo::Result<u32> {
-        self.dispatch(connection, handle, &uri, &options).await
-    }
-}
-
-impl WallpaperPortal {
-    async fn dispatch(
-        &self,
-        connection: &Connection,
-        handle: ObjectPath<'_>,
-        uri: &str,
-        options: &HashMap<String, OwnedValue>,
-    ) -> zbus::fdo::Result<u32> {
         let Some(flight) = self.inner.reserve() else {
             tracing::debug!("wallpaper portal request refused because another is open");
             return Ok(OTHER);
@@ -256,136 +241,103 @@ impl WallpaperPortal {
                 return finish(&flight, OTHER).await;
             }
         }
-        let reply = self.work(connection, &flight, uri, options).await;
-        self.unexport(connection, &owned).await;
+        let reply = match self.work(connection, &flight, &uri, &options).await {
+            Ok(()) => SUCCESS,
+            Err(body) => {
+                if let Some(body) = body {
+                    notify::plain(connection, notify::not_changed_summary(), body).await;
+                }
+                OTHER
+            }
+        };
+        let _ = connection
+            .object_server()
+            .remove::<PortalRequest, _>(owned)
+            .await;
         self.inner.release(&flight);
         finish(&flight, reply).await
     }
+}
 
+impl WallpaperPortal {
     async fn work(
         &self,
         connection: &Connection,
         flight: &Flight,
         uri: &str,
         options: &HashMap<String, OwnedValue>,
-    ) -> u32 {
-        let settings = &self.inner.settings;
+    ) -> Result<(), Option<String>> {
         if target_of(options) == Target::Lockscreen {
-            notify::plain(
-                connection,
-                notify::not_changed_summary(),
-                notify::lockscreen_body(),
-            )
-            .await;
-            return OTHER;
+            return Err(Some(notify::lockscreen_body()));
         }
-        if settings.config_path.is_none() {
-            match glimpse_config::shadowing_dropin(settings.user_dir.as_deref(), TABLE, "image") {
-                Ok(Some(path)) => {
-                    notify::plain(
-                        connection,
-                        notify::not_changed_summary(),
-                        notify::shadowed_body(&path),
-                    )
-                    .await;
-                    return OTHER;
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    tracing::warn!(%error, "cannot check the wallpaper drop-ins");
-                    notify::plain(
-                        connection,
-                        notify::not_changed_summary(),
-                        notify::failed_body(),
-                    )
-                    .await;
-                    return OTHER;
+        let inner = Arc::clone(&self.inner);
+        let (prev, kept) = tokio::task::spawn_blocking(move || {
+            let settings = &inner.settings;
+            if settings.config_path.is_none() {
+                for key in ["image", "image-dark"] {
+                    match glimpse_config::shadowing_dropin(settings.user_dir.as_deref(), TABLE, key)
+                    {
+                        Ok(Some(path)) => return Err(Some(notify::shadowed_body(&path))),
+                        Ok(None) => {}
+                        Err(error) => {
+                            tracing::warn!(%error, "cannot check the wallpaper drop-ins");
+                            return Err(Some(notify::failed_body()));
+                        }
+                    }
                 }
             }
-        }
-        let prev = match read_prev(&settings.user_config) {
-            Ok(prev) => prev,
-            Err(error) => {
+            let prev = read_prev(&settings.user_config).map_err(|error| {
                 tracing::warn!(%error, "cannot read the wallpaper configuration");
-                notify::plain(
-                    connection,
-                    notify::not_changed_summary(),
-                    notify::failed_body(),
-                )
-                .await;
-                return OTHER;
-            }
-        };
-        let kept = match glimpse_config::load(settings.config_path.as_deref()) {
-            Ok(config) => outputs_kept(&config),
-            Err(error) => {
-                tracing::warn!(%error, "cannot load the wallpaper configuration");
-                notify::plain(
-                    connection,
-                    notify::not_changed_summary(),
-                    notify::failed_body(),
-                )
-                .await;
-                return OTHER;
-            }
-        };
-        let source = match file_path_from_uri(uri) {
-            Ok(source) => source,
-            Err(reject) => {
-                notify::plain(
-                    connection,
-                    notify::not_changed_summary(),
-                    reason_text(reject),
-                )
-                .await;
-                return OTHER;
-            }
-        };
-        let copy = match copy_image(&source, &settings.copies).await {
-            Ok(copy) => copy,
-            Err(reject) => {
-                notify::plain(
-                    connection,
-                    notify::not_changed_summary(),
-                    reason_text(reject),
-                )
-                .await;
-                return OTHER;
-            }
-        };
+                Some(notify::failed_body())
+            })?;
+            let config =
+                glimpse_config::load(settings.config_path.as_deref()).map_err(|error| {
+                    tracing::warn!(%error, "cannot load the wallpaper configuration");
+                    Some(notify::failed_body())
+                })?;
+            Ok((prev, outputs_kept(&config)))
+        })
+        .await
+        .unwrap_or_else(|_| Err(Some(notify::failed_body())))?;
+        let source = file_path_from_uri(uri).map_err(|reject| Some(reason_text(reject)))?;
+        let copy = copy_image(&source, &self.inner.settings.copies)
+            .await
+            .map_err(|reject| Some(reason_text(reject)))?;
         if flight.is_closed() {
-            let _ = std::fs::remove_file(&copy);
-            return OTHER;
+            let _ = tokio::fs::remove_file(&copy).await;
+            return Err(None);
         }
-        let copy_text = copy.to_string_lossy().into_owned();
-        let mut values = toml_edit::Table::new();
-        values.insert("image", toml_edit::value(copy_text.as_str()));
-        if let Err(error) =
-            glimpse_config::write_table(&settings.user_config, TABLE, &values, &["image-dark"])
-        {
-            tracing::warn!(%error, "cannot write the wallpaper configuration");
-            let _ = std::fs::remove_file(&copy);
-            notify::plain(
-                connection,
-                notify::not_changed_summary(),
-                notify::failed_body(),
-            )
-            .await;
-            return OTHER;
-        }
-        let mut keep = vec![copy];
-        for previous in [prev.image.as_ref(), prev.image_dark.as_ref()]
-            .into_iter()
-            .flatten()
-        {
-            let path = PathBuf::from(previous);
-            if path.starts_with(&settings.copies) {
-                keep.push(path);
+        let inner = Arc::clone(&self.inner);
+        let prev = tokio::task::spawn_blocking(move || {
+            let settings = &inner.settings;
+            let copy_text = copy.to_string_lossy().into_owned();
+            let mut values = toml_edit::Table::new();
+            values.insert("image", toml_edit::value(copy_text.as_str()));
+            values.insert("image-dark", toml_edit::value(copy_text.as_str()));
+            if let Err(error) =
+                glimpse_config::write_table(&settings.user_config, TABLE, &values, &[])
+            {
+                tracing::warn!(%error, "cannot write the wallpaper configuration");
+                let _ = std::fs::remove_file(&copy);
+                return Err(Some(notify::failed_body()));
             }
-        }
-        collect_copies(&settings.copies, &keep);
+            let mut keep = vec![copy];
+            for previous in [prev.image.as_ref(), prev.image_dark.as_ref()]
+                .into_iter()
+                .flatten()
+            {
+                let path = PathBuf::from(previous);
+                if path.starts_with(&settings.copies) {
+                    keep.push(path);
+                }
+            }
+            collect_copies(&settings.copies, &keep);
+            Ok(prev)
+        })
+        .await
+        .unwrap_or_else(|_| Err(Some(notify::failed_body())))?;
         self.announce(connection, kept, prev);
-        SUCCESS
+        Ok(())
     }
 
     fn announce(&self, connection: &Connection, kept: usize, prev: Prev) {
@@ -403,18 +355,11 @@ impl WallpaperPortal {
                     *lock(&posted.pending) = Some(id);
                 },
                 move || {
-                    inner.undo(epoch, &prev);
+                    tokio::task::spawn_blocking(move || inner.undo(epoch, &prev));
                 },
             )
             .await;
         });
-    }
-
-    async fn unexport(&self, connection: &Connection, handle: &OwnedObjectPath) {
-        let _ = connection
-            .object_server()
-            .remove::<PortalRequest, _>(handle.clone())
-            .await;
     }
 }
 

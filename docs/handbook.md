@@ -271,8 +271,8 @@ units, adding a language and the extractor's traps: `docs/translations.md`.
   or the compositor's IPC socket. Subprocesses cannot be mocked, break under sandboxing, and parse
   output that is not a stable interface.
 - **A glimpse process writes runtime state under `$XDG_RUNTIME_DIR/glimpse/` and nothing else.**
-  Never `$XDG_CONFIG_HOME`, never the user's home, never `/tmp`. The one exception is an exec
-  applet's persistent data directory, under `glimpse-config`'s `state_dir()`.
+  Never `$XDG_CONFIG_HOME`, never the user's home, never `/tmp`. Two exceptions, both under
+  `glimpse-config`'s `state_dir()`: an exec applet's data and the geolocation cache.
 - **Treat text from other applications as hostile.** Tray titles, notification summaries and bodies,
   MPRIS metadata and SSIDs are attacker-controlled and unbounded. Cap length, ellipsize, and
   sanitize markup before any of it reaches a label.

@@ -208,6 +208,22 @@ pub use world_clock::{WorldClock, Zone};
 
 pub(crate) const TEXT_MAX_CHARS: usize = 128;
 
+pub(crate) const HOLD_PRESETS: [u32; 5] = [900, 1_800, 3_600, 7_200, 14_400];
+
+pub(crate) fn apply_hold_preset(rows: impl IntoIterator<Item = ToggleRow>, seconds: Option<u32>) {
+    for (row, preset) in rows.into_iter().zip(HOLD_PRESETS) {
+        row.set_active(seconds == Some(preset));
+    }
+}
+
+pub(crate) fn wire_hold_presets(rows: [ToggleRow; 5], on_request: impl Fn(u32) + 'static) {
+    let on_request = std::rc::Rc::new(on_request);
+    for (row, seconds) in rows.into_iter().zip(HOLD_PRESETS) {
+        let on_request = on_request.clone();
+        row.connect_toggled(move |_, _| on_request(seconds));
+    }
+}
+
 pub(crate) fn replace_children(container: &gtk4::Box, child: Option<&gtk4::Widget>) {
     use gtk4::prelude::*;
 
@@ -277,9 +293,6 @@ pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
     set_text_capped(label, value, TEXT_MAX_CHARS);
 }
 
-/// The same setter for a field whose own cap is not the shared one. Passing a longer string through
-/// `set_text` silently re-truncates it to `TEXT_MAX_CHARS`, which makes the caller's constant a lie
-/// no test of that constant can catch.
 pub(crate) fn set_text_capped(label: &gtk4::Label, value: Option<&str>, cap: usize) {
     use gtk4::prelude::*;
 

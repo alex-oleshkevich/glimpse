@@ -443,10 +443,15 @@ struct Loaded {
 }
 
 fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
+    let near = Window::around(Utc::now());
+    let windows = match window.from <= near.from && window.to >= near.to {
+        true => vec![window],
+        false => vec![near, window],
+    };
     let mut events = Vec::new();
     for source in &loaded {
         for calendar in &source.calendars {
-            for occurrence in expand(calendar, window) {
+            for occurrence in windows.iter().flat_map(|window| expand(calendar, *window)) {
                 events.push(CalendarEvent {
                     source: source.id.clone(),
                     calendar: source.name.clone().unwrap_or_else(|| source.id.clone()),
@@ -470,7 +475,10 @@ fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
         left.start
             .cmp(&right.start)
             .then_with(|| left.summary.cmp(&right.summary))
+            .then_with(|| left.source.cmp(&right.source))
+            .then_with(|| left.end.cmp(&right.end))
     });
+    events.dedup();
     let truncated_from = events.get(EVENTS).map(|dropped| dropped.start);
     events.truncate(EVENTS);
 
@@ -578,7 +586,8 @@ async fn directory(uri: &str) -> Result<Vec<String>, String> {
         .map_err(|error| format!("its directory cannot be read: {}", error.kind()))?;
 
     let mut documents = Vec::new();
-    while documents.len() < FILES {
+    let mut bytes = 0;
+    while bytes < DIRECTORY_BYTES {
         let Ok(Some(entry)) = entries.next_entry().await else {
             break;
         };
@@ -590,7 +599,10 @@ async fn directory(uri: &str) -> Result<Vec<String>, String> {
             continue;
         }
         match fs::read_to_string(&path).await {
-            Ok(text) => documents.push(text),
+            Ok(text) => {
+                bytes += text.len() as u64;
+                documents.push(text);
+            }
             Err(error) => tracing::warn!(kind = ?error.kind(), "an .ics file could not be read"),
         }
     }
@@ -616,7 +628,7 @@ async fn read(
 
     let mut calendars = Vec::new();
     for document in &documents {
-        let calendar: ICalendar = document
+        let calendar: ICalendar = zones::iana_names(document)
             .parse()
             .map_err(|_| "its document is not iCalendar".to_owned())?;
         calendars.push(Arc::new(calendar));
@@ -645,9 +657,6 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             event.property_value("DURATION"),
             all_day,
         );
-        let Ok(set) = entry.get_recurrence() else {
-            continue;
-        };
         let summary = clean(event.get_summary().unwrap_or_default(), SUMMARY);
         let location = line(event.get_location());
         let description = line(event.get_description().and_then(first_line));
@@ -661,7 +670,19 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             None => overridden.get(event.get_uid().unwrap_or("")),
         };
 
-        for date in set.after(from).before(to).all(OCCURRENCES).dates {
+        let dates = match entry.get_recurrence() {
+            Ok(set) => set.after(from).before(to).all(OCCURRENCES).dates,
+            Err(error) => {
+                tracing::warn!(%error, "an event's recurrence could not be built; keeping its start");
+                let at = bound(moment(&start).and_utc());
+                match at >= from && at <= to {
+                    true => vec![at],
+                    false => Vec::new(),
+                }
+            }
+        };
+
+        for date in dates {
             let start = date.with_timezone(&Utc);
             if replaced.is_some_and(|replaced| replaced.holds(&date)) {
                 continue;
@@ -946,6 +967,8 @@ fn under(host: &str, domain: &str) -> bool {
             .strip_suffix(domain)
             .is_some_and(|rest| rest.ends_with('.'))
 }
+
+mod zones;
 
 #[cfg(test)]
 mod tests;

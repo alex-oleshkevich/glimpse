@@ -54,10 +54,6 @@ impl EventList {
         self.render();
     }
 
-    pub fn overflows(&self) -> bool {
-        self.imp().more.get_visible()
-    }
-
     pub fn set_max_rows(&self, max: u32) {
         if self.imp().max_rows.replace(max) == max {
             return;

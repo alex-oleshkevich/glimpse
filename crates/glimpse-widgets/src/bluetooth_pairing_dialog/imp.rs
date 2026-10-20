@@ -64,18 +64,18 @@ impl ObjectImpl for PairingDialog {
 
     fn constructed(&self) {
         self.parent_constructed();
-        let dialog = self.obj().clone();
-        self.entry.connect_changed(move |_| {
-            dialog.imp().revalidate();
-        });
+        self.entry.connect_changed(glib::clone!(
+            #[weak(rename_to = dialog)]
+            self.obj(),
+            move |_| dialog.imp().revalidate()
+        ));
 
         let entry = self.entry.get();
         self.obj().connect_map(move |_| {
             entry.grab_focus();
         });
 
-        let dialog = self.obj().clone();
-        self.obj().connect_response(None, move |_, response| {
+        self.obj().connect_response(None, move |dialog, response| {
             let kind = dialog.imp().entry_kind.get();
             let value = dialog.imp().entry.text().to_string();
             dialog.emit_by_name::<()>(

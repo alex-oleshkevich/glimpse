@@ -41,7 +41,7 @@ in the machine's own zone.
   `off` there is nothing left in it for a UI to switch back to; `manual` tracks `SetTemperature` only.
 - **`Snapshot` is append-only.** Decoding requires the first seven fields and defaults missing
   trailing fields. `paused_until` is a Unix timestamp in seconds; zero means no pause, including
-  snapshots from an older provider. Existing fields keep their positions.
+  snapshots from an older provider. `pausable` is true only while `Pause` would be accepted: a night with a future boundary. Existing fields keep their positions.
 - **The method answers after the display has been driven, not when the command was queued.**
   `SetSchedule` carries a `oneshot` sent *after* `evaluate` rather than firing and forgetting on the
   `try_send`. A backend that refused the ramp is a health condition, reported through

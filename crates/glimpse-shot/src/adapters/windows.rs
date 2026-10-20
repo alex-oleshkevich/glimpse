@@ -50,21 +50,33 @@ impl Windows for CompositorWindows<'_> {
             return Ok(Frame { connector, ..frame });
         }
         let visible = visible_crop(window, &snapshot);
-        match (&self.compositor, visible) {
-            (Compositor::Niri(_), Some(crop)) if window.is_floating => {
-                crop_output(&connector, crop)
-            }
-            (Compositor::Niri(_), _) => {
+        let can_screenshot = self.compositor.capabilities().window_screenshot;
+        match route(can_screenshot, window.is_floating, visible) {
+            Route::Crop(crop) => crop_output(&connector, crop),
+            Route::Screenshot => {
                 let frame = self.screenshot(window)?;
                 Ok(Frame { connector, ..frame })
             }
-            (Compositor::Hyprland(_), Some(crop)) => crop_output(&connector, crop),
-            (Compositor::Hyprland(_), None) => Err(CaptureError::Failed(
+            Route::Hidden => Err(CaptureError::Failed(
                 "the window is not on a visible workspace, and Hyprland renders no hidden window"
                     .to_owned(),
             )),
-            (Compositor::Unsupported, _) => Err(CaptureError::Unsupported),
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Route {
+    Crop(Rect<BufferPx>),
+    Screenshot,
+    Hidden,
+}
+
+fn route(can_screenshot: bool, floating: bool, visible: Option<Rect<BufferPx>>) -> Route {
+    match visible {
+        Some(crop) if floating || !can_screenshot => Route::Crop(crop),
+        _ if can_screenshot => Route::Screenshot,
+        _ => Route::Hidden,
     }
 }
 

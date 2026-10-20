@@ -13,9 +13,6 @@ const DND_TOGGLED: &str = "dnd-toggled";
 const CLEAR_ALL: &str = "clear-all";
 const CLEAR_GROUP: &str = "clear-group";
 
-/// One application's notifications. `key` is what grouping is done on and is the sender's identity
-/// — its desktop entry or bus name — rather than `app_name`, which the sender chooses and can
-/// therefore borrow from somebody else.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Group {
     pub key: String,
@@ -211,8 +208,6 @@ impl NotificationsPopover {
         !self.imp().notifications.is_active()
     }
 
-    /// The wording of the failure is the widget's, because it is the same failure every time; the
-    /// detail is the caller's, because only it knows which name was taken or which bus was down.
     pub fn set_trouble(&self, detail: Option<&str>) {
         let imp = self.imp();
         imp.trouble.set_subtitle(detail);

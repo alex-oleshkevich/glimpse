@@ -81,8 +81,6 @@ impl PrivacyPopover {
         imp.usages.set_visible(!usages.is_empty());
     }
 
-    /// A use that has nothing to say and cannot be stopped is a plain row; any other opens a card
-    /// of what is in use and, when it can be ended, a destructive Stop sharing.
     fn build_usage(&self, usage: &Usage) -> gtk4::Widget {
         if !carded(usage) {
             return Row::new().upcast();

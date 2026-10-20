@@ -122,3 +122,6 @@ impl Calendar {
         )
     }
 }
+
+#[cfg(test)]
+mod tests;

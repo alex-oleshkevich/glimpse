@@ -27,6 +27,8 @@ pub struct Day {
 #[template(resource = "/me/aresa/GlimpseShell/widgets/calendar.ui")]
 pub struct Calendar {
     #[template_child]
+    pub header: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub scope: TemplateChild<gtk4::Button>,
     #[template_child]
     pub scope_label: TemplateChild<gtk4::Label>,
@@ -330,13 +332,16 @@ impl Calendar {
                 1,
             );
 
-            let calendar = self.obj().clone();
-            button.connect_clicked(move |_| {
-                let imp = calendar.imp();
-                let date = imp.days.borrow()[page][index].date.get();
-                imp.shown.set((date.year, date.month));
-                imp.select(date);
-            });
+            button.connect_clicked(glib::clone!(
+                #[weak(rename_to = calendar)]
+                self.obj(),
+                move |_| {
+                    let imp = calendar.imp();
+                    let date = imp.days.borrow()[page][index].date.get();
+                    imp.shown.set((date.year, date.month));
+                    imp.select(date);
+                }
+            ));
 
             days.push(Day {
                 button,
@@ -359,45 +364,59 @@ impl Calendar {
             self.year
                 .attach(&button, (index % 4) as i32, (index / 4) as i32, 1, 1);
 
-            let calendar = self.obj().clone();
-            button.connect_clicked(move |_| {
-                let imp = calendar.imp();
-                imp.shown.set((imp.shown.get().0, index + 1));
-                imp.views.set_visible_child_name(MONTH_VIEW);
-                imp.render();
-            });
+            button.connect_clicked(glib::clone!(
+                #[weak(rename_to = calendar)]
+                self.obj(),
+                move |_| {
+                    let imp = calendar.imp();
+                    imp.shown.set((imp.shown.get().0, index + 1));
+                    imp.views.set_visible_child_name(MONTH_VIEW);
+                    imp.render();
+                }
+            ));
             months.push(button);
         }
         self.months.replace(months);
     }
 
     fn wire(&self) {
-        let calendar = self.obj().clone();
-        self.previous
-            .connect_clicked(move |_| calendar.imp().step(-1));
-
-        let calendar = self.obj().clone();
-        self.next.connect_clicked(move |_| calendar.imp().step(1));
-
-        let calendar = self.obj().clone();
-        self.today_button
-            .connect_clicked(move |_| calendar.imp().go_to_today());
-
-        let calendar = self.obj().clone();
-        self.scope
-            .connect_clicked(move |_| calendar.imp().toggle_view());
+        self.previous.connect_clicked(glib::clone!(
+            #[weak(rename_to = calendar)]
+            self.obj(),
+            move |_| calendar.imp().step(-1)
+        ));
+        self.next.connect_clicked(glib::clone!(
+            #[weak(rename_to = calendar)]
+            self.obj(),
+            move |_| calendar.imp().step(1)
+        ));
+        self.today_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = calendar)]
+            self.obj(),
+            move |_| calendar.imp().go_to_today()
+        ));
+        self.scope.connect_clicked(glib::clone!(
+            #[weak(rename_to = calendar)]
+            self.obj(),
+            move |_| calendar.imp().toggle_view()
+        ));
 
         let scrolling = gtk4::EventControllerScroll::new(
             gtk4::EventControllerScrollFlags::VERTICAL | gtk4::EventControllerScrollFlags::DISCRETE,
         );
-        let calendar = self.obj().clone();
-        scrolling.connect_scroll(move |_, _, delta| {
-            let steps = delta as i32;
-            if steps != 0 {
-                calendar.imp().step(steps);
+        scrolling.connect_scroll(glib::clone!(
+            #[weak(rename_to = calendar)]
+            self.obj(),
+            #[upgrade_or]
+            glib::Propagation::Stop,
+            move |_, _, delta| {
+                let steps = delta as i32;
+                if steps != 0 {
+                    calendar.imp().step(steps);
+                }
+                glib::Propagation::Stop
             }
-            glib::Propagation::Stop
-        });
+        ));
         self.views.add_controller(scrolling);
     }
 }

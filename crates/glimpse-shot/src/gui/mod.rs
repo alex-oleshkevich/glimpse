@@ -4,8 +4,10 @@ mod overlay;
 mod prefs;
 mod result;
 
+use gio_unix::DesktopAppInfo;
 use glimpse_shot::doc::document::Document;
-use gtk4::{gio, glib};
+use glimpse_widgets::roundtrip;
+use gtk4::{gdk, gio, glib};
 
 use crate::cli::ScaleMode;
 use crate::headless;
@@ -28,4 +30,19 @@ fn encode(
         };
         done(encoded);
     });
+}
+
+fn barrier() {
+    if let Some(display) = gdk::Display::default()
+        && let Err(error) = roundtrip(&display)
+    {
+        tracing::warn!("no unmap barrier: {error}");
+    }
+}
+
+fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
+    if app_id.is_empty() || app_id.contains('/') || app_id.contains('\0') {
+        return None;
+    }
+    DesktopAppInfo::new(&format!("{app_id}.desktop"))
 }

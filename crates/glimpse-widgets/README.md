@@ -25,7 +25,7 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
   slider recovery icons stay usable. Expander heads always permit inspection, and inactivity never
   propagates to drawer children.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
-- **Untrusted text is capped and set as plain text, with no markup setter anywhere**: tray titles,
+- **Untrusted text is capped and set as plain text**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
 
 ## Indicator, IndicatorGroup, Pager, TrayStrip and InhibitorList
@@ -115,12 +115,13 @@ changes, not the name, so a credential cannot reach the next device.
 
 Artwork is a `Gtk.Image`, the only one that can be told how big to be, since `Gtk.Picture` reports
 the paintable's natural width. `Pixbuf::file_info` reads dimensions out of the header without
-decoding, so an oversized `mpris:artUrl` is refused before anything expands it in memory.
+decoding, so an oversized `mpris:artUrl` is refused before anything expands it in memory. Both axes
+of a decoded thumbnail are clamped, because the sender chose them.
 
 `SourceList` has no template: a row and its `SliderRow` are parented as
 siblings, never nested, so the row's `activatable: false` cannot reach the slider beneath it.
 `SliderRow::set_range` takes the device's own floor and maximum and steps by a hundredth of the
-maximum, so neither `SourceList` nor `DisplayPopover` pre-clamps a value.
+maximum, and never less than 1, so neither `SourceList` nor `DisplayPopover` pre-clamps a value.
 
 ## DisplayList, DisplayPopover, AudioPopover, PowerPopover and SessionPopover
 

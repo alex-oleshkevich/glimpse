@@ -63,7 +63,6 @@ impl BluetoothPopover {
         }
     }
 
-    /// Closes one device's card: what an applet calls once the action taken from it succeeded.
     pub fn collapse(&self, id: &str) {
         if let Some((_, device)) = self.devices().find(|(held, _)| held == id) {
             device.imp().row.set_open(false);

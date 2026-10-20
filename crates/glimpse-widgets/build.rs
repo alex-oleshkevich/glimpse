@@ -267,8 +267,8 @@ fn main() {
     ]);
 
     glib_build_tools::compile_resources(
-        &["resources"],                            // source dirs (relative to build.rs)
-        "resources/glimpse-widgets.gresource.xml", // manifest
-        "glimpse-widgets.gresource",               // output name (placed in OUT_DIR)
+        &["resources"],
+        "resources/glimpse-widgets.gresource.xml",
+        "glimpse-widgets.gresource",
     );
 }

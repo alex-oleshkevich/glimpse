@@ -351,6 +351,7 @@ pub struct Compositor {
     state_publisher: Publisher<CompositorState>,
     state: Option<Snapshot>,
     attempt: u64,
+    stale: bool,
     capabilities: CompositorCapabilities,
 }
 
@@ -423,6 +424,9 @@ impl Service for Compositor {
         match input {
             Input::Event(Event::Snapshot(snapshot)) => {
                 self.state = Some(*snapshot);
+                if std::mem::take(&mut self.stale) {
+                    self.attempt += 1;
+                }
                 if ctx.is_degraded() {
                     ctx.running();
                 }
@@ -430,6 +434,7 @@ impl Service for Compositor {
             }
             Input::Event(Event::Changed(change)) => {
                 let Some(state) = self.state.as_mut() else {
+                    self.stale = true;
                     return;
                 };
                 if apply(state, change) {
@@ -451,6 +456,7 @@ impl Compositor {
             state_publisher: ctx.publisher(),
             state: None,
             attempt: 0,
+            stale: false,
             capabilities,
             backend,
         };

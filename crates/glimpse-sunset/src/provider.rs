@@ -111,6 +111,7 @@ fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
         paused_until: state
             .paused_until
             .map_or(0, |deadline| deadline.timestamp()),
+        pausable: state.pausable,
     }
 }
 

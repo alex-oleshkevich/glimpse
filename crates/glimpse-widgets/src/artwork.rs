@@ -2,14 +2,8 @@ use std::path::Path;
 
 use gtk4::{gdk, gdk_pixbuf::Pixbuf, prelude::*};
 
-/// The largest source this will decode, per side — twenty times the slot, which no real cover
-/// approaches. `mpris:artUrl` is chosen by another application, and the decode runs on the GTK main
-/// loop, so the bound on how much work one player can ask for is the header check rather than
-/// anything downstream of it.
 const LARGEST: i32 = 4096;
 
-/// How a source of `(width, height)` is made to fill a `side × side` slot: scale so the shorter
-/// side reaches `side`, then take the middle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Cover {
     width: i32,
@@ -46,12 +40,6 @@ fn cover(width: i32, height: i32, side: i32) -> Option<Cover> {
     })
 }
 
-/// A square texture for an image on disk, cropped from the middle so it fills its slot whatever
-/// shape it arrived in.
-///
-/// `Gtk.Image` centres a paintable at the paintable's own aspect ratio, so a 16:9 thumbnail handed
-/// over as-is leaves the rounded corners of the art slot showing the surface behind it. Handing it
-/// something already square is what keeps that widget's measured sizing behaviour intact.
 pub fn artwork(path: &Path, side: i32) -> Option<gdk::Texture> {
     let (_, width, height) = Pixbuf::file_info(path)?;
     if width > LARGEST || height > LARGEST {
@@ -83,12 +71,6 @@ pub fn artwork(path: &Path, side: i32) -> Option<gdk::Texture> {
     )
 }
 
-/// A bounded thumbnail for image bytes another application put on the clipboard.
-///
-/// `gdk::Texture::from_bytes` decodes at full size, and a small compressed image can decode to an
-/// enormous bitmap — the byte cap the clipboard applies says nothing about the pixel count. The
-/// loader is asked for its dimensions first and told to scale during decode, so the work and the
-/// memory are bounded on **both** axes rather than by whatever the sender chose.
 pub type Thumbnail = (gdk::Texture, (i32, i32));
 
 pub fn thumbnail(bytes: &[u8], side: i32) -> Option<Thumbnail> {
@@ -101,11 +83,12 @@ pub fn thumbnail(bytes: &[u8], side: i32) -> Option<Thumbnail> {
         let source = source.clone();
         move |loader, width, height| {
             source.set((width, height));
-            // `cover` scales by the SHORTER side, so a 65535x48 image passes through it untouched and
-            // decodes to megabytes. Both axes are clamped here, which is the bound the caller is told
-            // it has — the sender chose these dimensions and is not to be trusted with them.
             if width > LARGEST || height > LARGEST {
-                loader.set_size(side.min(width), side.min(height));
+                let factor = f64::from(side) / f64::from(width.max(height));
+                loader.set_size(
+                    ((f64::from(width) * factor).round() as i32).max(1),
+                    ((f64::from(height) * factor).round() as i32).max(1),
+                );
                 return;
             }
             let Some(cover) = cover(width, height, side) else {
