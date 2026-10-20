@@ -5,15 +5,6 @@ use glimpse_wayland::capture::Frame;
 
 use super::*;
 
-fn header(width: u32, height: u32) -> Vec<u8> {
-    let mut bytes = PNG_SIGNATURE.to_vec();
-    bytes.extend_from_slice(&13u32.to_be_bytes());
-    bytes.extend_from_slice(b"IHDR");
-    bytes.extend_from_slice(&width.to_be_bytes());
-    bytes.extend_from_slice(&height.to_be_bytes());
-    bytes
-}
-
 #[test]
 fn a_folder_under_home_is_shown_from_the_tilde() {
     let home = Path::new("/home/user");
@@ -22,22 +13,6 @@ fn a_folder_under_home_is_shown_from_the_tilde() {
         "~/Pictures/Screenshots"
     );
     assert_eq!(home_relative(Path::new("/srv/shots"), home), "/srv/shots");
-}
-
-#[test]
-fn a_png_larger_than_the_limit_is_refused_from_its_header_alone() {
-    let dir = tempfile::tempdir().expect("a temporary directory");
-    let huge = dir.path().join("huge.png");
-    std::fs::write(&huge, header(20_000, 10)).expect("writes");
-    let refused = format!("{:#}", load(&huge).expect_err("too large"));
-    assert!(refused.contains("20000 × 10"), "{refused}");
-
-    let text = dir.path().join("text.png");
-    std::fs::write(&text, b"not an image, but long enough to hold a header").expect("writes");
-    assert!(format!("{:#}", load(&text).expect_err("no signature")).contains("not a PNG"));
-
-    assert_eq!(png_size(&header(16384, 16384)), Some((16384, 16384)));
-    assert_eq!(png_size(&header(1, 1)[..20]), None);
 }
 
 fn document(marks: Vec<(MarkId, Mark)>) -> Document {

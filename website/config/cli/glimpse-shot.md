@@ -19,7 +19,7 @@ Usage: glimpse-shot [OPTIONS] [FILE.png] [COMMAND]
 
 Commands:
   capture   Take a screenshot without any window or overlay
-  annotate  Annotate an existing PNG image
+  annotate  Annotate an existing image
   prime     Print the complete agent guide
   list      List outputs and windows with their geometry
   help      Print this message or the help of the given subcommand(s)
@@ -75,16 +75,16 @@ Agents: run `glimpse-shot prime` for the full contract.
 
 ## `glimpse-shot annotate`
 
-Annotate an existing PNG image
+Annotate an existing image
 
 ```text
 Usage: glimpse-shot annotate [OPTIONS] [IMAGE]
 
 Arguments:
-  [IMAGE]  PNG image to edit.
+  [IMAGE]  Image to edit (PNG, JPEG, WebP, …).
 
 Options:
-      --pick                 Choose a PNG when IMAGE is omitted.
+      --pick                 Choose an image when IMAGE is omitted.
       --headless             Export without opening an editor; needs --annotate.
       --copy                 Put the PNG on the clipboard.
       --no-save              Write no file; needs --copy.

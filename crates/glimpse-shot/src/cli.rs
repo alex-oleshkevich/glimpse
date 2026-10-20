@@ -71,7 +71,7 @@ impl Cli {
 pub enum Command {
     #[command(about = "Take a screenshot without any window or overlay")]
     Capture(CaptureArgs),
-    #[command(about = "Annotate an existing PNG image")]
+    #[command(about = "Annotate an existing image")]
     Annotate(AnnotateArgs),
     #[command(about = "Print the complete agent guide")]
     Prime,
@@ -282,13 +282,13 @@ pub struct AnnotateArgs {
     #[arg(
         value_name = "IMAGE",
         required_unless_present = "pick",
-        help = "PNG image to edit."
+        help = "Image to edit (PNG, JPEG, WebP, …)."
     )]
     pub image: Option<PathBuf>,
     #[arg(
         long,
         conflicts_with = "headless",
-        help = "Choose a PNG when IMAGE is omitted."
+        help = "Choose an image when IMAGE is omitted."
     )]
     pub pick: bool,
     #[arg(long, value_name = "MARKS", long_help = ANNOTATE_POINTER)]

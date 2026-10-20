@@ -17,7 +17,7 @@ geometry parsing and the `--json`/`--annotate` wire format — and has no GTK de
 
 ```
 glimpse-shot [TARGET] [GUI OPTIONS] [FILE.png]     the app: an editor on a target, else the window
-glimpse-shot annotate [IMAGE] [--pick] [OPTIONS]   edit a PNG; --pick chooses an omitted image
+glimpse-shot annotate [IMAGE] [--pick] [OPTIONS]   edit an image; --pick chooses an omitted image
 glimpse-shot capture [TARGET] [CAPTURE OPTIONS]    headless: capture, write, exit — no UI ever
 glimpse-shot list [--json]                         outputs and windows, with geometry
 glimpse-shot prime                                 print the agent guide
@@ -75,7 +75,7 @@ GLib's own debug and info logging goes to stderr, so stdout stays data-only.
 Global options (`--config`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
 An editor option before or after `capture` or `list` is refused with exit 2 by `cli::parse`, naming
 the `glimpse-shot …` command that would open the editor. A bare file must end in `.png`;
-`annotate IMAGE` accepts PNG content regardless of its extension. `--pick` chooses an omitted IMAGE;
+`annotate IMAGE` accepts any image gdk-pixbuf reads (PNG, JPEG, WebP, …) regardless of its extension. `--pick` chooses an omitted IMAGE;
 `--headless` requires `--annotate`, rejects `--pick` and uses capture's output rules. Copy/no-save are
 headless-only, and an explicit output resolving to IMAGE exits 2 before opening it.
 

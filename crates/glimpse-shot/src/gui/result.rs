@@ -35,7 +35,7 @@ use crate::finish::{self, Destination};
 use crate::headless;
 use crate::image::LARGEST_SIDE;
 #[cfg(test)]
-use crate::image::{PNG_SIGNATURE, load, png_size};
+use crate::image::load;
 use crate::render::{self, Png};
 
 const DRAG_FALLBACK: &str = "Screenshot";

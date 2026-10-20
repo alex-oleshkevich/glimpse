@@ -926,8 +926,13 @@ impl Shell {
         answer: Option<Answer>,
     ) {
         let filter = gtk4::FileFilter::new();
-        filter.set_name(Some(&gettext("PNG Images")));
-        filter.add_mime_type("image/png");
+        filter.set_name(Some(&gettext("Images")));
+        for mime in gtk4::gdk_pixbuf::Pixbuf::formats()
+            .iter()
+            .flat_map(|format| format.mime_types())
+        {
+            filter.add_mime_type(&mime);
+        }
         let filters = gio::ListStore::new::<gtk4::FileFilter>();
         filters.append(&filter);
         let dialog = gtk4::FileDialog::builder()
