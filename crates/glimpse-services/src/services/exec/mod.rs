@@ -1056,7 +1056,7 @@ impl Service for Exec {
                     let dev = self.dev_slot(slot, applet, placement, request);
                     self.slots.insert(slot, dev);
                     self.taken_dev.insert(desktop_id, slot);
-                    tclicself.commit();
+                    self.commit();
                     let _ = reply.send(Ok(()));
                     return;
                 }

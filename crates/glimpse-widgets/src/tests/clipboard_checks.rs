@@ -233,3 +233,35 @@ fn clipboard_widgets() {
         .emit_by_name::<()>("search-changed", &[]);
     assert_eq!(*searched.borrow(), "review");
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn a_clip_that_gains_its_image_becomes_a_tile() {
+    gtk4::init().expect("display");
+    register_resources().expect("resources");
+    let _styles = Styles::install(adw::ColorScheme::Default);
+
+    let list = ClipboardList::new();
+    let bare = Clip {
+        id: 7,
+        title: "Image · 1 kB".to_owned(),
+        ..Default::default()
+    };
+    list.set_clips(std::slice::from_ref(&bare));
+    assert_eq!(children_of::<ExpanderRow>(&list).len(), 1);
+
+    let texture: gdk::Texture = gdk::MemoryTexture::new(
+        4,
+        4,
+        gdk::MemoryFormat::R8g8b8,
+        &glib::Bytes::from(&[128u8; 48]),
+        12,
+    )
+    .upcast();
+    list.set_clips(&[Clip {
+        image: Some(texture),
+        ..bare
+    }]);
+    assert!(children_of::<ExpanderRow>(&list).is_empty());
+    assert_eq!(children_of::<Expandable>(&list).len(), 1);
+}

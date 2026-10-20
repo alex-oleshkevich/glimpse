@@ -8,7 +8,7 @@ use super::Clip;
 #[derive(Debug, Default)]
 pub struct ClipboardList {
     pub clips: RefCell<Vec<Clip>>,
-    pub holders: RefCell<Vec<(u64, gtk4::Widget)>>,
+    pub holders: RefCell<Vec<((u64, bool), gtk4::Widget)>>,
     /// Wording for the two action rows. A widget owns structure and no content, so these arrive
     /// from the applet rather than being written here.
     pub actions: RefCell<Actions>,
