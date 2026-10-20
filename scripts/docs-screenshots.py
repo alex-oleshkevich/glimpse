@@ -17,7 +17,7 @@ events and notifications. Nothing from the running session can reach a capture.
 Usage (through the justfile):
     just docs-screenshots
     just docs-video
-    just docs-video-dark
+    just docs-video --dark
 """
 
 import json
