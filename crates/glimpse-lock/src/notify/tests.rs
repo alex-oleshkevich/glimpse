@@ -21,7 +21,7 @@ fn a_safety_notice_is_critical_and_an_expired_password_is_not() {
     assert!(body.contains("passwd"));
 }
 
-async fn restore_with(int: i64) -> Option<Notice> {
+async fn restore_with(value: bool) -> Option<Notice> {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let listener = tokio::net::UnixListener::bind(dir.path().join(".socket.sock")).expect("bind");
     tokio::spawn(async move {
@@ -29,7 +29,7 @@ async fn restore_with(int: i64) -> Option<Notice> {
         while let Ok((mut stream, _)) = listener.accept().await {
             let mut command = vec![0_u8; 256];
             let _ = stream.read(&mut command).await;
-            let reply = format!(r#"{{"option":"misc:allow_session_lock_restore","int":{int}}}"#);
+            let reply = format!(r#"{{"option":"misc:allow_session_lock_restore","bool":{value}}}"#);
             let _ = stream.write_all(reply.as_bytes()).await;
         }
     });
@@ -41,8 +41,8 @@ async fn restore_with(int: i64) -> Option<Notice> {
 
 #[tokio::test]
 async fn a_disabled_restore_option_posts_one_warning_and_an_enabled_one_none() {
-    assert_eq!(restore_with(0).await, Some(Notice::RestoreDisabled));
-    assert_eq!(restore_with(1).await, None);
+    assert_eq!(restore_with(false).await, Some(Notice::RestoreDisabled));
+    assert_eq!(restore_with(true).await, None);
     let (_, body) = text(Notice::RestoreDisabled);
     assert!(body.contains("misc:allow_session_lock_restore"));
 }

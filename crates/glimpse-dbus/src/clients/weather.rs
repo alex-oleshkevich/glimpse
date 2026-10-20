@@ -295,10 +295,10 @@ pub trait Weather1 {
 
     fn watch_place(
         &self,
-        kind: u8,       // 0 here, 1 coordinates, 2 named location
-        latitude: f64,  // degrees north, ignored for kinds 0 and 2
-        longitude: f64, // degrees east, ignored for kinds 0 and 2
-        location: &str, // requested name, used only for kind 2
+        kind: u8,
+        latitude: f64,
+        longitude: f64,
+        location: &str,
     ) -> zbus::Result<()>;
     fn refresh(&self) -> zbus::Result<()>;
 }

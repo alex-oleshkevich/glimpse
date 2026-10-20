@@ -313,7 +313,7 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
     }
 }
 
-async fn restore_lock(int: i64) -> glimpsectl::commands::doctor::SessionLock {
+async fn restore_lock(value: bool) -> glimpsectl::commands::doctor::SessionLock {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let dir = tempfile::tempdir().unwrap();
     let listener = tokio::net::UnixListener::bind(dir.path().join(".socket.sock")).unwrap();
@@ -321,7 +321,7 @@ async fn restore_lock(int: i64) -> glimpsectl::commands::doctor::SessionLock {
         while let Ok((mut stream, _)) = listener.accept().await {
             let mut command = vec![0_u8; 256];
             let _ = stream.read(&mut command).await;
-            let reply = format!(r#"{{"option":"misc:allow_session_lock_restore","int":{int}}}"#);
+            let reply = format!(r#"{{"option":"misc:allow_session_lock_restore","bool":{value}}}"#);
             let _ = stream.write_all(reply.as_bytes()).await;
         }
     });
@@ -334,10 +334,10 @@ async fn restore_lock(int: i64) -> glimpsectl::commands::doctor::SessionLock {
 
 #[tokio::test]
 async fn a_disabled_lock_restore_is_a_failure_with_the_fix_and_an_enabled_one_is_not() {
-    let off = restore_lock(0).await;
+    let off = restore_lock(false).await;
     assert!(!off.enabled);
     let text = off.section().render();
     assert!(text.contains("misc:allow_session_lock_restore"));
     assert!(text.contains("misc { allow_session_lock_restore = true }"));
-    assert!(restore_lock(1).await.enabled);
+    assert!(restore_lock(true).await.enabled);
 }

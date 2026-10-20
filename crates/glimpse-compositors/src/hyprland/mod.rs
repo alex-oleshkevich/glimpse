@@ -65,12 +65,12 @@ impl Hyprland {
     pub(crate) async fn allow_session_lock_restore(&self) -> Result<bool, CompositorError> {
         #[derive(Deserialize)]
         struct Reading {
-            int: i64,
+            r#bool: bool,
         }
         let option = self
             .json::<Reading>("j/getoption misc:allow_session_lock_restore")
             .await?;
-        Ok(option.int != 0)
+        Ok(option.r#bool)
     }
 
     pub(crate) async fn snapshot(&self) -> Result<Snapshot, CompositorError> {

@@ -958,11 +958,11 @@ async fn only_the_second_title_event_asks_for_a_resync() {
     assert_eq!(events, [Event::Resync(Resync::Structure)]);
 }
 
-async fn session_lock_restore(int: i64) -> bool {
+async fn session_lock_restore(value: bool) -> bool {
     let server = FakeHyprland::spawn(
         move |command| match command {
             "j/getoption misc:allow_session_lock_restore" => json!({
-                "option": "misc:allow_session_lock_restore", "int": int, "set": false
+                "option": "misc:allow_session_lock_restore", "bool": value, "set": false
             })
             .to_string(),
             other => panic!("the fake was asked for {other}"),
@@ -976,7 +976,7 @@ async fn session_lock_restore(int: i64) -> bool {
 }
 
 #[tokio::test]
-async fn the_session_lock_restore_option_reads_its_int() {
-    assert!(!session_lock_restore(0).await);
-    assert!(session_lock_restore(1).await);
+async fn the_session_lock_restore_option_reads_its_bool() {
+    assert!(!session_lock_restore(false).await);
+    assert!(session_lock_restore(true).await);
 }
