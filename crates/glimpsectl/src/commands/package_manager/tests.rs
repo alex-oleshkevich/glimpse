@@ -8,6 +8,7 @@ fn manager(root: &Path) -> PackageManager {
     PackageManager {
         applets_dir: root.join("applets"),
         applications_dir: root.join("applications"),
+        system_data_dirs: vec![root.join("system"), root.join("system2")],
     }
 }
 
@@ -464,4 +465,103 @@ fn install_error_for_an_unknown_metadata_key_with_an_escape_holds_no_control_cha
         "{error:#}"
     );
     assert_no_control(&error);
+}
+
+fn install_package_with_id(root: &Path, id: &str) -> Result<Installed> {
+    let package = root.join("package.zip");
+    let desktop = DESKTOP.replace("Name=Test", &format!("Name={id}"));
+    make_zip(
+        &package,
+        id,
+        &[(&format!("{id}.desktop"), desktop.as_bytes(), 0o644)],
+    );
+    manager(root).install(&package)
+}
+
+fn assert_nothing_installed(root: &Path, id: &str) {
+    assert!(!root.join("applets").join(id).exists());
+    assert!(
+        !root
+            .join("applications")
+            .join(format!("{id}.desktop"))
+            .exists()
+    );
+}
+
+fn put_system_entry(root: &Path, dir: &str, relative: &str, contents: &str) {
+    let path = root.join(dir).join("applications").join(relative);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, contents).unwrap();
+}
+
+#[test]
+fn install_refuses_an_id_owned_by_a_non_applet_system_entry() {
+    let root = tempfile::tempdir().unwrap();
+    put_system_entry(
+        root.path(),
+        "system",
+        "org.example.Victim.desktop",
+        "[Desktop Entry]\nType=Application\nName=Victim\nExec=/usr/bin/true %u\n",
+    );
+    let error = install_package_with_id(root.path(), "org.example.Victim").unwrap_err();
+    assert!(error.downcast_ref::<Refused>().is_some(), "{error:#}");
+    assert_nothing_installed(root.path(), "org.example.Victim");
+}
+
+#[test]
+fn install_refuses_a_non_applet_entry_in_a_later_system_data_dir() {
+    let root = tempfile::tempdir().unwrap();
+    put_system_entry(root.path(), "system", "other.desktop", DESKTOP);
+    put_system_entry(
+        root.path(),
+        "system2",
+        "org.example.Victim.desktop",
+        "[Desktop Entry]\nName=Victim\nImplements=org.example.Other;\n",
+    );
+    assert!(install_package_with_id(root.path(), "org.example.Victim").is_err());
+    assert_nothing_installed(root.path(), "org.example.Victim");
+}
+
+#[test]
+fn install_overrides_a_system_applet_entry() {
+    let root = tempfile::tempdir().unwrap();
+    put_system_entry(
+        root.path(),
+        "system",
+        "org.example.Victim.desktop",
+        "[Desktop Entry]\nName=Victim\nImplements=org.example.Other;me.aresa.Glimpse.Applet1;\n",
+    );
+    let installed = install_package_with_id(root.path(), "org.example.Victim").unwrap();
+    assert!(installed.dir.is_dir());
+    assert!(
+        root.path()
+            .join("applications/org.example.Victim.desktop")
+            .is_file()
+    );
+}
+
+#[test]
+fn install_refuses_an_unparsable_system_entry() {
+    let root = tempfile::tempdir().unwrap();
+    put_system_entry(
+        root.path(),
+        "system",
+        "org.example.Victim.desktop",
+        "not a key file\n[broken\n",
+    );
+    assert!(install_package_with_id(root.path(), "org.example.Victim").is_err());
+    assert_nothing_installed(root.path(), "org.example.Victim");
+}
+
+#[test]
+fn install_refuses_an_id_that_a_system_subdirectory_entry_maps_to() {
+    let root = tempfile::tempdir().unwrap();
+    put_system_entry(
+        root.path(),
+        "system",
+        "my/app.Victim.desktop",
+        "[Desktop Entry]\nName=Victim\n",
+    );
+    assert!(install_package_with_id(root.path(), "my-app.Victim").is_err());
+    assert_nothing_installed(root.path(), "my-app.Victim");
 }

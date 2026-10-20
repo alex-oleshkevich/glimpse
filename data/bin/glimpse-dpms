@@ -13,6 +13,9 @@ if [ -n "${NIRI_SOCKET:-}" ]; then
     exec niri msg action "power-$1-monitors"
 fi
 if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    if [ "$(hyprctl eval 'return 1' 2>/dev/null)" = ok ]; then
+        exec hyprctl dispatch "hl.dsp.dpms({ action = \"$1\" })"
+    fi
     exec hyprctl dispatch dpms "$1"
 fi
 echo "glimpse-dpms: no supported compositor; needs niri or Hyprland" >&2

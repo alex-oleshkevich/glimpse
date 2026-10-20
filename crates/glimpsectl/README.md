@@ -54,7 +54,8 @@ other files unchanged.
 `applet package` runs the applet's `just build`, which assembles production
 files into `dist/`, and writes `<id>.glimpse.zip` holding only those files plus a generated
 `metadata.toml` listing each with its sha256. `applet install` checks a package against its own
-metadata, copies it under `applet_dir(<id>)`, writes a marked desktop entry and prints a config
+metadata, refuses an id that a non-applet system desktop entry already owns, copies it under
+`applets_dir()/<id>`, writes a marked desktop entry and prints a config
 suggestion; `uninstall` removes the listed files and only an entry carrying that marker. None of
 them edits the panel config.
 

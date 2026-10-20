@@ -1,7 +1,7 @@
 mod cli;
 mod errors;
 mod idle;
-pub mod inhibitors;
+mod inhibitors;
 mod services;
 mod wayland_notify;
 

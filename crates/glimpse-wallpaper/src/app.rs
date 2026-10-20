@@ -42,6 +42,7 @@ pub struct App {
     styles: Styles,
     surfaces: Vec<SurfaceState>,
     dark: bool,
+    backdrop: bool,
     missing_warned: MissingWarned,
 }
 
@@ -70,11 +71,16 @@ impl SimpleComponent for App {
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
 
-        tracing::info!(
-            "the backdrop surface is visible only where niri places it; add \
-             `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
-             to show it in the Overview"
-        );
+        let backdrop = glimpse_compositors::detect_compositor()
+            .capabilities()
+            .overview_backdrop;
+        if backdrop {
+            tracing::info!(
+                "the backdrop surface is visible only where niri places it; add \
+                 `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
+                 to show it in the Overview"
+            );
+        }
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let dark = adw::StyleManager::default().is_dark();
@@ -84,6 +90,7 @@ impl SimpleComponent for App {
             styles,
             surfaces: Vec::new(),
             dark,
+            backdrop,
             missing_warned: MissingWarned::default(),
         };
         model.reload_styles();
@@ -92,6 +99,7 @@ impl SimpleComponent for App {
             &mut model.missing_warned,
             &model.config,
             model.dark,
+            model.backdrop,
         );
         model
             .styles
@@ -134,6 +142,7 @@ impl SimpleComponent for App {
             &mut self.missing_warned,
             &self.config,
             self.dark,
+            self.backdrop,
         );
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
@@ -190,11 +199,19 @@ fn watch_scheme(sender: ComponentSender<App>) {
     });
 }
 
+fn wants_role(role: Role, backdrop: bool) -> bool {
+    match role {
+        Role::Wallpaper => true,
+        Role::Backdrop => backdrop,
+    }
+}
+
 fn reconcile_surfaces(
     surfaces: &mut Vec<SurfaceState>,
     missing_warned: &mut MissingWarned,
     config: &Config,
     dark: bool,
+    backdrop: bool,
 ) {
     let mut existing: HashMap<Key, SurfaceState> = surfaces
         .drain(..)
@@ -208,6 +225,9 @@ fn reconcile_surfaces(
         };
 
         for role in [Role::Wallpaper, Role::Backdrop] {
+            if !wants_role(role, backdrop) {
+                continue;
+            }
             let Some(intent) =
                 resolve::intent(&config.wallpaper, &connector, role, dark, missing_warned)
             else {
@@ -255,3 +275,6 @@ fn list_gdk_monitors() -> Vec<gdk::Monitor> {
         .filter_map(|i| model.item(i).and_downcast::<gdk::Monitor>())
         .collect()
 }
+
+#[cfg(test)]
+mod tests;

@@ -23,11 +23,10 @@ in {
       isSystem = true;
     };
     xdg.portal.extraPortals = lib.optional config.xdg.portal.enable cfg.package;
-    xdg.portal.config = lib.genAttrs [ "glimpse" "niri" ] (_: {
+    xdg.portal.config = lib.genAttrs [ "glimpse" "niri" "hyprland" ] (_: {
       "org.freedesktop.impl.portal.Inhibit" = lib.mkDefault "glimpse";
       "org.freedesktop.impl.portal.Screenshot" = lib.mkDefault "glimpse-shot";
-    }) // {
-      Hyprland."org.freedesktop.impl.portal.Inhibit" = lib.mkDefault "glimpse";
-    };
+      "org.freedesktop.impl.portal.Wallpaper" = lib.mkDefault "glimpse-wallpaper";
+    });
   };
 }

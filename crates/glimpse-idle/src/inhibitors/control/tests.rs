@@ -114,6 +114,58 @@ async fn hold_returns_an_id_with_manual_hold_targets_and_auto_releases() {
     assert_fd_closed(&fake_login1, 0);
 }
 #[tokio::test(start_paused = true)]
+async fn hold_releases_at_the_wall_clock_deadline() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    let (registry, _any_idle_target, _generation) = SharedRegistry::new();
+    let id = registry
+        .mutate(|registry| {
+            let id = registry.mint_id();
+            registry.insert(
+                IdleInhibitorRecord {
+                    id,
+                    who: "glimpse-idle".to_owned(),
+                    why: "Manual hold".to_owned(),
+                    bus_name: String::new(),
+                    process_name: String::new(),
+                    source: TestSource::login1(0, 0, Login1Mode::Block),
+                    targets: TestTargets::manual_hold(),
+                    can_release: true,
+                    added_at_unix: 1000,
+                },
+                None,
+            );
+            id
+        })
+        .await;
+    let wall = Arc::new(AtomicU64::new(1000));
+    let clock = wall.clone();
+    tokio::spawn(release_at(registry.clone(), id, 1060, move || {
+        clock.load(Ordering::SeqCst)
+    }));
+    let present = || async {
+        registry
+            .read(|registry| registry.snapshot().iter().any(|record| record.id == id))
+            .await
+    };
+
+    for _ in 0..50 {
+        tokio::task::yield_now().await;
+    }
+    assert!(present().await);
+
+    wall.store(1000 + 8 * 3600, Ordering::SeqCst);
+    tokio::time::advance(Duration::from_secs(30)).await;
+    for _ in 0..50 {
+        tokio::task::yield_now().await;
+    }
+    assert!(
+        !present().await,
+        "a suspend moves the wall clock past the deadline while the monotonic clock barely moves"
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn hold_zero_seconds_never_auto_releases_only_release_clears_it() {
     let bus = PrivateBus::start();
     let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
@@ -141,15 +193,11 @@ async fn hold_zero_seconds_never_auto_releases_only_release_clears_it() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn hold_rechecks_capacity_after_logind_returns_and_closes_its_fd() {
+async fn hold_over_capacity_is_refused_without_taking_a_logind_fd() {
     let bus = PrivateBus::start();
-    let (_login1_conn, _app, registry, fake_login1, started, release) =
-        start_server_with_paused_login1(&bus).await;
+    let (_login1_conn, _app, registry, fake_login1) = start_server(&bus).await;
     let client = bus.connection().await;
     let proxy = Idle1Proxy::new(&client).await.unwrap();
-
-    let hold = tokio::spawn(async move { proxy.hold(0).await });
-    started.notified().await;
     registry
         .mutate(|registry| {
             for _ in 0..crate::inhibitors::Registry::MAX_INHIBITORS_TOTAL {
@@ -171,9 +219,8 @@ async fn hold_rechecks_capacity_after_logind_returns_and_closes_its_fd() {
             }
         })
         .await;
-    release.notify_one();
 
-    let error = hold.await.unwrap().unwrap_err();
+    let error = proxy.hold(0).await.unwrap_err();
     assert!(
         matches!(
             &error,
@@ -186,7 +233,87 @@ async fn hold_rechecks_capacity_after_logind_returns_and_closes_its_fd() {
         registry.read(|registry| registry.snapshot().len()).await,
         crate::inhibitors::Registry::MAX_INHIBITORS_TOTAL
     );
+    assert!(fake_login1.readers.lock().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hold_from_a_client_that_exits_mid_call_leaves_nothing() {
+    let bus = PrivateBus::start();
+    let (_login1_conn, app, registry, fake_login1, started, release) =
+        start_server_with_paused_login1(&bus).await;
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let watch_task = tokio::spawn(crate::inhibitors::screen_saver::watch_disconnects(
+        app.clone(),
+        registry.clone(),
+        cancel.clone(),
+    ));
+    let client = bus.connection().await;
+    let proxy = Idle1Proxy::new(&client).await.unwrap();
+
+    let hold = tokio::spawn(async move {
+        let _client = client;
+        proxy.hold(0).await
+    });
+    started.notified().await;
+    assert_eq!(
+        registry.read(|registry| registry.snapshot().len()).await,
+        1,
+        "the record exists while logind is still answering"
+    );
+    hold.abort();
+    let _ = hold.await;
+
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !registry
+            .read(|registry| registry.snapshot().is_empty())
+            .await
+        {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the disconnect must release the record even though logind has not answered");
+
+    release.notify_one();
     assert_fd_closed(&fake_login1, 0);
+    assert!(
+        registry
+            .read(|registry| registry.snapshot().is_empty())
+            .await
+    );
+
+    cancel.cancel();
+    let _ = watch_task.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hold_leaves_nothing_when_logind_fails() {
+    let bus = PrivateBus::start();
+    let app = bus.connection().await;
+    let (registry, _any_idle_target, _generation) = SharedRegistry::new();
+    let login1 = Login1ManagerProxy::new(&app).await.unwrap();
+    let server = Idle1Server::new(registry.clone(), Some(login1), Health::new().0);
+    app.object_server()
+        .at(GLIMPSE_IDLE_OBJECT_PATH, server)
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&app, GLIMPSE_IDLE_BUS_NAME)
+        .await
+        .unwrap();
+    let client = bus.connection().await;
+    let proxy = Idle1Proxy::new(&client).await.unwrap();
+
+    let error = proxy.hold(60).await.unwrap_err();
+    assert!(
+        matches!(
+            &error,
+            zbus::Error::MethodError(name, _, _)
+                if name.as_str() == "org.freedesktop.DBus.Error.Failed"
+        ),
+        "unexpected error: {error:?}"
+    );
+    assert!(proxy.inhibitors().await.unwrap().is_empty());
+    assert!(proxy.hold_expiries().await.unwrap().is_empty());
 }
 #[tokio::test(start_paused = true)]
 async fn release_of_a_non_releasable_record_returns_not_supported() {

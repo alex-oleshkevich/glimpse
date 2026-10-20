@@ -20,11 +20,11 @@ pub struct Applet {
     pub regional: super::Regional,
 }
 
-/// Which kind of applet this is, and the settings that kind alone understands.
 pub const NETWORK_TOOLTIP: &str = "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}";
 pub const PRINTING_TOOLTIP: &str = "{document}\n{printer}\n{pages}";
 pub const WEATHER_TOOLTIP: &str = "{place}\n{condition}, {temperature}, feels like {feels-like}";
 
+/// Which kind of applet this is, and the settings that kind alone understands.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(
     tag = "extends",
@@ -927,16 +927,8 @@ fn on_earth(kind: &mut Kind) -> Result<(), toml::de::Error> {
             latitude,
             longitude,
         } => {
-            if !(-90.0..=90.0).contains(latitude) {
-                return Err(toml::de::Error::custom(
-                    "latitude is degrees north of the equator, between -90 and 90",
-                ));
-            }
-            if !(-180.0..=180.0).contains(longitude) {
-                return Err(toml::de::Error::custom(
-                    "longitude is degrees east of Greenwich, between -180 and 180",
-                ));
-            }
+            super::geolocation::latitude_in_range(*latitude).map_err(toml::de::Error::custom)?;
+            super::geolocation::longitude_in_range(*longitude).map_err(toml::de::Error::custom)?;
         }
         Place::Location { name } => {
             let Some((city, country_code)) = name.rsplit_once(',') else {
@@ -964,7 +956,7 @@ fn on_earth(kind: &mut Kind) -> Result<(), toml::de::Error> {
 
 /// Resolves one zone entry the same way every panel zone resolves a name: its own table entry
 /// first, `Applet::from_name` fallback second. The single source of truth behind both the panel's
-/// own `applets::configured` and a service's demand-gating `placed_kinds` — kept in one place so
+/// own `applets::configured` and a service's demand-gating `placed_applets` — kept in one place so
 /// the two cannot drift apart.
 pub fn resolve_applet(name: &str, applets: &BTreeMap<String, Applet>) -> Option<Applet> {
     applets

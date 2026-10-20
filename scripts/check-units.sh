@@ -18,12 +18,15 @@ for f in data/systemd/*.service; do
 done
 
 for key in $(sed -n '/^\[Service\]/,/^\[/p' "$lock" | grep -oE '^[A-Za-z]+=' | tr -d '='); do
-    case " Type ExecStart ExecReload Restart RestartSec " in
+    case " Type ExecCondition ExecStart ExecReload Restart RestartSec " in
         *" $key "*) ;;
         *) echo "$lock: [Service] carries $key= — sandboxing breaks PAM, see README"; exit 1 ;;
     esac
 done
 
+grep -qxF 'ExecCondition=/usr/bin/test -S ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}' "$lock" || {
+    echo "$lock: missing the ExecCondition= that stops the restart loop once the display is gone"; exit 1;
+}
 if grep -qE '^(BindsTo|Conflicts|Requires|Requisite)=' "$lock"; then
     echo "$lock: a Requires-class or Conflicts= edge can stop the locker mid-lock"; exit 1
 fi

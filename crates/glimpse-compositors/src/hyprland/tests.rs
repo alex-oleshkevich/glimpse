@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use futures_util::StreamExt;
 use serde_json::json;
 
@@ -7,37 +9,51 @@ use crate::event::Resync;
 use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
 fn snapshot_server() -> FakeHyprland {
+    snapshot_server_with(Vec::new())
+}
+
+fn snapshot_server_with(events: Vec<String>) -> FakeHyprland {
     FakeHyprland::spawn(
         |command| match command {
-            "j/monitors" => json!([
+            "j/monitors all" => json!([
                 { "id": 0, "name": "eDP-1", "description": "Samsung 14\"", "make": "Samsung",
                   "model": "ATNA60CL10", "width": 2880, "height": 1800,
                   "refreshRate": 120.001, "x": 0, "y": 0, "scale": 1.25, "transform": 0,
-                  "focused": true, "disabled": false, "activeWorkspace": { "id": 5 } },
-                { "id": 1, "name": "DP-3", "description": "", "disabled": true }
+                  "focused": true, "disabled": false, "activeWorkspace": { "id": 5, "name": "5" },
+                  "specialWorkspace": { "id": -98, "name": "special:magic" } },
+                { "id": 1, "name": "DP-3", "description": "", "width": 0, "height": 0,
+                  "refreshRate": 60.0, "x": 2880, "y": 0, "scale": 1, "transform": 0,
+                  "focused": false, "disabled": true,
+                  "activeWorkspace": { "id": -1337, "name": "chat" } }
             ])
             .to_string(),
             "j/workspaces" => json!([
                 { "id": 5, "name": "5", "monitor": "eDP-1", "lastwindow": "0x9" },
-                { "id": 6, "name": "chat", "monitor": "DP-3", "lastwindow": "0x0" }
+                { "id": -1337, "name": "chat", "monitor": "DP-3", "lastwindow": "0x0" },
+                { "id": -98, "name": "special:magic", "monitor": "eDP-1", "lastwindow": "0x0" }
             ])
             .to_string(),
             "j/clients" => json!([
                 { "address": "0x9", "title": "a terminal", "class": "foot", "pid": 4265,
-                  "workspace": { "id": 5 }, "floating": false, "urgent": false,
-                  "monitor": 0, "at": [0, 0], "size": [2880, 1800] }
+                  "workspace": { "id": 5, "name": "5" }, "floating": false,
+                  "monitor": 0, "at": [0, 0], "size": [2880, 1800] },
+                { "address": "0xa", "title": "a chat", "class": "foot", "pid": 4266,
+                  "workspace": { "id": -1337, "name": "chat" }, "floating": false,
+                  "monitor": 1, "at": [2880, 0], "size": [800, 600] }
             ])
             .to_string(),
             "j/activewindow" => json!({ "address": "0x9" }).to_string(),
-            "j/getoption input:kb_layout" => json!({ "str": "pl,ru" }).to_string(),
             "j/devices" => json!({ "keyboards": [
-                { "main": false, "active_keymap": "English (US)" },
-                { "main": true, "active_keymap": "Russian" }
+                { "main": false, "layout": "us", "active_layout_index": 0,
+                  "active_keymap": "English (US)" },
+                { "main": true, "layout": "us,gb,us", "variant": ",,intl",
+                  "active_layout_index": 2,
+                  "active_keymap": "English (US, intl., with dead keys)" }
             ] })
             .to_string(),
             other => panic!("the fake was asked for {other}"),
         },
-        Vec::new(),
+        events,
     )
 }
 
@@ -66,11 +82,37 @@ async fn a_snapshot_reads_every_part_of_the_model() {
         "Hyprland reports both at and size for every window, unlike a tiled niri window"
     );
     assert_eq!(snapshot.windows[0].output.as_deref(), Some("eDP-1"));
-    assert_eq!(snapshot.workspaces[0].name.as_deref(), Some("5"));
+    assert_eq!(snapshot.workspaces[0].name, None);
     assert!(snapshot.workspaces[0].is_active && snapshot.workspaces[0].is_focused);
-    assert!(!snapshot.workspaces[1].is_active);
+    assert!(
+        snapshot.workspaces[1].is_active && !snapshot.workspaces[1].is_focused,
+        "chat is the active workspace of the unfocused DP-3"
+    );
     assert_eq!(snapshot.workspaces[0].active_window_id, Some(WindowId(9)));
     assert_eq!(snapshot.workspaces[1].active_window_id, None);
+    assert_eq!(
+        snapshot.workspaces.len(),
+        2,
+        "the special workspace is not an ordinary pager workspace"
+    );
+    assert_eq!(snapshot.workspaces[1].id, WorkspaceId((-1337_i64) as u64));
+    assert_eq!(snapshot.workspaces[1].name.as_deref(), Some("chat"));
+    assert_eq!(
+        snapshot.windows[1].workspace_id,
+        Some(WorkspaceId((-1337_i64) as u64))
+    );
+}
+
+#[test]
+fn a_workspace_named_after_its_id_is_unnamed_and_any_other_name_is_kept() {
+    let active = HashMap::new();
+    let numbered: WireWorkspace =
+        serde_json::from_value(json!({"id": 5, "name": "5"})).expect("workspace");
+    let named: WireWorkspace =
+        serde_json::from_value(json!({"id": 5, "name": "web"})).expect("workspace");
+
+    assert_eq!(numbered.into_model(&active).name, None);
+    assert_eq!(named.into_model(&active).name.as_deref(), Some("web"));
 }
 
 #[tokio::test]
@@ -98,9 +140,8 @@ async fn an_empty_title_is_absent_rather_than_an_empty_string() {
     let server = FakeHyprland::spawn(
         |command| match command {
             "j/clients" => json!([{ "address": "0x1", "title": "", "class": "" }]).to_string(),
-            "j/monitors" | "j/workspaces" => "[]".to_owned(),
+            "j/monitors all" | "j/workspaces" => "[]".to_owned(),
             "j/activewindow" => "{}".to_owned(),
-            "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
             "j/devices" => json!({ "keyboards": [] }).to_string(),
             other => panic!("the fake was asked for {other}"),
         },
@@ -114,6 +155,32 @@ async fn an_empty_title_is_absent_rather_than_an_empty_string() {
 
     assert_eq!(snapshot.windows[0].title, None);
     assert_eq!(snapshot.windows[0].app_id, None);
+}
+
+#[tokio::test]
+async fn reading_the_layouts_asks_for_nothing_else() {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            sink.lock().expect("lock").push(command.to_owned());
+            json!({ "keyboards": [
+                { "main": true, "layout": "us,gb", "active_layout_index": 1,
+                  "active_keymap": "English (UK)" }
+            ] })
+            .to_string()
+        },
+        Vec::new(),
+    );
+
+    let layouts = Hyprland::at(&server.dir)
+        .keyboard_layouts()
+        .await
+        .expect("layouts");
+
+    assert_eq!(layouts.codes, ["us", "gb"]);
+    assert_eq!(layouts.current, Some(1));
+    assert_eq!(*received.lock().expect("lock"), ["j/devices"]);
 }
 
 #[tokio::test]
@@ -161,9 +228,12 @@ async fn both_names_and_codes_are_populated() {
         .await
         .expect("snapshot");
 
-    assert_eq!(snapshot.keyboard.codes, ["pl", "ru"]);
-    assert_eq!(snapshot.keyboard.names, ["pl", "Russian"]);
-    assert_eq!(snapshot.keyboard.current, Some(1));
+    assert_eq!(snapshot.keyboard.codes, ["us", "gb", "us"]);
+    assert_eq!(
+        snapshot.keyboard.names,
+        ["us", "gb", "English (US, intl., with dead keys)"]
+    );
+    assert_eq!(snapshot.keyboard.current, Some(2));
 }
 
 #[tokio::test]
@@ -205,37 +275,6 @@ async fn a_missing_socket_names_the_path_it_tried() {
     );
 }
 
-#[test]
-fn every_addon_serializes_to_the_dispatch_hyprland_expects() {
-    assert_eq!(
-        move_to_output_command(WorkspaceId(4), "DP-3"),
-        "dispatch moveworkspacetomonitor 4 DP-3"
-    );
-    assert_eq!(
-        move_window_command(WindowId(0x5b), &WorkspaceTarget::Id(WorkspaceId(4))),
-        "dispatch movetoworkspacesilent 4,address:0x5b",
-        "the silent form is what keeps focus where the user left it"
-    );
-    assert_eq!(
-        close_command(WindowId(0x5b)),
-        "dispatch closewindow address:0x5b"
-    );
-    assert_eq!(focus_output_command("DP-3"), "dispatch focusmonitor DP-3");
-}
-
-#[tokio::test]
-async fn reordering_a_workspace_is_refused_rather_than_dispatched() {
-    let error = Hyprland::at("/nonexistent")
-        .reorder_workspace(WorkspaceId(4), 2)
-        .await
-        .expect_err("refused");
-
-    assert!(
-        matches!(error, CompositorError::Unavailable(_)),
-        "a dispatch would have failed to connect first, so this is what proves nothing was sent"
-    );
-}
-
 #[tokio::test]
 async fn stopping_a_screencast_is_refused_rather_than_dispatched() {
     let error = Hyprland::at("/nonexistent")
@@ -263,7 +302,7 @@ async fn screenshotting_a_window_is_unavailable_rather_than_dispatched() {
 async fn a_window_s_rect_is_relative_to_its_own_monitors_origin_not_the_layout() {
     let server = FakeHyprland::spawn(
         |command| match command {
-            "j/monitors" => json!([
+            "j/monitors all" => json!([
                 { "id": 0, "name": "eDP-1", "width": 2880, "height": 1800,
                   "refreshRate": 120.0, "x": 100, "y": 50, "scale": 1.0, "transform": 0,
                   "focused": true, "disabled": false }
@@ -278,7 +317,6 @@ async fn a_window_s_rect_is_relative_to_its_own_monitors_origin_not_the_layout()
             ])
             .to_string(),
             "j/activewindow" => "{}".to_owned(),
-            "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
             "j/devices" => json!({ "keyboards": [] }).to_string(),
             other => panic!("the fake was asked for {other}"),
         },
@@ -324,98 +362,121 @@ async fn power_off_monitors_is_unavailable_and_sends_nothing() {
     assert_eq!(received.lock().expect("lock").as_deref(), None);
 }
 
+#[tokio::test]
+async fn a_layout_switch_is_a_request_rather_than_a_dispatch() {
+    let received: Arc<Mutex<Option<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            *sink.lock().expect("lock") = Some(command.to_owned());
+            "ok".to_owned()
+        },
+        Vec::new(),
+    );
+
+    Hyprland::at(&server.dir)
+        .switch_keyboard_layout(LayoutTarget::Next)
+        .await
+        .expect("switched");
+
+    assert_eq!(
+        received.lock().expect("lock").as_deref(),
+        Some("switchxkblayout all next"),
+        "switchxkblayout is a top-level request; a dispatch of it is an invalid dispatcher"
+    );
+}
+
 #[test]
 fn every_target_serializes_to_the_command_hyprland_expects() {
     assert_eq!(
         layout_command(LayoutTarget::Index(2)),
-        "dispatch switchxkblayout all 2"
+        "switchxkblayout all 2"
     );
     assert_eq!(
         layout_command(LayoutTarget::Next),
-        "dispatch switchxkblayout all next"
+        "switchxkblayout all next"
     );
     assert_eq!(
         layout_command(LayoutTarget::Prev),
-        "dispatch switchxkblayout all prev"
+        "switchxkblayout all prev"
     );
 
     assert_eq!(
-        workspace_command(&WorkspaceTarget::Id(WorkspaceId(5))),
+        plain_selector(&WorkspaceTarget::Id(WorkspaceId(5))).as_deref(),
+        Some("5")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Index(3)).as_deref(),
+        Some("3")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Name("chat".to_owned())).as_deref(),
+        Some("name:chat")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Next).as_deref(),
+        Some("e+1")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Prev).as_deref(),
+        Some("e-1")
+    );
+    assert_eq!(
+        plain_selector(&WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64))),
+        None,
+        "a bare negative selector would read as a relative move"
+    );
+    assert_eq!(
+        workspace_command(Dialect::Legacy, "5"),
         "dispatch workspace 5"
     );
     assert_eq!(
-        workspace_command(&WorkspaceTarget::Index(3)),
-        "dispatch workspace 3"
-    );
-    assert_eq!(
-        workspace_command(&WorkspaceTarget::Name("chat".to_owned())),
+        workspace_command(Dialect::Legacy, "name:chat"),
         "dispatch workspace name:chat"
-    );
-    assert_eq!(
-        workspace_command(&WorkspaceTarget::Next),
-        "dispatch workspace +1"
-    );
-    assert_eq!(
-        workspace_command(&WorkspaceTarget::Prev),
-        "dispatch workspace -1"
     );
 
     assert_eq!(
-        window_command(WindowTarget::Id(WindowId(0x5591_e8b2_f5a0))),
+        window_command(
+            Dialect::Legacy,
+            WindowTarget::Id(WindowId(0x5591_e8b2_f5a0))
+        ),
         "dispatch focuswindow address:0x5591e8b2f5a0"
     );
-    assert_eq!(window_command(WindowTarget::Next), "dispatch cyclenext");
     assert_eq!(
-        window_command(WindowTarget::Prev),
+        window_command(Dialect::Legacy, WindowTarget::Next),
+        "dispatch cyclenext"
+    );
+    assert_eq!(
+        window_command(Dialect::Legacy, WindowTarget::Prev),
         "dispatch cyclenext prev"
     );
 
     assert_eq!(
-        rename_command(WorkspaceId(3), Some("chat")),
+        rename_command(Dialect::Legacy, "3", Some("chat")),
         "dispatch renameworkspace 3 chat"
     );
     assert_eq!(
-        rename_command(WorkspaceId(3), None),
+        rename_command(Dialect::Legacy, "3", None),
         "dispatch renameworkspace 3"
     );
 }
 
 #[test]
-fn a_remembered_monitor_config_restores_its_mode() {
-    let config = MonitorConfig {
-        width: 2880,
-        height: 1800,
-        refresh_hz: 120.001,
-        x: 100,
-        y: 0,
-        scale: 1.25,
-        transform: 0,
-    };
+fn the_lua_disable_form_quotes_the_connector() {
     assert_eq!(
-        config.keyword_args("eDP-1"),
-        "eDP-1,2880x1800@120.001,100x0,1.25"
-    );
-
-    let rotated = MonitorConfig {
-        transform: 3,
-        ..config
-    };
-    assert_eq!(
-        rotated.keyword_args("eDP-1"),
-        "eDP-1,2880x1800@120.001,100x0,1.25,transform,3"
-    );
-
-    assert_eq!(
-        MonitorConfig::default().keyword_args("DP-3"),
-        "DP-3,preferred,auto,1"
+        disable_eval("DP-3"),
+        "eval hl.monitor({ output = \"DP-3\", disabled = true })"
     );
 }
 
 async fn events_from(lines: &[&str]) -> Vec<Event> {
     let server = FakeHyprland::spawn(
         |command| match command {
-            "j/getoption input:kb_layout" => json!({ "str": "pl,ru" }).to_string(),
-            "j/devices" => json!({ "keyboards": [] }).to_string(),
+            "j/devices" => json!({ "keyboards": [
+                { "main": true, "layout": "us,gb,us", "variant": ",,intl",
+                  "active_layout_index": 1, "active_keymap": "English (UK)" }
+            ] })
+            .to_string(),
             other => panic!("the fake was asked for {other}"),
         },
         lines.iter().map(|line| (*line).to_owned()).collect(),
@@ -503,20 +564,64 @@ async fn screencasts_keep_privacy_active_until_every_client_stops() {
     );
 }
 
+async fn snapshot_after(lines: &[&str]) -> Snapshot {
+    let server = snapshot_server_with(lines.iter().map(|line| (*line).to_owned()).collect());
+    let hyprland = Hyprland::at(&server.dir);
+    let _: Vec<Event> = hyprland.events().await.expect("subscribed").collect().await;
+    hyprland.snapshot().await.expect("snapshot")
+}
+
 #[tokio::test]
-async fn a_layout_switch_resolves_a_display_name_to_a_configured_code() {
+async fn a_snapshot_keeps_the_screencasts_the_stream_has_seen() {
+    let snapshot = snapshot_after(&["screencast>>1,monitor", "workspacev2>>5,5"]).await;
+
+    assert_eq!(
+        snapshot.casts,
+        [Cast {
+            stream_id: 0,
+            session_id: None,
+            kind: CastKind::Unknown,
+            target: CastTarget::Unknown,
+            pw_node_id: None,
+            active: true,
+        }]
+    );
+}
+
+#[tokio::test]
+async fn a_snapshot_after_the_last_screencast_stops_holds_no_casts() {
+    let snapshot = snapshot_after(&["screencast>>1,monitor", "screencast>>0,monitor"]).await;
+
+    assert!(snapshot.casts.is_empty());
+}
+
+#[tokio::test]
+async fn an_urgent_window_stays_urgent_across_a_resync_until_it_is_focused() {
+    let snapshot = snapshot_after(&["urgent>>0x9", "windowtitlev2>>9,a title"]).await;
+    assert!(snapshot.windows[0].is_urgent);
+    assert!(!snapshot.windows[1].is_urgent);
+
+    let snapshot = snapshot_after(&["urgent>>0x9", "activewindowv2>>9"]).await;
+    assert!(!snapshot.windows[0].is_urgent);
+
+    let snapshot = snapshot_after(&["urgent>>0x9", "closewindow>>0x9"]).await;
+    assert!(!snapshot.windows[0].is_urgent);
+}
+
+#[tokio::test]
+async fn a_layout_switch_takes_its_index_from_devices_not_the_display_name() {
     let events = events_from(&[
-        "activelayout>>AT Translated Set 2, keyboard,Russian",
-        "activelayout>>kbd,Klingon",
+        "activelayout>>AT Translated Set 2, keyboard,English (UK)",
+        "activelayout>>kbd,English (US, intl., with dead keys)",
     ])
     .await;
 
     assert_eq!(
         events,
-        [Event::KeyboardLayoutSwitched {
-            idx: 1,
-            name: Some("Russian".to_owned()),
-        }]
+        [
+            Event::KeyboardLayoutSwitched(1),
+            Event::KeyboardLayoutSwitched(1),
+        ]
     );
 }
 
@@ -528,9 +633,8 @@ async fn a_title_containing_a_comma_does_not_shift_the_other_fields() {
                                     "title": "a, b, c\u{2068}spoof\u{2069}",
                                     "class": "foot" }])
             .to_string(),
-            "j/monitors" | "j/workspaces" => "[]".to_owned(),
+            "j/monitors all" | "j/workspaces" => "[]".to_owned(),
             "j/activewindow" => "{}".to_owned(),
-            "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
             "j/devices" => json!({ "keyboards": [] }).to_string(),
             other => panic!("the fake was asked for {other}"),
         },
@@ -544,4 +648,335 @@ async fn a_title_containing_a_comma_does_not_shift_the_other_fields() {
 
     assert_eq!(snapshot.windows[0].title.as_deref(), Some("a, b, cspoof"));
     assert_eq!(snapshot.windows[0].app_id.as_deref(), Some("foot"));
+}
+
+#[tokio::test]
+async fn a_negative_workspace_id_is_dispatched_by_name() {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            sink.lock().expect("lock").push(command.to_owned());
+            match command {
+                "j/workspaces" => json!([
+                    { "id": -1337, "name": "chat", "monitor": "eDP-1", "lastwindow": "0x0" }
+                ])
+                .to_string(),
+                _ => "ok".to_owned(),
+            }
+        },
+        Vec::new(),
+    );
+
+    Hyprland::at(&server.dir)
+        .focus_workspace(WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64)))
+        .await
+        .expect("dispatched");
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        ["j/workspaces", "dispatch workspace name:chat"]
+    );
+}
+
+fn dispatch_server(lua: bool) -> (FakeHyprland, Arc<Mutex<Vec<String>>>) {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let respond = move |command: &str| {
+        sink.lock().expect("lock").push(command.to_owned());
+        match command {
+            "j/workspaces" => json!([
+                { "id": -1337, "name": "chat", "monitor": "eDP-1", "lastwindow": "0x0" }
+            ])
+            .to_string(),
+            _ => "ok".to_owned(),
+        }
+    };
+    let server = match lua {
+        true => FakeHyprland::spawn_lua(respond, Vec::new()),
+        false => FakeHyprland::spawn(respond, Vec::new()),
+    };
+    (server, received)
+}
+
+async fn drive_every_dispatch(hyprland: &Hyprland) {
+    hyprland
+        .focus_workspace(WorkspaceTarget::Index(2))
+        .await
+        .expect("index");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Next)
+        .await
+        .expect("next");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Prev)
+        .await
+        .expect("prev");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Name("chat".to_owned()))
+        .await
+        .expect("name");
+    hyprland
+        .focus_workspace(WorkspaceTarget::Id(WorkspaceId((-1337_i64) as u64)))
+        .await
+        .expect("negative id");
+    hyprland
+        .rename_workspace(WorkspaceId(3), Some("mail"))
+        .await
+        .expect("rename");
+    hyprland
+        .rename_workspace(WorkspaceId(3), None)
+        .await
+        .expect("clear");
+    hyprland
+        .rename_workspace(WorkspaceId(3), Some("a \"b\"\nc\\d"))
+        .await
+        .expect("hostile name");
+    hyprland
+        .focus_window(WindowTarget::Id(WindowId(0x5591_e8b2_f5a0)))
+        .await
+        .expect("address");
+    hyprland
+        .focus_window(WindowTarget::Next)
+        .await
+        .expect("cycle next");
+    hyprland
+        .focus_window(WindowTarget::Prev)
+        .await
+        .expect("cycle prev");
+}
+
+#[tokio::test]
+async fn a_legacy_config_gets_the_legacy_dispatchers() {
+    let (server, received) = dispatch_server(false);
+
+    drive_every_dispatch(&Hyprland::at(&server.dir)).await;
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        [
+            "dispatch workspace 2",
+            "dispatch workspace e+1",
+            "dispatch workspace e-1",
+            "dispatch workspace name:chat",
+            "j/workspaces",
+            "dispatch workspace name:chat",
+            "dispatch renameworkspace 3 mail",
+            "dispatch renameworkspace 3",
+            "dispatch renameworkspace 3 a \"b\"\nc\\d",
+            "dispatch focuswindow address:0x5591e8b2f5a0",
+            "dispatch cyclenext",
+            "dispatch cyclenext prev",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_lua_config_gets_the_hl_dsp_forms() {
+    let (server, received) = dispatch_server(true);
+
+    drive_every_dispatch(&Hyprland::at(&server.dir)).await;
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        [
+            "dispatch hl.dsp.focus({ workspace = \"2\" })",
+            "dispatch hl.dsp.focus({ workspace = \"e+1\" })",
+            "dispatch hl.dsp.focus({ workspace = \"e-1\" })",
+            "dispatch hl.dsp.focus({ workspace = \"name:chat\" })",
+            "j/workspaces",
+            "dispatch hl.dsp.focus({ workspace = \"name:chat\" })",
+            "dispatch hl.dsp.workspace.rename({ workspace = \"3\", name = \"mail\" })",
+            "dispatch hl.dsp.workspace.rename({ workspace = \"3\" })",
+            "dispatch hl.dsp.workspace.rename({ workspace = \"3\", name = \"a \\\"b\\\"\\nc\\\\d\" })",
+            "dispatch hl.dsp.focus({ window = \"address:0x5591e8b2f5a0\" })",
+            "dispatch hl.dsp.window.cycle_next()",
+            "dispatch hl.dsp.window.cycle_next({ next = false })",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_lua_refusal_carries_hyprland_s_text() {
+    let server = FakeHyprland::spawn_lua(|_| "error: no such workspace".to_owned(), Vec::new());
+
+    let failure = Hyprland::at(&server.dir)
+        .focus_workspace(WorkspaceTarget::Index(2))
+        .await
+        .expect_err("refused");
+
+    assert!(matches!(failure, CompositorError::Refused(reason) if reason.contains("no such")));
+}
+
+fn monitor_server(reply: &'static str) -> (FakeHyprland, Arc<Mutex<Vec<String>>>) {
+    let received: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = received.clone();
+    let server = FakeHyprland::spawn(
+        move |command| {
+            sink.lock().expect("lock").push(command.to_owned());
+            match command {
+                _ if command.starts_with("keyword ") => reply.to_owned(),
+                "reload" => reply.to_owned(),
+                _ => "ok".to_owned(),
+            }
+        },
+        Vec::new(),
+    );
+    (server, received)
+}
+
+#[tokio::test]
+async fn a_lua_config_refusal_retries_the_monitor_disable_through_eval() {
+    let (server, received) =
+        monitor_server("keyword can't work with non-legacy parsers. Use eval.");
+
+    Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", false)
+        .await
+        .expect("disabled through eval");
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        [
+            "keyword monitor DP-3,disable",
+            "eval hl.monitor({ output = \"DP-3\", disabled = true })",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_legacy_config_never_sees_the_eval_form() {
+    let (server, received) = monitor_server("ok");
+
+    Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", false)
+        .await
+        .expect("disabled");
+
+    assert_eq!(
+        *received.lock().expect("lock"),
+        ["keyword monitor DP-3,disable"]
+    );
+}
+
+#[tokio::test]
+async fn a_refused_disable_is_an_error() {
+    let (server, _received) = monitor_server("invalid monitor syntax");
+
+    let outcome = Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", false)
+        .await;
+
+    assert!(matches!(outcome, Err(CompositorError::Refused(_))));
+}
+
+#[tokio::test]
+async fn enabling_a_monitor_sends_only_a_reload() {
+    let (server, received) = monitor_server("ok");
+
+    Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", true)
+        .await
+        .expect("enabled");
+
+    assert_eq!(*received.lock().expect("lock"), ["reload"]);
+}
+
+#[tokio::test]
+async fn a_refused_reload_carries_hyprland_s_text() {
+    let (server, _received) = monitor_server("config error: bad rule");
+
+    let outcome = Hyprland::at(&server.dir)
+        .set_output_enabled("DP-3", true)
+        .await;
+
+    assert!(matches!(
+        outcome,
+        Err(CompositorError::Refused(reason)) if reason == "config error: bad rule"
+    ));
+}
+
+#[tokio::test]
+async fn a_non_utf8_title_is_decoded_lossily_and_the_snapshot_continues() {
+    let server = FakeHyprland::spawn_raw(
+        |command| match command {
+            "j/clients" => {
+                b"[{\"address\":\"0x1\",\"title\":\"bad \xff title\",\"class\":\"foot\"}]".to_vec()
+            }
+            "j/monitors all" | "j/workspaces" => b"[]".to_vec(),
+            "j/activewindow" => b"{}".to_vec(),
+            "j/devices" => b"{\"keyboards\":[]}".to_vec(),
+            other => panic!("the fake was asked for {other}"),
+        },
+        Vec::new(),
+    );
+
+    let snapshot = Hyprland::at(&server.dir)
+        .snapshot()
+        .await
+        .expect("snapshot");
+
+    assert_eq!(
+        snapshot.windows[0].title.as_deref(),
+        Some("bad \u{fffd} title")
+    );
+}
+
+#[tokio::test]
+async fn a_non_utf8_event_byte_does_not_end_the_stream() {
+    let server = FakeHyprland::spawn_raw(
+        |command| match command {
+            "j/devices" => b"{\"keyboards\":[]}".to_vec(),
+            other => panic!("the fake was asked for {other}"),
+        },
+        vec![
+            b"windowtitlev2>>9,bad \xff title\n".to_vec(),
+            b"closewindow>>0x4\n".to_vec(),
+        ],
+    );
+
+    let events: Vec<Event> = Hyprland::at(&server.dir)
+        .events()
+        .await
+        .expect("subscribed")
+        .collect()
+        .await;
+
+    assert_eq!(
+        events,
+        [
+            Event::Resync(Resync::Structure),
+            Event::WindowClosed(WindowId(4)),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn only_the_second_title_event_asks_for_a_resync() {
+    let events = events_from(&["windowtitle>>9", "windowtitlev2>>9,a title"]).await;
+
+    assert_eq!(events, [Event::Resync(Resync::Structure)]);
+}
+
+async fn session_lock_restore(value: bool) -> bool {
+    let server = FakeHyprland::spawn(
+        move |command| match command {
+            "j/getoption misc:allow_session_lock_restore" => json!({
+                "option": "misc:allow_session_lock_restore", "bool": value, "set": false
+            })
+            .to_string(),
+            other => panic!("the fake was asked for {other}"),
+        },
+        Vec::new(),
+    );
+    Hyprland::at(&server.dir)
+        .allow_session_lock_restore()
+        .await
+        .expect("an answer")
+}
+
+#[tokio::test]
+async fn the_session_lock_restore_option_reads_its_bool() {
+    assert!(!session_lock_restore(false).await);
+    assert!(session_lock_restore(true).await);
 }

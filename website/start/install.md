@@ -84,24 +84,39 @@ commands.
 
 ## Start the shell
 
-glimpse runs as systemd user services grouped under one target. Except on NixOS, enable the target
-once, from a terminal inside your Wayland session:
+glimpse runs as systemd user services grouped under `glimpse-session.target`, which starts and stops
+with `graphical-session.target`.
+
+If your session starts `graphical-session.target`, as a uwsm session does, enable the target once
+from a terminal inside your Wayland session. It then starts and stops with every graphical session:
 
 ```sh
 systemctl --user enable --now glimpse-session.target
 ```
 
-From then on it starts with every graphical session. The panel should appear within a second or
-two. On NixOS, use the compositor startup command below instead.
+If your session does not start `graphical-session.target`, or you are on NixOS, start the target
+when the compositor starts and stop it when the compositor exits. Otherwise it outlives the
+compositor while your user manager runs:
 
-::: tip If nothing appears
-Your compositor may not start `graphical-session.target`, which glimpse hangs off. Start the target
-from your compositor's startup commands instead:
+::: code-group
 
-```sh
-systemctl --user start glimpse-session.target
+```lua [hyprland.lua]
+hl.on("hyprland.start", function()
+    hl.exec_cmd("systemctl --user start glimpse-session.target")
+end)
+hl.on("hyprland.shutdown", function()
+    hl.exec_cmd("systemctl --user stop glimpse-session.target")
+end)
 ```
+
+```ini [hyprland.conf]
+exec-once = systemctl --user start glimpse-session.target
+exec-shutdown = systemctl --user stop glimpse-session.target
+```
+
 :::
+
+The panel should appear within a second or two.
 
 ## Check the install
 

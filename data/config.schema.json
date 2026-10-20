@@ -859,6 +859,7 @@
         }
       },
       "additionalProperties": {
+        "description": "Which kind of applet this is, and the settings that kind alone understands.",
         "oneOf": [
           {
             "description": "Speaker and application volume.",

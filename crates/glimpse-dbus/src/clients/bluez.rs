@@ -191,6 +191,7 @@ pub enum Codec {
     AptX,
     AptXHd,
     Lhdc,
+    Lc3,
     #[default]
     Vendor,
 }
@@ -391,6 +392,7 @@ pub fn codec(codec: u8, configuration: Option<&[u8]>) -> Codec {
         0x01 => return Codec::Mp3,
         0x02 => return Codec::Aac,
         0x04 => return Codec::Atrac,
+        0x06 => return Codec::Lc3,
         _ => (),
     }
 

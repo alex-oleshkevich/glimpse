@@ -1,4 +1,3 @@
-pub const APPLET_HOST_INTERFACE: &str = "me.aresa.Glimpse.AppletHost1";
 pub const APPLET_HOST_PATH: &str = "/me/aresa/Glimpse/AppletHost";
 
 pub fn applet_host_name(app_id: &str) -> String {

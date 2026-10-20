@@ -3,7 +3,7 @@ use std::rc::{Rc, Weak};
 
 use gettextrs::{gettext, ngettext};
 use glimpse_widgets::{Lens, zoomed};
-use gtk4::{gdk, glib, prelude::*};
+use gtk4::{gdk, gio, glib, prelude::*};
 
 use crate::marks::Marks;
 use glimpse_wayland::capture::{Frame, Layout};
@@ -71,6 +71,9 @@ struct Chain {
 
 impl Chain {
     fn place(&mut self, surface: usize, point: (u32, u32)) {
+        if self.anchor == Some((surface, point)) {
+            return;
+        }
         if let Some((on, from)) = self.anchor
             && on == surface
         {
@@ -138,6 +141,7 @@ type Shared = Rc<RefCell<Chain>>;
 pub struct Session {
     surfaces: Surfaces,
     invalidated: Vec<(gdk::Monitor, glib::SignalHandlerId)>,
+    added: (gio::ListModel, glib::SignalHandlerId),
 }
 
 impl Session {
@@ -199,13 +203,19 @@ impl Session {
             invalidated.push((surface.monitor.clone(), handler));
             surface.window.present();
         }
+        let added = crate::overlay::on_output_added(&display.monitors(), {
+            let finish = finish.clone();
+            move || finish(Outcome::Invalidated)
+        });
         Ok(Self {
             surfaces,
             invalidated,
+            added,
         })
     }
 
     pub fn close(self) {
+        self.added.0.disconnect(self.added.1);
         for (monitor, handler) in self.invalidated {
             monitor.disconnect(handler);
         }
@@ -458,13 +468,7 @@ fn connect(
                 .current_event_state()
                 .contains(gdk::ModifierType::SHIFT_MASK);
             if shift {
-                let next = resized(radius.get(), dy);
-                radius.set(next);
-                for surface in surfaces.iter() {
-                    surface.lens.set_radius(next);
-                    surface.marks.set_radius(next);
-                }
-                dress(&surfaces[index], index, &chain.borrow(), next, false);
+                resize(&surfaces, index, &chain, &radius, dy, shift);
             } else {
                 let next = zoomed(zoom.get(), dy, MAX_ZOOM);
                 zoom.set(next);
@@ -514,6 +518,23 @@ fn connect(
         glib::Propagation::Stop
     });
     surface.window.add_controller(keys);
+}
+
+fn resize(
+    surfaces: &Surfaces,
+    index: usize,
+    chain: &Shared,
+    radius: &Cell<f32>,
+    notches: f64,
+    shift: bool,
+) {
+    let next = resized(radius.get(), notches);
+    radius.set(next);
+    for surface in surfaces.iter() {
+        surface.lens.set_radius(next);
+        surface.marks.set_radius(next);
+    }
+    dress(&surfaces[index], index, &chain.borrow(), next, shift);
 }
 
 fn left(surfaces: &[Surface], chain: &Shared, index: usize, radius: f32) {

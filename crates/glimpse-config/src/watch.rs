@@ -8,7 +8,7 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::mpsc;
 
-use crate::load::{SCREENSHOT_FILE_NAME, load, watch_dirs};
+use crate::load::{load, watch_dirs};
 use crate::schema::Config;
 
 /// How long a watched directory has to go quiet before its events are reported. An editor saving a
@@ -73,14 +73,6 @@ pub fn watch_config_reporting(
     )
     .filter_map(|update| async move {
         match update {
-            Update::Changed(paths)
-                if !paths.is_empty()
-                    && paths
-                        .iter()
-                        .all(|path| path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref())) =>
-            {
-                None
-            }
             Update::Changed(_) | Update::Rearmed => Some(()),
             Update::Unavailable(reason) => {
                 tracing::warn!(
@@ -124,7 +116,13 @@ async fn reread(config_path: Option<&Path>, current: &Config) -> Result<Option<C
     let path = config_path.map(Path::to_path_buf);
 
     match tokio::task::spawn_blocking(move || load(path.as_deref())).await {
-        Ok(Ok(config)) => Ok((config != *current).then_some(config)),
+        Ok(Ok(config)) => {
+            let same = Config {
+                screenshot: current.screenshot.clone(),
+                ..config.clone()
+            } == *current;
+            Ok((!same).then_some(config))
+        }
         Ok(Err(error)) => Err(error.to_string()),
         Err(error) => Err(format!("the configuration reader panicked: {error}")),
     }

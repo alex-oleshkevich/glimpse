@@ -233,3 +233,45 @@ async fn sighup_forces_a_theme_reload() {
         .expect("SIGHUP produces a theme reload")
         .expect("the stream remains alive");
 }
+
+fn changed(paths: &[&Path]) -> Update {
+    Update::Changed(paths.iter().map(|path| path.to_path_buf()).collect())
+}
+
+#[test]
+fn a_config_save_or_swap_file_in_the_user_dir_does_not_reload_the_theme() {
+    let user = Path::new("/u/glimpse");
+    for name in ["config.toml", "shot.toml", ".config.toml.swp"] {
+        let path = user.join(name);
+        assert_eq!(reload(changed(&[&path]), Some(user)), None, "{name}");
+    }
+}
+
+#[test]
+fn a_user_stylesheet_or_a_theme_file_reloads_the_theme() {
+    let user = Path::new("/u/glimpse");
+    for path in [
+        user.join(STYLES_FILE),
+        user.join(DARK_STYLESHEET),
+        user.join(THEMES_DIR),
+        user.join("themes/nord/panel.css"),
+    ] {
+        assert_eq!(reload(changed(&[&path]), Some(user)), Some(()), "{path:?}");
+    }
+}
+
+#[test]
+fn one_relevant_path_among_noise_reloads_once() {
+    let user = Path::new("/u/glimpse");
+    let noise = user.join("config.toml");
+    let sheet = user.join(STYLES_FILE);
+    assert_eq!(reload(changed(&[&noise, &sheet]), Some(user)), Some(()));
+}
+
+#[test]
+fn a_rearm_reloads_the_theme() {
+    assert_eq!(
+        reload(Update::Rearmed, Some(Path::new("/u/glimpse"))),
+        Some(())
+    );
+}

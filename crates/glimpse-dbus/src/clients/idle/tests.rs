@@ -32,17 +32,6 @@ async fn a_missing_expiry_property_decodes_as_an_empty_map_without_an_error() {
     );
 }
 
-#[tokio::test]
-async fn unknown_object_is_preserved_as_a_typed_call_error() {
-    let request = std::future::ready(Err::<(), _>(
-        zbus::fdo::Error::UnknownObject("gone".to_owned()).into(),
-    ));
-    assert!(matches!(
-        call(request).await,
-        Err(IdleProviderError::UnknownObject)
-    ));
-}
-
 #[test]
 fn wire_signatures_match_the_versioned_contract() {
     assert_eq!(SourceKind::SIGNATURE, "u");

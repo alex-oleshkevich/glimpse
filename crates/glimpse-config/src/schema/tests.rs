@@ -41,7 +41,9 @@ fn desktop_id_in_zone_resolves_and_is_placed() {
 fn placed_kinds_follows_zone_placement_not_table_presence() {
     let default = Config::default();
     assert!(
-        !placed_kinds(&default).any(|kind| matches!(kind, AppletKind::Heartbeat {})),
+        !placed_applets(&default)
+            .map(|(_, applet)| applet.kind)
+            .any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "the default document places nothing named heartbeat"
     );
 
@@ -49,7 +51,8 @@ fn placed_kinds_follows_zone_placement_not_table_presence() {
         toml::from_str("[[panels]]\nright = [\"heartbeat\"]\n")
             .expect("a bare name resolves through Applet::from_name");
     assert!(
-        placed_kinds(&named_in_a_zone_with_no_table)
+        placed_applets(&named_in_a_zone_with_no_table)
+            .map(|(_, applet)| applet.kind)
             .any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "a name placed in a zone with no table entry must still resolve, the common case"
     );
@@ -57,7 +60,8 @@ fn placed_kinds_follows_zone_placement_not_table_presence() {
     let table_with_no_placement: Config = toml::from_str("[applets.heartbeat]\n")
         .expect("a table with no zone naming it still loads");
     assert!(
-        !placed_kinds(&table_with_no_placement)
+        !placed_applets(&table_with_no_placement)
+            .map(|(_, applet)| applet.kind)
             .any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "a table nobody places is not demand"
     );
@@ -66,7 +70,9 @@ fn placed_kinds_follows_zone_placement_not_table_presence() {
         toml::from_str("[applets.hb]\nextends = \"heartbeat\"\n\n[[panels]]\nright = [\"hb\"]\n")
             .expect("a renamed table placed in a zone loads");
     assert!(
-        placed_kinds(&renamed_and_placed).any(|kind| matches!(kind, AppletKind::Heartbeat {})),
+        placed_applets(&renamed_and_placed)
+            .map(|(_, applet)| applet.kind)
+            .any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "a renamed table placed in a zone must still resolve to its kind"
     );
 }
@@ -632,4 +638,27 @@ fn a_power_table_from_an_older_file_still_loads() {
     let parsed: crate::Config = toml::from_str("[power]\nlock-on-request = false\n")
         .expect("the locking settings are gone, but a file naming them still loads");
     assert_eq!(parsed.panels, crate::Config::default().panels);
+}
+
+#[test]
+fn disabled_idle_listeners_are_not_validated() {
+    let config: crate::Config = toml::from_str(
+        "[idle.profiles.ac]\nlisteners = [\n  { timeout = 0, on-idle = \"\" },\n  { timeout = 0, on-idle = \"lock\" },\n  { timeout = 600, on-idle = \"lock\" },\n]\n",
+    )
+    .expect("the document parses");
+    assert!(config.validate().is_empty(), "{:?}", config.validate());
+}
+
+#[test]
+fn duplicate_enabled_idle_timeouts_are_still_refused() {
+    let config: crate::Config = toml::from_str(
+        "[idle.profiles.battery]\nlisteners = [\n  { timeout = 600, on-idle = \"lock\" },\n  { timeout = 600, on-idle = \"suspend\" },\n]\n",
+    )
+    .expect("the document parses");
+    let problems: Vec<String> = config.validate().iter().map(ToString::to_string).collect();
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(
+        problems[0].contains("duplicate timeout 600"),
+        "{problems:?}"
+    );
 }

@@ -81,11 +81,10 @@ fn a_snapshot_populates_every_output_field() {
 #[test]
 fn output_power_is_mirrored_into_compositor_capabilities() {
     let mapped = capabilities(Capabilities {
-        floating: false,
-        workspace_reorder: true,
         output_power: true,
         blank_screens: true,
         window_screenshot: false,
+        overview_backdrop: true,
     });
 
     assert!(mapped.output_power && mapped.blank_screens);

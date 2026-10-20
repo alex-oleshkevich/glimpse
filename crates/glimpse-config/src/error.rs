@@ -1,4 +1,5 @@
 use std::io;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 pub(crate) const MAX_FILE_BYTES: u64 = 1 << 20;
@@ -77,14 +78,21 @@ impl ConfigError {
     }
 
     pub(crate) fn parse(path: &Path, text: &str, error: &toml::de::Error) -> Self {
-        let (line, column) = error
-            .span()
-            .map_or((1, 1), |span| line_column(text, span.start));
+        Self::parse_at(path, text, error.message(), error.span())
+    }
+
+    pub(crate) fn parse_at(
+        path: &Path,
+        text: &str,
+        message: &str,
+        span: Option<Range<usize>>,
+    ) -> Self {
+        let (line, column) = span.map_or((1, 1), |span| line_column(text, span.start));
         Self::Parse {
             path: path.to_path_buf(),
             line,
             column,
-            message: error.message().to_owned(),
+            message: message.to_owned(),
         }
     }
 

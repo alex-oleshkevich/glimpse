@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn a_capability_a_compositor_lacks_is_refused_without_inviting_a_retry() {
     assert!(matches!(
-        command_error(&CompositorError::Unavailable("reorder a workspace")),
+        command_error(&CompositorError::Unavailable("stop a screencast")),
         CommandError::Unsupported(_)
     ));
     assert!(matches!(
@@ -183,4 +183,14 @@ async fn set_output_enabled_before_any_snapshot_is_refused_rather_than_reaching_
         ))
     );
     assert!(fake.requests().is_empty());
+}
+
+#[tokio::test]
+async fn set_output_enabled_on_an_unsupported_session_is_unsupported_not_refused() {
+    let mut harness = harness(Backend::Unsupported);
+
+    assert!(matches!(
+        set_output_enabled(&mut harness, "DP-1", false).await,
+        Err(CommandError::Unsupported(_))
+    ));
 }

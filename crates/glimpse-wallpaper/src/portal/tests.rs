@@ -1,7 +1,8 @@
 use super::*;
 use glimpse_dbus::testing::PrivateBus;
 use gtk4::gdk_pixbuf::{Colorspace, Pixbuf};
-use validate::Reject;
+use std::time::Duration;
+use validate::{Reject, bounded};
 use zbus::zvariant::Value;
 
 fn options(pairs: &[(&str, &str)]) -> HashMap<String, OwnedValue> {
@@ -190,6 +191,56 @@ fn collecting_copies_keeps_only_the_named_files() {
     assert!(!drop.exists());
 }
 
+fn mkfifo(path: &Path) {
+    let status = std::process::Command::new("mkfifo")
+        .arg(path)
+        .status()
+        .expect("runs mkfifo");
+    assert!(status.success(), "mkfifo failed");
+}
+
+#[test]
+fn a_fifo_is_refused_without_blocking() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let fifo = dir.path().join("pipe.png");
+    mkfifo(&fifo);
+    let copies = dir.path().join("copies");
+    let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+    let outcome = runtime.block_on(async {
+        tokio::time::timeout(Duration::from_secs(5), copy_image(&fifo, &copies)).await
+    });
+    runtime.shutdown_background();
+    assert_eq!(outcome.ok(), Some(Err(Reject::Unreadable)));
+}
+
+#[tokio::test]
+async fn a_directory_and_a_socket_are_refused() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let copies = dir.path().join("copies");
+    assert_eq!(
+        copy_image(dir.path(), &copies).await,
+        Err(Reject::Unreadable)
+    );
+    let socket = dir.path().join("socket.png");
+    let _listener = std::os::unix::net::UnixListener::bind(&socket).expect("binds");
+    assert_eq!(copy_image(&socket, &copies).await, Err(Reject::Unreadable));
+}
+
+#[tokio::test]
+async fn a_copy_that_stalls_past_its_limit_is_unreadable() {
+    let stalled = bounded(
+        Duration::from_millis(20),
+        std::future::pending::<Result<PathBuf, Reject>>(),
+    )
+    .await;
+    assert_eq!(stalled, Err(Reject::Unreadable));
+    let copy = PathBuf::from("/copies/a.png");
+    assert_eq!(
+        bounded(Duration::from_secs(5), async { Ok(copy.clone()) }).await,
+        Ok(copy)
+    );
+}
+
 struct Started {
     _bus: PrivateBus,
     _server: Connection,
@@ -369,4 +420,42 @@ async fn an_unwritable_config_refuses_the_set_and_removes_the_copy() {
         std::fs::read_dir(&started.copies).expect("lists").count(),
         0
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_fifo_request_is_refused_and_the_next_one_is_served() {
+    let started = Started::new(None).await;
+    let proxy = WallpaperPortalTestProxy::new(&started.client)
+        .await
+        .expect("a proxy");
+    let fifo = started.directory.path().join("pipe.png");
+    mkfifo(&fifo);
+
+    let response = tokio::time::timeout(
+        Duration::from_secs(5),
+        proxy.set_wallpaper_uri(
+            &handle("/req/fifo"),
+            "",
+            "",
+            &format!("file://{}", fifo.display()),
+            HashMap::new(),
+        ),
+    )
+    .await
+    .expect("answers promptly")
+    .expect("SetWallpaperURI");
+    assert_eq!(response, OTHER);
+
+    let source = image_file(started.directory.path(), "shot.png");
+    let response = proxy
+        .set_wallpaper_uri(
+            &handle("/req/background"),
+            "",
+            "",
+            &format!("file://{}", source.display()),
+            HashMap::from([("set-on", Value::from("background"))]),
+        )
+        .await
+        .expect("SetWallpaperURI");
+    assert_eq!(response, SUCCESS);
 }

@@ -58,7 +58,14 @@ impl Registry {
             let count = self
                 .records
                 .values()
-                .filter(|internal| internal.record.owned_by(owner))
+                .filter(|internal| {
+                    if owner.is_empty() {
+                        internal.record.source.kind == SourceKind::Portal
+                            && internal.record.source.app_id.is_empty()
+                    } else {
+                        internal.record.owned_by(owner)
+                    }
+                })
                 .count();
             if count >= Self::MAX_INHIBITORS_PER_BUS {
                 return Err(format!(
@@ -101,6 +108,16 @@ impl Registry {
             .insert(id, InternalRecord { record, logind_fd });
         self.version += 1;
         id
+    }
+
+    pub fn attach_fd(&mut self, id: u64, logind_fd: OwnedFd) -> bool {
+        match self.records.get_mut(&id) {
+            Some(internal) => {
+                internal.logind_fd = Some(logind_fd);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn release_record(&mut self, id: u64) -> Option<u64> {
@@ -178,6 +195,22 @@ impl Registry {
 
     pub fn hold_expiries(&self) -> BTreeMap<u64, u64> {
         self.hold_expiries.clone()
+    }
+
+    pub fn portal_handle(&self, id: u64) -> Option<String> {
+        self.records
+            .get(&id)
+            .filter(|internal| internal.record.source.kind == SourceKind::Portal)
+            .map(|internal| internal.record.source.request_handle.clone())
+    }
+
+    pub fn portal_handles_of(&self, bus_name: &str) -> Vec<String> {
+        self.bus_name_to_ids
+            .get(bus_name)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.portal_handle(*id))
+            .collect()
     }
 
     pub fn can_release(&self, id: u64) -> Option<bool> {

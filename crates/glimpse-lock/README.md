@@ -6,7 +6,9 @@ failure, not a cosmetic one.
 ## Commands
 
 - `glimpse-lock` — the resident daemon under `glimpse-lock.service`; waits, locking at start only
-  if `LockedHint` is already true.
+  if `LockedHint` is already true. GTK exits 1 when the display goes away and offers no hook before it, so
+  the unit's `ExecCondition=` skips the restart while `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` is not a socket; a crash
+  with the display alive still restarts.
 - `glimpse-lock lock` — calls logind `LockSession`, exits 0 once `LockedHint` turns true or 4 after
   5s without it, so it can't race a following `systemctl suspend`. Sends one D-Bus call, so it's
   safe from a sandboxed parent.
@@ -49,7 +51,7 @@ and `urgency`.
 Depends on no other glimpse process — it reads its own config and reaches logind and the compositor
 directly, so nothing else's absence can blank it or block a lock. **If the process dies after
 `locked`, the compositor keeps the session locked with a blank screen — that is correct and must
-not be worked around.** `LockedHint` stays true, so a restarted locker re-acquires the lock.
+not be worked around.** `LockedHint` stays true, so a restarted locker re-acquires the lock where the compositor allows it (Hyprland: `misc:allow_session_lock_restore`, which `notify.rs` warns about at start and `glimpsectl doctor` checks).
 
 The lifecycle is one state machine in `lifecycle.rs`; GTK, zbus and PAM only feed it and carry out
 its effects, and a stale-generation signal is always ignored. **An `unlocked` this process didn't

@@ -116,6 +116,9 @@ impl Config {
         ] {
             let mut timeouts = std::collections::BTreeSet::new();
             for (index, listener) in profile.listeners.iter().enumerate() {
+                if listener.timeout == 0 {
+                    continue;
+                }
                 if !timeouts.insert(listener.timeout) {
                     report(format!(
                         "idle.profiles.{name}.listeners[{index}].timeout: duplicate timeout {}",
@@ -164,18 +167,6 @@ impl Default for Config {
             retired_power: toml::Table::new(),
         }
     }
-}
-
-/// Every `Kind` actually placed on some panel's `left`/`center`/`right` zone, resolved the same
-/// way a panel resolves a zone entry (see `resolve_applet`). The single source of truth for
-/// "is anything actually consuming this applet" — a service's demand gating and the panel's own
-/// zone resolution must not diverge.
-pub fn placed_kinds(config: &Config) -> impl Iterator<Item = AppletKind> + '_ {
-    config
-        .panels
-        .iter()
-        .flat_map(|panel| panel.left.iter().chain(&panel.center).chain(&panel.right))
-        .filter_map(|name| resolve_applet(name, &config.applets).map(|applet| applet.kind))
 }
 
 pub fn placed_applets(config: &Config) -> impl Iterator<Item = (&str, Applet)> + '_ {

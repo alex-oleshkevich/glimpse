@@ -37,3 +37,18 @@ fn a_degraded_message_is_capped_like_any_other_backend_text() {
     health.degraded(Backend::Portal, "x".repeat(4096));
     assert!(health.snapshot().portal.message.chars().count() <= super::super::WHY_CAP + 2);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unresolvable_owner_keeps_the_slot_degraded() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let connection = bus.connection().await;
+    let (health, _changes) = Health::new();
+
+    health
+        .name_taken(&connection, Backend::Portal, "me.aresa.Glimpse.Nobody")
+        .await;
+
+    let snapshot = health.snapshot();
+    assert_eq!(snapshot.portal.kind, HealthKind::Degraded);
+    assert_eq!(snapshot.portal.message, "Bus name already owned");
+}

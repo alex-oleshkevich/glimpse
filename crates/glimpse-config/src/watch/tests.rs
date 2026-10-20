@@ -430,3 +430,35 @@ async fn repointing_a_config_symlink_watches_edits_in_the_new_target_directory()
         .expect("alive");
     assert_eq!(edited.night_light.temperature, 2500);
 }
+
+#[tokio::test]
+async fn a_screenshot_preferences_write_is_not_a_reload() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let path = dir.path().join("config.toml");
+    let shot = dir.path().join("shot.toml");
+    std::fs::write(&path, START).expect("writes");
+    std::fs::write(&shot, "[screenshot]\nflash = true\n").expect("writes");
+
+    let current = load(Some(&path)).expect("loads");
+    let mut reloads = Box::pin(watch_config_reporting(Some(path.clone()), current, None));
+
+    let mut values = toml_edit::Table::new();
+    values.insert("flash", toml_edit::value(false));
+    crate::write_table(&shot, "screenshot", &values, &[]).expect("writes");
+    assert!(
+        tokio::time::timeout(Duration::from_secs(3), reloads.next())
+            .await
+            .is_err(),
+        "a write to [screenshot] alone is not a reload"
+    );
+
+    std::fs::write(&path, good(3000)).expect("changes the rest of the document");
+    let reported = tokio::time::timeout(SETTLE, reloads.next())
+        .await
+        .expect("a report within the settle window")
+        .expect("the stream is still alive");
+    assert!(
+        matches!(&reported, Ok(Some(config)) if config.night_light.temperature == 3000 && !config.screenshot.flash),
+        "the next reload carries the screenshot change too, got {reported:?}"
+    );
+}

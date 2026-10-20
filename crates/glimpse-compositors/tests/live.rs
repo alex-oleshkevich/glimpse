@@ -1,4 +1,4 @@
-use glimpse_compositors::{Compositor, CompositorError, Event, LayoutTarget, detect_compositor};
+use glimpse_compositors::{Compositor, Event, LayoutTarget, detect_compositor};
 
 use futures_util::StreamExt;
 
@@ -56,7 +56,7 @@ async fn switching_the_layout_is_reported_back_on_the_event_stream() {
 
     let switched = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         while let Some(event) = events.next().await {
-            if let Event::KeyboardLayoutSwitched { idx, .. } = event {
+            if let Event::KeyboardLayoutSwitched(idx) = event {
                 return Some(idx);
             }
         }
@@ -73,54 +73,5 @@ async fn switching_the_layout_is_reported_back_on_the_event_stream() {
             .switch_keyboard_layout(LayoutTarget::Index(original))
             .await
             .expect("restored");
-    }
-}
-
-#[tokio::test]
-#[ignore = "needs a running niri or Hyprland"]
-async fn every_addon_is_a_request_the_compositor_still_accepts() {
-    let compositor = detect_compositor();
-    assert!(
-        !matches!(compositor, Compositor::Unsupported),
-        "no compositor"
-    );
-
-    let snapshot = compositor.snapshot().await.expect("a snapshot");
-    let workspace = snapshot
-        .workspaces
-        .iter()
-        .find(|workspace| workspace.is_focused)
-        .or(snapshot.workspaces.first())
-        .expect("a session has at least one workspace");
-
-    if let Some(output) = workspace.output.as_deref() {
-        compositor
-            .move_workspace_to_output(workspace.id, output)
-            .await
-            .expect("moving a workspace to the output it is already on");
-    }
-
-    if let Some(focused) = snapshot.focused_output.as_deref() {
-        compositor
-            .focus_output(focused)
-            .await
-            .expect("focusing the output that is already focused");
-    }
-
-    match compositor.capabilities().workspace_reorder {
-        true => {
-            let index = workspace.idx.expect("niri fills idx and can reorder");
-            compositor
-                .reorder_workspace(workspace.id, index)
-                .await
-                .expect("reordering a workspace to the index it already has");
-        }
-        false => assert!(
-            matches!(
-                compositor.reorder_workspace(workspace.id, 0).await,
-                Err(CompositorError::Unavailable(_))
-            ),
-            "a compositor that cannot reorder must refuse before it reaches the socket"
-        ),
     }
 }

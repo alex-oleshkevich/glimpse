@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
 use chrono::{DateTime, Utc};
-use futures_util::StreamExt;
 use glimpse_utils::clean;
-use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 
+use super::follower::{
+    Changes, Follow, Provider, ProviderError, ProviderHandle, REASON, Snapshots, call, changes,
+};
 use super::{epoch, optional_clean};
 use serde::{Deserialize, Serialize};
 
@@ -201,7 +200,6 @@ const MOST_PLACES: usize = 8;
 const HOURS: usize = 24;
 const DAYS: usize = 10;
 const MOST_ALERTS: usize = 4;
-const REASON: usize = 240;
 const HEADLINE: usize = 120;
 const DESCRIPTION: usize = 600;
 const SOURCE: usize = 60;
@@ -297,13 +295,16 @@ pub trait Weather1 {
 
     fn watch_place(
         &self,
-        kind: u8,       // 0 here, 1 coordinates, 2 named location
-        latitude: f64,  // degrees north, ignored for kinds 0 and 2
-        longitude: f64, // degrees east, ignored for kinds 0 and 2
-        location: &str, // requested name, used only for kind 2
+        kind: u8,
+        latitude: f64,
+        longitude: f64,
+        location: &str,
     ) -> zbus::Result<()>;
     fn refresh(&self) -> zbus::Result<()>;
 }
+
+pub type WeatherProvider = Provider<WeatherProviderState>;
+pub type WeatherProviderHandle = ProviderHandle<WeatherProviderState>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WeatherProviderState {
@@ -314,19 +315,55 @@ pub struct WeatherProviderState {
     pub owner: bool,
 }
 
-impl WeatherProviderState {
-    fn unavailable(reason: impl Into<String>, previous: Option<&Self>) -> Self {
+impl Follow for WeatherProviderState {
+    type Proxy = Weather1Proxy<'static>;
+    type Error = WeatherProviderError;
+
+    const NAME: &'static str = "weather";
+
+    fn lost(reason: String, previous: Option<&Self>) -> Self {
         let status = previous.and_then(|state| state.status.clone());
-        let reason = reason.into();
         Self {
             stale: status
                 .as_ref()
                 .is_some_and(|status| !status.places.is_empty()),
             status,
             available: false,
-            reason: Some(clean(&reason, REASON)),
+            reason: Some(reason),
             owner: false,
         }
+    }
+
+    fn reason(&self) -> Option<&str> {
+        self.reason.as_deref()
+    }
+}
+
+impl Snapshots for WeatherProviderState {
+    type Snapshot = WeatherSnapshot;
+
+    const BUS_NAME: &'static str = GLIMPSE_WEATHER_BUS_NAME;
+
+    async fn build(connection: &zbus::Connection) -> zbus::Result<Self::Proxy> {
+        Weather1Proxy::builder(connection)
+            .cache_properties(CacheProperties::Yes)
+            .build()
+            .await
+    }
+
+    async fn read(proxy: &Self::Proxy) -> zbus::Result<Self::Snapshot> {
+        match proxy.cached_snapshot()? {
+            Some(snapshot) => Ok(snapshot),
+            None => proxy.snapshot().await,
+        }
+    }
+
+    async fn changes(proxy: &Self::Proxy) -> Changes<Self::Snapshot> {
+        changes(proxy.receive_snapshot_changed().await)
+    }
+
+    fn decode(snapshot: Self::Snapshot) -> Result<Self, String> {
+        decode_snapshot(snapshot)
     }
 }
 
@@ -344,84 +381,30 @@ pub enum WeatherProviderError {
     Call(String),
 }
 
-#[derive(Clone)]
-pub struct WeatherProviderHandle {
-    state: watch::Receiver<WeatherProviderState>,
-    proxy: Arc<RwLock<Option<Weather1Proxy<'static>>>>,
-}
-
-pub struct WeatherProvider {
-    handle: WeatherProviderHandle,
-    task: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl WeatherProvider {
-    pub fn unavailable(reason: impl Into<String>) -> Self {
-        let (_, state) = watch::channel(WeatherProviderState::unavailable(reason, None));
-        Self {
-            handle: WeatherProviderHandle {
-                state,
-                proxy: Default::default(),
-            },
-            task: None,
-        }
+impl ProviderError for WeatherProviderError {
+    fn unavailable(reason: String) -> Self {
+        Self::Unavailable(reason)
     }
 
-    pub fn start(connection: zbus::Connection) -> Self {
-        let (updates, state) = watch::channel(WeatherProviderState::unavailable(
-            "provider has no bus owner",
-            None,
-        ));
-        let proxy = Arc::new(RwLock::new(None));
-        let task = tokio::spawn(follow_provider(connection, updates, proxy.clone()));
-        Self {
-            handle: WeatherProviderHandle { state, proxy },
-            task: Some(task),
-        }
+    fn timed_out() -> Self {
+        Self::TimedOut
     }
 
-    pub fn handle(&self) -> WeatherProviderHandle {
-        self.handle.clone()
+    fn call(reason: String) -> Self {
+        Self::Call(reason)
     }
 
-    pub async fn shutdown(&mut self) {
-        if let Some(task) = self.task.take() {
-            task.abort();
-            let _ = task.await;
-            tracing::debug!("weather provider follower stopped");
-        }
-    }
-}
-
-impl Drop for WeatherProvider {
-    fn drop(&mut self) {
-        if let Some(task) = &self.task {
-            task.abort();
+    fn named(name: &str, reason: String) -> Option<Self> {
+        match name {
+            "me.aresa.Glimpse.Weather1.Error.InvalidPlace" => Some(Self::InvalidPlace(reason)),
+            "me.aresa.Glimpse.Weather1.Error.LimitExceeded" => Some(Self::LimitExceeded(reason)),
+            "me.aresa.Glimpse.Weather1.Error.Unavailable" => Some(Self::Unavailable(reason)),
+            _ => None,
         }
     }
 }
 
 impl WeatherProviderHandle {
-    pub fn snapshot(&self) -> WeatherProviderState {
-        self.state.borrow().clone()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<WeatherProviderState> {
-        self.state.clone()
-    }
-
-    async fn proxy(&self) -> Result<Weather1Proxy<'static>, WeatherProviderError> {
-        self.proxy.read().await.clone().ok_or_else(|| {
-            WeatherProviderError::Unavailable(
-                self.state
-                    .borrow()
-                    .reason
-                    .clone()
-                    .unwrap_or_else(|| "provider has no bus owner".to_owned()),
-            )
-        })
-    }
-
     pub async fn watch(&self, place: WatchedPlace) -> Result<(), WeatherProviderError> {
         let (kind, latitude, longitude, location) = place_wire(&place)?;
         tracing::debug!(place_kind = place_kind(&place), "renewing weather watch");
@@ -458,207 +441,6 @@ pub fn encode_snapshot(
     )
 }
 
-async fn call(request: impl Future<Output = zbus::Result<()>>) -> Result<(), WeatherProviderError> {
-    match tokio::time::timeout(super::DEADLINE, request).await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
-            let reason = clean(&reason.unwrap_or_default(), REASON);
-            match name.as_str() {
-                "me.aresa.Glimpse.Weather1.Error.InvalidPlace" => {
-                    Err(WeatherProviderError::InvalidPlace(reason))
-                }
-                "me.aresa.Glimpse.Weather1.Error.LimitExceeded" => {
-                    Err(WeatherProviderError::LimitExceeded(reason))
-                }
-                "me.aresa.Glimpse.Weather1.Error.Unavailable"
-                | "org.freedesktop.DBus.Error.ServiceUnknown"
-                | "org.freedesktop.DBus.Error.NameHasNoOwner" => {
-                    Err(WeatherProviderError::Unavailable(reason))
-                }
-                "org.freedesktop.DBus.Error.NoReply" => Err(WeatherProviderError::TimedOut),
-                _ => Err(WeatherProviderError::Call(reason)),
-            }
-        }
-        Ok(Err(error)) => Err(WeatherProviderError::Call(clean(
-            &error.to_string(),
-            REASON,
-        ))),
-        Err(_) => Err(WeatherProviderError::TimedOut),
-    }
-}
-
-async fn follow_provider(
-    connection: zbus::Connection,
-    updates: watch::Sender<WeatherProviderState>,
-    current: Arc<RwLock<Option<Weather1Proxy<'static>>>>,
-) {
-    let dbus = match zbus::fdo::DBusProxy::new(&connection).await {
-        Ok(dbus) => dbus,
-        Err(error) => {
-            replace_unavailable(&updates, error.to_string());
-            tracing::warn!(%error, "cannot observe the weather provider owner");
-            return;
-        }
-    };
-    let mut owners = match dbus
-        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_WEATHER_BUS_NAME)])
-        .await
-    {
-        Ok(owners) => owners,
-        Err(error) => {
-            replace_unavailable(&updates, error.to_string());
-            tracing::warn!(%error, "cannot observe weather provider owner changes");
-            return;
-        }
-    };
-
-    let mut retry_delay = super::RetryDelay::default();
-
-    loop {
-        let proxy = match Weather1Proxy::builder(&connection)
-            .cache_properties(CacheProperties::Yes)
-            .build()
-            .await
-        {
-            Ok(proxy) => {
-                retry_delay.reset();
-                proxy
-            }
-            Err(error) => {
-                *current.write().await = None;
-                replace_unavailable(&updates, error.to_string());
-                tracing::debug!(
-                    reason = clean(&error.to_string(), REASON),
-                    "weather provider property cache is unavailable"
-                );
-                if !super::retry_after_failure(
-                    &dbus,
-                    &mut owners,
-                    GLIMPSE_WEATHER_BUS_NAME,
-                    &mut retry_delay,
-                )
-                .await
-                {
-                    return;
-                }
-                continue;
-            }
-        };
-        let mut snapshots = proxy.receive_snapshot_changed().await;
-        let snapshot = match proxy.cached_snapshot() {
-            Ok(Some(snapshot)) => Ok(snapshot),
-            Ok(None) => proxy.snapshot().await,
-            Err(error) => Err(error),
-        };
-        let mut serving = match snapshot
-            .and_then(|snapshot| decode_snapshot(snapshot).map_err(zbus::Error::Failure))
-        {
-            Ok(state) => {
-                *current.write().await = Some(proxy.clone());
-                tracing::info!(
-                    available = state.available,
-                    stale = state.stale,
-                    places = state
-                        .status
-                        .as_ref()
-                        .map_or(0, |status| status.places.len()),
-                    "weather provider connected"
-                );
-                updates.send_replace(state);
-                true
-            }
-            Err(error) => {
-                *current.write().await = None;
-                let reason = clean(&error.to_string(), REASON);
-                replace_unavailable(&updates, &reason);
-                tracing::warn!(reason, "weather provider snapshot is unavailable");
-                false
-            }
-        };
-
-        let reason = loop {
-            tokio::select! {
-                changed = snapshots.next() => {
-                    let Some(changed) = changed else {
-                        break "weather snapshot stream ended".to_owned();
-                    };
-                    match changed
-                        .get()
-                        .await
-                        .and_then(|snapshot| decode_snapshot(snapshot).map_err(zbus::Error::Failure))
-                    {
-                        Ok(state) => {
-                            if !serving {
-                                *current.write().await = Some(proxy.clone());
-                                serving = true;
-                                tracing::info!("weather provider recovered without changing owner");
-                            }
-                            tracing::debug!(
-                                available = state.available,
-                                stale = state.stale,
-                                places = state.status.as_ref().map_or(0, |status| status.places.len()),
-                                "weather snapshot changed"
-                            );
-                            updates.send_replace(state);
-                        }
-                        Err(error) => {
-                            let reason = clean(&error.to_string(), REASON);
-                            tracing::warn!(reason, "weather snapshot change failed");
-                            if serving {
-                                *current.write().await = None;
-                                serving = false;
-                            }
-                            replace_unavailable(&updates, &reason);
-                        }
-                    }
-                }
-                owner = owners.next() => {
-                    let Some(owner) = owner else {
-                        break "weather provider owner stream ended".to_owned();
-                    };
-                    let Ok(args) = owner.args() else {
-                        continue;
-                    };
-                    // `old_owner` is what makes this a disconnect. Without it the signal that
-                    // GAVE the provider its name reads as losing one, and a follower that has just
-                    // connected tears itself down and reconnects for nothing.
-                    if args.name().as_str() != GLIMPSE_WEATHER_BUS_NAME {
-                        continue;
-                    }
-                    if args.old_owner().is_some() {
-                        break match args.new_owner().is_some() {
-                            true => "provider owner changed",
-                            false => "provider has no bus owner",
-                        }.to_owned();
-                    }
-                    if !serving && args.new_owner().is_some() {
-                        break "provider took the name".to_owned();
-                    }
-                }
-            }
-        };
-        if serving {
-            *current.write().await = None;
-            replace_unavailable(&updates, &reason);
-            tracing::warn!(reason, "weather provider disconnected");
-        } else {
-            tracing::debug!(reason, "weather provider rebuilding its proxy");
-        }
-    }
-}
-
-fn replace_unavailable(updates: &watch::Sender<WeatherProviderState>, reason: impl Into<String>) {
-    let reason = reason.into();
-    updates.send_if_modified(|previous| {
-        let next = WeatherProviderState::unavailable(reason, Some(previous));
-        if *previous == next {
-            return false;
-        }
-        *previous = next;
-        true
-    });
-}
-
 pub fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState, String> {
     let (available, stale, reason, updated_at, units, places) = snapshot;
     let updated_at = optional_epoch(updated_at)?;
@@ -668,6 +450,7 @@ pub fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState
             units: decode_units(units)?,
             places: places
                 .into_iter()
+                .filter(|place| place.0 != 2 || is_location(&place.3))
                 .take(MOST_PLACES)
                 .map(decode_place)
                 .collect::<Result<_, _>>()?,
@@ -916,14 +699,15 @@ fn decode_place_kind(
             })
         }
         1 => Err("weather snapshot contains invalid coordinates".to_owned()),
-        2 if !location.trim().is_empty() => Ok(WatchedPlace::Location {
-            name: clean(&location, CITY),
-        }),
-        2 => Err("weather snapshot contains empty named location".to_owned()),
+        2 => Ok(WatchedPlace::Location { name: location }),
         _ => Err(format!(
             "weather snapshot contains unknown place kind {kind}"
         )),
     }
+}
+
+fn is_location(name: &str) -> bool {
+    !name.trim().is_empty() && name.chars().count() <= CITY
 }
 
 fn place_kind(place: &WatchedPlace) -> &'static str {

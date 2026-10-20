@@ -105,6 +105,7 @@ async fn run_inner(
     tracing::info!("idle backend connected to ext-idle-notify-v1");
     health.ready(HealthOf::Wayland);
 
+    idle.send(idle::Event::BackendReset).await;
     let mut state_rx = idle.subscribe();
     sync_notifications(&mut backend, &notifier, &seat, &qh, &idle.snapshot());
     conn.flush()?;
@@ -219,11 +220,6 @@ fn sync_notifications(
     state: &idle::State,
 ) {
     clear_notifications(backend);
-
-    if !state.enabled {
-        backend.generation = Some(state.generation);
-        return;
-    }
 
     for listener in &state.listeners {
         backend

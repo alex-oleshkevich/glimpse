@@ -1,4 +1,8 @@
-use futures_util::{StreamExt, stream};
+use futures_util::{
+    FutureExt, StreamExt,
+    future::{BoxFuture, ready},
+    stream,
+};
 use glimpse_compositors::{
     Capabilities, Cast, CastKind, CastTarget, Compositor as Backend, CompositorError,
     Event as Change, Output, Resync, Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId,
@@ -70,8 +74,6 @@ pub struct OutputInfo {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompositorCapabilities {
-    pub floating: bool,
-    pub workspace_reorder: bool,
     pub output_power: bool,
     #[serde(default)]
     pub blank_screens: bool,
@@ -150,6 +152,7 @@ pub struct CompositorPrivacy {
 pub enum Event {
     Snapshot(Box<Snapshot>),
     Changed(Change),
+    FetchFailed(String),
     Failed(String),
 }
 
@@ -163,32 +166,9 @@ pub enum Command {
         target: WindowRef,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    FocusOutput {
-        connector: String,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
     RenameWorkspace {
         id: u64,
         name: Option<String>,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    MoveWorkspaceToOutput {
-        id: u64,
-        connector: String,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    ReorderWorkspace {
-        id: u64,
-        index: u8,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    MoveWindowToWorkspace {
-        window: u64,
-        workspace: WorkspaceRef,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    CloseWindow {
-        id: u64,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     SetOutputEnabled {
@@ -243,14 +223,6 @@ impl ServiceEndpoint<Compositor> {
         }
     }
 
-    pub async fn focus_output(&self, connector: String) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| Command::FocusOutput {
-            connector,
-            reply,
-        })
-        .await?
-    }
-
     pub async fn rename_workspace(
         &self,
         id: u64,
@@ -258,51 +230,6 @@ impl ServiceEndpoint<Compositor> {
     ) -> Result<(), CommandError> {
         self.call("compositor service stopped", |reply| {
             Command::RenameWorkspace { id, name, reply }
-        })
-        .await?
-    }
-
-    pub async fn move_workspace_to_output(
-        &self,
-        id: u64,
-        connector: String,
-    ) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| {
-            Command::MoveWorkspaceToOutput {
-                id,
-                connector,
-                reply,
-            }
-        })
-        .await?
-    }
-
-    pub async fn reorder_workspace(&self, id: u64, index: u8) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| {
-            Command::ReorderWorkspace { id, index, reply }
-        })
-        .await?
-    }
-
-    pub async fn move_window_to_workspace(
-        &self,
-        window: u64,
-        workspace: WorkspaceRef,
-    ) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| {
-            Command::MoveWindowToWorkspace {
-                window,
-                workspace,
-                reply,
-            }
-        })
-        .await?
-    }
-
-    pub async fn close_window(&self, id: u64) -> Result<(), CommandError> {
-        self.call("compositor service stopped", |reply| Command::CloseWindow {
-            id,
-            reply,
         })
         .await?
     }
@@ -352,6 +279,7 @@ pub struct Compositor {
     state: Option<Snapshot>,
     attempt: u64,
     stale: bool,
+    fetch_failed: bool,
     capabilities: CompositorCapabilities,
 }
 
@@ -401,7 +329,7 @@ impl Service for Compositor {
                     stream::once(async move {
                         match read.snapshot().await {
                             Ok(snapshot) => Event::Snapshot(Box::new(snapshot)),
-                            Err(error) => Event::Failed(error.to_string()),
+                            Err(error) => Event::FetchFailed(error.to_string()),
                         }
                     })
                 },
@@ -435,6 +363,9 @@ impl Service for Compositor {
             Input::Event(Event::Changed(change)) => {
                 let Some(state) = self.state.as_mut() else {
                     self.stale = true;
+                    if std::mem::take(&mut self.fetch_failed) {
+                        self.attempt += 1;
+                    }
                     return;
                 };
                 if apply(state, change) {
@@ -442,8 +373,12 @@ impl Service for Compositor {
                 }
                 self.publish();
             }
+            Input::Event(Event::FetchFailed(reason)) => {
+                self.fetch_failed = true;
+                ctx.degraded(reason);
+            }
             Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
-            Input::Command(command) => self.dispatch(command).await,
+            Input::Command(command) => self.dispatch(ctx, command),
             Input::Config(NoConfig) => {}
         }
     }
@@ -457,6 +392,7 @@ impl Compositor {
             state: None,
             attempt: 0,
             stale: false,
+            fetch_failed: false,
             capabilities,
             backend,
         };
@@ -492,111 +428,89 @@ impl Compositor {
         });
     }
 
-    async fn dispatch(&self, command: Command) {
-        let (outcome, reply) = match command {
-            Command::FocusWorkspace { target, reply } => (
-                self.backend.focus_workspace(workspace_target(target)).await,
-                reply,
-            ),
+    fn dispatch(&self, ctx: &Ctx<Self>, command: Command) {
+        let backend = self.backend.clone();
+        let (call, reply): (BoxFuture<'static, Result<(), CompositorError>>, _) = match command {
+            Command::FocusWorkspace { target, reply } => {
+                let target = workspace_target(target);
+                (
+                    async move { backend.focus_workspace(target).await }.boxed(),
+                    reply,
+                )
+            }
             Command::FocusWindow { target, reply } => (
                 match window_target(target, self.state.as_ref()) {
-                    Some(target) => self.backend.focus_window(target).await,
-                    None => Err(CompositorError::Refused(
+                    Some(target) => async move { backend.focus_window(target).await }.boxed(),
+                    None => ready(Err(CompositorError::Refused(
                         "no window matches the requested reference".to_owned(),
-                    )),
+                    )))
+                    .boxed(),
                 },
                 reply,
             ),
-            Command::FocusOutput { connector, reply } => {
-                (self.backend.focus_output(&connector).await, reply)
-            }
             Command::RenameWorkspace { id, name, reply } => (
-                self.backend
-                    .rename_workspace(WorkspaceId(id), name.as_deref())
-                    .await,
+                async move {
+                    backend
+                        .rename_workspace(WorkspaceId(id), name.as_deref())
+                        .await
+                }
+                .boxed(),
                 reply,
             ),
-            Command::MoveWorkspaceToOutput {
-                id,
-                connector,
-                reply,
-            } => (
-                self.backend
-                    .move_workspace_to_output(WorkspaceId(id), &connector)
-                    .await,
-                reply,
-            ),
-            Command::ReorderWorkspace { id, index, reply } => (
-                self.backend.reorder_workspace(WorkspaceId(id), index).await,
-                reply,
-            ),
-            Command::MoveWindowToWorkspace {
-                window,
-                workspace,
-                reply,
-            } => (
-                self.backend
-                    .move_window_to_workspace(WindowId(window), workspace_target(workspace))
-                    .await,
-                reply,
-            ),
-            Command::CloseWindow { id, reply } => {
-                (self.backend.close_window(WindowId(id)).await, reply)
-            }
             Command::SetOutputEnabled {
                 connector,
                 enabled,
                 reply,
-            } => {
-                let outcome = if !self.capabilities.output_power {
-                    Err(CompositorError::Unsupported(
-                        "this compositor cannot turn displays on or off",
-                    ))
-                } else {
-                    match self.state.as_ref() {
-                        None => Err(CompositorError::Refused(
-                            "the compositor state has not arrived yet".to_owned(),
-                        )),
-                        Some(state) => match state
-                            .outputs
-                            .iter()
-                            .find(|output| output.connector == connector)
-                        {
-                            None => Err(CompositorError::Refused(format!(
-                                "unknown output {connector}"
-                            ))),
-                            Some(output)
-                                if !enabled
-                                    && output.enabled
-                                    && enabled_output_count(state) <= 1 =>
-                            {
-                                Err(CompositorError::Refused(
-                                    "cannot turn off the last display that is still on".to_owned(),
-                                ))
-                            }
-                            Some(_) => self.backend.set_output_enabled(&connector, enabled).await,
-                        },
+            } => (
+                match self.check_output_enabled(&connector, enabled) {
+                    Ok(()) => {
+                        async move { backend.set_output_enabled(&connector, enabled).await }.boxed()
                     }
-                };
-                (outcome, reply)
-            }
-            Command::PowerOffMonitors { reply } => {
-                let outcome = if !self.capabilities.blank_screens {
-                    Err(CompositorError::Unsupported(
-                        "this compositor cannot blank the displays",
-                    ))
-                } else {
-                    self.backend.power_off_monitors().await
-                };
-                (outcome, reply)
-            }
-            Command::StopScreencast { session_id, reply } => {
-                (self.backend.stop_screencast(session_id).await, reply)
-            }
+                    Err(error) => ready(Err(error)).boxed(),
+                },
+                reply,
+            ),
+            Command::PowerOffMonitors { reply } => (
+                async move { backend.power_off_monitors().await }.boxed(),
+                reply,
+            ),
+            Command::StopScreencast { session_id, reply } => (
+                async move { backend.stop_screencast(session_id).await }.boxed(),
+                reply,
+            ),
         };
 
-        let outcome = outcome.map_err(|error| command_error(&error));
-        let _ = reply.send(outcome);
+        ctx.spawn_detached(move |_| async move {
+            let _ = reply.send(call.await.map_err(|error| command_error(&error)));
+        });
+    }
+
+    fn check_output_enabled(&self, connector: &str, enabled: bool) -> Result<(), CompositorError> {
+        if !self.capabilities.output_power {
+            return Err(CompositorError::Unsupported(
+                "this compositor cannot turn displays on or off",
+            ));
+        }
+        let Some(state) = self.state.as_ref() else {
+            return Err(CompositorError::Refused(
+                "the compositor state has not arrived yet".to_owned(),
+            ));
+        };
+        let Some(output) = state
+            .outputs
+            .iter()
+            .find(|output| output.connector == connector)
+        else {
+            return Err(CompositorError::Refused(format!(
+                "unknown output {connector}"
+            )));
+        };
+        if !enabled && output.enabled && enabled_output_count(state) <= 1 {
+            return Err(CompositorError::Refused(
+                "cannot turn off the last display that is still on".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -672,7 +586,7 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
             }
         }
         Change::KeyboardLayoutsChanged(_)
-        | Change::KeyboardLayoutSwitched { .. }
+        | Change::KeyboardLayoutSwitched(_)
         | Change::Resync(Resync::Keyboard) => {}
         Change::CastsChanged(casts) => state.casts = casts,
         Change::CastStartedOrChanged { cast } => {
@@ -824,8 +738,6 @@ fn position(workspace: &WorkspaceInfo) -> u64 {
 
 fn capabilities(capabilities: Capabilities) -> CompositorCapabilities {
     CompositorCapabilities {
-        floating: capabilities.floating,
-        workspace_reorder: capabilities.workspace_reorder,
         output_power: capabilities.output_power,
         blank_screens: capabilities.blank_screens,
     }
@@ -877,7 +789,7 @@ fn app_key(name: &str) -> String {
     name.trim().trim_end_matches(".desktop").to_lowercase()
 }
 
-fn command_error(error: &CompositorError) -> CommandError {
+pub(crate) fn command_error(error: &CompositorError) -> CommandError {
     match error {
         CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
             CommandError::Unsupported(reason.to_string())
