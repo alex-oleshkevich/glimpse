@@ -357,11 +357,6 @@ impl IdleProviderHandle {
 async fn call<T>(request: impl Future<Output = zbus::Result<T>>) -> Result<T, IdleProviderError> {
     match tokio::time::timeout(super::DEADLINE, request).await {
         Ok(Ok(value)) => Ok(value),
-        Ok(Err(zbus::Error::FDO(error)))
-            if matches!(*error, zbus::fdo::Error::UnknownObject(_)) =>
-        {
-            Err(IdleProviderError::UnknownObject)
-        }
         Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
             let reason = clean(&reason.unwrap_or_default(), REASON);
             match name.as_str() {
@@ -407,11 +402,6 @@ async fn cached_or_live_hold_expiries(
     };
     match result {
         Err(zbus::Error::FDO(error)) if matches!(*error, zbus::fdo::Error::UnknownProperty(_)) => {
-            Ok(HashMap::new())
-        }
-        Err(zbus::Error::MethodError(name, _, _))
-            if name.as_str() == "org.freedesktop.DBus.Error.UnknownProperty" =>
-        {
             Ok(HashMap::new())
         }
         result => result,

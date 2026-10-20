@@ -37,19 +37,22 @@ Pick by complexity, cheapest that will get it right:
   Run each from the worktree, stdin closed:
   - `grok --cwd <worktree> --prompt-file <brief.md> --always-approve`
   - `env -C <worktree> muse exec --prompt-file <brief.md>`
-  - `env -C <worktree> kimi -y -p "$(cat <brief.md>)"`
+  - `env -C <worktree> kimi -p "$(cat <brief.md>)"`. `-p` already edits and runs commands; it
+    rejects `-y` and `--auto`. Never add a large MCP server (such as rea) to `~/.kimi-code/mcp.json`:
+    its tools overflow Moonshot's schema limit (400 "schema exceeds maximum allowed size").
 - **pi with DeepSeek** — fact analysis: `pi -p --no-session --model
 "openrouter/~deepseek/deepseek-flash-latest" "<question>"`. Live tests: `pi -p --no-session -ne
 --no-mcp -ns -np --model openrouter/deepseek/deepseek-v4-flash-latest "<brief>"`.
 - **muse** is an executor only: it builds, never plans or reviews. It is the first fallback when
   another builder CLI is broken or out of credits.
 - When a planning or review CLI (codex astra) is unavailable, a Claude subagent takes that role.
-  When any CLI is broken or out of credits, say so. kimi's `-p` mode rejects any
-  approval flag and fails on a large tool schema; use grok or muse in its place.
+  When any CLI is broken or out of credits, say so.
 - Workers economize too: they hand simple steps (running tests, reading or grepping files) to a
-  cheaper agent (a haiku subagent or pi) and use `codegraph explore "<symbols or question>"` to
-  find code. Codegraph indexes the main checkout, not the worktree, so it is right for code the
-  worker has not changed and stale for code it has. Every brief says this.
+  cheaper agent (a haiku subagent or pi) and navigate with the codegraph CLI, never grep/Read
+  loops: it saves most of their tokens. Each worktree gets its own index (`codegraph init --yes
+  <worktree>` once; the orchestrator does it before dispatch), and workers run `codegraph explore
+  "<symbols or question>"`, `codegraph node <symbol|file>`, `codegraph callers|impact <symbol>`
+  from the worktree root, with `codegraph sync` after their edits. Every brief says this.
 
 ## Briefs
 
@@ -95,8 +98,10 @@ needs only its file and verify command. The brief then carries:
   checkout stays on `master` and is never edited.
 - Commit only when the user asks for that. User want to review the code first.
 - Merge only when the user approves. Merge into `master`; never create another base branch.
-- Right after a merge, remove its worktree and delete its branch with `git branch -d`. A merged
-  worktree is never kept.
+- Always close merged branches and worktrees: right after a merge, remove its worktree and delete
+  its branch with `git branch -d`, then check `git branch --merged master` for any other leftover.
+  A branch with no commits of its own but uncommitted changes in its worktree is work in progress,
+  not merged; leave it.
 - When a branch changes behavior users see, update the same pages in every open docs branch in that
   pass.
 
@@ -114,4 +119,5 @@ needs only its file and verify command. The brief then carries:
 - [ ] Every diff reviewed by Claude, every finding fixed, not deferred.
 - [ ] Each touched crate's checks pass in its worktree; live test passed on eDP-1.
 - [ ] Beads have notes; children Claude reviewed are closed.
-- [ ] Nothing merged without approval; merged worktrees and branches removed.
+- [ ] Nothing merged without approval; every merged worktree and branch removed
+  (`git worktree list`, `git branch --merged master`).
