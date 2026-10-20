@@ -1,4 +1,4 @@
 mod indicator;
 mod render;
 
-pub use indicator::{Clipboard, forget_spills};
+pub use indicator::Clipboard;

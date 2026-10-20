@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use tokio::sync::{mpsc, oneshot};
-use zbus::zvariant::{ObjectPath, OwnedValue, Value};
+use zbus::zvariant::{ObjectPath, OwnedValue, Str};
 use zeroize::Zeroizing;
 
 use glimpse_dbus::network_manager as nm;
@@ -95,21 +95,16 @@ fn named(settings: &Secrets) -> Option<String> {
 
 const WIRELESS_KEYS: &[&str] = &["psk", "wep-key0", "leap-password"];
 
-fn owned(value: Value<'_>) -> Result<OwnedValue, AgentError> {
-    OwnedValue::try_from(value)
-        .map_err(|_| AgentError::InternalError("the secret cannot be encoded".to_owned()))
-}
-
 /// The answer NetworkManager's schema expects, which is not one shape. `vpn.secrets` is `a{ss}`
 /// keyed by the hint the plugin asked under, and a wireless key is named by its own key management —
 /// a WEP network answered under `psk` is refused as an invalid property, not as a wrong password.
-fn answer_for(setting: &str, hints: &[String], secret: &str) -> Result<Secrets, AgentError> {
+fn answer_for(setting: &str, hints: &[String], secret: &str) -> Secrets {
     let mut inner: HashMap<String, OwnedValue> = HashMap::new();
     match setting {
         VPN => {
             let key = hints.first().map(String::as_str).unwrap_or("password");
             let secrets = HashMap::from([(key.to_owned(), secret.to_owned())]);
-            inner.insert("secrets".to_owned(), owned(Value::from(secrets))?);
+            inner.insert("secrets".to_owned(), OwnedValue::from(secrets));
         }
         _ => {
             let key = hints
@@ -117,10 +112,10 @@ fn answer_for(setting: &str, hints: &[String], secret: &str) -> Result<Secrets, 
                 .map(String::as_str)
                 .find(|hint| WIRELESS_KEYS.contains(hint))
                 .unwrap_or("psk");
-            inner.insert(key.to_owned(), owned(Value::from(secret))?);
+            inner.insert(key.to_owned(), OwnedValue::from(Str::from(secret)));
         }
     }
-    Ok(HashMap::from([(setting.to_owned(), inner)]))
+    HashMap::from([(setting.to_owned(), inner)])
 }
 
 #[zbus::interface(name = "org.freedesktop.NetworkManager.SecretAgent")]
@@ -148,7 +143,7 @@ impl Agent {
             retry: is_retry(flags),
         };
         match self.ask(request).await? {
-            Answer::Secret(secret) => answer_for(&setting_name, &hints, &secret),
+            Answer::Secret(secret) => Ok(answer_for(&setting_name, &hints, &secret)),
             Answer::Refused => Err(AgentError::UserCanceled("refused".to_owned())),
         }
     }

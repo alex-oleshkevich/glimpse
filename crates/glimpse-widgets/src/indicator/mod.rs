@@ -22,6 +22,7 @@ pub(crate) const DOT_SIZE: f32 = 7.0;
 #[derive(Debug, Default, Clone)]
 pub struct IndicatorSpec {
     pub icon: Option<gio::Icon>,
+    /// An emblem on the icon's trailing corner, for a state the icon itself does not carry.
     pub overlay: Option<gio::Icon>,
     pub dot: Option<gtk4::gdk::RGBA>,
     pub extension: Option<gtk4::Widget>,
@@ -29,7 +30,11 @@ pub struct IndicatorSpec {
     pub tooltip: Option<String>,
     pub badge: Option<String>,
     pub attention: bool,
+    /// The calm counterpart to `attention`: something worth noticing, not something demanding it.
+    /// Both can be true, and attention wins.
     pub notice: bool,
+    /// What the chip is reporting, when it is reporting a condition rather than a reading.
+    /// `None` leaves it in the bar's own colour; `Info` is a state worth an icon and no colour.
     pub severity: Option<crate::Severity>,
     pub class: Option<String>,
 }

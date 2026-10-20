@@ -548,3 +548,45 @@ async fn a_ready_connection_resets_the_backoff() {
     gone(&mut service, &ctx).await;
     assert_eq!(service.backoff, Duration::from_secs(1));
 }
+
+#[tokio::test]
+async fn volume_steps_reach_pulse_in_the_order_they_were_issued() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let (tx, mut requests) = mpsc::channel(8);
+    service
+        .handle(
+            &ctx,
+            Input::Event(pulse::Event::Ready(pulse::Client { tx })),
+        )
+        .await;
+    service
+        .handle(
+            &ctx,
+            Input::Event(pulse::Event::Snapshot(Box::new(snapshot(
+                vec![device("headset", 1, true)],
+                Vec::new(),
+            )))),
+        )
+        .await;
+
+    for percent in [10, 20, 30] {
+        let (reply, _result) = oneshot::channel();
+        service
+            .handle(
+                &ctx,
+                Input::Command(Command::SetDeviceVolume {
+                    dir: Direction::Output,
+                    id: DeviceId::new("headset"),
+                    percent,
+                    reply,
+                }),
+            )
+            .await;
+    }
+
+    let mut seen = Vec::new();
+    while let Ok(pulse::Request::SetDeviceVolume { percent, .. }) = requests.try_recv() {
+        seen.push(percent);
+    }
+    assert_eq!(seen, [10, 20, 30]);
+}

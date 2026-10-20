@@ -142,17 +142,16 @@ impl ObjectImpl for PowerPopover {
             }
         ));
 
-        crate::wire_hold_presets(
-            self.presets().map(|(row, _)| row),
-            glib::clone!(
+        for (row, seconds) in self.presets() {
+            row.connect_toggled(glib::clone!(
                 #[weak]
                 popover,
-                move |seconds| {
+                move |_, _| {
                     popover.set_hold_preset(Some(seconds));
                     popover.emit_by_name::<()>("hold-requested", &[&seconds]);
                 }
-            ),
-        );
+            ));
+        }
     }
 
     fn dispose(&self) {
@@ -164,14 +163,13 @@ impl WidgetImpl for PowerPopover {}
 
 impl PowerPopover {
     pub(crate) fn presets(&self) -> [(ToggleRow, u32); 5] {
-        let rows = [
-            self.preset_15m.get(),
-            self.preset_30m.get(),
-            self.preset_1h.get(),
-            self.preset_2h.get(),
-            self.preset_4h.get(),
-        ];
-        std::array::from_fn(|i| (rows[i].clone(), crate::HOLD_PRESETS[i]))
+        [
+            (self.preset_15m.get(), 900),
+            (self.preset_30m.get(), 1_800),
+            (self.preset_1h.get(), 3_600),
+            (self.preset_2h.get(), 7_200),
+            (self.preset_4h.get(), 14_400),
+        ]
     }
 
     pub(super) fn show_widget(&self, widget: &impl gtk4::prelude::IsA<gtk4::Widget>, show: bool) {

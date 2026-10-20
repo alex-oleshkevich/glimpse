@@ -162,3 +162,38 @@ async fn an_unreadable_file_is_skipped_and_the_rest_are_kept() {
 
     assert_eq!(documents.len(), 1);
 }
+
+#[tokio::test]
+async fn a_missing_calendar_directory_is_followed_once_created() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let calendars = root.path().join("calendars");
+    let mut source = watching(
+        None,
+        "work".to_owned(),
+        calendars.to_string_lossy().into_owned(),
+        CalendarSourceKind::Directory,
+    );
+
+    assert!(matches!(
+        source.next().await,
+        Some(Event::Fetched { result: Err(_), .. })
+    ));
+
+    tokio::fs::create_dir_all(&calendars)
+        .await
+        .expect("calendar directory");
+    tokio::fs::write(calendars.join("a.ics"), ics("a@example", "Late", now()))
+        .await
+        .expect("an event file");
+
+    let next = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while let Some(event) = source.next().await {
+            if matches!(event, Event::Fetched { result: Ok(_), .. }) {
+                return true;
+            }
+        }
+        false
+    })
+    .await;
+    assert_eq!(next, Ok(true));
+}

@@ -110,7 +110,10 @@ pub struct Settings {
 fn settings(config_path: Option<PathBuf>) -> Option<Settings> {
     let copies = glimpse_config::state_dir()?.join("wallpaper");
     let user_dir = glimpse_config::user_dir();
-    let user_config = glimpse_config::user_file(config_path.as_deref())?;
+    let user_config = match &config_path {
+        Some(path) => path.clone(),
+        None => user_dir.as_ref()?.join("config.toml"),
+    };
     Some(Settings {
         config_path,
         user_config,

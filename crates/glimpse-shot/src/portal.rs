@@ -70,16 +70,26 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
         glimpse_dbus::own_name(&connection, BUS_NAME)
             .await
             .context("me.aresa.Glimpse.Shot.Portal is already owned")?;
-        serve_at(&connection, Arc::new(ProcessSpawner)).await?;
+        serve_at(
+            &connection,
+            Arc::new(ProcessSpawner),
+            config_path.map(Path::to_path_buf),
+        )
+        .await?;
         tracing::info!(bus_name = BUS_NAME, "serving the screenshot portal");
         std::future::pending::<Result<()>>().await
     })
 }
 
-async fn serve_at(connection: &Connection, spawner: Arc<dyn Spawner>) -> Result<()> {
+async fn serve_at(
+    connection: &Connection,
+    spawner: Arc<dyn Spawner>,
+    config: Option<PathBuf>,
+) -> Result<()> {
     let portal = ScreenshotPortal {
         inner: Arc::new(Inner {
             spawner,
+            config,
             flight: Mutex::new(None),
         }),
     };
@@ -146,8 +156,14 @@ fn overlay_command(label: &str) -> Vec<OsString> {
     ]
 }
 
-fn headless_command(window: bool) -> Vec<OsString> {
+fn headless_command(config: Option<&Path>, window: bool) -> Vec<OsString> {
     let mut argv = vec![executable("glimpse-shot").into(), OsString::from("capture")];
+    if let Some(config) = config {
+        argv.extend([
+            OsString::from("--config"),
+            config.as_os_str().to_os_string(),
+        ]);
+    }
     argv.push(OsString::from(if window { "--window" } else { "--screen" }));
     if window {
         argv.push(OsString::from("focused"));
@@ -368,6 +384,7 @@ impl Flight {
 
 struct Inner {
     spawner: Arc<dyn Spawner>,
+    config: Option<PathBuf>,
     flight: Mutex<Option<Arc<Flight>>>,
 }
 
@@ -519,7 +536,9 @@ impl ScreenshotPortal {
                 let label = app_label(app_id);
                 match decision {
                     CaptureKind::Overlay => Some(overlay_command(&label)),
-                    CaptureKind::Headless => Some(headless_command(window)),
+                    CaptureKind::Headless => {
+                        Some(headless_command(self.inner.config.as_deref(), window))
+                    }
                 }
             }
         }

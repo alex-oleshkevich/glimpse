@@ -355,6 +355,22 @@ pub(super) fn check() {
             .prompt_actions
             .has_css_class("prompt__actions--bare")
     );
+    let long = "word ".repeat(40);
+    probe.set_prompt(Some(&BluetoothAsk {
+        key: "forget:/org/bluez/hci0/dev_c".to_owned(),
+        device: "UE BOOM 3".to_owned(),
+        question: long.clone(),
+        code: String::new(),
+        progress: String::new(),
+        accept: "Forget".to_owned(),
+        cancel: "Cancel".to_owned(),
+        destructive: true,
+    }));
+    assert_eq!(
+        probe.imp().prompt_ask.text(),
+        long,
+        "a question longer than the shared text cap is shown whole"
+    );
     probe.set_prompt(None);
     assert_eq!(
         probe.imp().pages.visible_child_name().as_deref(),

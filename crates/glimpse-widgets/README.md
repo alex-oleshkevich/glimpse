@@ -115,8 +115,7 @@ changes, not the name, so a credential cannot reach the next device.
 
 Artwork is a `Gtk.Image`, the only one that can be told how big to be, since `Gtk.Picture` reports
 the paintable's natural width. `Pixbuf::file_info` reads dimensions out of the header without
-decoding, so an oversized `mpris:artUrl` is refused before anything expands it in memory. Both axes
-of a decoded thumbnail are clamped, because the sender chose them.
+decoding, so an oversized `mpris:artUrl` is refused before anything expands it in memory.
 
 `SourceList` has no template: a row and its `SliderRow` are parented as
 siblings, never nested, so the row's `activatable: false` cannot reach the slider beneath it.

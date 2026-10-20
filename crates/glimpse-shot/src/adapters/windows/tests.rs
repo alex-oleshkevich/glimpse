@@ -184,13 +184,3 @@ fn a_crop_preserves_bgr_layout_and_color_sampling() {
     assert_eq!(crop.pixel(0, 0), [40, 50, 60]);
     assert!(!crop.alpha);
 }
-
-#[test]
-fn a_floating_or_unscreenshottable_window_is_cropped_and_the_rest_use_the_compositor() {
-    let crop = buffer(1, 2, 3, 4);
-    assert_eq!(route(true, true, Some(crop)), Route::Crop(crop));
-    assert_eq!(route(true, false, Some(crop)), Route::Screenshot);
-    assert_eq!(route(true, false, None), Route::Screenshot);
-    assert_eq!(route(false, false, Some(crop)), Route::Crop(crop));
-    assert_eq!(route(false, false, None), Route::Hidden);
-}

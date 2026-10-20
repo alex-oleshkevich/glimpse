@@ -286,6 +286,9 @@ pub const PASSPHRASE_MIN: usize = 8;
 pub const PASSPHRASE_MAX: usize = 63;
 pub const PASSPHRASE_HEX: usize = 64;
 
+/// What NetworkManager will accept, checked before it is asked rather than after it refuses.
+/// A WPA key is a passphrase of 8 to 63 characters or the 64 hex digits of the key itself; an SSID
+/// is at most 32 octets; everything else — a VPN token, a WEP key — is only bounded.
 pub fn accepts(entered: &str, kind: Entered) -> bool {
     let characters = entered.chars().count();
     match kind {

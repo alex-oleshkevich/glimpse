@@ -829,7 +829,6 @@ impl ServiceEndpoint<Brightness> {
         )
         .await?
     }
-
 }
 
 pub struct Brightness {

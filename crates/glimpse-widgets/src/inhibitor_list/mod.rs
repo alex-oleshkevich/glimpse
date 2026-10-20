@@ -94,6 +94,8 @@ impl InhibitorList {
         );
     }
 
+    /// An app's whole row opens a card of what it prevents and, when it may be ended, a
+    /// destructive Release: it ends another app's hold, which is not what "Cancel" reads as.
     fn build_item(&self, id: u64) -> ExpanderRow {
         let release = ActionRow::new();
         release
@@ -114,6 +116,8 @@ impl InhibitorList {
     }
 }
 
+/// The row is one line and the source is its icon, so the card holds the reason, what the hold
+/// prevents and Release.
 fn dress(item: &ExpanderRow, entry: &InhibitorEntry) {
     item.set_title(crate::none_if_empty(&entry.label));
     item.set_icon_name(Some(entry.source.icon_name()));

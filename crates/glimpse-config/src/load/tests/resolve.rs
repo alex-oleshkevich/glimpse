@@ -11,18 +11,6 @@ fn the_runtime_dir_is_glimpse_under_the_sessions_runtime_dir() {
 }
 
 #[test]
-fn the_user_file_is_config_toml_in_the_user_dir_unless_a_path_is_given() {
-    assert_eq!(
-        user_file(None),
-        user_dir().map(|dir| dir.join("config.toml"))
-    );
-    assert_eq!(
-        user_file(Some(Path::new("/tmp/mine.toml"))),
-        Some(PathBuf::from("/tmp/mine.toml"))
-    );
-}
-
-#[test]
 fn an_applet_name_the_document_cannot_resolve_is_reported() {
     let [message] = unknown_applets(&panel_naming("not-an-applet"))
         .try_into()

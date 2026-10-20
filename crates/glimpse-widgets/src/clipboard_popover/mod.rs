@@ -21,6 +21,8 @@ impl ClipboardPopover {
         glib::Object::new()
     }
 
+    /// The one condition a notification cannot carry: the compositor not offering a data-control
+    /// protocol at all. A failed command is reported by a notification and never by a banner here.
     pub fn set_trouble(&self, trouble: Option<&str>) {
         let notice = &self.imp().trouble;
         match trouble {

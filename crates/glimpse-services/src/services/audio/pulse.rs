@@ -88,14 +88,19 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn send(&self, make: impl FnOnce(Reply) -> Request) -> Result<(), AudioError> {
+    pub fn send(
+        &self,
+        make: impl FnOnce(Reply) -> Request,
+    ) -> impl Future<Output = Result<(), AudioError>> + Send + 'static {
         let (reply_tx, reply_rx) = oneshot::channel();
-        let request = make(reply_tx);
-        self.tx
-            .send(request)
-            .await
-            .map_err(|_| AudioError::Unavailable)?;
-        reply_rx.await.map_err(|_| AudioError::Unavailable)?
+        let queued = self
+            .tx
+            .try_send(make(reply_tx))
+            .map_err(|_| AudioError::Unavailable);
+        async move {
+            queued?;
+            reply_rx.await.map_err(|_| AudioError::Unavailable)?
+        }
     }
 }
 

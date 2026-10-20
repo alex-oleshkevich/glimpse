@@ -13,8 +13,7 @@ pub fn status(state: &NetworkState) -> String {
     if !state.networking {
         return gettext("Networking is off");
     }
-    if let Some(wired) = state.wired.iter().find(|one| one.active) {
-        let _ = wired;
+    if state.wired.iter().any(|one| one.active) {
         return match state.reaches_the_internet() {
             true => gettext("Connected by cable"),
             false => gettext("Connected, no internet"),

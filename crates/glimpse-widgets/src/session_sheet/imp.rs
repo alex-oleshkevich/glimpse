@@ -118,65 +118,102 @@ impl ObjectImpl for SessionSheet {
         self.parent_constructed();
         let sheet = self.obj();
 
-        for (row, page, cancel, confirm, action) in [
-            (
-                self.suspend.get(),
-                SUSPEND_PAGE,
-                self.suspend_cancel.get(),
-                self.suspend_confirm.get(),
-                crate::SUSPEND,
-            ),
-            (
-                self.reboot.get(),
-                REBOOT_PAGE,
-                self.reboot_cancel.get(),
-                self.reboot_confirm.get(),
-                crate::REBOOT,
-            ),
-            (
-                self.power_off.get(),
-                POWER_OFF_PAGE,
-                self.power_off_cancel.get(),
-                self.power_off_confirm.get(),
-                crate::POWER_OFF,
-            ),
-        ] {
-            row.connect_activated(glib::clone!(
-                #[weak]
-                sheet,
-                #[strong]
-                cancel,
-                move |row| {
-                    if !row.is_sensitive() {
-                        return;
-                    }
-                    sheet.imp().stack.set_visible_child_name(page);
-                    cancel.grab_focus();
+        self.suspend.connect_activated(glib::clone!(
+            #[weak]
+            sheet,
+            move |row| {
+                if !row.is_sensitive() {
+                    return;
                 }
-            ));
-            cancel.connect_clicked(glib::clone!(
-                #[weak]
-                sheet,
-                #[strong]
-                row,
-                move |_| {
-                    sheet.imp().stack.set_visible_child_name(MENU_PAGE);
-                    row.grab_focus();
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(SUSPEND_PAGE);
+                imp.suspend_cancel.grab_focus();
+            }
+        ));
+        self.suspend_cancel.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(MENU_PAGE);
+                imp.suspend.grab_focus();
+            }
+        ));
+        self.suspend_confirm.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                if !(imp.suspend.get_visible() && imp.suspend.is_sensitive()) {
+                    return;
                 }
-            ));
-            confirm.connect_clicked(glib::clone!(
-                #[weak]
-                sheet,
-                #[strong]
-                row,
-                move |_| {
-                    if !(row.get_visible() && row.is_sensitive()) {
-                        return;
-                    }
-                    sheet.emit_by_name::<()>("action-requested", &[&action]);
+                sheet.emit_by_name::<()>("action-requested", &[&crate::SUSPEND]);
+            }
+        ));
+        self.reboot.connect_activated(glib::clone!(
+            #[weak]
+            sheet,
+            move |row| {
+                if !row.is_sensitive() {
+                    return;
                 }
-            ));
-        }
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(REBOOT_PAGE);
+                imp.reboot_cancel.grab_focus();
+            }
+        ));
+        self.power_off.connect_activated(glib::clone!(
+            #[weak]
+            sheet,
+            move |row| {
+                if !row.is_sensitive() {
+                    return;
+                }
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(POWER_OFF_PAGE);
+                imp.power_off_cancel.grab_focus();
+            }
+        ));
+        self.reboot_cancel.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(MENU_PAGE);
+                imp.reboot.grab_focus();
+            }
+        ));
+        self.reboot_confirm.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                if !(imp.reboot.get_visible() && imp.reboot.is_sensitive()) {
+                    return;
+                }
+                sheet.emit_by_name::<()>("action-requested", &[&crate::REBOOT]);
+            }
+        ));
+        self.power_off_cancel.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(MENU_PAGE);
+                imp.power_off.grab_focus();
+            }
+        ));
+        self.power_off_confirm.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                if !(imp.power_off.get_visible() && imp.power_off.is_sensitive()) {
+                    return;
+                }
+                sheet.emit_by_name::<()>("action-requested", &[&crate::POWER_OFF]);
+            }
+        ));
 
         self.revealer.connect_reveal_child_notify(glib::clone!(
             #[weak]

@@ -62,6 +62,9 @@ pub fn intent(
     }
 }
 
+/// The wallpaper fields as they apply to `connector`, after a matching `[[wallpaper.outputs]]`
+/// entry has been merged over the global `[wallpaper]` values. Field by field, not table by
+/// table: an override naming only `fit` still takes its image and color from the global table.
 struct Effective<'a> {
     image: Option<&'a PathBuf>,
     image_dark: Option<&'a PathBuf>,
@@ -71,6 +74,8 @@ struct Effective<'a> {
     transition_ms: u32,
 }
 
+/// The first `[[wallpaper.outputs]]` entry naming `connector`, if any. When two entries name the
+/// same connector, the first one in the document wins.
 fn find_output<'a>(outputs: &'a [WallpaperOutput], connector: &str) -> Option<&'a WallpaperOutput> {
     outputs.iter().find(|output| output.monitor == connector)
 }

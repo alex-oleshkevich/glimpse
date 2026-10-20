@@ -58,6 +58,9 @@ impl ForecastStrip {
         glib::Object::new()
     }
 
+    /// The symbol printed after every temperature. `weather.status` carries the unit system the
+    /// numbers are in, so the caller passes what that payload declares rather than what a
+    /// configuration says one round trip later.
     pub fn set_unit(&self, unit: &str) {
         let imp = self.imp();
         if imp.unit.borrow().as_str() == unit {

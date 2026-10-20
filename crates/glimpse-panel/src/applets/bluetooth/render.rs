@@ -80,7 +80,7 @@ pub enum Asked {
 }
 
 impl Asked {
-    pub fn key(&self) -> String {
+    fn key(&self) -> String {
         match self {
             Self::Pairing(device) => format!("pair:{}", device.as_str()),
             Self::Forget(device) => format!("forget:{}", device.as_str()),

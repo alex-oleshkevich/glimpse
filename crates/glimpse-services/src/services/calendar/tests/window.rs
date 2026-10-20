@@ -99,34 +99,13 @@ fn a_window_nobody_could_render_is_clipped_rather_than_refused() {
 }
 
 #[test]
-fn browsing_a_past_month_keeps_the_next_events_expanded() {
-    let upcoming = Utc::now() + TimeDelta::days(10);
-    let calendar = parsed(&ics("soon@example", "Soon", upcoming));
-    let past = Utc::now() - TimeDelta::days(200);
+fn browsing_a_past_range_keeps_the_upcoming_events() {
+    let today = Utc::now();
+    let calendar = parsed(&ics("soon@example", "Soon", today + TimeDelta::days(10)));
+    let past = Window::asked(today - TimeDelta::days(200), today - TimeDelta::days(170));
 
-    let browsed = payload(expanding(
-        0,
-        vec![loaded("soon", calendar)],
-        Window::asked(past, past + TimeDelta::days(30)),
-    ));
+    let found = payload(expanding(0, vec![loaded("soon", calendar)], past));
 
-    assert_eq!(browsed.events.len(), 1);
-    assert_eq!(browsed.events[0].summary, "Soon");
-}
-
-#[test]
-fn an_event_inside_both_windows_is_listed_once() {
-    let upcoming = Utc::now() + TimeDelta::days(10);
-    let calendar = parsed(&ics("soon@example", "Soon", upcoming));
-
-    let browsed = payload(expanding(
-        0,
-        vec![loaded("soon", calendar)],
-        Window::asked(
-            Utc::now() - TimeDelta::days(5),
-            Utc::now() + TimeDelta::days(20),
-        ),
-    ));
-
-    assert_eq!(browsed.events.len(), 1);
+    assert_eq!(found.events.len(), 1);
+    assert_eq!(found.events[0].summary, "Soon");
 }

@@ -9,7 +9,6 @@ use glimpse_services::CommandError;
 use glimpse_widgets::IndicatorSpec;
 use popover::Seat;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fmt::Display;
 use std::future::Future;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -101,37 +100,12 @@ pub fn tell<F, T>(
     F: Future<Output = Result<T, CommandError>> + 'static,
     T: 'static,
 {
-    command(
-        report,
-        opener,
-        operation,
-        move |error| wording(error, &unavailable),
-        |_| {},
-        future,
-    );
-}
-
-pub fn command<F, T, E>(
-    report: Report,
-    opener: Opener,
-    operation: &'static str,
-    wording: impl FnOnce(&E) -> Option<String> + 'static,
-    on_success: impl FnOnce(T) + 'static,
-    future: F,
-) where
-    F: Future<Output = Result<T, E>> + 'static,
-    T: 'static,
-    E: Display + 'static,
-{
     relm4::spawn_local(async move {
-        match future.await {
-            Ok(value) => on_success(value),
-            Err(error) => {
-                opener.wake();
-                let body = wording(&error);
-                report_failure(operation, report, body, error).await;
-            }
-        }
+        let Err(error) = future.await else {
+            return;
+        };
+        opener.wake();
+        report_failure(operation, report, wording(&error, &unavailable), error).await;
     });
 }
 
@@ -225,18 +199,6 @@ pub struct Ctx {
     host: relm4::Sender<runtime::HostInput>,
     sources: RefCell<Vec<SourceGuard>>,
     ticks: RefCell<Option<SourceGuard>>,
-}
-
-thread_local! {
-    static CLAIMS: RefCell<HashSet<String>> = RefCell::default();
-}
-
-pub fn claim(prompt: &str) -> bool {
-    CLAIMS.with(|claims| claims.borrow_mut().insert(prompt.to_owned()))
-}
-
-pub fn release(prompt: &str) {
-    CLAIMS.with(|claims| claims.borrow_mut().remove(prompt));
 }
 
 #[derive(Clone)]

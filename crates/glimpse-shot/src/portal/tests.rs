@@ -242,6 +242,8 @@ struct Started {
     fake: Arc<Fake>,
 }
 
+const CONFIG: &str = "/tmp/custom.toml";
+
 impl Started {
     async fn new() -> Self {
         let directory = tempfile::tempdir().expect("a temporary directory");
@@ -251,9 +253,13 @@ impl Started {
         glimpse_dbus::own_name(&server, BUS_NAME)
             .await
             .expect("the portal name");
-        serve_at(&server, Arc::clone(&fake) as Arc<dyn Spawner>)
-            .await
-            .expect("the portal is served");
+        serve_at(
+            &server,
+            Arc::clone(&fake) as Arc<dyn Spawner>,
+            Some(PathBuf::from(CONFIG)),
+        )
+        .await
+        .expect("the portal is served");
         let client = bus.connection().await;
         Self {
             _bus: bus,
@@ -631,10 +637,12 @@ async fn the_spawned_child_follows_the_decision_and_the_child_result() {
         let argv = &started.fake.argv()[2];
         assert_eq!(program_name(argv), Some("glimpse-shot"));
         assert_eq!(argv[1], OsString::from("capture"));
-        assert_eq!(argv[2], OsString::from("--screen"));
-        assert_eq!(argv[3], OsString::from("--json"));
+        assert_eq!(argv[2], OsString::from("--config"));
+        assert_eq!(argv[3], OsString::from(CONFIG));
+        assert_eq!(argv[4], OsString::from("--screen"));
+        assert_eq!(argv[5], OsString::from("--json"));
         assert!(!argv.iter().any(|arg| arg == "-o"));
-        assert_eq!(argv.len(), 4);
+        assert_eq!(argv.len(), 6);
 
         started.fake.push(Script::Done {
             stdout: String::new(),
@@ -699,8 +707,8 @@ async fn the_spawned_child_follows_the_decision_and_the_child_result() {
                 assert!(argv.contains(&OsString::from("--portal")));
             }
             if target == 8 {
-                assert_eq!(argv[2], OsString::from("--window"));
-                assert_eq!(argv[3], OsString::from("focused"));
+                assert_eq!(argv[4], OsString::from("--window"));
+                assert_eq!(argv[5], OsString::from("focused"));
             }
         }
 
@@ -748,10 +756,10 @@ fn overlay_and_headless_commands_name_the_binaries() {
             OsString::from(OVERLAY_TIMEOUT_SECS.to_string()),
         ]
     );
-    let headless = headless_command(false);
+    let headless = headless_command(None, false);
     assert_eq!(headless[1], OsString::from("capture"));
     assert!(!headless.iter().any(|arg| arg == "-o"));
-    let window = headless_command(true);
+    let window = headless_command(None, true);
     assert_eq!(
         &window[1..4],
         &[

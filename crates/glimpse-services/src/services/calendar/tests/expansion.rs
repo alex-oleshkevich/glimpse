@@ -247,11 +247,3 @@ async fn an_exchange_event_with_a_windows_timezone_name_is_expanded_in_that_zone
             .expect("one instant")
     );
 }
-
-#[tokio::test]
-async fn an_event_in_an_unknown_zone_keeps_its_single_instance() {
-    let found = zoned_occurrences("Mars/Base").await;
-
-    assert_eq!(found.len(), 1, "an unknown zone must not drop the event");
-    assert_eq!(found[0].summary, "Zoned");
-}

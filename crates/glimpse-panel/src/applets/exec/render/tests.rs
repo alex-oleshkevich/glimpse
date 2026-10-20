@@ -224,7 +224,7 @@ fn pointer_events_keep_the_wire_names_and_arguments() {
 }
 
 #[test]
-fn tree_maps_every_chip_field_and_drops_bad_icons_and_dots() {
+fn tree_maps_every_chip_field_and_drops_bad_dots() {
     let tree =
         Tree::default()
             .apply(vec![Op::Insert {
@@ -254,15 +254,13 @@ fn tree_maps_every_chip_field_and_drops_bad_icons_and_dots() {
             node: WireNode {
                 id: 2,
                 kind: "indicator".into(),
-                props: serde_json::from_value(json!({"icon":"bad/icon","dot":"bad"}))
-                    .expect("props"),
+                props: serde_json::from_value(json!({"dot":"bad"})).expect("props"),
                 children: vec![],
             },
             before: None,
         }])
         .expect("tree");
     let bad = &indicators(&bad, &mut |name| gio::ThemedIcon::new(name).upcast())[0].1;
-    assert!(bad.icon.is_none());
     assert!(bad.dot.is_none());
 }
 

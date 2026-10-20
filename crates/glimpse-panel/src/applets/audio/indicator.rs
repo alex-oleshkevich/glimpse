@@ -14,7 +14,9 @@ use gtk4::prelude::*;
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
-use crate::applet::{Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, command};
+use crate::applet::{
+    Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure,
+};
 
 use super::render;
 
@@ -233,7 +235,13 @@ fn tell<F, T>(
         icon: ICON.to_owned(),
         summary,
     };
-    command(report, opener.clone(), operation, wording, |_| {}, future);
+    let opener = opener.clone();
+    relm4::spawn_local(async move {
+        if let Err(error) = future.await {
+            opener.wake();
+            report_failure(operation, report, wording(&error), error).await;
+        }
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -253,18 +261,18 @@ fn act(
         summary,
     };
     let shown = shown.clone();
-    command(
-        report,
-        opener.clone(),
-        operation,
-        wording,
-        move |()| {
-            if let Some(shown) = shown.upgrade() {
-                shown.collapse(&card);
+    let opener = opener.clone();
+    relm4::spawn_local(async move {
+        match future.await {
+            Ok(()) => {
+                if let Some(shown) = shown.upgrade() {
+                    shown.collapse(&card);
+                }
             }
-        },
-        future,
-    );
+            Err(error) => report_failure(operation, report, wording(&error), error).await,
+        }
+        opener.wake();
+    });
 }
 
 pub(crate) fn wording(error: &AudioError) -> Option<String> {
@@ -518,7 +526,9 @@ impl Audio {
                 output.map_or(0, |device| device.volume),
                 output.is_none_or(|device| device.muted),
             ),
-            render::heading(output).as_deref(),
+            output
+                .map(|device| glimpse_utils::clean(&device.name, AUDIO_NAME_CAP))
+                .as_deref(),
             output.is_some_and(|device| device.muted),
         );
 

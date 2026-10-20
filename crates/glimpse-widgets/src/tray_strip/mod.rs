@@ -8,6 +8,9 @@ pub(crate) const SPACING: i32 = 4;
 const CHEVRON_OPEN: &str = "tray-strip__chevron--open";
 const CHEVRON_MARKED: &str = "tray-strip__chevron--marked";
 
+/// Which end of the strip the overflow chevron is pinned to. The hidden chips always grow *away*
+/// from it, into the bar rather than off the edge of the screen, so a right-zone applet on a
+/// horizontal panel wants `Start` and a left-zone one wants `End`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Edge {
     #[default]
@@ -15,6 +18,8 @@ pub enum Edge {
     End,
 }
 
+/// One tray item as the strip renders it. The key routes a press or a scroll back to whatever owns
+/// the item; the strip itself never interprets it.
 #[derive(Debug, Default, Clone)]
 pub struct TrayChip {
     pub key: String,
@@ -38,6 +43,7 @@ impl TrayStrip {
         glib::Object::new()
     }
 
+    /// `0` keeps every chip on the strip and hides the chevron.
     pub fn set_max_visible(&self, max: u32) {
         if self.imp().max_visible.replace(max) == max {
             return;
@@ -73,6 +79,10 @@ impl TrayStrip {
         self.arrange();
     }
 
+    /// The chevron leads and the drawer opens behind it, so the hidden chips appear between the
+    /// chevron and the chips that were already on the bar rather than beyond the screen edge. Its
+    /// icon points back over the closed drawer and the `--open` rotation turns it the way the
+    /// chips travelled.
     fn arrange(&self) {
         let imp = self.imp();
         let (Some(visible_box), Some(chevron), Some(drawer)) = (
@@ -119,6 +129,8 @@ impl TrayStrip {
         }
     }
 
+    /// Wording for the overflow chevron, supplied by the caller: this crate takes values and does
+    /// not author text a person reads.
     pub fn set_overflow_tooltip(&self, tooltip: Option<&str>) {
         let imp = self.imp();
         if imp.overflow_tooltip.borrow().as_deref() == tooltip {
@@ -133,6 +145,7 @@ impl TrayStrip {
         self.render();
     }
 
+    /// The chip the last press landed on, for a popover to point at.
     pub fn anchor(&self) -> Option<gtk4::Widget> {
         self.imp().pressed.upgrade().map(Cast::upcast)
     }
@@ -271,6 +284,8 @@ impl TrayStrip {
     }
 }
 
+/// How many chips stay on the strip. `0` means no overflow at all, and a cap at or above the count
+/// leaves nothing to hide — both must yield an empty tail, or the chevron appears over nothing.
 pub(crate) fn visible_count(total: usize, max: u32) -> usize {
     match max {
         0 => total,

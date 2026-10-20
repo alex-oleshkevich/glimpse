@@ -74,6 +74,7 @@ impl NetworkPopover {
         }
     }
 
+    /// Closes one network's card: what an applet calls once the action taken from it succeeded.
     pub fn collapse(&self, id: &str) {
         if let Some((_, row)) = self.holders().find(|(held, _)| held == id) {
             row.imp().expander.set_open(false);
@@ -104,6 +105,8 @@ impl NetworkPopover {
         }
     }
 
+    /// Other networks shows while it has a header or a scan to wait on. Collapsed, it is only the
+    /// header, which is why its visibility follows the header and not the entries.
     fn settle_other(&self) {
         let imp = self.imp();
         let rows = imp
@@ -182,7 +185,11 @@ impl NetworkPopover {
         };
 
         crate::set_text(&imp.prompt_network, none_if_empty(&ask.network));
-        crate::set_text(&imp.prompt_ask, none_if_empty(&ask.question));
+        crate::set_text_capped(
+            &imp.prompt_ask,
+            none_if_empty(&ask.question),
+            crate::ASK_MAX_CHARS,
+        );
         let naming = ask.entered == Entered::Name;
         imp.prompt_name.set_visible(naming);
         imp.prompt_security.set_visible(!ask.choices.is_empty());

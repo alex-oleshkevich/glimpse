@@ -66,6 +66,8 @@ impl AudioPopover {
         dress_level(&imp.input, &imp.input_mute, volume, muted, icon);
     }
 
+    /// The header follows the output: its glyph, the device it plays on, and the warning colour
+    /// while it is muted — the same muted glyph and colour every muted fader and app carries.
     pub fn set_heading(&self, icon: &str, device: Option<&str>, muted: bool) {
         let shell = &self.imp().shell;
         shell.set_icon_name(Some(icon));
@@ -82,6 +84,8 @@ impl AudioPopover {
         self.fill_all();
     }
 
+    /// Closes a card once the choice made in it succeeded: `output` and `input` are the device
+    /// cards, anything else an app's.
     pub fn collapse(&self, id: &str) {
         let imp = self.imp();
         match id {

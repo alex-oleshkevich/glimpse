@@ -73,16 +73,8 @@ pub fn cached_icon(icons: &mut HashMap<String, gio::Icon>, name: &str) -> gio::I
 
 fn indicator(props: &IndicatorProps, icons: &mut impl FnMut(&str) -> gio::Icon) -> IndicatorSpec {
     IndicatorSpec {
-        icon: props
-            .icon
-            .as_deref()
-            .filter(|s| valid_icon(s))
-            .map(&mut *icons),
-        overlay: props
-            .overlay
-            .as_deref()
-            .filter(|s| valid_icon(s))
-            .map(icons),
+        icon: props.icon.as_deref().map(&mut *icons),
+        overlay: props.overlay.as_deref().map(icons),
         dot: props.dot.as_deref().and_then(|s| gdk::RGBA::parse(s).ok()),
         extension: None,
         label: props
@@ -124,13 +116,6 @@ pub fn class_name(class: ClassName) -> &'static str {
         ClassName::BluetoothPopover => "bluetooth-popover",
         ClassName::NetworkPopover => "network-popover",
     }
-}
-
-pub fn valid_icon(icon: &str) -> bool {
-    !icon.is_empty()
-        && icon
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-'))
 }
 
 pub fn keeps_newer_local_value(local: Option<u64>, incoming: Option<u64>) -> bool {

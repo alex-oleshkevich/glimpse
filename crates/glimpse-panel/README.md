@@ -4,7 +4,7 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 
 ## Contents
 
-- `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
+- `main.rs` — CLI, config load and the GTK application start
 - `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches;
   the read-only GTK `bars` action carries `a(uss)` entries of config index, connector and edge for
   every mapped bar, including empty ones
@@ -131,7 +131,7 @@ nothing inside `within` means no chip, and an event ending under an open popover
 **Images decode through `thumbnail`, never `Texture::from_bytes`** — a byte cap says nothing about
 pixel count, and a small file can decode to an enormous bitmap.
 A decoded image is also written, private, under `runtime_dir()/clipboard/<id>/` and deleted with
-its entry or when the panel's services start: a drop hands a file manager a URI, and a drag's
+its entry: a drop hands a file manager a URI, and a drag's
 content must exist when it starts. Decoding and writing run on `gio::spawn_blocking`.
 `WaylandSelection` adapts `glimpse_wayland::selection` to the service's `Selection` trait. It
 opens a data-control watch only while the service has an events subscriber and passes read demand

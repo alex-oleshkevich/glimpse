@@ -273,7 +273,7 @@ impl SimpleComponent for App {
             }
             AppInput::NetworkSecret(request) => {
                 if let Some(services) = &self.services {
-                    if network_on_a_bar(&self.config, self.panels.iter().map(|panel| &panel.key)) {
+                    if listed(&self.config, "network") {
                         return;
                     }
                     if request.is_some() {
@@ -405,7 +405,7 @@ impl App {
             entered,
         }) = request
         else {
-            close_secret(self.secret.take());
+            close(self.secret.take());
             return;
         };
 
@@ -534,23 +534,13 @@ fn answered(answer: PairingAnswer) -> Answer {
     }
 }
 
-fn close_secret(open: Option<(SecretDialog, glib::SignalHandlerId)>) {
-    let Some((dialog, handler)) = open else {
-        return;
-    };
-    dialog.block_signal(&handler);
-    adw::prelude::AdwDialogExt::force_close(&dialog);
-    dialog.unblock_signal(&handler);
-}
-
-fn network_on_a_bar<'a>(config: &Config, keys: impl Iterator<Item = &'a Key>) -> bool {
-    keys.filter_map(|key| config.panels.get(key.index))
-        .flat_map(|panel| [&panel.left, &panel.center, &panel.right])
-        .flatten()
-        .any(|name| {
-            crate::applets::configured(name, &config.applets, &config.regional)
-                .is_some_and(|applet| matches!(applet.kind, glimpse_config::AppletKind::Network(_)))
-        })
+fn listed(config: &Config, applet: &str) -> bool {
+    config.panels.iter().any(|panel| {
+        [&panel.left, &panel.center, &panel.right]
+            .into_iter()
+            .flatten()
+            .any(|name| name == applet)
+    })
 }
 
 fn spawn_network_watch(network: NetworkHandle, sender: ComponentSender<App>) -> JoinHandle<()> {

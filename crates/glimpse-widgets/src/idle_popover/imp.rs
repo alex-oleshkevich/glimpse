@@ -86,17 +86,16 @@ impl ObjectImpl for IdlePopover {
             }
         ));
 
-        crate::wire_hold_presets(
-            self.presets().map(|(row, _)| row.clone()),
-            glib::clone!(
+        for (row, seconds) in self.presets() {
+            row.connect_toggled(glib::clone!(
                 #[weak]
                 popover,
-                move |seconds| {
+                move |_, _| {
                     popover.set_hold_preset(Some(seconds));
                     popover.emit_by_name::<()>("hold-requested", &[&seconds]);
                 }
-            ),
-        );
+            ));
+        }
 
         self.list.connect_release_requested(glib::clone!(
             #[weak]
@@ -114,13 +113,12 @@ impl WidgetImpl for IdlePopover {}
 
 impl IdlePopover {
     pub fn presets(&self) -> [(&ToggleRow, u32); 5] {
-        let rows: [&ToggleRow; 5] = [
-            &self.preset_15m,
-            &self.preset_30m,
-            &self.preset_1h,
-            &self.preset_2h,
-            &self.preset_4h,
-        ];
-        std::array::from_fn(|i| (rows[i], crate::HOLD_PRESETS[i]))
+        [
+            (&self.preset_15m, 900),
+            (&self.preset_30m, 1800),
+            (&self.preset_1h, 3600),
+            (&self.preset_2h, 7200),
+            (&self.preset_4h, 14400),
+        ]
     }
 }

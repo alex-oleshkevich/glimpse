@@ -224,11 +224,3 @@ fn a_hostile_device_name_is_capped_before_it_reaches_a_label() {
     assert!(shown.chars().count() <= AUDIO_NAME_CAP + 1);
     assert!(shown.ends_with('…'));
 }
-
-#[test]
-fn the_heading_names_the_default_output_on_one_line() {
-    let output = device("Head\nphones", 60, false, true);
-
-    assert_eq!(heading(Some(&output)).as_deref(), Some("Head phones"));
-    assert_eq!(heading(None), None);
-}

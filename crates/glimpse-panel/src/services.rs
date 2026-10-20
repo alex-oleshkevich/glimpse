@@ -144,7 +144,6 @@ impl PanelServices {
             },
         );
         let selection: Arc<dyn Selection> = Arc::new(crate::selection::WaylandSelection::new());
-        crate::applets::clipboard::forget_spills(glimpse_config::runtime_dir());
         let (clipboard_service, clipboard) = Running::<Clipboard>::spawn(
             document,
             buses.clone(),

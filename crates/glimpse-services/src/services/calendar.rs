@@ -33,6 +33,7 @@ const ORGANIZER: usize = 80;
 const MEETING_URL: usize = 512;
 const SIDECAR: usize = 2048;
 const REASON: usize = 240;
+const ADVANCE: Duration = Duration::from_secs(3600);
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
 use super::{AGENT, transport};
@@ -117,6 +118,7 @@ pub enum Event {
         id: String,
         reason: String,
     },
+    Advanced,
 }
 
 pub struct Fetch {
@@ -216,6 +218,7 @@ pub enum Watch {
     Expand {
         generation: u64,
     },
+    Advance,
 }
 
 pub struct Calendar {
@@ -225,7 +228,7 @@ pub struct Calendar {
     poll: u64,
     attempt: u64,
     generation: u64,
-    window: Window,
+    window: Option<Window>,
     fetched: BTreeMap<String, Fetch>,
     failures: BTreeMap<String, String>,
 }
@@ -295,8 +298,12 @@ impl Service for Calendar {
         }
 
         let generation = self.generation;
-        let window = self.window;
+        let window = self.window.unwrap_or_else(|| Window::around(Utc::now()));
         let loaded = self.loaded();
+
+        declared.push(Sub::interval(Watch::Advance, ADVANCE, |_ctx| async {
+            Event::Advanced
+        }));
 
         declared.push(Sub::stream(
             Watch::Expand { generation },
@@ -340,7 +347,7 @@ impl Service for Calendar {
             poll: config.poll_interval,
             attempt: 0,
             generation: 0,
-            window: Window::around(Utc::now()),
+            window: None,
             fetched: BTreeMap::new(),
             failures: BTreeMap::new(),
         }
@@ -362,6 +369,9 @@ impl Service for Calendar {
                     }
                 }
                 self.report(ctx);
+                self.generation += 1;
+            }
+            Input::Event(Event::Advanced) => {
                 self.generation += 1;
             }
             Input::Event(Event::Expanded { payload, .. }) => {
@@ -390,8 +400,8 @@ impl Service for Calendar {
             }
             Input::Command(Command::Range { from, to, reply }) => {
                 let window = Window::asked(from, to);
-                if window != self.window {
-                    self.window = window;
+                if self.window != Some(window) {
+                    self.window = Some(window);
                     self.generation += 1;
                 }
                 let _ = reply.send(Ok(()));
@@ -444,8 +454,11 @@ struct Loaded {
 
 fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
     let near = Window::around(Utc::now());
-    let windows = match window.from <= near.from && window.to >= near.to {
-        true => vec![window],
+    let windows = match window.from <= near.to && near.from <= window.to {
+        true => vec![Window {
+            from: window.from.min(near.from),
+            to: window.to.max(near.to),
+        }],
         false => vec![near, window],
     };
     let mut events = Vec::new();
@@ -475,10 +488,7 @@ fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
         left.start
             .cmp(&right.start)
             .then_with(|| left.summary.cmp(&right.summary))
-            .then_with(|| left.source.cmp(&right.source))
-            .then_with(|| left.end.cmp(&right.end))
     });
-    events.dedup();
     let truncated_from = events.get(EVENTS).map(|dropped| dropped.start);
     events.truncate(EVENTS);
 
@@ -657,6 +667,9 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             event.property_value("DURATION"),
             all_day,
         );
+        let Ok(set) = entry.get_recurrence() else {
+            continue;
+        };
         let summary = clean(event.get_summary().unwrap_or_default(), SUMMARY);
         let location = line(event.get_location());
         let description = line(event.get_description().and_then(first_line));
@@ -670,19 +683,7 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             None => overridden.get(event.get_uid().unwrap_or("")),
         };
 
-        let dates = match entry.get_recurrence() {
-            Ok(set) => set.after(from).before(to).all(OCCURRENCES).dates,
-            Err(error) => {
-                tracing::warn!(%error, "an event's recurrence could not be built; keeping its start");
-                let at = bound(moment(&start).and_utc());
-                match at >= from && at <= to {
-                    true => vec![at],
-                    false => Vec::new(),
-                }
-            }
-        };
-
-        for date in dates {
+        for date in set.after(from).before(to).all(OCCURRENCES).dates {
             let start = date.with_timezone(&Utc);
             if replaced.is_some_and(|replaced| replaced.holds(&date)) {
                 continue;
@@ -741,7 +742,13 @@ fn watching(
     };
 
     let leading = stream::once(reread(client.clone(), id.clone(), uri.clone(), kind));
-    let changes = glimpse_config::watch(root).then(move |update| {
+    let changes = glimpse_config::watch_all(
+        root.ancestors()
+            .take(2)
+            .map(std::path::Path::to_path_buf)
+            .collect::<Vec<_>>(),
+    )
+    .then(move |update| {
         let client = client.clone();
         let id = id.clone();
         let uri = uri.clone();

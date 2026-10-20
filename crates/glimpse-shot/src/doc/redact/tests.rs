@@ -37,7 +37,7 @@ fn a_pixelation_stroke_has_flat_blocks_and_a_round_brush_mask() {
     let sample =
         |x: i32, y: i32| pixel_at(&tile, (x - bounds.x.0) as usize, (y - bounds.y.0) as usize);
     assert_eq!(sample(20, 20), sample(21, 20));
-    assert!((95..=161).contains(&sample(20, 20)[0]));
+    assert!((120..=135).contains(&sample(20, 20)[0]));
     assert_eq!(sample(20, 20)[3], 255);
     assert_eq!(sample(20, 27)[3], 0);
     assert_eq!(sample(44, 20)[3], 255);
@@ -129,57 +129,4 @@ fn a_rect_near_i32_max_does_not_overflow() {
 
     assert_eq!(tile.width, 0);
     assert_eq!(tile.height, 5);
-}
-
-fn flat_frame(width: u32, height: u32, value: u8) -> Frame {
-    let mut pixels = vec![value; (width * height * 4) as usize];
-    for alpha in pixels.chunks_exact_mut(4) {
-        alpha[3] = 255;
-    }
-    Frame {
-        connector: "DP-2".to_owned(),
-        width,
-        height,
-        pixels: glib::Bytes::from_owned(pixels),
-        alpha: false,
-        layout: glimpse_wayland::capture::Layout::Rgbx,
-    }
-}
-
-#[test]
-fn a_pixelation_block_does_not_store_the_exact_mean_of_its_pixels() {
-    let frame = flat_frame(160, 40, 100);
-    let points = [
-        Point {
-            x: BufferPx(14),
-            y: BufferPx(20),
-        },
-        Point {
-            x: BufferPx(146),
-            y: BufferPx(20),
-        },
-    ];
-    let (bounds, tile) = pixelate_stroke(&frame, &points, 12);
-    let mut distinct = std::collections::HashSet::new();
-    for block in 1..12 {
-        let color = pixel_at(
-            &tile,
-            (block * 12 + 2 - bounds.x.0) as usize,
-            (20 - bounds.y.0) as usize,
-        );
-        assert_eq!(color[3], 255);
-        for channel in &color[..3] {
-            assert!((68..=132).contains(channel));
-        }
-        distinct.insert([color[0], color[1], color[2]]);
-    }
-    assert!(distinct.len() > 1);
-    assert!(distinct.iter().flatten().any(|channel| *channel != 100));
-}
-
-#[test]
-fn an_empty_pixelation_stroke_is_an_empty_tile() {
-    let (bounds, tile) = pixelate_stroke(&flat_frame(16, 16, 0), &[], 12);
-    assert_eq!((bounds.width.0, bounds.height.0), (0, 0));
-    assert!(tile.rgba.is_empty());
 }

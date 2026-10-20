@@ -63,6 +63,7 @@ impl BluetoothPopover {
         }
     }
 
+    /// Closes one device's card: what an applet calls once the action taken from it succeeded.
     pub fn collapse(&self, id: &str) {
         if let Some((_, device)) = self.devices().find(|(held, _)| held == id) {
             device.imp().row.set_open(false);
@@ -177,7 +178,11 @@ impl BluetoothPopover {
         };
 
         crate::set_text(&imp.prompt_device, none_if_empty(&ask.device));
-        crate::set_text(&imp.prompt_ask, none_if_empty(&ask.question));
+        crate::set_text_capped(
+            &imp.prompt_ask,
+            none_if_empty(&ask.question),
+            crate::ASK_MAX_CHARS,
+        );
         crate::set_text(&imp.prompt_code, none_if_empty(&ask.code));
         crate::set_text(&imp.prompt_progress, none_if_empty(&ask.progress));
         set_button(&imp.prompt_cancel, &ask.cancel);

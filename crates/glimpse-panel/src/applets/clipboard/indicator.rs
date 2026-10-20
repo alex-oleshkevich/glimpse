@@ -384,12 +384,6 @@ fn forget_spill(id: ClipboardEntryId) {
     }
 }
 
-pub fn forget_spills(runtime: Option<PathBuf>) {
-    if let Some(dir) = runtime {
-        let _ = std::fs::remove_dir_all(dir.join("clipboard"));
-    }
-}
-
 fn action(key: &str, title: String, value: String) -> ClipAction {
     ClipAction {
         key: key.to_owned(),

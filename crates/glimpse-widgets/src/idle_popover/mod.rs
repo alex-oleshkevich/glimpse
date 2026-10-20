@@ -40,6 +40,8 @@ impl IdlePopover {
         imp.quiet.set(false);
     }
 
+    /// Other apps' holds, under "Kept awake by"; glimpse's own is the header switch and the hold
+    /// row, never a row here.
     pub fn set_inhibitors(&self, entries: &[InhibitorEntry]) {
         let imp = self.imp();
         imp.list.set_inhibitors(entries);
@@ -48,6 +50,8 @@ impl IdlePopover {
         }
     }
 
+    /// The hold row names what a preset will replace — "Awake until 15:40" while a timed hold
+    /// runs — and falls back to its own "Keep awake for…" with `None`.
     pub fn set_hold_label(&self, label: Option<&str>) {
         let row = &self.imp().hold_card;
         let wanted = label
@@ -58,10 +62,14 @@ impl IdlePopover {
         }
     }
 
+    /// Checks the preset of the timed hold that is running, and none with `None`.
     pub fn set_hold_preset(&self, seconds: Option<u32>) {
-        crate::apply_hold_preset(self.imp().presets().map(|(row, _)| row.clone()), seconds);
+        for (row, preset) in self.imp().presets() {
+            row.set_active(seconds == Some(preset));
+        }
     }
 
+    /// Closes the presets once the hold chosen from them is set.
     pub fn collapse_hold(&self) {
         self.imp().hold_card.set_open(false);
     }

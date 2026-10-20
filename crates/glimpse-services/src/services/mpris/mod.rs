@@ -364,15 +364,15 @@ impl Service for Mpris {
                 for bus in names {
                     self.admit(bus);
                 }
-                self.publish(ctx);
+                self.publish();
             }
             Input::Event(Event::Appeared(bus)) => {
                 self.admit(bus);
-                self.publish(ctx);
+                self.publish();
             }
             Input::Event(Event::Vanished(bus)) | Input::Event(Event::Gone(bus)) => {
                 if self.known.remove(&bus).is_some() {
-                    self.publish(ctx);
+                    self.publish();
                 }
             }
             Input::Event(Event::Updated(player)) if !self.known.contains_key(&player.bus) => {}
@@ -385,16 +385,16 @@ impl Service for Mpris {
                     player.last_active = stirred(held, &player);
                     self.known.insert(player.bus.clone(), Some(*player));
                 }
-                self.publish(ctx);
+                self.publish();
             }
             Input::Event(Event::Art { url, path }) => {
                 self.art.insert(url, path);
-                self.publish(ctx);
+                self.publish();
             }
             Input::Event(Event::Unavailable(reason)) => {
                 ctx.degraded(reason);
                 self.known.clear();
-                self.publish(ctx);
+                self.publish();
             }
             Input::Config(config) => {
                 if config.ignore != self.settings.ignore {
@@ -413,7 +413,7 @@ impl Service for Mpris {
                 }
                 self.client = client(ctx, &config);
                 self.settings = config;
-                self.publish(ctx);
+                self.publish();
             }
             Input::Command(command) => self.act(ctx, command),
         }
@@ -449,18 +449,9 @@ impl Mpris {
         wanted
     }
 
-    fn publish(&mut self, ctx: &Ctx<Self>) {
+    fn publish(&mut self) {
         let referenced = self.remote_art();
-        let dropped: Vec<String> = self
-            .art
-            .keys()
-            .filter(|url| !referenced.contains(*url))
-            .cloned()
-            .collect();
-        for url in dropped {
-            self.art.remove(&url);
-            ctx.spawn_detached(move |_ctx| art::forget(url));
-        }
+        self.art.retain(|url, _| referenced.contains(url));
 
         let held: Vec<Player> = self.known.values().flatten().cloned().collect();
         let arranged = select::arrange(held);

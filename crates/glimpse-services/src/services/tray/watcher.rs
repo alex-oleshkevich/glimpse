@@ -45,8 +45,14 @@ impl Watcher {
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> zbus::fdo::Result<()> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        if let Some(key) = register_item(&self.registry, &self.events, &sender, service)? {
+        let registered = self
+            .registry
+            .lock()
+            .map_err(|_| zbus::fdo::Error::Failed("the tray registry is poisoned".to_owned()))?
+            .register(&sender, service);
+        if let Some(key) = registered {
             tracing::debug!(%key, "tray item registered");
+            self.announce(Event::Registered(key.clone()));
             Self::status_notifier_item_registered(&emitter, &key).await?;
         }
         Ok(())
@@ -130,22 +136,6 @@ impl Watcher {
     async fn status_notifier_host_unregistered(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
 }
 
-fn register_item(
-    registry: &Shared,
-    events: &mpsc::Sender<Input<Tray>>,
-    sender: &str,
-    service: &str,
-) -> zbus::fdo::Result<Option<String>> {
-    let registered = registry
-        .lock()
-        .map_err(|_| zbus::fdo::Error::Failed("the tray registry is poisoned".to_owned()))?
-        .register(sender, service);
-    if let Some(key) = &registered {
-        let _ = events.try_send(Input::Event(Event::Registered(key.clone())));
-    }
-    Ok(registered)
-}
-
 /// The freedesktop spelling, which a minority of toolkits look for instead. It answers reads and
 /// registrations; the signals are on the KDE interface, which is what every such toolkit follows.
 #[derive(Clone)]
@@ -169,7 +159,15 @@ impl WatcherAlias {
         #[zbus(object_server)] server: &zbus::ObjectServer,
     ) -> zbus::fdo::Result<()> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        if let Some(key) = register_item(&self.registry, &self.events, &sender, service)? {
+        let registered = self
+            .registry
+            .lock()
+            .map_err(|_| zbus::fdo::Error::Failed("the tray registry is poisoned".to_owned()))?
+            .register(&sender, service);
+        if let Some(key) = registered {
+            let _ = self
+                .events
+                .try_send(Input::Event(Event::Registered(key.clone())));
             // The announcement belongs on the KDE interface whichever name carried the
             // registration: every host follows that one, so a second host would otherwise never
             // hear about an item that arrived through the alias.

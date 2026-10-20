@@ -34,6 +34,8 @@ impl ObjectSubclass for ClipboardPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        // A Rust GType registers lazily, so a `$Name` nothing has instantiated is an unknown class
+        // to the template builder.
         PopoverShell::static_type();
         Notice::static_type();
         Section::static_type();

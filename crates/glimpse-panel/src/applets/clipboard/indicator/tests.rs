@@ -28,57 +28,6 @@ fn png() -> Vec<u8> {
         .expect("png bytes")
 }
 
-#[test]
-fn starting_the_services_forgets_every_spilled_image() {
-    let runtime = tempfile::tempdir().expect("a runtime dir");
-    let spilled = runtime.path().join("clipboard").join("123");
-    std::fs::create_dir_all(&spilled).expect("a spill directory");
-    std::fs::write(spilled.join("x.png"), b"png").expect("a spilled image");
-
-    forget_spills(Some(runtime.path().to_path_buf()));
-    forget_spills(Some(runtime.path().join("missing")));
-    forget_spills(None);
-
-    assert!(!runtime.path().join("clipboard").exists());
-    assert!(runtime.path().exists());
-}
-
-#[tokio::test]
-#[ignore = "sets XDG_RUNTIME_DIR, so it runs alone"]
-async fn service_start_clears_old_spills_but_a_second_applet_keeps_live_files() {
-    let runtime = tempfile::tempdir().expect("a runtime dir");
-    unsafe { std::env::set_var("XDG_RUNTIME_DIR", runtime.path()) };
-    let spilled = runtime.path().join("glimpse/clipboard/123/x.png");
-    std::fs::create_dir_all(spilled.parent().unwrap()).unwrap();
-    std::fs::write(&spilled, b"png").unwrap();
-
-    let config = glimpse_config::Config::default();
-    let services = crate::services::PanelServices::start_with_buses(
-        &config,
-        glimpse_dbus::Buses::unavailable("no bus in tests"),
-    );
-    assert!(!spilled.parent().unwrap().exists());
-
-    std::fs::create_dir_all(spilled.parent().unwrap()).unwrap();
-    std::fs::write(&spilled, b"live image").unwrap();
-    for _ in 0..2 {
-        let _applet = Clipboard::start(
-            services.handles.clipboard.clone(),
-            services.handles.kdeconnect.clone(),
-            services.handles.notifications.clone(),
-        );
-        assert_eq!(std::fs::read(&spilled).unwrap(), b"live image");
-    }
-    services.shutdown().await;
-
-    unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
-    let services = crate::services::PanelServices::start_with_buses(
-        &config,
-        glimpse_dbus::Buses::unavailable("no bus in tests"),
-    );
-    services.shutdown().await;
-}
-
 #[tokio::test]
 #[ignore = "needs a display and a private XDG_RUNTIME_DIR"]
 async fn images_decode_off_the_main_loop_and_fill_in_on_a_later_wake() {

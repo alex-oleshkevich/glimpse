@@ -252,16 +252,16 @@ impl Audio {
                     let _ = reply.send(Err(refused("device")));
                     return;
                 };
-                detached(ctx, reply, async move {
-                    client
-                        .send(|reply| pulse::Request::SetDeviceVolume {
-                            dir,
-                            index,
-                            percent,
-                            reply,
-                        })
-                        .await
-                });
+                detached(
+                    ctx,
+                    reply,
+                    client.send(|reply| pulse::Request::SetDeviceVolume {
+                        dir,
+                        index,
+                        percent,
+                        reply,
+                    }),
+                );
             }
             Command::SetDeviceMuted {
                 dir,

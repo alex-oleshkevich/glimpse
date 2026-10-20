@@ -1,5 +1,3 @@
-use std::hash::{BuildHasher as _, RandomState};
-
 use glimpse_wayland::capture::Frame;
 
 use super::document::near_segment;
@@ -96,7 +94,6 @@ pub fn pixelate_stroke(
     width: u32,
 ) -> (Rect<BufferPx>, Tile) {
     const BLOCK: i32 = 12;
-    const JITTER: i32 = 32;
     let Some(first) = points.first() else {
         return (
             Rect {
@@ -135,7 +132,6 @@ pub fn pixelate_stroke(
         height: (y1 - y0) as u32,
         rgba: vec![0; ((x1 - x0) as usize) * ((y1 - y0) as usize) * 4],
     };
-    let random = RandomState::new();
     for by in (y0.div_euclid(BLOCK)..(y1 + BLOCK - 1).div_euclid(BLOCK)).map(|v| v * BLOCK) {
         for bx in (x0.div_euclid(BLOCK)..(x1 + BLOCK - 1).div_euclid(BLOCK)).map(|v| v * BLOCK) {
             let mut sum = [0u32; 3];
@@ -151,12 +147,7 @@ pub fn pixelate_stroke(
             if count == 0 {
                 continue;
             }
-            let noise = random.hash_one((bx, by));
-            let mut color = sum.map(|total| (total / count) as u8);
-            for (channel, value) in color.iter_mut().enumerate() {
-                let offset = ((noise >> (channel * 8)) % (2 * JITTER as u64 + 1)) as i32 - JITTER;
-                *value = (i32::from(*value) + offset).clamp(0, 255) as u8;
-            }
+            let color = sum.map(|total| (total / count) as u8);
             for y in by.max(y0)..(by + BLOCK).min(y1) {
                 for x in bx.max(x0)..(bx + BLOCK).min(x1) {
                     let at = (((y - y0) as u32 * tile.width + (x - x0) as u32) * 4) as usize;

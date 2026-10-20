@@ -80,6 +80,8 @@ impl WorkspaceList {
         )
     }
 
+    /// Every workspace row's holder across every output's section, for the popover to reveal and
+    /// recede as one surface rather than one section at a time.
     pub(crate) fn holders(&self) -> Vec<(u64, crate::ExpanderRow)> {
         self.imp()
             .sections
