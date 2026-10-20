@@ -91,6 +91,73 @@ fn a_failed_lock_during_a_sleep_wait_releases_the_inhibitor() {
 }
 
 #[test]
+fn an_unlock_finishing_after_a_painted_sleep_release_locks_again() {
+    let mut machine = locked(DAEMON);
+    machine.handle(Input::Submit);
+    assert_eq!(
+        machine.handle(Input::PrepareForSleep(true)),
+        vec![Effect::ReleaseInhibitor]
+    );
+    machine.handle(Input::AuthFinished {
+        attempt: 1,
+        verdict: UNLOCKED,
+    });
+    assert_eq!(
+        machine.handle(Input::Unlocked(1)),
+        vec![
+            Effect::SetLockedHint(false),
+            Effect::TakeInhibitor,
+            Effect::Lock(2)
+        ]
+    );
+}
+
+#[test]
+fn an_unlock_during_an_unpainted_sleep_wait_never_releases_the_inhibitor_unlocked() {
+    let (mut machine, _) = started(DAEMON, false);
+    machine.handle(Input::LockRequested);
+    machine.handle(Input::Locked(1));
+    assert_eq!(
+        machine.handle(Input::PrepareForSleep(true)),
+        vec![Effect::ArmSleepDeadline(1)]
+    );
+    machine.handle(Input::Submit);
+    machine.handle(Input::AuthFinished {
+        attempt: 1,
+        verdict: UNLOCKED,
+    });
+    assert_eq!(
+        machine.handle(Input::Unlocked(1)),
+        vec![
+            Effect::SetLockedHint(false),
+            Effect::TakeInhibitor,
+            Effect::Lock(2)
+        ]
+    );
+    assert_eq!(machine.phase, Phase::Acquiring);
+    assert_eq!(
+        machine.handle(Input::SleepDeadline(1)),
+        vec![Effect::ReleaseInhibitor]
+    );
+}
+
+#[test]
+fn an_unlock_after_resume_does_not_lock_again() {
+    let mut machine = locked(DAEMON);
+    machine.handle(Input::PrepareForSleep(true));
+    machine.handle(Input::PrepareForSleep(false));
+    machine.handle(Input::Submit);
+    machine.handle(Input::AuthFinished {
+        attempt: 1,
+        verdict: UNLOCKED,
+    });
+    assert_eq!(
+        machine.handle(Input::Unlocked(1)),
+        vec![Effect::SetLockedHint(false), Effect::TakeInhibitor]
+    );
+}
+
+#[test]
 fn sleep_during_an_unlock_locks_again_once_it_ends() {
     let mut machine = locked(DAEMON);
     machine.handle(Input::Submit);

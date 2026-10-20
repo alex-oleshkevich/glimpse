@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
+use std::ffi::CString;
 use std::fs::{self, File};
 use std::io::{Read, Write};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
@@ -120,6 +122,44 @@ fn collect(dir: &Path, base: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn exchange(a: &Path, b: &Path) -> Result<()> {
+    let a = CString::new(a.as_os_str().as_bytes())?;
+    let b = CString::new(b.as_os_str().as_bytes())?;
+    let status = unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            a.as_ptr(),
+            libc::AT_FDCWD,
+            b.as_ptr(),
+            libc::RENAME_EXCHANGE,
+        )
+    };
+    ensure!(status == 0, std::io::Error::last_os_error());
+    Ok(())
+}
+
+fn sweep_dead(applets_dir: &Path) {
+    let Ok(entries) = fs::read_dir(applets_dir) else {
+        return;
+    };
+    for entry in entries.filter_map(|entry| entry.ok()) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let pid = name
+            .strip_prefix('.')
+            .and_then(|rest| {
+                rest.rsplit_once(".new-")
+                    .or_else(|| rest.rsplit_once(".old-"))
+            })
+            .and_then(|(_, tail)| tail.split('-').next()?.parse::<libc::pid_t>().ok());
+        if let Some(pid) = pid
+            && unsafe { libc::kill(pid, 0) } == -1
+            && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+        {
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
 }
 
 fn copy_listed(from: &Path, to: &Path, files: &[PathBuf]) -> Result<()> {
@@ -452,13 +492,13 @@ impl PackageManager {
         match fs::remove_dir(dir) {
             Ok(()) => Ok(Vec::new()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
-            Err(_) => {
-                let mut leftovers = Vec::new();
-                if dir.is_dir() {
-                    collect(dir, dir, &mut leftovers)?;
-                }
-                Ok(leftovers.into_iter().map(|path| dir.join(path)).collect())
-            }
+            Err(_) => Ok(fs::read_dir(dir)
+                .map(|entries| {
+                    entries
+                        .filter_map(|entry| Some(entry.ok()?.path()))
+                        .collect()
+                })
+                .unwrap_or_default()),
         }
     }
 
@@ -585,27 +625,11 @@ impl PackageManager {
             );
         }
 
-        let pid = std::process::id();
-        let fresh = self.applets_dir.join(format!(".{}.new-{pid}", metadata.id));
-        let backup = self.applets_dir.join(format!(".{}.old-{pid}", metadata.id));
-        let _ = fs::remove_dir_all(&fresh);
-        let _ = fs::remove_dir_all(&backup);
-        let mut staged = Vec::new();
-        collect(staging, staging, &mut staged)?;
-        if let Err(error) = copy_listed(staging, &fresh, &staged) {
-            let _ = fs::remove_dir_all(&fresh);
-            return Err(error);
-        }
-
+        fs::set_permissions(staging, fs::Permissions::from_mode(0o755))?;
         if replaced {
-            fs::rename(&target, &backup)?;
-        }
-        if let Err(error) = fs::rename(&fresh, &target) {
-            let _ = fs::remove_dir_all(&fresh);
-            if replaced {
-                let _ = fs::rename(&backup, &target);
-            }
-            return Err(error.into());
+            exchange(staging, &target)?;
+        } else {
+            fs::rename(staging, &target)?;
         }
         let outcome = self
             .write_desktop(&destination, data.as_bytes())
@@ -617,17 +641,15 @@ impl PackageManager {
             });
         if let Err(error) = outcome {
             let _ = fs::remove_file(&destination);
-            let _ = fs::remove_dir_all(&target);
             if replaced {
-                let _ = fs::rename(&backup, &target);
+                let _ = exchange(staging, &target);
+            } else {
+                let _ = fs::remove_dir_all(&target);
             }
             if let Some(bytes) = &old_desktop {
                 let _ = fs::write(&destination, bytes);
             }
             return Err(error);
-        }
-        if replaced {
-            let _ = fs::remove_dir_all(&backup);
         }
         Ok(Installed {
             id: metadata.id.clone(),
@@ -636,7 +658,11 @@ impl PackageManager {
     }
 
     pub fn install(&self, source: &Path) -> Result<Installed> {
-        let staging = tempfile::tempdir()?;
+        fs::create_dir_all(&self.applets_dir)?;
+        sweep_dead(&self.applets_dir);
+        let staging = tempfile::Builder::new()
+            .prefix(&format!(".install.new-{}-", std::process::id()))
+            .tempdir_in(&self.applets_dir)?;
         let metadata = if source.is_dir() {
             self.stage(source, staging.path())?
         } else {
@@ -656,11 +682,7 @@ impl PackageManager {
             );
         }
         let metadata = if target.join(METADATA_FILE).is_file() {
-            let metadata = self.metadata(id)?;
-            for file in &metadata.files {
-                enclosed(&file.path)?;
-            }
-            Some(metadata)
+            Some(self.metadata(id)?)
         } else {
             None
         };

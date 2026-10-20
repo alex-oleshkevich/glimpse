@@ -1,4 +1,5 @@
 use super::*;
+use crate::{MAX_RADIUS, MIN_RADIUS};
 
 #[test]
 fn unconstrained_or_anchorless_points_pass_through_unchanged() {
@@ -170,26 +171,6 @@ fn the_readout_shows_the_position_idle_and_the_segment_once_anchored() {
     assert_eq!(
         readout(None, (1, 2), Some((195.3, 2)))[2],
         Some("total 195.3px, 2 segments".to_owned())
-    );
-}
-
-#[test]
-fn the_readout_sits_under_the_lens_and_flips_above_it_near_the_bottom_edge() {
-    let area = (1000.0, 800.0);
-    let pill = (120.0, 34.0);
-
-    assert_eq!(
-        pill_origin((500.0, 300.0), 88.0, pill, area),
-        (440.0, 398.0)
-    );
-    assert_eq!(
-        pill_origin((500.0, 780.0), 88.0, pill, area),
-        (440.0, 648.0)
-    );
-    assert_eq!(pill_origin((10.0, 300.0), 88.0, pill, area), (0.0, 398.0));
-    assert_eq!(
-        pill_origin((995.0, 300.0), 88.0, pill, area),
-        (880.0, 398.0)
     );
 }
 

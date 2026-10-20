@@ -80,3 +80,10 @@ fn configuration_paths_are_rejected() {
     assert_eq!(error.kind(), ErrorKind::UnknownArgument);
     assert_eq!(error.exit_code(), 2);
 }
+
+#[test]
+fn radius_and_zoom_are_clamped_to_the_documented_range() {
+    let cli = Cli::try_parse_from(["glimpse-lens", "--radius", "999", "--zoom", "0"]).unwrap();
+    assert_eq!(cli.clamped_radius(), 200.0);
+    assert_eq!(cli.clamped_zoom(), 1);
+}

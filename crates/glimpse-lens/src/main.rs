@@ -45,8 +45,8 @@ fn run(cli: Cli) -> Result<()> {
     match cli.tool {
         Some(Tool::Ruler) => {
             let settings = session::Settings {
-                radius: cli.radius.clamp(MIN_RADIUS, MAX_RADIUS) as f32,
-                zoom: cli.zoom.clamp(MIN_ZOOM, MAX_ZOOM),
+                radius: cli.clamped_radius(),
+                zoom: cli.clamped_zoom(),
             };
 
             let segments = measure::measure(settings)?;
@@ -62,8 +62,8 @@ fn run(cli: Cli) -> Result<()> {
             let format = cli.format.unwrap_or(glimpse_config::ColorFormat::Hex);
             let settings = lens::Settings {
                 format: tool.map(|_| format),
-                radius: cli.radius.clamp(MIN_RADIUS, MAX_RADIUS) as f32,
-                zoom: cli.zoom.clamp(MIN_ZOOM, MAX_ZOOM),
+                radius: cli.clamped_radius(),
+                zoom: cli.clamped_zoom(),
             };
 
             let result = pick::pick(settings);

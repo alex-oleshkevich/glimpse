@@ -94,7 +94,7 @@ PAM returns `AUTHINFO_UNAVAIL` and the correct password is rejected — and a sa
 which is why the daemon never locks from its own command line.
 
 At start the daemon probes itself: `/proc/self/uid_map` must read exactly `0 0 4294967295`,
-`NoNewPrivs` must be 0, and the first `unix_chkpwd` on `PATH` must be root-owned and setuid/setgid
+`NoNewPrivs` must be 0, and the first `unix_chkpwd` in `/run/wrappers/bin`, `/usr/bin`, `/usr/sbin`, `/sbin` must be root-owned and setuid/setgid
 on a filesystem without `nosuid` (no `unix_chkpwd` at all skips the probe). The PAM stack for
 `[lock] pam-service` is resolved through every `include`/`substack`/`@include` it names; missing,
 unresolvable, or an uncommented `pam_permit.so` in the service file itself refuses locking like a
@@ -114,11 +114,12 @@ against.**
 
 ## The sleep handshake
 
-A `delay` inhibitor for `sleep` is held from start and re-taken after every resume. On
-`PrepareForSleep(true)`: already locked and painted releases it at once; acquiring or locked but
-unpainted waits for both; idle locks first, then waits the same way. Painted means every lock
-window of the current generation has drawn a frame; the wait is capped at logind's
-`InhibitDelayMaxUSec` minus 500ms so a slow compositor lets suspend proceed rather than hold it.
+A `sleep` delay inhibitor is held from start and re-taken on resume; an unlock finishing between
+`PrepareForSleep(true)` and `(false)` locks again. On `PrepareForSleep(true)`: already locked and
+painted releases it at once; acquiring or locked but unpainted waits for both; idle locks first,
+then waits the same way. Painted means every lock window of the current generation has drawn a
+frame; the wait is capped at logind's `InhibitDelayMaxUSec` minus 500ms so a slow compositor lets
+suspend proceed rather than hold it.
 **No unit relationship may stop this service while it holds the lock — releasing the inhibitor on
 any other path suspends an unlocked machine.** A failed inhibitor is retried at the next resume and
 after the next successful unlock, not on a timer; every logind call is capped at 5s, so a wedged

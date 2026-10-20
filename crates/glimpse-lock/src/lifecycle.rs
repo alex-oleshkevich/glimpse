@@ -97,6 +97,7 @@ pub struct Lifecycle {
     relock: bool,
     hint_set: bool,
     painted: bool,
+    sleeping: bool,
     sleep: Option<u64>,
     sleeps: u64,
     attempts: u64,
@@ -120,6 +121,7 @@ impl Lifecycle {
             relock: false,
             hint_set: false,
             painted: false,
+            sleeping: false,
             sleep: None,
             sleeps: 0,
             attempts: 0,
@@ -227,6 +229,7 @@ impl Lifecycle {
             }
             return;
         }
+        self.sleeping = true;
         match self.phase {
             Phase::Locked if self.painted => {
                 effects.push(Effect::ReleaseInhibitor);
@@ -242,6 +245,7 @@ impl Lifecycle {
     }
 
     fn resumed(&mut self, effects: &mut Vec<Effect>) {
+        self.sleeping = false;
         self.sleep = None;
         if self.inhibits() {
             effects.push(Effect::TakeInhibitor);
@@ -299,7 +303,7 @@ impl Lifecycle {
                 }
                 if self.settings.standalone {
                     effects.push(Effect::Exit(true));
-                } else if std::mem::take(&mut self.relock) {
+                } else if std::mem::take(&mut self.relock) || self.sleeping {
                     self.lock(effects);
                 }
             }
