@@ -210,6 +210,100 @@ const PIPES: Terminal = Terminal {
     stdout: false,
 };
 
+#[test]
+#[ignore = "needs a display"]
+fn file_annotation_reuses_destinations_and_exports_without_capture() {
+    gtk4::init().expect("display");
+    let dir = tempfile::tempdir().expect("scratch");
+    let image = dir.path().join("input.data");
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/every_mark.png"),
+        &image,
+    )
+    .expect("PNG fixture");
+    let marks_path = dir.path().join("marks.json");
+    std::fs::write(
+        &marks_path,
+        r#"[{"kind":"number","x":20,"y":20,"color":"red","n":77}]"#,
+    )
+    .expect("marks");
+    let files = FakeFiles::default();
+    let clipboard = FakeClipboard::default();
+    let clock = FakeClock::default();
+    let encode = |doc: &Document, factor| {
+        assert!(
+            matches!(&doc.source, Source::File { path, .. } if *path == image.canonicalize().expect("canonical"))
+        );
+        assert_eq!(doc.marks[0].0, 0);
+        assert_eq!(factor, 1.0);
+        encode(doc, factor)
+    };
+    let deps = Deps {
+        screens: &FakeScreens,
+        windows: None,
+        clipboard: &clipboard,
+        files: &files,
+        clock: &clock,
+        outputs: Vec::new(),
+        encode: &encode,
+        step: session::step,
+    };
+    let config = ScreenshotConfig {
+        directory: Some(dir.path().into()),
+        ..Default::default()
+    };
+    let mut args = crate::cli::CaptureArgs {
+        image: Some(image.clone()),
+        annotate: Some(marks_path),
+        json: true,
+        ..Default::default()
+    };
+    let mut stdout = Vec::new();
+    capture(&args, &config, PIPES, &deps, &mut stdout).expect("default output");
+    let value: serde_json::Value = serde_json::from_slice(&stdout).expect("JSON");
+    assert_eq!(value["target"]["kind"], "file");
+    assert_eq!(
+        value["target"]["path"],
+        image
+            .canonicalize()
+            .expect("canonical")
+            .to_str()
+            .expect("UTF-8")
+    );
+    assert!(value["output"].is_null());
+    assert_eq!(value["scale"], 1.0);
+    assert_eq!(value["annotations"][0]["n"], 1);
+    assert!(Path::new(value["path"].as_str().expect("path")).starts_with(dir.path()));
+    assert_eq!(files.0.borrow().len(), 1);
+    args.copy = true;
+    args.no_save = true;
+    stdout.clear();
+    capture(&args, &config, PIPES, &deps, &mut stdout).expect("copy only");
+    let value: serde_json::Value = serde_json::from_slice(&stdout).expect("JSON");
+    assert!(value["path"].is_null());
+    assert_eq!(value["copied"], true);
+    assert_eq!(clipboard.0.borrow().len(), 1);
+    assert_eq!(files.0.borrow().len(), 1);
+    args.copy = false;
+    args.no_save = false;
+    args.json = false;
+    args.output = Some("-".into());
+    stdout.clear();
+    capture(&args, &config, PIPES, &deps, &mut stdout).expect("PNG stdout");
+    assert_eq!(stdout, b"\x89PNG");
+    struct BrokenPipe;
+    impl Write for BrokenPipe {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    capture(&args, &config, PIPES, &deps, &mut BrokenPipe).expect("closed pipe");
+    assert_eq!(files.0.borrow().len(), 1);
+}
+
 fn run(args: &[&str], files: &FakeFiles) -> (Exit, Vec<u8>, String) {
     run_with(args, files, outputs(), PIPES)
 }

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Annotate Image
+Comment=Open a PNG image and mark it up
+Icon=me.aresa.Glimpse.Shot.Annotate
+Exec=glimpse-shot annotate --pick %f
+TryExec=glimpse-shot
+Terminal=false
+StartupNotify=false
+MimeType=image/png;
+Categories=Graphics;Utility;
+Keywords=image;annotate;annotation;PNG;draw;markup;

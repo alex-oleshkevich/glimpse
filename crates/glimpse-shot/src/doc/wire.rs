@@ -78,6 +78,9 @@ pub enum TargetV1 {
     Region {
         name: String,
     },
+    File {
+        path: PathBuf,
+    },
 }
 
 #[derive(Serialize, Deserialize)]

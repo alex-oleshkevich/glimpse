@@ -17,6 +17,7 @@ geometry parsing and the `--json`/`--annotate` wire format — and has no GTK de
 
 ```
 glimpse-shot [TARGET] [GUI OPTIONS] [FILE.png]     the app: an editor on a target, else the window
+glimpse-shot annotate [IMAGE] [--pick] [OPTIONS]   edit a PNG; --pick chooses an omitted image
 glimpse-shot capture [TARGET] [CAPTURE OPTIONS]    headless: capture, write, exit — no UI ever
 glimpse-shot list [--json]                         outputs and windows, with geometry
 glimpse-shot prime                                 print the agent guide
@@ -63,7 +64,7 @@ The terminal facts are passed in, so every row is a unit test.
 | 2 | usage |
 | 3 | configuration error |
 | 4 | cancelled |
-| 5 | target not found: no such output or window, a region off every output or across two |
+| 5 | target not found: missing image, no such output or window, a region off every output or across two |
 | 7 | timed out |
 
 `errors::exit` is the one mapping, by `downcast_ref`, so a `.context(…)` upstream never changes a
@@ -73,8 +74,10 @@ GLib's own debug and info logging goes to stderr, so stdout stays data-only.
 
 Global options (`--config`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
 An editor option before or after `capture` or `list` is refused with exit 2 by `cli::parse`, naming
-the `glimpse-shot …` command that would open the editor; a known subcommand name is never read as `FILE.png`, and any
-other bare word must end in `.png` or exits 2.
+the `glimpse-shot …` command that would open the editor. A bare file must end in `.png`;
+`annotate IMAGE` accepts PNG content regardless of its extension. `--pick` chooses an omitted IMAGE;
+`--headless` requires `--annotate`, rejects `--pick` and uses capture's output rules. Copy/no-save are
+headless-only, and an explicit output resolving to IMAGE exits 2 before opening it.
 
 `main` rewrites `--region -100,50 400x300` into `--region=-100,50 …`, since clap reads a leading `-`
 of an optional value as a flag.
@@ -244,7 +247,7 @@ waits for the compositor before the capture, and the overlay is hidden before th
 
 Every GUI invocation is the one `adw::Application` `me.aresa.Glimpse.Shot` (`GLIMPSE_SHOT_APP_ID`
 overrides it) with `HANDLES_COMMAND_LINE | HANDLES_OPEN`; `capture`, `list`, `prime`, `portal` and
-`hold` never construct it (`opens_app`). The local process parses and validates first, so a usage
+`hold` and headless `annotate` never construct it (`opens_app`). The local process parses and validates first, so a usage
 error exits 2 without contacting the app; the whole argv then goes to GApplication, which forwards
 it to the primary (`--gapplication-service` alone reaches GTK on D-Bus activation). The primary
 re-parses with `cli::parse_forwarded`, takes the caller's `--config` or `GLIMPSE_CONFIG_PATH`,
@@ -259,13 +262,14 @@ exit 130 and 143. Overlay surfaces belong to no application, so its accelerators
   hands off at once, Region shows only the selection (release or Space commits), and Esc or the
   countdown's ✕ brings the window back. The window closes when a Result window opens.
 - **Result.** `gui::result` is a face of its own over the same `session` machine, always in a window
-  of its own: after Take, a hand-off, `--editor window`, `FILE.png`, Open Image… or D-Bus `Open`.
+  of its own: after Take, a hand-off, `--editor window`, `FILE.png`, `annotate`, Open Image… or D-Bus `Open`.
   Its size and maximized state are kept in `state_dir()/shot-window.json`. The page's `Gtk.Picture`
   shows a `canvas::Sheet`, a paintable that draws the same `Editor` fitted with no margin, so Fit
   and 1:1 are the picture's own; pointer points are mapped back through `Sheet::origin`. Save uses the Preferences folder, never over
   another file (a second save overwrites its own), then `RecentManager::add_item`. Dirtiness is
-  marks and crop against the last save or copy; closing or ‹ New asks first. `FILE.png` refuses a
-  side over 16384 from its IHDR. Open With… saves first, then shows the system's app chooser
+  marks and crop against the last save or copy; closing or ‹ New asks first. File loading refuses a
+  side over 16384 from its IHDR and retains canonical source identity. Prefilled marks start dirty;
+  JSON file opens retain their answer until completion, cancellation or timeout. Open With… saves first, then shows the system's app chooser
   (`FileLauncher` with `always-ask`), holding the app until it answers — in the overlay too, whose
   surface is gone by then. Ctrl+drag drags the image out as a 0600 file under `runtime_dir()` plus
   its PNG bytes.

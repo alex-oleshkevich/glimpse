@@ -2,6 +2,45 @@ use std::path::PathBuf;
 
 use super::*;
 
+#[test]
+#[ignore = "needs a display"]
+fn a_file_timeout_without_json_keeps_the_reply_until_it_exits_seven() {
+    gtk4::init().expect("display");
+    adw::init().expect("libadwaita");
+    glimpse_widgets::register_resources().expect("resources");
+    let app = adw::Application::builder()
+        .application_id("me.aresa.Glimpse.Shot.TimeoutTest")
+        .build();
+    app.register(gio::Cancellable::NONE).expect("register");
+    let scratch = tempfile::tempdir().expect("scratch");
+    let config = scratch.path().join("config.toml");
+    std::fs::write(&config, "").expect("config");
+    let shell = Shell::new(&app, Some(&config));
+    let answered = Rc::new(RefCell::new(None));
+    let answer = Rc::clone(&answered);
+    shell.open_file(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/every_mark.png"),
+        Some(Box::new(move |result| {
+            answer.replace(Some(reply(result, false)));
+        })),
+        Some(&config),
+        &GuiArgs {
+            timeout: Some(0),
+            ..Default::default()
+        },
+        &[],
+    );
+    assert!(answered.borrow().is_none(), "waits for the timeout");
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while answered.borrow().is_none() && std::time::Instant::now() < until {
+        while glib::MainContext::default().pending() {
+            glib::MainContext::default().iteration(false);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(answered.take().expect("timeout reply").status, 7);
+}
+
 fn finished(outcome: Outcome, json: bool) -> Reply {
     let line = json.then(|| "{\"version\":1}".to_owned());
     reply(
@@ -174,4 +213,26 @@ fn a_forwarded_relative_path_is_anchored_at_the_callers_directory() {
     assert_eq!(anchored.output, Some(PathBuf::from("/home/me/shot.png")));
     assert_eq!(anchored.annotate, Some(PathBuf::from("-")));
     assert_eq!(anchored.file, Some(PathBuf::from("/abs/in.png")));
+    let gui = GuiArgs {
+        file: Some(PathBuf::from("input.png")),
+        annotate: Some(PathBuf::from("marks.json")),
+        ..Default::default()
+    };
+    let anchored = super::anchored(gui, Some(Path::new("/other/caller")));
+    assert_eq!(
+        anchored.file,
+        Some(PathBuf::from("/other/caller/input.png"))
+    );
+    assert_eq!(
+        anchored.annotate,
+        Some(PathBuf::from("/other/caller/marks.json"))
+    );
+    let dash = super::anchored(
+        GuiArgs {
+            file: Some("-".into()),
+            ..Default::default()
+        },
+        Some(Path::new("/other/caller")),
+    );
+    assert_eq!(dash.file, Some(PathBuf::from("/other/caller/-")));
 }

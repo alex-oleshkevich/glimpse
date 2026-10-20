@@ -1624,7 +1624,7 @@ pub fn result_line(
         width: png.width,
         height: png.height,
         scale: headless::scale_of(doc),
-        output: Some(headless::output_of(doc)),
+        output: (!matches!(doc.source, Source::File { .. })).then(|| headless::output_of(doc)),
         target,
         crop: doc.crop.map(RectV1::from),
         dropped,

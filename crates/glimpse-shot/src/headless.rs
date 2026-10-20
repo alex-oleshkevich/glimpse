@@ -113,9 +113,35 @@ pub fn capture(
         .filter(|delay| *delay > 0)
         .map(|delay| deps.clock.now() + Duration::from_secs(delay.into()));
 
-    let mut shot: Option<Shot> = None;
+    let mut shot = match args.image.as_deref() {
+        Some(path) => {
+            let doc = crate::image::load(path)?;
+            let target = TargetV1::File {
+                path: path.canonicalize()?,
+            };
+            Some(self::shot(
+                doc.source,
+                doc.crop,
+                &marks,
+                target,
+                Local::now(),
+            ))
+        }
+        None => None,
+    };
     let mut png: Option<Png> = None;
-    let (mut phase, mut effects) = session::start(target, until, FACE);
+    let (mut phase, mut effects) = if shot.is_some() {
+        (
+            Phase::Editing {
+                saved: None,
+                copied: false,
+                face: FACE,
+            },
+            Vec::new(),
+        )
+    } else {
+        session::start(target, until, FACE)
+    };
     let outcome = loop {
         let event = match ((!effects.is_empty()).then(|| effects.remove(0)), &phase) {
             (Some(Effect::Capture(target)), _) => {
@@ -196,7 +222,7 @@ pub fn capture(
             width: png.width,
             height: png.height,
             scale: scale_of(&shot.doc),
-            output: Some(output_of(&shot.doc)),
+            output: (!matches!(shot.doc.source, Source::File { .. })).then(|| output_of(&shot.doc)),
             target: shot.target,
             crop: shot.doc.crop.map(RectV1::from),
             dropped,

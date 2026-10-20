@@ -169,6 +169,8 @@ fn short_and_long_help_point_to_prime_without_a_field_list() {
         &["--help"][..],
         &["capture", "-h"][..],
         &["capture", "--help"][..],
+        &["annotate", "-h"][..],
+        &["annotate", "--help"][..],
     ] {
         let help = parse(args).expect_err("help exits").to_string();
         assert!(help.trim_end().ends_with(AGENT_POINTER), "{help}");

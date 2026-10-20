@@ -18,10 +18,11 @@ Take a screenshot, mark it up, save or copy it.
 Usage: glimpse-shot [OPTIONS] [FILE.png] [COMMAND]
 
 Commands:
-  capture  Take a screenshot without any window or overlay
-  prime    Print the complete agent guide
-  list     List outputs and windows with their geometry
-  help     Print this message or the help of the given subcommand(s)
+  capture   Take a screenshot without any window or overlay
+  annotate  Annotate an existing PNG image
+  prime     Print the complete agent guide
+  list      List outputs and windows with their geometry
+  help      Print this message or the help of the given subcommand(s)
 
 Arguments:
   [FILE.png]  Open this image on the Result page.
@@ -65,6 +66,26 @@ Take a screenshot without any window or overlay
 Usage: glimpse-shot capture [OPTIONS]
 
 Options:
+      --copy                 Put the PNG on the clipboard.
+      --no-save              Write no file; needs --copy.
+  -h, --help                 Print help (see more with '--help')
+
+Agents: run `glimpse-shot prime` for the full contract.
+```
+
+## `glimpse-shot annotate`
+
+Annotate an existing PNG image
+
+```text
+Usage: glimpse-shot annotate [OPTIONS] [IMAGE]
+
+Arguments:
+  [IMAGE]  PNG image to edit.
+
+Options:
+      --pick                 Choose a PNG when IMAGE is omitted.
+      --headless             Export without opening an editor; needs --annotate.
       --copy                 Put the PNG on the clipboard.
       --no-save              Write no file; needs --copy.
   -h, --help                 Print help (see more with '--help')

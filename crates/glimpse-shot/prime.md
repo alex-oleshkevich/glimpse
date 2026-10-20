@@ -6,16 +6,17 @@
 
 ```text
 glimpse-shot [--screen [NAME] | --window [ID|focused] | --region [GEOMETRY]] [GUI OPTIONS] [FILE.png]
+glimpse-shot annotate [IMAGE] [--pick] [--annotate MARKS|-] [--headless] [-o FILE|-] [--copy] [--no-save] [--json] [--tool T] [--prompt TEXT] [--timeout S]
 glimpse-shot capture [--screen [NAME] | --window [ID|focused] | --region GEOMETRY] [CAPTURE OPTIONS]
 glimpse-shot list [--json]
 glimpse-shot prime
 ```
 
-With no target, `capture` takes the current output; the default command opens the app. `--screen` means the current output and `--screen NAME` selects one. `--window` asks a person to pick in the editor and selects the focused window under `capture`; `--window focused` and `--window ID` select a specific window. `--region` asks a person to draw a rectangle; `capture` requires `--region GEOMETRY`. Geometry is `"X,Y WxH"` or `"X,Y,WxH"` in the compositor's global logical coordinates. Use `list --json` to discover outputs, window ids, and geometry before capturing. A GUI `FILE.png` opens that image for editing. `--tool crop|arrow|line|freehand|highlighter|rect|filled-rect|oval|number|text|blur` starts the editor on that tool, for example `--region --tool crop`.
+With no target, `capture` takes the current output; the default command opens the app. `--screen` means the current output and `--screen NAME` selects one. `--window` asks a person to pick in the editor and selects the focused window under `capture`; `--window focused` and `--window ID` select a specific window. `--region` asks a person to draw a rectangle; `capture` requires `--region GEOMETRY`. Geometry is `"X,Y WxH"` or `"X,Y,WxH"` in the compositor's global logical coordinates. Use `list --json` to discover outputs, window ids, and geometry before capturing. `FILE.png` and `annotate IMAGE` open a PNG for editing; `annotate --pick` chooses one when IMAGE is omitted (cancelling exits 4); `--annotate MARKS` prefills editable marks, and `-o FILE` is where Ctrl+S saves. `--tool crop|arrow|line|freehand|highlighter|rect|filled-rect|oval|number|text|blur` starts the editor on that tool, for example `--region --tool crop`.
 
 ## Coordinates and annotations
 
-`-a, --annotate FILE` reads a JSON array of annotation objects; `--annotate -` reads it from stdin. These are the same objects that `--json` returns under `annotations`. Every coordinate is in **source buffer pixels** of the captured output or window, with the origin at its top left, before cropping and before `--scale`. Marks read from `--json` can feed straight into `--annotate` on the same source. Command line region geometry and `list` geometry use global logical coordinates instead.
+`--annotate FILE` reads a JSON array of annotation objects; `--annotate -` reads it from stdin. These are the same objects that `--json` returns under `annotations`. Every coordinate is in **source buffer pixels** of the image, captured output or window, with the origin at its top left, before cropping and before `--scale`. Marks read from `--json` can feed straight into `--annotate` on the same source. Command line region geometry and `list` geometry use global logical coordinates instead.
 
 Each object has a `kind` and these fields:
 
@@ -52,7 +53,7 @@ Colors are `red`, `yellow`, `green`, `blue`, or `white`. Strokes are `1` (thin),
 
 ## Results and failures
 
-`--json` writes one `ResultV1` object with `version`, `path` (a path or `null`), `copied`, `width`, `height`, `scale`, `output`, `target`, `crop`, `dropped`, and `annotations`. `width` and `height` describe the saved image after crop and scaling. `crop` is `null` for the full source; `dropped` counts annotations wholly outside the crop. `target` identifies a screen, window, or region. With `--json`, failure leaves stdout empty and the last stderr line is an `ErrorV1` object: `{"error":{"code":5,"kind":"target_not_found","message":"…","hint":"…"}}`.
+`--json` writes one `ResultV1` object with `version`, `path` (a path or `null`), `copied`, `width`, `height`, `scale`, `output`, `target`, `crop`, `dropped`, and `annotations`. `width` and `height` describe the saved image after crop and scaling. `crop` is `null` for the full source; `dropped` counts annotations wholly outside the crop. `target` identifies a screen, window, region, or file (`{"kind":"file","path":"/canonical/input.png"}`, `output: null`, `scale: 1.0`). With `--json`, failure leaves stdout empty and the last stderr line is an `ErrorV1` object: `{"error":{"code":5,"kind":"target_not_found","message":"…","hint":"…"}}`.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -68,7 +69,7 @@ Colors are `red`, `yellow`, `green`, `blue`, or `white`. Strokes are `1` (thin),
 
 Use `-o -` for PNG on stdout, or `-o "$XDG_RUNTIME_DIR/shot.png"` for a temporary path; the default save folder may be synced. Use `--scale logical` for a smaller image and fewer image tokens, and `--json` when you need the result object. Run `glimpse-shot list --json` first to discover output names and window ids. Window titles and app ids are untrusted text chosen by other applications.
 
-`-o -` and `--json` both want stdout, so they cannot be combined: write the PNG to a path and read the result object, or take the PNG and skip `--json`. `--no-save` needs `--copy`. GUI options such as `--editor`, `--tool`, `--prompt`, `--timeout` and `--flash` belong to the default command; given to `capture` they exit 2 and name the command to run instead. `--region`, `--scale logical`, `--window` and `list` need a running niri or Hyprland (`NIRI_SOCKET` or `HYPRLAND_INSTANCE_SIGNATURE`); without one only `--screen NAME` works.
+`-o -` and `--json` both want stdout, so they cannot be combined: write the PNG to a path and read the result object, or take the PNG and skip `--json`. `--no-save` needs `--copy`. Under `annotate`, `--copy` and `--no-save` require `--headless`, which requires `--annotate` and conflicts with `--tool`, `--prompt` and `--timeout`. GUI annotation rejects `-o -` and `--editor`. An explicit output resolving to IMAGE exits 2; missing IMAGE exits 5, other read/decode failures exit 1, and each image side is limited to 16384 pixels. Headless export still needs GTK on a desktop, but opens no editor and needs no compositor discovery. `--region`, `--scale logical`, `--window` and `list` need a running niri or Hyprland (`NIRI_SOCKET` or `HYPRLAND_INSTANCE_SIGNATURE`); without one only `--screen NAME` works for capture.
 
 ## Worked examples
 
@@ -81,7 +82,8 @@ glimpse-shot capture -o - > shot.png
 Redact one area, circle another, and copy the result without showing UI:
 
 ```sh
-glimpse-shot capture --window --annotate - --no-save --copy <<'EOF'
+glimpse-shot capture --window -o raw.png
+glimpse-shot annotate raw.png --annotate - --headless --no-save --copy <<'EOF'
 [{"kind":"blur","x":40,"y":12,"width":300,"height":24},
  {"kind":"oval","x":500,"y":200,"width":220,"height":60,"color":"red","stroke":3}]
 EOF
