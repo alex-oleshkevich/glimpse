@@ -1223,3 +1223,77 @@ async fn a_schedule_declares_a_resume_source_beside_its_tick() {
     assert!(keys.contains(&&Watch::Resume));
     assert!(keys.iter().any(|key| matches!(key, Watch::Tick(_))));
 }
+
+async fn at_night() -> Harness {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = night(None);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
+    harness
+}
+
+async fn tick_while_subscribed(harness: &mut Harness, start: DateTime<Utc>) {
+    let mut now = start;
+    for _ in 0..200 {
+        if harness.service.subscriptions().is_empty() {
+            return;
+        }
+        now += TimeDelta::from_std(SOFTENING_STEP).expect("a step fits");
+        harness.at(now).await;
+    }
+}
+
+fn assert_faded_then_released(harness: &Harness, before: usize) {
+    let steps = &harness.gamma.applied()[before..];
+    assert!(steps.len() > 1, "one step is a jump, not a fade: {steps:?}");
+    assert!(steps.windows(2).all(|pair| pair[0] < pair[1]), "{steps:?}");
+    assert!(steps.iter().all(|kelvin| (NIGHT..DAY).contains(kelvin)));
+    assert!(
+        steps.windows(2).all(|pair| pair[1] - pair[0] <= 100),
+        "{steps:?}"
+    );
+    assert_eq!(harness.gamma.resets(), 1);
+}
+
+#[tokio::test]
+async fn switching_off_at_night_keeps_ticking_until_daylight_is_released() {
+    let mut harness = at_night().await;
+    let before = harness.gamma.applied().len();
+
+    harness.set_at(Schedule::Off, at(23, 1)).await;
+    tick_while_subscribed(&mut harness, at(23, 1)).await;
+
+    assert_faded_then_released(&harness, before);
+}
+
+#[tokio::test]
+async fn reloading_off_at_night_keeps_ticking_until_daylight_is_released() {
+    let mut harness = at_night().await;
+    let before = harness.gamma.applied().len();
+
+    harness
+        .feed_at(Input::Config(config(Schedule::Off)), at(23, 1))
+        .await;
+    tick_while_subscribed(&mut harness, at(23, 1)).await;
+
+    assert_faded_then_released(&harness, before);
+}
+
+#[tokio::test]
+async fn a_failing_backend_degrades_the_glide_to_off_and_recovers() {
+    let mut harness = at_night().await;
+    let before = harness.gamma.applied().len();
+    let tick = TimeDelta::from_std(SOFTENING_STEP).expect("a step fits");
+
+    harness.set_at(Schedule::Off, at(23, 1)).await;
+    harness.gamma.fail(Some("x"));
+    harness.at(at(23, 1) + tick).await;
+    assert_eq!(harness.reason().as_deref(), Some("x"));
+    assert!(!harness.service.subscriptions().is_empty());
+
+    harness.gamma.fail(None);
+    tick_while_subscribed(&mut harness, at(23, 1) + tick).await;
+
+    assert_faded_then_released(&harness, before);
+    assert!(matches!(&*harness.health.borrow(), ServiceState::Running));
+}

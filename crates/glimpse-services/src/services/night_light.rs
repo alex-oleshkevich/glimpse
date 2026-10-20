@@ -18,7 +18,7 @@ use crate::{
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 const RAMPING: time::Duration = time::Duration::from_secs(10);
-const SOFTENING_STEP: time::Duration = time::Duration::from_secs(1);
+const SOFTENING_STEP: time::Duration = time::Duration::from_millis(50);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
