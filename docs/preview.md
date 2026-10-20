@@ -1,6 +1,6 @@
 # Previewing a widget
 
-`just preview <path/to/blueprint.blp> [fixture]` renders one blueprint with the **real widgets** and
+`just preview <path/to/blueprint.blp>` renders one blueprint with the **real widgets** and
 reloads on save. The path is resolved against the working directory — there is no search of
 `var/widget_examples/`, so a bare `notifications.blp` fails. Compile errors render into the window
 in red. It is a cargo example in `glimpse-widgets`, so `Builder` resolves `$PopoverShell` and
@@ -40,41 +40,16 @@ matching `workspace "glimpse" { open-on-output "eDP-1" }` declaration the worksp
 whichever output is focused and previews scatter between runs. Layer-shell was tried first and
 rendered nothing.
 
-**Fixtures and stylesheets.** A fixture name defaults to the blueprint's own stem, so `calendar.blp`
-shows sample events by being opened. The theme's `dark.css` loads at `USER + 1`, and only while the
+**Stylesheets.** The theme's `dark.css` loads at `USER + 1`, and only while the
 scheme is dark — any sheet named `dark.css` is gated that way. `_shared.css` beside the example loads
 at `USER + 2` and `<name>.css` at `USER + 3`, all silently absent-tolerant; the checkerboard sits at
 `USER + 4`.
 `_shared.css` holds the shared floors — `.column`, `.drawer-page`, `.block`, `.caption`, `.slider`,
 `.mute` — so demo-only rules stay out of the shipped `glimpse.css`; a name meaning something in
 exactly one example stays in that example's sheet.
-
-`var/widget_examples/` holds whole compositions (one `popover_shell_full.blp` per applet popover)
-and a states board per widget, `<widget>_states.blp`, showing one instance per state under a
-caption. A states board is pure Blueprint whenever the state is a property or a child; a widget fed
-through a Rust setter cannot have one until something supplies that data. **An example is a
+`var/widget_examples/` holds the examples. **An example is a
 top-level object, never a `template`** — `Builder` cannot instantiate a template whose class does
 not exist, so a `template` root renders as nothing.
-
-Fixtures that run for **every** example, not a named list — gating one on a match arm is what made a
-new example's drawer silently inert:
-
-- `actions` logs `action: <name>` when a row carrying `action__<name>` fires, giving an example a
-  way to show a command without pretending it exists. On an `$ActionRow` it connects `activated`;
-  on a `Gtk.Button`, `clicked`. A class on something clickable by neither is reported.
-- `pager` fills each `$Pager` from its `demo__<case>` class, since its slots come from Rust. An
-  unrecognised case and a missing class are both reported.
-- `expanded` opens each `$Expandable` (an `$ExpanderRow`'s drawer included) carrying `state__open`, since `expanded: true` in a blueprint is
-  applied before `[details]` exists and is dropped.
-- `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`, `label__<text>`,
-  `badge__<text>`, `dot__<hex>` (no `#`: a class cannot carry one),
-  `severity__<info|warning|error>`, `state__attention` and `state__notice` — `Indicator` has
-  **no GObject properties at all**, so a states board cannot otherwise set one from Blueprint. An
-  indicator carrying **none** of those classes is left completely alone: `TrayStrip` builds its own
-  chips, and a fixture that wrote to every `Indicator` it found would wipe them. The two flags are
-  namespaced because bare `attention` and `notice` are already styling hooks elsewhere — on a
-  `Gtk.Image` in `workspaces.blp` and on the `Notice` template — and either landing on an
-  `$Indicator` would otherwise be read as state.
 
 **A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
 which is what lands `[addon]` (shell) and `[slot]` (`Hero`) in the right internal box, and `Hero` exposes
@@ -87,14 +62,6 @@ into `body` and panics on an unbound `TemplateChild`. The guard is
 **PyGObject cannot host this.** It cannot override an interface vfunc the parent already implements,
 so a `do_add_child` on a Python subclass is accepted, never called. Measured. Any preview host that
 needs real widgets has to be Rust.
-
-**A blueprint cannot open a popover, and a preview must be focused to keep one open.** `active: true`
-on a `Gtk.MenuButton` is applied by `Builder` before the button is realized and `GtkMenuButton` drops
-it, so no popup is ever created. The class `open-on-map` on the button is what the host uses instead,
-and it waits for the window to become *active* — a compositor dismisses a popup belonging to an
-unfocused window with `xdg_popup.popup_done` the moment it appears, and a preview opens on its own
-workspace. This is how the tray menu board is seen: `just preview var/widget_examples/tray.blp`, then
-focus the window.
 
 **`blueprint-compiler lint` has two false positives.** It reports `scrollable_parent` for any extern
 `$CustomType` inside a container, and rejects a `Gtk.Adjustment` carrying anything besides `lower`,

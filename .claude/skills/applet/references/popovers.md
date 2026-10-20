@@ -477,10 +477,7 @@ a discussion, and `just preview` is faster than the panel for it.
   `overflow: hidden`, a fixed `width-request`, a bar across the top and a chip at its right edge.
   A card that runs past that frame is a card that would run off a real screen, which is the whole
   point — a candidate that looks fine floating on a checkerboard can still be broken.
-- **Drive it with the fixtures that already run for every example**, listed in `docs/preview.md`.
-  An `$Expandable` needs none to toggle — it toggles itself, and its `PopoverShell` dims and
-  dismisses as it does on the bar; the `expanded` fixture opens one carrying `state__open`, and
-  `actions` logs a row carrying `action__<name>`.
+- **An `$Expandable` toggles itself**, and its `PopoverShell` dims and dismisses as it does on the bar.
 - **Iterate in `var/widget_examples/_shared.css`**, which hot-reloads, then port the settled values
   into `glimpse.css`. Keep the board on the same numbers afterwards, or the example stops being
   evidence of what ships.

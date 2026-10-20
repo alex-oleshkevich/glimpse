@@ -217,8 +217,8 @@ Full account: `docs/live-testing.md`. The three that break the user's session:
 
 ### Previewing a widget
 
-`just preview <path/to/blueprint.blp> [fixture]` renders one blueprint with the real widgets and
-reloads on save. How it works, its fixtures and its traps: `docs/preview.md` — read it before
+`just preview <path/to/blueprint.blp>` renders one blueprint with the real widgets and
+reloads on save. How it works and its traps: `docs/preview.md` — read it before
 touching the preview host or a `var/widget_examples/` board.
 
 ## Translations
