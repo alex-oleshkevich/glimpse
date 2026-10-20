@@ -181,8 +181,8 @@ guessed wrong.
 
 **bluetooth** — the chip is the adapter's power state alone. **`unmap` stops a scan
 unconditionally**, since any gate on published state would lose a scan started in the last round
-trip. **A pairing prompt is a page whose `raised` keys auto-open on the device id**, not a boolean,
-because BlueZ escalates mid-flow. `BondBroken` is stated on the row, never notified.
+trip. **Every pairing prompt is the app's `PairingDialog`, never a popover page**, so it opens once
+however many bars carry the applet; only the Forget confirmation lives in the popover. `BondBroken` is stated on the row, never notified.
 
 **network** — the chip is the connection's own icon alone. **The password is asked for before the
 join**, because NetworkManager drops the working connection the moment activation is requested.

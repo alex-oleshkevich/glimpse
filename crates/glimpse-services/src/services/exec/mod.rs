@@ -714,6 +714,11 @@ impl Exec {
         }
     }
 
+    fn commit(&mut self) {
+        self.sync_aliases();
+        self.publish();
+    }
+
     fn publish(&self) {
         self.state.set(ExecState {
             slots: self
@@ -1051,8 +1056,8 @@ impl Service for Exec {
                     let dev = self.dev_slot(slot, applet, placement, request);
                     self.slots.insert(slot, dev);
                     self.taken_dev.insert(desktop_id, slot);
+                    tclicself.commit();
                     let _ = reply.send(Ok(()));
-                    self.publish();
                     return;
                 }
                 let config = self.config.applets.get(&applet);
@@ -1145,6 +1150,7 @@ impl Service for Exec {
                         reset_done: false,
                     },
                 );
+                self.commit();
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::DevAttach {
@@ -1197,6 +1203,7 @@ impl Service for Exec {
                     self.pending_dev.insert(id.clone(), request);
                     Ok(id.clone())
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::Restart { slot, reply }) => {
@@ -1211,6 +1218,7 @@ impl Service for Exec {
                     }
                     _ => Err(CommandError::InvalidArgument("unknown applet".to_owned())),
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevRestart { handle, reply }) => {
@@ -1222,6 +1230,7 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown applet".to_owned()))
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevTree { handle, reply }) => {
@@ -1244,6 +1253,7 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown applet".to_owned()))
                 };
+                self.commit();
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevSetOptions {
@@ -1343,6 +1353,7 @@ impl Service for Exec {
                         }
                     }
                 }
+                self.commit();
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::SendEvent { event, reply }) => {
@@ -1692,8 +1703,7 @@ impl Service for Exec {
                 }
             }
         }
-        self.sync_aliases();
-        self.publish();
+        self.commit();
     }
 }
 

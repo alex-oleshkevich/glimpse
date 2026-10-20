@@ -14,8 +14,8 @@ use glimpse_config::{
 };
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
-    Answer, BluetoothHandle, CommandError, ExecState, NetworkHandle, SessionAction,
-    SessionActionsHandle,
+    Answer, BluetoothError, BluetoothHandle, CommandError, ExecState, NetworkError, NetworkHandle,
+    SessionAction, SessionActionsHandle,
 };
 use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::color_scheme;
@@ -265,21 +265,17 @@ impl SimpleComponent for App {
             AppInput::Attached | AppInput::Detached => {}
             AppInput::BluetoothPrompt(pairing) => {
                 if let Some(services) = &self.services {
-                    if pairing.is_some() {
-                        self.close_popovers();
-                    }
                     let bluetooth = services.handles.bluetooth.clone();
-                    self.show_pairing(pairing, &bluetooth);
+                    let notifications = services.handles.notifications.clone();
+                    self.show_pairing(pairing, &bluetooth, notifications);
                 }
                 return;
             }
             AppInput::NetworkSecret(request) => {
                 if let Some(services) = &self.services {
-                    if request.is_some() {
-                        self.close_popovers();
-                    }
                     let network = services.handles.network.clone();
-                    self.show_secret(request, &network);
+                    let notifications = services.handles.notifications.clone();
+                    self.show_secret(request, &network, notifications);
                 }
                 return;
             }
@@ -361,23 +357,32 @@ impl App {
         }
     }
 
-    fn show_pairing(&mut self, pairing: Option<Pairing>, bluetooth: &BluetoothHandle) {
+    fn show_pairing(
+        &mut self,
+        pairing: Option<Pairing>,
+        bluetooth: &BluetoothHandle,
+        notifications: NotificationsProviderHandle,
+    ) {
         let Some((entry, code, device, name)) = pairing else {
             close(self.pairing.take());
             return;
         };
 
         let dialog = match &self.pairing {
-            Some((dialog, _)) => dialog.clone(),
-            None => {
+            Some((dialog, _)) if is_open(dialog) => dialog.clone(),
+            _ => {
+                self.close_popovers();
                 let dialog = PairingDialog::new();
                 let handle = bluetooth.clone();
                 let answered = dialog.connect_answered(move |_, answer| {
                     let handle = handle.clone();
                     let answer = answered(answer);
-                    relm4::spawn(async move {
-                        let _ = handle.answer_pairing(answer).await;
-                    });
+                    spawn_reported(
+                        "bluetooth.answer_pairing",
+                        prompt_report(notifications.clone(), gettext("Bluetooth")),
+                        |_: &BluetoothError| Some(gettext("The pairing answer was not delivered.")),
+                        async move { handle.answer_pairing(answer).await },
+                    );
                 });
                 dialog.set_title(&gettext("Bluetooth pairing"));
                 dialog.present(None::<&gtk4::Widget>);
@@ -392,7 +397,12 @@ impl App {
     /// The prompt is presented here rather than by the applet: an applet holds no state outliving
     /// its widget, and NetworkManager can ask for a secret at any moment — including while the
     /// popover is shut.
-    fn show_secret(&mut self, request: Option<SecretPrompt>, network: &NetworkHandle) {
+    fn show_secret(
+        &mut self,
+        request: Option<SecretPrompt>,
+        network: &NetworkHandle,
+        notifications: NotificationsProviderHandle,
+    ) {
         let Some(SecretPrompt {
             key,
             name,
@@ -405,8 +415,9 @@ impl App {
         };
 
         let dialog = match &self.secret {
-            Some((dialog, _)) => dialog.clone(),
-            None => {
+            Some((dialog, _)) if is_open(dialog) => dialog.clone(),
+            _ => {
+                self.close_popovers();
                 let dialog = SecretDialog::new();
                 let handle = network.clone();
                 let answered = dialog.connect_answered(move |_, answer| {
@@ -417,9 +428,12 @@ impl App {
                         }
                         SecretAnswer::Refused => glimpse_services::SecretAnswer::Refused,
                     };
-                    relm4::spawn(async move {
-                        let _ = handle.answer_secret(answer).await;
-                    });
+                    spawn_reported(
+                        "network.answer_secret",
+                        prompt_report(notifications.clone(), gettext("Network")),
+                        |_: &NetworkError| Some(gettext("The password was not delivered.")),
+                        async move { handle.answer_secret(answer).await },
+                    );
                 });
                 dialog.set_title(&gettext("Network password"));
                 dialog.present(None::<&gtk4::Widget>);
@@ -503,6 +517,19 @@ fn execute_session(
         |_: &CommandError| Some(gettext("The session manager refused that action.")),
         async move { actions.run(action).await },
     );
+}
+
+fn prompt_report(notifications: NotificationsProviderHandle, app_name: String) -> Report {
+    Report {
+        notifications,
+        app_name,
+        icon: "dialog-password-symbolic".to_owned(),
+        summary: gettext("Could not answer the request"),
+    }
+}
+
+fn is_open(dialog: &impl IsA<adw::Dialog>) -> bool {
+    dialog.as_ref().parent().is_some()
 }
 
 fn close<D: IsA<adw::Dialog>>(open: Option<(D, glib::SignalHandlerId)>) {

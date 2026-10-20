@@ -73,7 +73,7 @@ fn each_prompt_kind_offers_exactly_its_own_buttons() {
         )
     };
 
-    assert_eq!(buttons(Entry::Pin, "").0, true);
+    assert!(buttons(Entry::Pin, "").0);
     let confirm = buttons(Entry::Confirm, "123 456");
     assert!(confirm.0 && confirm.1 == "Cancel" && confirm.2.contains("123 456"));
     assert_eq!(dialog.response_label(OK), "Confirm");

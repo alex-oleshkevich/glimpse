@@ -6,9 +6,6 @@ geometry parsing and the `--json`/`--annotate` wire format — and has no GTK de
 
 ## For agents
 
-`glimpse-shot capture --help` is the entry point for the annotation format; it points to
-`glimpse-shot prime`, which prints the full contract and examples.
-
 - Pass `-o -` or `-o "$XDG_RUNTIME_DIR/…"`; the default saves into `~/Pictures/Screenshots`, which
   may be synced to a cloud.
 - `--scale logical` for a smaller image; `--json` for the result object.
@@ -72,8 +69,7 @@ The terminal facts are passed in, so every row is a unit test.
 `errors::exit` is the one mapping, by `downcast_ref`, so a `.context(…)` upstream never changes a
 code.
 
-A clap error under `--json` also ends stderr with a `usage` error object. GLib's own debug and info
-logging goes to stderr, so stdout stays data-only.
+GLib's own debug and info logging goes to stderr, so stdout stays data-only.
 
 Global options (`--config`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
 An editor option before or after `capture` or `list` is refused with exit 2 by `cli::parse`, naming
@@ -88,9 +84,8 @@ of an optional value as a flag.
 - Every coordinate in `doc` is a `BufferPx`: a source buffer pixel, before crop and before
   `--scale`. `Logical` exists only for CLI geometry parsing and output matching, never for a mark.
 - **One frame.** A document's `crop` and every mark are the same source buffer, uncropped, the same
-  numbers whether or not the shot was cropped and whichever `--scale` asked for. `--scale` changes
-  only the saved image's pixels, never an annotation's coordinates. A region becomes a crop by
-  subtracting its output's logical origin and multiplying by that output's scale.
+  numbers whether or not the shot was cropped and whichever `--scale` asked for. A region becomes a
+  crop by subtracting its output's logical origin and multiplying by that output's scale.
 
 ## Session and ports
 
@@ -102,8 +97,7 @@ time, the next only after `Effected(Ok)` of the previous; `Effected(Write(actual
 actually written, and a queued `Share` is rewritten to it. A closing key ends in `Done`; Ctrl+C and
 Ctrl+S return to `Editing` with the results and a toast, so Esc afterwards ends `Saved`/`Copied`,
 never `Cancelled`. A failed effect ends `Failed` headless and returns to `Editing` with a toast in a
-GUI face, marks and earlier results kept. `OutputGone` hands the document to a window; `Notify` is
-emitted on completion only when the face asks.
+GUI face, marks and earlier results kept. `Notify` is emitted on completion only when the face asks.
 
 `ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
 `Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
@@ -163,7 +157,7 @@ the folder. No bus or notification server is a warning; the save already happene
 bus name `me.aresa.Glimpse.Shot.Portal` and then serves `org.freedesktop.impl.portal.Screenshot`
 version 3 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor`, `version` and
 `AvailableTargets` (screen, area, active window). D-Bus activation uses `glimpse-shot-portal.service`,
-which requires and stops with `glimpse-session.target`. It never constructs the app.
+which requires and stops with `glimpse-session.target`.
 
 Each call exports an `org.freedesktop.impl.portal.Request` at its handle. `Request.Close` SIGTERMs
 its child without replying. Overlay children use fresh GApplication IDs, so SIGTERM closes their
@@ -176,9 +170,9 @@ and empty names shown as "An application". The overlay's plain-text banner says 
 after a pending crop and Esc refuses. Other finish keys, controls and window picking are disabled,
 so it never uses the clipboard or notifications. `parent_window` is ignored.
 `interactive=false` with `permission_store_checked=true` runs `glimpse-shot capture --screen
---json -o PATH` under `[screenshot] directory`, creating it if needed. Child binaries come
+--json -o PATH` under `[screenshot] directory`. Child binaries come
 from beside this binary, then `PATH`; tokio captures stdout and kills dropped children. `target` 1
-follows that rule; 4 always opens the same overlay, so interactive targets 1 and 4 are identical.
+follows that rule; 4 always opens the same overlay.
 Target 8 runs `capture --window focused` with `permission_store_checked=true`, regardless of the
 `interactive` hint, and is refused without permission. Window (2) and invalid targets return 2.
 
@@ -205,11 +199,10 @@ its crop clip. The canvas calls the two halves itself so a pending crop's dim fa
 ## Overlay
 
 The default command freezes one output: a `Layer::Overlay` surface anchored to every edge, keyboard
-`Exclusive`, on the output `headless::output_of` names. It drives the same `session` machine as
-`capture`, executing each effect in `gui::overlay::Run::perform`; `headless::take` is the capture
-ladder for both. Nothing is captured while a surface of ours is mapped: the countdown pill is
-destroyed and `glimpse_widgets::roundtrip` waits for the compositor before the capture, and the
-overlay is hidden the same way before the save dialog opens.
+`Exclusive`, on the output `headless::output_of` names. It executes each `session` effect in
+`gui::overlay::Run::perform`; `headless::take` is the capture ladder for both. Nothing is captured
+while a surface of ours is mapped: the countdown pill is destroyed and `glimpse_widgets::roundtrip`
+waits for the compositor before the capture, and the overlay is hidden before the save dialog opens.
 
 - **Coordinates.** `gui::canvas::View` maps logical widget points to buffer pixels by `factor`; a
   frame smaller than the output is centered at its logical size, a larger one is fit.

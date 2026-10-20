@@ -9,7 +9,6 @@ use glimpse_services::{BluetoothError, BluetoothHandle, BluetoothState, DeviceId
 use glimpse_widgets::{BluetoothPopover, IndicatorSpec};
 use gtk4::glib;
 use gtk4::prelude::*;
-use render::Asked;
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
@@ -27,7 +26,7 @@ pub struct Bluetooth {
     nearby: usize,
     nearby_toggled: Rc<Cell<bool>>,
     expanded: Rc<Cell<(bool, bool)>>,
-    asked: Rc<RefCell<Option<Asked>>>,
+    asked: Rc<RefCell<Option<DeviceId>>>,
     shown: glib::WeakRef<BluetoothPopover>,
 }
 
@@ -167,22 +166,20 @@ impl Applet for Bluetooth {
             let opener = seat.opener();
             move |_, accepted| {
                 let bluetooth = bluetooth.clone();
-                let Some(asked) = asked.borrow().clone() else {
+                let Some(id) = asked.borrow().clone() else {
                     return;
                 };
-                match asked {
-                    Asked::Forget(id) if accepted => tell(
+                match accepted {
+                    true => tell(
                         &notifications,
                         &opener,
                         "bluetooth.forget_device",
                         gettext("Could not remove the device"),
                         async move { bluetooth.forget(id, true).await },
                     ),
-                    Asked::Forget(_) => {
-                        spawn_command("bluetooth.dismiss_confirmation", async move {
-                            bluetooth.dismiss_confirmation().await
-                        })
-                    }
+                    false => spawn_command("bluetooth.dismiss_confirmation", async move {
+                        bluetooth.dismiss_confirmation().await
+                    }),
                 }
             }
         });
@@ -224,7 +221,7 @@ impl Applet for Bluetooth {
             let bluetooth = self.bluetooth.clone();
             let asked = Rc::clone(&self.asked);
             move |_| {
-                if matches!(*asked.borrow(), Some(Asked::Forget(_))) {
+                if asked.borrow().is_some() {
                     let bluetooth = bluetooth.clone();
                     spawn_command("bluetooth.dismiss_confirmation", async move {
                         bluetooth.dismiss_confirmation().await

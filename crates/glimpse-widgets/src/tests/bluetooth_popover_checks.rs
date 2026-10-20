@@ -293,12 +293,10 @@ pub(super) fn check() {
         move |_, accepted| answers.borrow_mut().push(accepted)
     });
     probe.set_prompt(Some(&BluetoothAsk {
-        key: "pair:/org/bluez/hci0/dev_a".to_owned(),
+        key: "forget:/org/bluez/hci0/dev_a".to_owned(),
         device: "Pixel 9 Pro".to_owned(),
-        question: "Is this the code shown on the device?".to_owned(),
-        code: "419 274".to_owned(),
-        progress: String::new(),
-        accept: "Confirm".to_owned(),
+        question: "Forget this device?".to_owned(),
+        accept: "Forget".to_owned(),
         cancel: "Cancel".to_owned(),
         destructive: false,
     }));
@@ -310,34 +308,16 @@ pub(super) fn check() {
     );
     assert!(!probe.imp().shell.imp().header.get_sensitive());
     assert_eq!(probe.imp().prompt_device.text(), "Pixel 9 Pro");
-    assert_eq!(
-        probe.imp().prompt_ask.text(),
-        "Is this the code shown on the device?"
-    );
-    assert_eq!(probe.imp().prompt_code.text(), "419 274");
-    assert!(probe.imp().prompt_accept.get_visible() && probe.imp().prompt_code.get_visible());
+    assert_eq!(probe.imp().prompt_ask.text(), "Forget this device?");
+    assert!(probe.imp().prompt_accept.get_visible());
     probe.imp().prompt_accept.emit_by_name::<()>("clicked", &[]);
     probe.imp().prompt_cancel.emit_by_name::<()>("clicked", &[]);
     assert_eq!(*answers.borrow(), [true, false]);
 
     probe.set_prompt(Some(&BluetoothAsk {
-        key: "pair:/org/bluez/hci0/dev_long".to_owned(),
-        device: "HP OfficeJet 8025".to_owned(),
-        question: "Type this PIN on the device.".to_owned(),
-        code: "0".repeat(32),
-        progress: String::new(),
-        accept: String::new(),
-        cancel: "Cancel".to_owned(),
-        destructive: false,
-    }));
-    assert_eq!(width(&probe), floor, "a peer's code cannot widen the card");
-    assert!(!probe.imp().prompt_accept.get_visible());
-    probe.set_prompt(Some(&BluetoothAsk {
         key: "forget:/org/bluez/hci0/dev_b".to_owned(),
         device: "UE BOOM 3".to_owned(),
         question: "Forget this device?".to_owned(),
-        code: String::new(),
-        progress: String::new(),
         accept: "Forget".to_owned(),
         cancel: "Cancel".to_owned(),
         destructive: true,
@@ -348,20 +328,11 @@ pub(super) fn check() {
             .prompt_accept
             .has_css_class("prompt__accept--danger")
     );
-    assert!(!probe.imp().prompt_code.get_visible());
-    assert!(
-        probe
-            .imp()
-            .prompt_actions
-            .has_css_class("prompt__actions--bare")
-    );
     let long = "word ".repeat(40);
     probe.set_prompt(Some(&BluetoothAsk {
         key: "forget:/org/bluez/hci0/dev_c".to_owned(),
         device: "UE BOOM 3".to_owned(),
         question: long.clone(),
-        code: String::new(),
-        progress: String::new(),
         accept: "Forget".to_owned(),
         cancel: "Cancel".to_owned(),
         destructive: true,

@@ -106,10 +106,10 @@ state without emitting `toggled`. **A detail unfolds in place, never beside the 
 `ExpanderRow` whose open state makes the whole of it one `.card`, so the head never moves. **Focus
 belongs to `PopoverShell`**: opening one detail closes every unrelated `Expandable` in the shell, and
 a press on anything else dimmed closes the detail instead of acting, claimed in the capture phase.
-**A network is asked for a password on a page of its own popover, not a window beside it**, and
-`NetworkPopover::set_prompt` clears the box whenever the key changes. **A pairing prompt is a
-`Gtk.Stack` page, not a dialog**, and `PairingDialog` clears its entry only when the **device**
-changes, not the name, so a credential cannot reach the next device.
+**A question the user starts is a page of its own popover**, and `NetworkPopover::set_prompt`
+clears the box whenever the key changes. **A question a service raises is a dialog**, so it opens
+once however many bars exist: `PairingDialog` covers every pairing kind and clears its entry only
+when the **device** changes, not the name, so a credential cannot reach the next device.
 
 ## ForecastStrip, ForecastList, the media widgets and SourceList
 

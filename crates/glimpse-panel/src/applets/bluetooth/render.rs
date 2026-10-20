@@ -69,7 +69,7 @@ pub fn prompt_entry(prompt: &Prompt) -> (PairingEntry, String) {
     match prompt {
         Prompt::RequestPin(_) => (PairingEntry::Pin, String::new()),
         Prompt::RequestPasskey(_) => (PairingEntry::Passkey, String::new()),
-        Prompt::Confirm { passkey, .. } => (PairingEntry::Pin, digits(*passkey)),
+        Prompt::Confirm { passkey, .. } => (PairingEntry::Confirm, digits(*passkey)),
         Prompt::Authorize(_) => (PairingEntry::Authorize, String::new()),
         Prompt::DisplayPin { pin, .. } => {
             (PairingEntry::ShowPin, glimpse_utils::clean(pin, PIN_MAX))
@@ -88,22 +88,9 @@ pub fn prompt_entry(prompt: &Prompt) -> (PairingEntry, String) {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Asked {
-    Forget(DeviceId),
-}
-
-impl Asked {
-    fn key(&self) -> String {
-        match self {
-            Self::Forget(device) => format!("forget:{}", device.as_str()),
-        }
-    }
-}
-
-pub fn asked(state: &BluetoothState) -> Option<Asked> {
+pub fn asked(state: &BluetoothState) -> Option<DeviceId> {
     let Confirmation::Forget { device, .. } = state.confirm.as_ref()?;
-    Some(Asked::Forget(device.clone()))
+    Some(device.clone())
 }
 
 pub fn powered(state: &BluetoothState) -> bool {
@@ -118,13 +105,9 @@ pub fn waiting(state: &BluetoothState) -> Option<String> {
 }
 
 pub fn prompt(state: &BluetoothState) -> Option<Ask> {
-    confirmation(state)
-}
-
-fn confirmation(state: &BluetoothState) -> Option<Ask> {
     let Confirmation::Forget { device, connected } = state.confirm.as_ref()?;
     Some(Ask {
-        key: Asked::Forget(device.clone()).key(),
+        key: format!("forget:{}", device.as_str()),
         device: named(state, device),
         question: match connected {
             true => gettext(
@@ -134,8 +117,6 @@ fn confirmation(state: &BluetoothState) -> Option<Ask> {
                 "This computer will stop connecting to it, and it will not connect on its own. To use it again you will have to pair it, with the device in pairing mode.",
             ),
         },
-        code: String::new(),
-        progress: String::new(),
         accept: gettext("Forget"),
         destructive: true,
         cancel: gettext("Cancel"),
