@@ -234,9 +234,9 @@ docs-gen-cli:
 docs-screenshots: docs-sandbox-build
     scripts/docs-screenshots.py
 
-[doc("record the home page demo video in the same sandbox into website/public/video")]
-docs-video: docs-sandbox-build
-    scripts/docs-screenshots.py --video
+[doc("record the home page demo video in the same sandbox into website/public/video; --dark records the dark variant")]
+docs-video *ARGS: docs-sandbox-build
+    scripts/docs-screenshots.py --video {{ ARGS }}
 
 [doc("record the release video in the same sandbox into var/release-video; --reuse renders the last recording again")]
 release-video *ARGS: docs-sandbox-build

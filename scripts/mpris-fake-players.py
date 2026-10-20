@@ -112,6 +112,12 @@ def make_artwork(path: Path, color: tuple[int, int, int], label_text: str) -> No
     """Write a 256x256 solid-color PNG with bold initials centered."""
     img = Image.new("RGB", (256, 256), color)
     draw = ImageDraw.Draw(img)
+    for step in range(256):
+        shade = tuple(round(c * (1 - 0.55 * step / 255)) for c in color)
+        draw.line([(0, step), (255, step)], fill=shade)
+    for radius in (110, 74, 38):
+        draw.ellipse([128 - radius, 128 - radius, 128 + radius, 128 + radius],
+                     outline=tuple(min(255, c + 70) for c in color), width=5)
     initials = "".join(word[0].upper() for word in label_text.split()[:2]) or "?"
     font = _load_font(96)
     bbox = draw.textbbox((0, 0), initials, font=font)
@@ -137,7 +143,7 @@ def _load_font(size: int) -> ImageFont.ImageFont:
             return ImageFont.truetype(path, size)
         except OSError:
             continue
-    return ImageFont.load_default()
+    return ImageFont.load_default(size)
 
 
 # ---------- D-Bus interfaces ----------------------------------------------- #

@@ -17,6 +17,7 @@ events and notifications. Nothing from the running session can reach a capture.
 Usage (through the justfile):
     just docs-screenshots
     just docs-video
+    just docs-video-dark
 """
 
 import json
@@ -55,7 +56,7 @@ COLLAGE_LAYOUT = {
     "position": "top",
     "left": ["workspace-name", "mpris"],
     "center": ["clock", "weather", "notifications"],
-    "right": ["color-picker", "printing", "bluetooth", "network", "display", "audio", "idle",
+    "right": ["printing", "bluetooth", "network", "display", "audio", "idle",
               "power", "session"],
 }
 SCALE = 1.25
@@ -74,6 +75,14 @@ VIDEO_FADE = 0.5
 VIDEO_SCALE = 4 / 3
 VIDEO_LEAD = 3.0
 VIDEO_CUE = 3.0
+VIDEO_SPEED = 1.5
+VIDEO_GLIDE = 0.5
+PANEL_X = {"clock": 884, "weather": 1030, "notifications": 1092, "bluetooth": 1596,
+           "network": 1644, "audio": 1740, "mpris": 308}
+DARK = "--dark" in sys.argv[1:]
+VIDEO = "--video" in sys.argv[1:]
+SUFFIX = "-dark" if DARK else ""
+MODES = ("dark", "light") if DARK else ("light", "dark")
 SHOT_MARKS = [
     {"kind": "blur", "x": 66, "y": 4, "width": 330, "height": 28},
     {"kind": "oval", "x": 1066, "y": 58, "width": 100, "height": 54, "color": "red", "stroke": 3},
@@ -301,12 +310,40 @@ def audio(env, scratch: Path):
     subprocess.run(["pactl", "set-sink-volume", "speakers", "40%"], env=env, capture_output=True)
     track = scratch / "silence.wav"
     silence(track)
+    app_icons(env)
     for app, icon in [("Firefox", "firefox"), ("Spotify", "spotify")]:
         props = json.dumps({"application.name": app, "application.icon-name": icon,
                             "media.name": app})
         spawn(["pw-play", "--target", "headphones", "-P", props, track], env)
-    record = json.dumps({"application.name": "Zoom", "media.name": "Zoom"})
+    record = json.dumps({"application.name": "Zoom", "application.icon-name": "zoom",
+                         "media.name": "Zoom"})
     spawn(["pw-record", "--target", "microphone", "-P", record, scratch / "record.wav"], env)
+
+
+def app_icons(env):
+    folder = Path(env["XDG_DATA_HOME"]) / "icons" / "hicolor" / "128x128" / "apps"
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, back, front in [("firefox", (255, 113, 57), (255, 205, 60)),
+                              ("spotify", (30, 215, 96), (20, 40, 28)),
+                              ("zoom", (45, 140, 255), (255, 255, 255)),
+                              ("org.gnome.clocks", (80, 110, 200), (255, 255, 255))]:
+        icon = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(icon)
+        draw.rounded_rectangle([8, 8, 119, 119], radius=28, fill=back)
+        if name == "firefox":
+            draw.ellipse([30, 30, 97, 97], fill=front)
+            draw.ellipse([52, 24, 108, 80], fill=back)
+        elif name == "spotify":
+            for top, width in [(40, 70), (60, 56), (80, 42)]:
+                draw.arc([64 - width, top, 64 + width, top + 60], 200, 340, fill=front, width=9)
+        elif name == "org.gnome.clocks":
+            draw.ellipse([28, 28, 99, 99], outline=front, width=8)
+            draw.line([(64, 64), (64, 42)], fill=front, width=7)
+            draw.line([(64, 64), (80, 72)], fill=front, width=7)
+        else:
+            draw.rounded_rectangle([26, 42, 78, 86], radius=10, fill=front)
+            draw.polygon([(84, 56), (104, 44), (104, 84), (84, 72)], fill=front)
+        icon.save(folder / f"{name}.png")
 
 
 def parent_windows(pid: int) -> list[dict]:
@@ -328,10 +365,7 @@ input {
 output "winit" {
     scale %SCALE%
 }
-cursor {
-    hide-after-inactive-ms 100
-}
-prefer-no-csd
+%CURSOR%prefer-no-csd
 hotkey-overlay {
     skip-at-startup
 }
@@ -359,7 +393,8 @@ layer-rule {
         xray false
     }
 }
-""".replace("%SCALE%", str(scale)))
+""".replace("%SCALE%", str(scale)).replace(
+        "%CURSOR%", "" if VIDEO else "cursor {\n    hide-after-inactive-ms 100\n}\n"))
 
 
 def nested(env, scratch: Path, size: tuple[int, int], scale: float):
@@ -681,7 +716,7 @@ def collage(results: dict, scheme: str, title: str, names: list[str]):
 
 
 def video(env, config: Path, scratch: Path, work: Path, personal: Path):
-    glimpse_config(config, "auto", work, personal, dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER),
+    glimpse_config(config, "desktop", work, personal, dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER),
                    motion=True)
     app_id = "me.aresa.Glimpse.DocsVideo"
     ctl = dict(env, GLIMPSE_PANEL_APP_ID=app_id)
@@ -690,9 +725,29 @@ def video(env, config: Path, scratch: Path, work: Path, personal: Path):
         subprocess.run([BIN / "glimpsectl", "--config", config, *argv], env=ctl,
                        capture_output=True)
 
-    glimpsectl("settings", "mode", "light")
+    logical = [size / VIDEO_SCALE for size in VIDEO_WINDOW]
+    pixel = logical[0] / VIDEO_SIZE[0]
+    pointer = [logical[0] / 2, logical[1] / 2]
+
+    def move(x: float, y: float):
+        subprocess.run([BIN / "examples" / "click", "winit", str(round(x)), str(round(y)),
+                        str(round(logical[0])), str(round(logical[1])), "move"], env=env,
+                       capture_output=True)
+
+    def glide(x: float, y: float):
+        sx, sy = pointer
+        steps = round(VIDEO_GLIDE * 20)
+        for step in range(1, steps + 1):
+            t = step / steps
+            ease = t * t * (3 - 2 * t)
+            move(sx + (x - sx) * ease, sy + (y - sy) * ease)
+            time.sleep(VIDEO_GLIDE / steps)
+        pointer[:] = [x, y]
+
+    glimpsectl("settings", "mode", MODES[0])
     panel = spawn([BIN / "glimpse-panel", "--config", config], ctl, scratch / "panel-video.log")
     time.sleep(7)
+    move(*pointer)
     rewind(env)
     raw = scratch / "raw.mkv"
     recorder = spawn(["wf-recorder", "-y", "-D", "-o", "winit", "-r", "30", "-c", "libx264rgb",
@@ -707,6 +762,7 @@ def video(env, config: Path, scratch: Path, work: Path, personal: Path):
     def popover(applet: str | None):
         glimpsectl("panel", "popovers", "close")
         if applet:
+            glide(PANEL_X[applet] * pixel, logical[1] - 24 * pixel)
             glimpsectl("panel", "popover", "open", "winit", applet)
 
     def volume(level: int):
@@ -736,12 +792,12 @@ def video(env, config: Path, scratch: Path, work: Path, personal: Path):
         popover("notifications")
         at(23.0)
         popover(None)
-        glimpsectl("settings", "mode", "dark")
+        glimpsectl("settings", "mode", MODES[1])
         at(24.5)
         popover("weather")
         at(28.0)
         popover(None)
-        glimpsectl("settings", "mode", "light")
+        glimpsectl("settings", "mode", MODES[0])
         at(VIDEO_LENGTH + VIDEO_FADE + 0.5)
     finally:
         recorder.send_signal(signal.SIGINT)
@@ -764,28 +820,29 @@ def first_change(raw: Path) -> float:
 def encode(raw: Path):
     VIDEO_OUT.mkdir(parents=True, exist_ok=True)
     width, height = VIDEO_SIZE
-    lead = max(0.0, first_change(raw) - VIDEO_CUE)
+    lead = max(0.0, first_change(raw) - VIDEO_CUE - VIDEO_GLIDE)
     body, tail = lead + VIDEO_FADE, lead + VIDEO_FADE + VIDEO_LENGTH
     graph = (
         f"[0:v]fps=30,scale={width}:{height}:flags=lanczos,split[a][b];"
         f"[a]trim={body}:{tail},setpts=PTS-STARTPTS[main];"
         f"[b]trim={lead}:{body},setpts=PTS-STARTPTS[head];"
         f"[main][head]xfade=transition=fade:duration={VIDEO_FADE}"
-        f":offset={VIDEO_LENGTH - VIDEO_FADE},format=yuv420p[out]"
+        f":offset={VIDEO_LENGTH - VIDEO_FADE},"
+        f"setpts=PTS/{VIDEO_SPEED},fps=30,format=yuv420p[out]"
     )
     for name, codec in [
-        ("demo.webm", ["-c:v", "libvpx-vp9", "-crf", "38", "-b:v", "0", "-row-mt", "1",
+        (f"demo{SUFFIX}.webm", ["-c:v", "libvpx-vp9", "-crf", "38", "-b:v", "0", "-row-mt", "1",
                        "-deadline", "good", "-cpu-used", "2"]),
-        ("demo.mp4", ["-c:v", "libx264", "-crf", "27", "-preset", "slow", "-profile:v", "high",
+        (f"demo{SUFFIX}.mp4", ["-c:v", "libx264", "-crf", "27", "-preset", "slow", "-profile:v", "high",
                       "-movflags", "+faststart"]),
     ]:
         target = VIDEO_OUT / name
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-filter_complex",
                         graph, "-map", "[out]", "-an", *codec, str(target)], check=True)
         print(f"  video: {target.relative_to(REPO)} {target.stat().st_size // 1024} KiB")
-    poster = VIDEO_OUT / "demo-poster.jpg"
+    poster = VIDEO_OUT / f"demo{SUFFIX}-poster.jpg"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(VIDEO_CUE + 1.5), "-i",
-                    str(VIDEO_OUT / "demo.mp4"), "-frames:v", "1", "-q:v", "3", str(poster)],
+                    str(VIDEO_OUT / f"demo{SUFFIX}.mp4"), "-frames:v", "1", "-q:v", "3", str(poster)],
                    check=True)
     print(f"  poster: {poster.relative_to(REPO)}")
 
@@ -901,7 +958,7 @@ def terminated(signum, frame):
 
 
 def main():
-    recording = "--video" in sys.argv[1:]
+    recording = VIDEO
     signal.signal(signal.SIGTERM, terminated)
     signal.signal(signal.SIGINT, terminated)
     for directory in ["applets", "home"]:

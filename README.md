@@ -16,9 +16,12 @@ blurs what sits behind it.
 
 ## Demo
 
-![glimpse in use](docs/screenshots/demo.gif)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/demo-dark.gif">
+  <img alt="glimpse in use" src="docs/screenshots/demo.gif">
+</picture>
 
-[Watch it in full quality](website/public/video/demo.mp4).
+Watch it in full quality: [light](website/public/video/demo.mp4), [dark](website/public/video/demo-dark.mp4).
 
 ## Features
 
