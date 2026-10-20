@@ -27,6 +27,8 @@ blurs what sits behind it.
 - The lock screen authenticates through PAM.
 - Idle timers blank the screens, lock and suspend, and can differ between AC and battery.
 - The night light follows sunset and sunrise where you are.
+- Exec applets put your own program on the panel, with its own indicator and popover. SDKs exist
+  for TypeScript, Python, Go and Rust.
 - All settings live in one `config.toml`. Saving it applies the change, and a JSON schema gives your
   editor completion.
 
