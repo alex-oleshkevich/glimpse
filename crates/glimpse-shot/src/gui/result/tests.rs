@@ -325,6 +325,8 @@ fn text_entry_has_a_readable_height_and_grows_with_lines() {
         &menu,
         None,
     );
+    assert_eq!(face.page.name(), "every_mark");
+    assert_eq!(face.window.title().as_deref(), Some("every_mark.png"));
     let settle = || {
         let context = glib::MainContext::default();
         for _ in 0..30 {

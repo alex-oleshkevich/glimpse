@@ -233,6 +233,15 @@ impl ResultFace {
     }
 
     fn default_name(&self) -> String {
+        let stem = self.sheet.read(|editor| match &editor.doc.source {
+            Source::File { path, .. } => path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned()),
+            _ => None,
+        });
+        if let Some(stem) = stem.flatten() {
+            return stem;
+        }
         let name = file_name(&self.setup.config.filename, self.taken);
         name.strip_suffix(".png").unwrap_or(&name).to_owned()
     }
