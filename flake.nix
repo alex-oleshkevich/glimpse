@@ -3,17 +3,31 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
-      system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-    in {
-      packages.${system}.default = pkgs.callPackage ./nix/package.nix { };
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+    in
+    {
+      packages = forAllSystems (pkgs: rec {
+        glimpse = pkgs.callPackage ./nix/package.nix { };
+        default = glimpse;
+      });
+
       nixosModules.default = import ./nix/module.nix;
-      checks.${system} = import ./nix/test.nix {
-        inherit pkgs;
-        module = self.nixosModules.default;
-        package = self.packages.${system}.default;
-      };
+
+      checks = forAllSystems (
+        pkgs:
+        import ./nix/test.nix {
+          inherit pkgs;
+          module = self.nixosModules.default;
+          package = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        }
+      );
     };
 }
