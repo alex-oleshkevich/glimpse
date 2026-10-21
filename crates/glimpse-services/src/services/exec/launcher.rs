@@ -310,10 +310,23 @@ impl Launcher for SystemdLauncher {
     fn watch(&self, name: &str) -> BoxStream<'static, UnitState> {
         let connection = self.inner.connection.clone();
         let name = name.to_owned();
-        Box::pin(futures_util::stream::unfold(
-            Watch::new(name, connection),
-            |mut watch| async move { watch.next().await.map(|state| (state, watch)) },
-        ))
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            let mut watch = Watch::new(name, connection);
+            loop {
+                let state = tokio::select! {
+                    state = watch.next() => state,
+                    () = tx.closed() => None,
+                };
+                let Some(state) = state else { break };
+                if tx.send(state).is_err() {
+                    break;
+                }
+            }
+        });
+        Box::pin(futures_util::stream::unfold(rx, |mut rx| async move {
+            rx.recv().await.map(|state| (state, rx))
+        }))
     }
 
     fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
