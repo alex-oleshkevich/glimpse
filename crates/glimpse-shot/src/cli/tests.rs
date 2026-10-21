@@ -48,5 +48,6 @@ fn gui(args: &[&str]) -> GuiArgs {
     cli.gui
 }
 
+mod annotate;
 mod guide;
 mod parse;

@@ -20,6 +20,7 @@ under [`[screenshot]`](/config/services/screenshots).
 | `glimpse-shot --screen --delay 5` | count down five seconds first, to catch a menu or tooltip |
 | `glimpse-shot` | open the screenshot app and choose there |
 | `glimpse-shot picture.png` | mark up a picture you already have |
+| `glimpse-shot annotate --pick` | choose an image to mark up |
 
 The screen freezes the moment the screenshot is taken, so a video or a closing menu stays put while
 you work. The delay goes up to 60 seconds.

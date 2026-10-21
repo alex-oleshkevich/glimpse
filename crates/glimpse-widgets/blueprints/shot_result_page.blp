@@ -132,15 +132,19 @@ template $ShotResultPage: Gtk.Widget {
             "view",
           ]
 
-          Gtk.Picture picture {
-            hexpand: true;
-            vexpand: true;
-            content-fit: scale_down;
-            can-shrink: true;
-            margin-top: 24;
-            margin-bottom: 24;
-            margin-start: 24;
-            margin-end: 24;
+          Gtk.Viewport {
+            scroll-to-focus: false;
+
+            Gtk.Picture picture {
+              hexpand: true;
+              vexpand: true;
+              content-fit: scale_down;
+              can-shrink: true;
+              margin-top: 24;
+              margin-bottom: 24;
+              margin-start: 24;
+              margin-end: 24;
+            }
           }
         }
       };

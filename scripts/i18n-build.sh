@@ -11,3 +11,4 @@ msgfmt --desktop --template data/me.aresa.Glimpse.Shot.desktop -d po -o target/l
 msgfmt --desktop --template data/me.aresa.Glimpse.Lens.desktop -d po -o target/locale/me.aresa.Glimpse.Lens.desktop
 msgfmt --desktop --template data/me.aresa.Glimpse.Lens.Ruler.desktop -d po -o target/locale/me.aresa.Glimpse.Lens.Ruler.desktop
 msgfmt --desktop --template data/me.aresa.Glimpse.Lens.Picker.desktop -d po -o target/locale/me.aresa.Glimpse.Lens.Picker.desktop
+msgfmt --desktop --template data/me.aresa.Glimpse.Shot.Annotate.desktop -d po -o target/locale/me.aresa.Glimpse.Shot.Annotate.desktop

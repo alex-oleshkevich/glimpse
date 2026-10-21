@@ -11,7 +11,8 @@ use glimpse_compositors::Snapshot;
 use glimpse_config::{
     Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet, user_stylesheet,
 };
-use glimpse_shot::doc::document::{Document, Mark, Style, Tool};
+use glimpse_shot::doc::document::{Document, Mark, Source, Style};
+use glimpse_shot::doc::wire::TargetV1;
 use glimpse_shot::ports::Notice;
 use glimpse_shot::session::{Outcome, Target};
 use glimpse_utils::init_translations;
@@ -29,6 +30,7 @@ use crate::adapters::screens::compositor_snapshot;
 use crate::cli::{self, GuiArgs, ScaleMode, missing_directory, paired};
 use crate::errors::{self, Busy, Cancelled, TimedOut, Usage};
 use crate::headless;
+use crate::image::load;
 
 const APP_ID: &str = "me.aresa.Glimpse.Shot";
 const APP_ID_VARIABLE: &str = "GLIMPSE_SHOT_APP_ID";
@@ -137,7 +139,13 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     let opened = Rc::clone(&shell);
     app.connect_open(move |_, files, _| {
         for path in files.iter().filter_map(gio::File::path) {
-            opened.open_file(&path, None, opened.config_path.as_deref(), None);
+            opened.open_file(
+                &path,
+                None,
+                opened.config_path.as_deref(),
+                &GuiArgs::default(),
+                &[],
+            );
         }
     });
     let activated = Rc::clone(&shell);
@@ -249,7 +257,14 @@ impl Shell {
             });
             self.app.add_action(&entry);
         };
-        action("open", |shell| shell.choose_image());
+        action("open", |shell| {
+            shell.choose_image(
+                GuiArgs::default(),
+                shell.config_path.clone(),
+                Vec::new(),
+                None,
+            );
+        });
         action("preferences", |shell| shell.preferences());
         action("shortcuts", |shell| shell.shortcuts());
         action("about", |shell| shell.about());
@@ -272,18 +287,22 @@ impl Shell {
         let json = arguments.iter().any(|arg| arg == "--json");
         let answer = self.answer(line, json, Rc::clone(&immediate));
         match cli::parse_forwarded(arguments) {
-            Ok(parsed) if parsed.command.is_some() => answer(Err(Usage(
+            Ok(parsed) if !crate::opens_app(parsed.command.as_ref()) => answer(Err(Usage(
                 "a subcommand never runs inside the app".to_owned(),
             )
             .into())),
             Ok(parsed) => {
+                let gui = match parsed.command {
+                    Some(cli::Command::Annotate(args)) => args.into_gui(),
+                    _ => parsed.gui,
+                };
                 let cwd = line.cwd();
                 let config = caller_config(
                     parsed.config.config,
                     line.getenv(CONFIG_VARIABLE).map(PathBuf::from),
                     cwd.as_deref(),
                 );
-                let gui = anchored(parsed.gui, cwd.as_deref());
+                let gui = anchored(gui, cwd.as_deref());
                 self.dispatch(&gui, config, line, answer);
             }
             Err(error) => {
@@ -387,11 +406,7 @@ impl Shell {
                 dir.display()
             )));
         }
-        if let Some(file) = &gui.file {
-            self.open_file(file, Some(answer), config_path.as_deref(), gui.tool);
-            return;
-        }
-        if target == Target::App {
+        if target == Target::App && gui.file.is_none() && !gui.pick {
             self.present(None);
             answer(Ok(None));
             return;
@@ -429,6 +444,17 @@ impl Shell {
         marks: Vec<Mark>,
         answer: Answer,
     ) {
+        if self.running.borrow().is_some() {
+            return answer(Err(Busy.into()));
+        }
+        if let Some(file) = &gui.file {
+            self.open_file(file, Some(answer), config_path.as_deref(), gui, &marks);
+            return;
+        }
+        if gui.pick {
+            self.choose_image(gui.clone(), config_path, marks, Some(answer));
+            return;
+        }
         match self.overlay_options(gui, target, config_path, marks) {
             Ok(options) => self.start(options, answer),
             Err(error) => answer(Err(error)),
@@ -552,9 +578,22 @@ impl Shell {
         path: &Path,
         answer: Option<Answer>,
         config_path: Option<&Path>,
-        tool: Option<Tool>,
+        gui: &GuiArgs,
+        marks: &[Mark],
     ) {
-        self.open_document(result::load(path), true, answer, config_path, tool);
+        let loaded = load(path).map(|doc| {
+            headless::shot(
+                doc.source,
+                doc.crop,
+                marks,
+                TargetV1::File {
+                    path: path.to_path_buf(),
+                },
+                chrono::Local::now(),
+            )
+            .doc
+        });
+        self.open_document(loaded, marks.is_empty(), answer, config_path, gui);
     }
 
     fn paste(self: &Rc<Self>) {
@@ -571,7 +610,13 @@ impl Shell {
                     _ => Err(anyhow!(gettext("The clipboard holds no image"))),
                 };
                 let config_path = shell.config_path.clone();
-                shell.open_document(loaded, false, None, config_path.as_deref(), None);
+                shell.open_document(
+                    loaded,
+                    false,
+                    None,
+                    config_path.as_deref(),
+                    &GuiArgs::default(),
+                );
             });
     }
 
@@ -581,7 +626,7 @@ impl Shell {
         saved: bool,
         answer: Option<Answer>,
         config_path: Option<&Path>,
-        tool: Option<Tool>,
+        gui: &GuiArgs,
     ) {
         let (document, _) = load_config(config_path);
         match loaded {
@@ -591,25 +636,38 @@ impl Shell {
                     stroke: document.screenshot.stroke,
                 };
                 let setup = Setup {
-                    json: false,
-                    output: None,
+                    json: gui.json,
+                    output: gui.output.clone(),
                     scale: ScaleMode::Buffer,
                     config: document.screenshot,
                     config_path: config_path.map(Path::to_path_buf),
+                    prompt: gui.prompt.clone(),
+                    timeout: gui.timeout,
                 };
+                let target = match &doc.source {
+                    Source::File { path, .. } => Some(TargetV1::File { path: path.clone() }),
+                    _ => None,
+                };
+                let mut answer = answer;
+                let finished = (gui.json || gui.timeout.is_some())
+                    .then(|| answer.take())
+                    .flatten()
+                    .map(|answer| {
+                        Box::new(move |ended| answer(settled(ended))) as Box<dyn FnOnce(Ended)>
+                    });
                 let window = self.result_window();
                 self.keep(result::open(
                     &self.app,
                     window,
                     setup,
                     Opened {
-                        editor: canvas::Editor::new(doc, style).starting_with(tool),
-                        target: None,
+                        editor: canvas::Editor::new(doc, style).starting_with(gui.tool),
+                        target,
                         taken: None,
                         saved,
                     },
                     self.menu.upcast_ref(),
-                    None,
+                    finished,
                 ));
                 self.close_main();
                 if let Some(answer) = answer {
@@ -719,7 +777,13 @@ impl Shell {
                 return false;
             };
             let config_path = shell.config_path.clone();
-            shell.open_file(&path, None, config_path.as_deref(), None);
+            shell.open_file(
+                &path,
+                None,
+                config_path.as_deref(),
+                &GuiArgs::default(),
+                &[],
+            );
             true
         });
         main.toasts.add_controller(drop);
@@ -850,10 +914,21 @@ impl Shell {
         }
     }
 
-    fn choose_image(self: &Rc<Self>) {
+    fn choose_image(
+        self: &Rc<Self>,
+        gui: GuiArgs,
+        config_path: Option<PathBuf>,
+        marks: Vec<Mark>,
+        answer: Option<Answer>,
+    ) {
         let filter = gtk4::FileFilter::new();
-        filter.set_name(Some(&gettext("PNG Images")));
-        filter.add_mime_type("image/png");
+        filter.set_name(Some(&gettext("Images")));
+        for mime in gtk4::gdk_pixbuf::Pixbuf::formats()
+            .iter()
+            .flat_map(|format| format.mime_types())
+        {
+            filter.add_mime_type(&mime);
+        }
         let filters = gio::ListStore::new::<gtk4::FileFilter>();
         filters.append(&filter);
         let dialog = gtk4::FileDialog::builder()
@@ -867,8 +942,37 @@ impl Shell {
             let Some(shell) = weak.upgrade() else {
                 return;
             };
-            if let Some(path) = chosen.ok().and_then(|file| file.path()) {
-                shell.open_file(&path, None, shell.config_path.as_deref(), None);
+            match chosen {
+                Ok(file) => match file.path() {
+                    Some(path) => {
+                        if let Err(error) =
+                            crate::finish::check_output(&path, gui.output.as_deref())
+                        {
+                            if let Some(answer) = answer {
+                                answer(Err(error));
+                            }
+                            return;
+                        }
+                        shell.open_file(&path, answer, config_path.as_deref(), &gui, &marks);
+                    }
+                    None => {
+                        if let Some(answer) = answer {
+                            answer(Err(anyhow!(gettext("The image must be a local file"))));
+                        }
+                    }
+                },
+                Err(error) => {
+                    if let Some(answer) = answer {
+                        let error = if error.matches(gtk4::DialogError::Dismissed)
+                            || error.matches(gtk4::DialogError::Cancelled)
+                        {
+                            Cancelled.into()
+                        } else {
+                            error.into()
+                        };
+                        answer(Err(error));
+                    }
+                }
             }
         });
     }
@@ -980,6 +1084,8 @@ fn setup_of(options: &Options) -> Setup {
         scale: options.scale,
         config: options.config.clone(),
         config_path: options.config_path.clone(),
+        prompt: None,
+        timeout: None,
     }
 }
 
@@ -1006,7 +1112,9 @@ fn anchored(mut gui: GuiArgs, cwd: Option<&Path>) -> GuiArgs {
     };
     anchor(&mut gui.output);
     anchor(&mut gui.annotate);
-    anchor(&mut gui.file);
+    if let Some(path) = gui.file.as_mut().filter(|path| path.is_relative()) {
+        *path = cwd.join(&*path);
+    }
     gui
 }
 

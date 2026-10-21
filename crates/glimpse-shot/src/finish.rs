@@ -10,6 +10,16 @@ use gtk4::glib;
 
 pub const STDOUT: &str = "-";
 
+pub fn check_output(image: &Path, output: Option<&Path>) -> Result<()> {
+    if let Some(output) = output.filter(|path| *path != Path::new(STDOUT))
+        && let (Ok(image), Ok(output)) = (image.canonicalize(), output.canonicalize())
+        && image == output
+    {
+        bail!("--output resolves to IMAGE; choose a different output file");
+    }
+    Ok(())
+}
+
 pub enum Destination {
     Stdout,
     Nowhere,

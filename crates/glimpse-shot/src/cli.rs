@@ -60,6 +60,7 @@ impl Cli {
         match &self.command {
             None => self.gui.json,
             Some(Command::Capture(args)) => args.json,
+            Some(Command::Annotate(args)) => args.json,
             Some(Command::List { json }) => *json,
             Some(Command::Prime | Command::Portal | Command::Hold) => false,
         }
@@ -70,6 +71,8 @@ impl Cli {
 pub enum Command {
     #[command(about = "Take a screenshot without any window or overlay")]
     Capture(CaptureArgs),
+    #[command(about = "Annotate an existing image")]
+    Annotate(AnnotateArgs),
     #[command(about = "Print the complete agent guide")]
     Prime,
     #[command(about = "List outputs and windows with their geometry")]
@@ -268,11 +271,76 @@ pub struct GuiArgs {
         help = "Open this image on the Result page."
     )]
     pub file: Option<PathBuf>,
+
+    #[arg(skip)]
+    pub pick: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(after_help = AGENT_POINTER, after_long_help = AGENT_POINTER)]
+pub struct AnnotateArgs {
+    #[arg(value_name = "IMAGE", help = "Image to edit (PNG, JPEG, WebP, …).")]
+    pub image: Option<PathBuf>,
+    #[arg(
+        long,
+        conflicts_with = "headless",
+        help = "Choose an image when IMAGE is omitted."
+    )]
+    pub pick: bool,
+    #[arg(long, value_name = "MARKS", long_help = ANNOTATE_POINTER)]
+    pub annotate: Option<PathBuf>,
+    #[arg(long, requires = "annotate", conflicts_with_all = ["tool", "prompt", "timeout"], help = "Export without opening an editor; needs --annotate.")]
+    pub headless: bool,
+    #[arg(
+        short = 'o',
+        long,
+        value_name = "FILE",
+        help = "Where the PNG is saved; - is stdout with --headless."
+    )]
+    pub output: Option<PathBuf>,
+    #[arg(long, requires = "headless", help = "Put the PNG on the clipboard.")]
+    pub copy: bool,
+    #[arg(long, requires_all = ["copy", "headless"], conflicts_with = "output", help = "Write no file; needs --copy.")]
+    pub no_save: bool,
+    #[arg(long, long_help = JSON_POINTER)]
+    pub json: bool,
+    #[arg(long, value_enum, value_name = "T")]
+    pub tool: Option<Tool>,
+    #[arg(
+        long,
+        value_name = "TEXT",
+        help = "A banner saying what is being asked for, plain text."
+    )]
+    pub prompt: Option<String>,
+    #[arg(
+        long,
+        value_name = "S",
+        help = "Close the editor unanswered after this long, exit 7."
+    )]
+    pub timeout: Option<u32>,
+}
+
+impl AnnotateArgs {
+    pub fn into_gui(self) -> GuiArgs {
+        GuiArgs {
+            file: self.image,
+            pick: self.pick,
+            annotate: self.annotate,
+            output: self.output,
+            json: self.json,
+            tool: self.tool,
+            prompt: self.prompt,
+            timeout: self.timeout,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Args)]
 #[command(after_help = AGENT_POINTER, after_long_help = AGENT_POINTER)]
 pub struct CaptureArgs {
+    #[arg(skip)]
+    pub image: Option<PathBuf>,
     #[command(flatten)]
     pub target: TargetArgs,
 
@@ -372,11 +440,12 @@ pub struct Terminal {
 pub fn validate_gui(args: &GuiArgs, terminal: Terminal) -> Result<(), String> {
     let mut problems = Vec::new();
     let target = args.target.resolve(false);
-    let targeted = args.target.is_set();
+    let imaged = args.file.is_some() || args.pick;
+    let targeted = args.target.is_set() || imaged;
     if let Err(error) = &target {
         problems.push(error.clone());
     }
-    if args.annotate.is_some() && !concrete(target.as_ref().ok()) {
+    if args.annotate.is_some() && !imaged && !concrete(target.as_ref().ok()) {
         problems.push("--annotate needs a screen, a window id or a region geometry: the marks need a known image".to_owned());
     }
     if !targeted && args.json {
@@ -422,6 +491,46 @@ pub fn validate_capture(args: &CaptureArgs, terminal: Terminal) -> Result<(), St
         args.json,
         terminal,
     ));
+    joined(problems)
+}
+
+pub fn validate_annotate(args: &AnnotateArgs, terminal: Terminal) -> Result<(), String> {
+    let mut problems = stdio(
+        args.output.as_deref(),
+        args.annotate.as_deref(),
+        args.json,
+        terminal,
+    );
+    if args.image.is_none() && !args.pick {
+        problems.push("give an IMAGE or --pick".to_owned());
+    }
+    if args.pick && args.headless {
+        problems.push("--pick needs the editor; omit --headless".to_owned());
+    }
+    if args.headless {
+        if args.annotate.is_none() {
+            problems.push("--headless needs --annotate".to_owned());
+        }
+        if args.tool.is_some() || args.prompt.is_some() || args.timeout.is_some() {
+            problems.push("tool, prompt and timeout need the editor; omit --headless".to_owned());
+        }
+    } else {
+        if args.copy || args.no_save {
+            problems
+                .push("--copy and --no-save need headless annotation; add --headless".to_owned());
+        }
+        if args.output.as_deref() == Some(Path::new("-")) {
+            problems.push("the editor cannot write to -o -; add --headless".to_owned());
+        }
+    }
+    if args.no_save && (!args.copy || args.output.is_some()) {
+        problems.push("--no-save needs --copy and conflicts with --output".to_owned());
+    }
+    if let Some(image) = &args.image
+        && let Err(error) = crate::finish::check_output(image, args.output.as_deref())
+    {
+        problems.push(error.to_string());
+    }
     joined(problems)
 }
 
@@ -517,6 +626,36 @@ fn editor_option_after(
     args: &[OsString],
     error: clap::Error,
 ) -> clap::Error {
+    if args.iter().any(|arg| arg == "annotate") {
+        let has = |flag: &str| args.iter().any(|arg| arg == flag);
+        let hint = if !has("--headless") && (has("--copy") || has("--no-save")) {
+            Some("add --headless")
+        } else if has("--headless")
+            && ["--tool", "--prompt", "--timeout"].iter().any(|flag| {
+                args.iter().any(|arg| {
+                    arg == flag || arg.to_string_lossy().starts_with(&format!("{flag}="))
+                })
+            })
+        {
+            Some("omit --headless")
+        } else {
+            None
+        };
+        if let Some(hint) = hint {
+            let text = error.to_string();
+            let reason = text
+                .split("\n\n")
+                .next()
+                .unwrap_or_default()
+                .trim_start_matches("error: ");
+            let message = format!("{reason}\n{hint}");
+            return match command.find_subcommand_mut("annotate") {
+                Some(annotate) => annotate.error(error.kind(), message),
+                None => command.error(error.kind(), message),
+            };
+        }
+        return error;
+    }
     if error.kind() != clap::error::ErrorKind::UnknownArgument {
         return error;
     }

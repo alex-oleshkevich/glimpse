@@ -5,6 +5,7 @@ mod finish;
 mod gui;
 mod headless;
 mod hold;
+mod image;
 mod notify;
 mod portal;
 mod render;
@@ -57,14 +58,30 @@ fn run(cli: Cli) -> Result<()> {
         stdin: std::io::stdin().is_terminal(),
         stdout: std::io::stdout().is_terminal(),
     };
-    let command = match cli.command {
-        Some(command) if !opens_app(Some(&command)) => command,
-        _ => return open_editor(&cli.gui, cli.config.as_deref(), terminal),
-    };
-    match command {
-        Command::Capture(args) => capture(&args, cli.config.as_deref(), terminal),
-        Command::Prime => cli::prime::print(&mut std::io::stdout().lock()),
-        Command::List { json } => {
+    match cli.command {
+        None => open_editor(&cli.gui, cli.config.as_deref(), terminal),
+        Some(Command::Capture(args)) => capture(&args, cli.config.as_deref(), terminal),
+        Some(Command::Annotate(args)) => {
+            cli::validate_annotate(&args, terminal).map_err(Usage)?;
+            if !args.headless {
+                return gui::app::run(&args.into_gui(), cli.config.as_deref());
+            }
+            capture(
+                &CaptureArgs {
+                    image: args.image,
+                    output: args.output,
+                    copy: args.copy,
+                    no_save: args.no_save,
+                    annotate: args.annotate,
+                    json: args.json,
+                    ..Default::default()
+                },
+                cli.config.as_deref(),
+                terminal,
+            )
+        }
+        Some(Command::Prime) => cli::prime::print(&mut std::io::stdout().lock()),
+        Some(Command::List { json }) => {
             let snapshot = compositor_snapshot()?.ok_or_else(|| {
                 anyhow!("list needs a compositor; neither NIRI_SOCKET nor HYPRLAND_INSTANCE_SIGNATURE is set")
             })?;
@@ -75,14 +92,15 @@ fn run(cli: Cli) -> Result<()> {
                 &mut std::io::stdout().lock(),
             )
         }
-        Command::Hold => hold::run(cli.config.as_deref()),
-        Command::Portal => portal::run(cli.config.as_deref()),
+        Some(Command::Hold) => hold::run(cli.config.as_deref()),
+        Some(Command::Portal) => portal::run(cli.config.as_deref()),
     }
 }
 
 fn opens_app(command: Option<&Command>) -> bool {
     match command {
         None => true,
+        Some(Command::Annotate(args)) => !args.headless,
         Some(
             Command::Capture(_)
             | Command::Prime
@@ -97,7 +115,11 @@ fn capture(args: &CaptureArgs, config_path: Option<&Path>, terminal: Terminal) -
     cli::validate_capture(args, terminal).map_err(Usage)?;
     let target = args.target.resolve(true).map_err(Usage)?;
     let config = glimpse_config::load(config_path)?;
-    let snapshot = match compositor_snapshot() {
+    let snapshot = match args
+        .image
+        .as_ref()
+        .map_or_else(compositor_snapshot, |_| Ok(None))
+    {
         Ok(snapshot) => snapshot,
         Err(error) if matches!(target, Target::Screen(_)) => {
             tracing::warn!("continuing without the compositor: {error:#}");

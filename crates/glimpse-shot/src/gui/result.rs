@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use adw::prelude::*;
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use chrono::{DateTime, Local};
 use gettextrs::gettext;
 use glimpse_config::ScreenshotConfig;
@@ -19,7 +19,7 @@ use glimpse_shot::doc::wire::TargetV1;
 use glimpse_shot::ports::Clipboard as _;
 use glimpse_shot::session::{self, Effect, Event, Face, FinishKey, Outcome, Phase};
 use glimpse_wayland::selection::Entry;
-use glimpse_widgets::ShotResultPage;
+use glimpse_widgets::{ShotBanner, ShotResultPage};
 use gtk4::{gdk, gio, glib};
 
 use super::canvas::{
@@ -29,14 +29,15 @@ use super::canvas::{
 use super::overlay::{Ended, result_line};
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::files::Disk;
-use crate::adapters::windows::{decode, frame_of};
+use crate::adapters::windows::frame_of;
 use crate::cli::ScaleMode;
 use crate::finish::{self, Destination};
 use crate::headless;
+use crate::image::LARGEST_SIDE;
+#[cfg(test)]
+use crate::image::load;
 use crate::render::{self, Png};
 
-const LARGEST_SIDE: u32 = 16384;
-const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
 const DRAG_FALLBACK: &str = "Screenshot";
 
 static FACES: AtomicU64 = AtomicU64::new(0);
@@ -47,6 +48,8 @@ pub struct Setup {
     pub scale: ScaleMode,
     pub config: ScreenshotConfig,
     pub config_path: Option<PathBuf>,
+    pub prompt: Option<String>,
+    pub timeout: Option<u32>,
 }
 
 pub struct Opened {
@@ -145,33 +148,15 @@ pub fn open(
     face.fill_rows();
     face.wire();
     face.sync();
-    face
-}
-
-pub fn load(path: &Path) -> anyhow::Result<Document> {
-    let mut header = [0u8; 24];
-    std::fs::File::open(path)
-        .and_then(|mut file| file.read_exact(&mut header))
-        .with_context(|| format!("cannot read {}", path.display()))?;
-    let Some((width, height)) = png_size(&header) else {
-        bail!("{} is not a PNG image", path.display());
-    };
-    if width > LARGEST_SIDE || height > LARGEST_SIDE {
-        bail!(
-            "{} is {width} × {height}; the largest side opened is {LARGEST_SIDE} pixels",
-            path.display()
-        );
+    if let Some(seconds) = face.setup.timeout {
+        let weak = Rc::downgrade(&face);
+        glib::timeout_add_seconds_local_once(seconds, move || {
+            if let Some(face) = weak.upgrade() {
+                face.send(Event::Timeout);
+            }
+        });
     }
-    let frame = decode(path).map_err(anyhow::Error::new)?;
-    Ok(Document {
-        source: Source::File {
-            path: path.to_path_buf(),
-            frame,
-        },
-        crop: None,
-        marks: Vec::new(),
-        selected: None,
-    })
+    face
 }
 
 pub fn pasted(texture: &gdk::Texture) -> anyhow::Result<Document> {
@@ -193,15 +178,6 @@ pub fn pasted(texture: &gdk::Texture) -> anyhow::Result<Document> {
     })
 }
 
-fn png_size(header: &[u8]) -> Option<(u32, u32)> {
-    if header.get(..8)? != PNG_SIGNATURE || header.get(12..16)? != b"IHDR" {
-        return None;
-    }
-    let width = u32::from_be_bytes(header.get(16..20)?.try_into().ok()?);
-    let height = u32::from_be_bytes(header.get(20..24)?.try_into().ok()?);
-    Some((width, height))
-}
-
 fn marked(doc: &Document) -> Marked {
     (doc.marks.clone(), doc.crop)
 }
@@ -220,7 +196,14 @@ impl ResultFace {
     }
 
     fn place(&self) {
-        self.window.set_content(Some(&self.page));
+        let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        if let Some(prompt) = &self.setup.prompt {
+            let banner = ShotBanner::new();
+            banner.set_prompt(prompt);
+            content.append(&banner);
+        }
+        content.append(&self.page);
+        self.window.set_content(Some(&content));
         self.window.present();
         self.picture.grab_focus();
     }
@@ -250,6 +233,15 @@ impl ResultFace {
     }
 
     fn default_name(&self) -> String {
+        let stem = self.sheet.read(|editor| match &editor.doc.source {
+            Source::File { path, .. } => path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned()),
+            _ => None,
+        });
+        if let Some(stem) = stem.flatten() {
+            return stem;
+        }
         let name = file_name(&self.setup.config.filename, self.taken);
         name.strip_suffix(".png").unwrap_or(&name).to_owned()
     }

@@ -163,15 +163,27 @@ impl ShotResultPage {
             .pointer
             .get()
             .unwrap_or((hadjustment.page_size() / 2.0, vadjustment.page_size() / 2.0));
-        imp.anchor.set((
-            Some((hadjustment.value() + x) * ratio - x),
-            Some((vadjustment.value() + y) * ratio - y),
-        ));
+        let anchor = (
+            (hadjustment.value() + x) * ratio - x,
+            (vadjustment.value() + y) * ratio - y,
+        );
         imp.level.set(Some(level));
         if imp.zoom.active() != gtk4::INVALID_LIST_POSITION {
             imp.zoom.set_active(gtk4::INVALID_LIST_POSITION);
         }
         self.apply_zoom();
+        let (width, height) = picture.size_request();
+        let margins = (
+            picture.margin_start() + picture.margin_end(),
+            picture.margin_top() + picture.margin_bottom(),
+        );
+        for (adjustment, extent, margin, value) in [
+            (&hadjustment, width, margins.0, anchor.0),
+            (&vadjustment, height, margins.1, anchor.1),
+        ] {
+            adjustment.set_upper(adjustment.page_size().max(f64::from(extent + margin)));
+            adjustment.set_value(value);
+        }
     }
 
     fn apply_zoom(&self) {
