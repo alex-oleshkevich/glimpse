@@ -61,7 +61,7 @@ impl Applet for Tray {
                         match tray.menu(key.clone()).await {
                             Ok(node) => open_menu(&strip, key, &node, tray),
                             Err(error) => {
-                                tracing::debug!(%key, %error, "the item has no menu to show");
+                                tracing::warn!(%key, %error, "the item has no menu to show");
                             }
                         }
                     });

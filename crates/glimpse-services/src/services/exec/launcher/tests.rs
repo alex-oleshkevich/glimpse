@@ -399,3 +399,88 @@ async fn sweep_matches_escaped_panel_ids_and_preserves_other_panels() {
     assert!(swept.is_ok(), "escaped panel prefix must match its unit");
     assert!(preserved, "another panel's unit must remain running");
 }
+
+struct FakeManager;
+
+#[zbus::interface(name = "org.freedesktop.systemd1.Manager")]
+impl FakeManager {
+    fn subscribe(&self) {}
+
+    fn get_unit(&self, _name: &str) -> zbus::zvariant::OwnedObjectPath {
+        zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/applet").unwrap()
+    }
+
+    #[zbus(signal)]
+    async fn unit_removed(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: String,
+        unit: zbus::zvariant::OwnedObjectPath,
+    ) -> zbus::Result<()>;
+}
+
+struct FakeUnit;
+
+#[zbus::interface(name = "org.freedesktop.systemd1.Unit")]
+impl FakeUnit {
+    #[zbus(property)]
+    fn sub_state(&self) -> String {
+        "running".to_owned()
+    }
+
+    #[zbus(property)]
+    fn active_state(&self) -> String {
+        "active".to_owned()
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_unpolled_watch_never_stalls_the_connection() {
+    use futures_util::StreamExt;
+    use glimpse_dbus::testing::PrivateBus;
+    use std::time::Duration;
+
+    let bus = PrivateBus::start();
+    let systemd = bus.connection().await;
+    systemd
+        .object_server()
+        .at("/org/freedesktop/systemd1", FakeManager)
+        .await
+        .unwrap();
+    systemd
+        .object_server()
+        .at("/org/freedesktop/systemd1/unit/applet", FakeUnit)
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&systemd, "org.freedesktop.systemd1")
+        .await
+        .unwrap();
+
+    let panel = bus.connection().await;
+    let launcher = SystemdLauncher::new(Some(panel.clone()));
+    let mut watch = launcher.watch("applet.service");
+    let _ = tokio::time::timeout(Duration::from_millis(500), watch.next()).await;
+
+    let emitter =
+        zbus::object_server::SignalEmitter::new(&systemd, "/org/freedesktop/systemd1").unwrap();
+    for n in 0..200 {
+        FakeManager::unit_removed(
+            &emitter,
+            format!("other-{n}.service"),
+            zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/other")
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    }
+
+    let answered = tokio::time::timeout(
+        Duration::from_secs(3),
+        zbus::fdo::DBusProxy::new(&panel)
+            .await
+            .unwrap()
+            .list_names(),
+    )
+    .await;
+    assert!(answered.is_ok(), "the connection stopped being read");
+    drop(watch);
+}
