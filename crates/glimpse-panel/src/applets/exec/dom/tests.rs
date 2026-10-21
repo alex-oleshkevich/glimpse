@@ -1279,3 +1279,133 @@ fn swatch_takes_its_color_and_the_large_size() {
     assert_eq!(swatch.color(), None);
     assert!(!swatch.has_css_class("swatch--hero"));
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn entry_row_dresses_its_end_and_keeps_typed_text_without_echo() {
+    init();
+    let first = tree(vec![node(
+        2,
+        "entryrow",
+        json!({"title":"New alarm","placeholder":"10m tea","value":"A","tone":"warning","onChange":true,"onSubmit":true}),
+        vec![node(
+            3,
+            "button",
+            json!({"text":"Add","onClick":true}),
+            vec![],
+        )],
+    )]);
+    let (_shell, mut dom, events) = setup(&first);
+    let row = widget(&dom, 1, 2, ElementKind::EntryRow)
+        .downcast::<EntryRow>()
+        .expect("entry row");
+    assert_eq!(
+        row.property::<Option<String>>("title").as_deref(),
+        Some("New alarm")
+    );
+    assert_eq!(
+        row.property::<Option<String>>("placeholder").as_deref(),
+        Some("10m tea")
+    );
+    assert_eq!(row.property::<RowTone>("tone"), RowTone::Warning);
+    assert_eq!(row.property::<String>("text"), "A");
+    let button = widget(&dom, 1, 3, ElementKind::Button);
+    assert!(button.is_ancestor(&row));
+    let end = first_with_class(row.upcast_ref(), "entry-row__end").expect("end");
+    assert!(end.is_visible());
+
+    let next = first
+        .apply(vec![set(2, json!({"value":"B"}))])
+        .expect("set");
+    assert!(dom.reconcile(&next, 1));
+    assert_eq!(row.property::<String>("text"), "B");
+    assert!(events.borrow().is_empty());
+
+    let entry = first_with_class(row.upcast_ref(), "entry-row__entry")
+        .and_downcast::<gtk4::Entry>()
+        .expect("entry");
+    let mut position = 1;
+    entry.insert_text("c", &mut position);
+    entry.set_position(1);
+    entry.emit_by_name::<()>("activate", &[]);
+    {
+        let events = events.borrow();
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| (event.name.as_str(), event.seq))
+                .collect::<Vec<_>>(),
+            [("onChange", Some(1)), ("onSubmit", None)]
+        );
+        assert_eq!(events[0].args, vec![json!("Bc")]);
+        assert_eq!(events[1].args, vec![json!("Bc")]);
+    }
+
+    let stale = next
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"value":"B"})).expect("props"),
+            seq: Some(0),
+        }])
+        .expect("stale");
+    assert!(dom.reconcile(&stale, 1));
+    assert_eq!(entry.text(), "Bc");
+    assert_eq!(entry.position(), 1);
+    let caught_up = stale
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"value":"Bcd"})).expect("props"),
+            seq: Some(1),
+        }])
+        .expect("caught up");
+    assert!(dom.reconcile(&caught_up, 1));
+    assert_eq!(entry.text(), "Bcd");
+    assert_eq!(entry.position(), 1);
+    assert_eq!(events.borrow().len(), 2);
+
+    let bare = caught_up
+        .apply(vec![Op::Remove { parent: 2, id: 3 }])
+        .expect("remove");
+    assert!(dom.reconcile(&bare, 1));
+    assert!(!end.is_visible());
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn bare_controls_in_stacking_parents_carry_the_spacing_class() {
+    init();
+    let first = tree(vec![
+        node(2, "entry", json!({}), vec![]),
+        node(
+            3,
+            "section",
+            json!({"title":"New alarm"}),
+            vec![
+                node(4, "entryrow", json!({}), vec![]),
+                node(
+                    5,
+                    "box",
+                    json!({"orientation":"horizontal"}),
+                    vec![node(6, "button", json!({"text":"5 min"}), vec![])],
+                ),
+                node(7, "factlist", json!({}), vec![]),
+            ],
+        ),
+        node(
+            8,
+            "revealer",
+            json!({"revealed":true}),
+            vec![node(9, "box", json!({}), vec![])],
+        ),
+    ]);
+    let (_shell, dom, _) = setup(&first);
+    let bare = |id, kind| widget(&dom, 1, id, kind).has_css_class("exec-bare");
+    assert!(bare(2, ElementKind::Entry));
+    assert!(bare(5, ElementKind::Box));
+    assert!(bare(9, ElementKind::Box));
+    assert!(!bare(4, ElementKind::EntryRow));
+    assert!(!bare(6, ElementKind::Button));
+    assert!(!bare(7, ElementKind::FactList));
+    assert!(!bare(3, ElementKind::Section));
+    assert!(!bare(8, ElementKind::Revealer));
+}

@@ -266,6 +266,18 @@ export const Entry = "entry" as unknown as FC<{
 	onSubmit?: (value: string) => void;
 }>;
 
+export const EntryRow = "entryrow" as unknown as FC<{
+	title?: string;
+	placeholder?: string;
+	value?: string;
+	tone?: "warning" | "error";
+	inactive?: boolean;
+	tooltip?: string;
+	onChange?: (value: string) => void;
+	onSubmit?: (value: string) => void;
+	children?: Node;
+}>;
+
 export const Placeholder = "placeholder" as unknown as FC<{
 	icon?: string;
 	title?: string;

@@ -43,6 +43,7 @@ __all__ = [
     "El",
     "End",
     "Entry",
+    "EntryRow",
     "ExpanderRow",
     "FactList",
     "Image",

@@ -289,6 +289,19 @@ impl glimpse_sdk::App for App {
                                 .on_submit(|value| Msg::Last(format!("submit {value}"))),
                         )
                         .child(
+                            entry_row()
+                                .title("Note")
+                                .placeholder("Type, then Enter or Add")
+                                .value(self.draft.clone())
+                                .on_change(Msg::Draft)
+                                .on_submit(|value| Msg::Last(format!("add {value}")))
+                                .child(
+                                    button()
+                                        .text("Add")
+                                        .on_click(|| Msg::Last("add".to_owned())),
+                                ),
+                        )
+                        .child(
                             drop_down()
                                 .options(["Small", "Medium", "Large"])
                                 .selected(Some(self.drop as i64))

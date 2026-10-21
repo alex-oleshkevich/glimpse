@@ -12,10 +12,10 @@ use glimpse_services::{
     SwatchSize, ToggleControl as ExecControl, Tone, Transition, Tree,
 };
 use glimpse_widgets::{
-    ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, ExpanderRow,
-    MeterRow, Notice, Placeholder, PopoverShell, PopoverSize, RangeBar, Readout, Row as UiRow,
-    RowTone, RowTypography, Section, SliderRow, Sparkline, Swatch, ToggleControl, ToggleRow, Ymd,
-    reconcile::by_key,
+    ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, EntryRow,
+    ExpanderRow, MeterRow, Notice, Placeholder, PopoverShell, PopoverSize, RangeBar, Readout,
+    Row as UiRow, RowTone, RowTypography, Section, SliderRow, Sparkline, Swatch, ToggleControl,
+    ToggleRow, Ymd, reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -211,10 +211,12 @@ impl Dom {
             &mut live,
         );
         self.body.set_visible(self.body.first_child().is_some());
-        self.opener.typing(
-            live.iter()
-                .any(|key| matches!(key.2, ElementKind::Entry | ElementKind::Scale)),
-        );
+        self.opener.typing(live.iter().any(|key| {
+            matches!(
+                key.2,
+                ElementKind::Entry | ElementKind::EntryRow | ElementKind::Scale
+            )
+        }));
         self.nodes.retain(|key, _| live.contains(key));
         self.held
             .retain(|key, _| key.0 == generation && (live.contains(key) || *key == root_key));
@@ -278,6 +280,19 @@ impl Dom {
             .iter()
             .filter_map(|id| self.mount(tree, generation, *id, live))
             .collect();
+        let stacks = matches!(
+            parent.2,
+            ElementKind::Section
+                | ElementKind::Popover
+                | ElementKind::Revealer
+                | ElementKind::Container
+        );
+        for (key, widget) in &wanted {
+            match stacks && is_bare(key.2) {
+                true => widget.add_css_class("exec-bare"),
+                false => widget.remove_css_class("exec-bare"),
+            }
+        }
         let held = self.held.entry(parent).or_default();
         held.retain(|(key, widget)| {
             !wanted
@@ -362,6 +377,11 @@ impl Dom {
                 row.set_start(&start);
                 if let Some(parent) = start.parent() {
                     parent.set_visible(start.first_child().is_some());
+                }
+            } else if let Some(row) = widget.downcast_ref::<EntryRow>() {
+                match inner.first_child() {
+                    Some(_) => row.set_end(&inner),
+                    None => row.clear_end(),
                 }
             } else if matches!(
                 &node.element,
@@ -569,6 +589,35 @@ impl Dom {
                     )
                 }));
                 entry.upcast()
+            }
+            Element::EntryRow(_) => {
+                let row = EntryRow::new();
+                inner = Some(gtk4::Box::new(gtk4::Orientation::Horizontal, 0));
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(row.connect_changed(move |row| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onChange",
+                        vec![Value::String(row.text())],
+                        Some(bump(&seq, key)),
+                    )
+                }));
+                let dispatch = self.dispatch.clone();
+                handlers.push(row.connect_activated(move |row| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onSubmit",
+                        vec![Value::String(row.text())],
+                        None,
+                    )
+                }));
+                row.upcast()
             }
             Element::FactList(_) => gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
             Element::ChoiceList(_) => {
@@ -870,6 +919,17 @@ impl Dom {
                         entry.set_text(&p.value);
                         entry.set_position(position.min(p.value.chars().count() as i32));
                     }
+                }
+            }
+            Element::EntryRow(p) => {
+                widget.set_property("title", p.title.as_deref());
+                widget.set_property("placeholder", p.placeholder.as_deref());
+                widget.set_property("tone", row_tone(p.tone));
+                widget.set_property("inactive", p.inactive);
+                widget.set_property("tooltip", p.tooltip.as_deref());
+                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
+                {
+                    widget.set_property("text", &p.value);
                 }
             }
             Element::FactList(p) => {
@@ -1259,6 +1319,24 @@ fn control(control: ExecControl) -> ToggleControl {
     }
 }
 
+fn is_bare(kind: ElementKind) -> bool {
+    !matches!(
+        kind,
+        ElementKind::Section
+            | ElementKind::Row
+            | ElementKind::ActionRow
+            | ElementKind::ToggleRow
+            | ElementKind::MeterRow
+            | ElementKind::SliderRow
+            | ElementKind::EntryRow
+            | ElementKind::ExpanderRow
+            | ElementKind::Separator
+            | ElementKind::Revealer
+            | ElementKind::FactList
+            | ElementKind::Unsupported
+    )
+}
+
 fn element_class(element: &Element) -> Option<ClassName> {
     match element {
         Element::Popover(p) => p.class_name,
@@ -1297,6 +1375,7 @@ fn element_class(element: &Element) -> Option<ClassName> {
         | Element::End(_)
         | Element::Start(_)
         | Element::SliderRow(_)
+        | Element::EntryRow(_)
         | Element::Unsupported(_)
         | Element::Addon(_)
         | Element::Swatch(_)

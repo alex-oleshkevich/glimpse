@@ -36,7 +36,7 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
 ## API
 
 - Components: `Indicator`, `Popover`, `Addon`, `Container`, `Section`, `Row`, `ActionRow`,
-  `ToggleRow`, `MeterRow`, `ExpanderRow`, `SliderRow`, `Start`, `End`, `Entry`, `Placeholder`,
+  `ToggleRow`, `MeterRow`, `ExpanderRow`, `SliderRow`, `Start`, `End`, `Entry`, `EntryRow`, `Placeholder`,
   `Box`, `Label`, `Image`, `Button`, `Switch`, `Scale`, `Spinner`, `Separator`, `FactList`,
   `ChoiceList`, `Readout`, `Notice`, `Calendar`, `Dots`, `DropDown`, `ToggleButton`,
   `CheckButton`, `Revealer`, `Stack`, `RangeBar`, `Bars`, `Sparkline` and `Swatch`.

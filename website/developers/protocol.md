@@ -120,8 +120,8 @@ tree still records that set.
 | `onToggle` | switch, togglerow, expanderrow | `[active]` or `[open]`: boolean. `seq` is a number |
 | `onMove` | sliderrow | `[value]`: number during a drag. `seq` is `null` |
 | `onChange` | scale, sliderrow | `[value]`: number. `seq` is a number |
-| `onChange` | entry | `[value]`: string. `seq` is a number |
-| `onSubmit` | entry | `[value]`: string |
+| `onChange` | entry, entryrow | `[value]`: string. `seq` is a number |
+| `onSubmit` | entry, entryrow | `[value]`: string |
 | `onClick` | button | `[]` |
 | `onSelect` | choicelist, dropdown | `[index]`: number. `seq` is a number |
 | `onSelect` | calendar | `[date]`: `YYYY-MM-DD` string |
@@ -132,7 +132,7 @@ tree still records that set.
 A handler prop on an element is a boolean. `"onPress": true` subscribes. A missing or
 `false` handler does not.
 
-The controlled props are `entry.value`, `scale.value`, `switch.active`, `togglebutton.active`,
+The controlled props are `entry.value`, `entryrow.value`, `scale.value`, `switch.active`, `togglebutton.active`,
 `checkbutton.active`, `dropdown.selected`, `choicelist.selected`, `togglerow.active`,
 `expanderrow.open` and `sliderrow.value`.
 `sliderrow.onMove` reports motion without controlling `value`; `onChange` confirms the
@@ -271,7 +271,7 @@ rejected if one is presented to the decoder.
 | Text | 256 characters | The commit, via cleaning |
 | Element name | 64 characters | The commit, via cleaning |
 | `badge` | 8 characters | The commit, via cleaning |
-| `entry.value` | 4,096 characters | The commit, without trimming |
+| `entry.value`, `entryrow.value` | 4,096 characters | The commit, without trimming |
 | `dot` | 256 characters | The commit, without cleaning |
 
 ## Rejection

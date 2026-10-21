@@ -127,6 +127,7 @@ fn widgets() {
     row_checks::checks();
     expander_row_checks::check();
     slider_row_checks::check();
+    entry_row_checks::check();
     exit_presence_checks::check(&_styles);
     power_popover_checks::check();
     held_display_readout_check();
@@ -417,6 +418,7 @@ mod chart_checks;
 mod choice_list_checks;
 mod clipboard_checks;
 mod display_checks;
+mod entry_row_checks;
 mod event_list_checks;
 mod exit_presence_checks;
 mod expandable_checks;

@@ -29,6 +29,7 @@ import {
 	Dots,
 	DropDown,
 	Entry,
+	EntryRow,
 	End,
 	Start,
 	ExpanderRow,
@@ -1069,6 +1070,62 @@ test("applet sdk", async (t) => {
 			lines.length === 1 && lines[0] === '{"t":"hello","v":1}',
 			lines.join("\n"),
 		);
+	});
+
+	await t.test("an entry row is controlled, capped and ends with a button", async () => {
+		function EntryRowApp() {
+			const [value, setValue] = useState("x");
+			return createElement(
+				Popover,
+				null,
+				createElement(
+					EntryRow,
+					{
+						title: "New alarm",
+						placeholder: "10m tea",
+						value,
+						tone: "warning",
+						onChange: (next: string) => setValue(next),
+						onSubmit: () => setValue("e".repeat(5000)),
+					},
+					createElement(Button, { text: "Add", onClick: () => {} }),
+				),
+			);
+		}
+		const lines = await drive(createElement(EntryRowApp), [
+			hostLine(),
+			{ t: "event", id: 2, name: "onChange", args: ["ab"], seq: 5 },
+			{ t: "event", id: 2, name: "onChange", args: ["a"], seq: 2 },
+			{ t: "event", id: 2, name: "onSubmit", args: ["ab"] },
+		]);
+		const row = JSON.parse(lines[1]).ops[0].node.children[0];
+		assert(row.type === "entryrow", JSON.stringify(row));
+		assert(
+			JSON.stringify(canonical(row.props)) ===
+				JSON.stringify(
+					canonical({
+						title: "New alarm",
+						placeholder: "10m tea",
+						value: "x",
+						tone: "warning",
+						onChange: true,
+						onSubmit: true,
+					}),
+				),
+			JSON.stringify(row.props),
+		);
+		assert(row.children[0].type === "button", JSON.stringify(row));
+		const sets = lines.filter((line) => line.includes('"op":"set"'));
+		assert(
+			sets[0].includes('"value":"ab"') && sets[0].includes('"seq":5'),
+			sets.join("\n"),
+		);
+		assert(
+			!lines.some((line) => line.includes('"value":"a"')),
+			lines.join("\n"),
+		);
+		const capped = JSON.parse(sets[sets.length - 1]).ops[0].props.value;
+		assert(capped.length === 4096, String(capped.length));
 	});
 
 	await t.test("an older seq does not overwrite the entry", async () => {

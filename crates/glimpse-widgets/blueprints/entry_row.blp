@@ -1,0 +1,43 @@
+using Gtk 4.0;
+
+template $EntryRow: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+  styles ["entry-row"]
+
+  Gtk.Box content {
+    vexpand: true;
+    accessible-role: presentation;
+
+    Gtk.Box text {
+      orientation: vertical;
+      valign: center;
+      hexpand: true;
+      accessible-role: presentation;
+
+      Gtk.Label title {
+        visible: false;
+        xalign: 0;
+        ellipsize: end;
+        single-line-mode: true;
+        max-width-chars: 24;
+        accessible-role: presentation;
+        styles ["entry-row__title"]
+      }
+
+      Gtk.Entry entry {
+        hexpand: true;
+        max-length: 4096;
+        styles ["entry-row__entry"]
+      }
+    }
+
+    Gtk.Box end {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+      styles ["entry-row__end"]
+    }
+  }
+}

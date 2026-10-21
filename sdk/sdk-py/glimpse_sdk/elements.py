@@ -57,6 +57,7 @@ __all__ = [
     "Ellipsize",
     "End",
     "Entry",
+    "EntryRow",
     "ExpanderRow",
     "Fact",
     "FactList",
@@ -466,6 +467,34 @@ def Entry(
         placeholder=placeholder,
         value=value,
         class_name=class_name,
+        on_change=on_change,
+        on_submit=on_submit,
+    )
+
+
+def EntryRow(
+    *body: Child,
+    key: Key = None,
+    title: str | None = None,
+    placeholder: str | None = None,
+    value: str | None = None,
+    tone: RowTone | None = None,
+    inactive: bool | None = None,
+    tooltip: str | None = None,
+    on_change: collections.abc.Callable[[str], object] | None = None,
+    on_submit: collections.abc.Callable[[str], object] | None = None,
+    children: Child = (),
+) -> W:
+    return W(
+        "entryrow",
+        (*body, children),
+        key,
+        title=title,
+        placeholder=placeholder,
+        value=value,
+        tone=tone,
+        inactive=inactive,
+        tooltip=tooltip,
         on_change=on_change,
         on_submit=on_submit,
     )

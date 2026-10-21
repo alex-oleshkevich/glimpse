@@ -185,6 +185,7 @@ fn main() {
             "blueprints/expander_row.blp",
             "resources/widgets/expander_row.ui",
         ),
+        ("blueprints/entry_row.blp", "resources/widgets/entry_row.ui"),
         (
             "blueprints/slider_row.blp",
             "resources/widgets/slider_row.ui",

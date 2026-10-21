@@ -4,6 +4,7 @@ import typing
 TEXT_KINDS = {"label", "indicator", "button"}
 CONTROLLED = {
     "entry": ("onChange", "value"),
+    "entryrow": ("onChange", "value"),
     "scale": ("onChange", "value"),
     "switch": ("onToggle", "active"),
     "togglerow": ("onToggle", "active"),

@@ -252,6 +252,7 @@ fn ensure_types() {
         glimpse_widgets::MeterRow::static_type(),
         glimpse_widgets::ExpanderRow::static_type(),
         glimpse_widgets::SliderRow::static_type(),
+        glimpse_widgets::EntryRow::static_type(),
         glimpse_widgets::PowerPopover::static_type(),
         Calendar::static_type(),
         CalendarPopover::static_type(),

@@ -1470,6 +1470,90 @@ impl<M> From<Entry<M>> for Widget<M> {
     }
 }
 
+pub struct EntryRow<M> {
+    widget: Widget<M>,
+}
+
+pub fn entry_row<M>() -> EntryRow<M> {
+    EntryRow {
+        widget: Widget::new("entryrow"),
+    }
+}
+
+impl<M> EntryRow<M> {
+    pub fn key(self, key: impl Into<Key>) -> Self {
+        Self {
+            widget: self.widget.key(key),
+        }
+    }
+
+    pub fn child(self, child: impl Into<Widget<M>>) -> Self {
+        Self {
+            widget: self.widget.child(child.into()),
+        }
+    }
+
+    pub fn children<W: Into<Widget<M>>>(self, children: impl IntoIterator<Item = W>) -> Self {
+        Self {
+            widget: self.widget.children(children.into_iter().map(Into::into)),
+        }
+    }
+
+    pub fn title(self, value: impl Into<String>) -> Self {
+        Self {
+            widget: self.widget.prop("title", value.into()),
+        }
+    }
+
+    pub fn placeholder(self, value: impl Into<String>) -> Self {
+        Self {
+            widget: self.widget.prop("placeholder", value.into()),
+        }
+    }
+
+    pub fn value(self, value: impl Into<String>) -> Self {
+        Self {
+            widget: self.widget.prop("value", value.into()),
+        }
+    }
+
+    pub fn tone(self, value: RowTone) -> Self {
+        Self {
+            widget: self.widget.prop("tone", value.as_str()),
+        }
+    }
+
+    pub fn inactive(self, value: bool) -> Self {
+        Self {
+            widget: self.widget.prop("inactive", value),
+        }
+    }
+
+    pub fn tooltip(self, value: impl Into<String>) -> Self {
+        Self {
+            widget: self.widget.prop("tooltip", value.into()),
+        }
+    }
+
+    pub fn on_change(self, f: impl Fn(String) -> M + 'static) -> Self {
+        Self {
+            widget: self.widget.on_change_string(f),
+        }
+    }
+
+    pub fn on_submit(self, f: impl Fn(String) -> M + 'static) -> Self {
+        Self {
+            widget: self.widget.on_submit(f),
+        }
+    }
+}
+
+impl<M> From<EntryRow<M>> for Widget<M> {
+    fn from(value: EntryRow<M>) -> Self {
+        value.widget
+    }
+}
+
 pub struct Placeholder<M> {
     widget: Widget<M>,
 }

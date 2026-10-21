@@ -348,6 +348,30 @@ fn string_caps_match_the_host() {
     assert_eq!(widget.props["tooltip"].as_str().map(str::len), Some(256));
     let entry: Widget<Msg> = entry().value("y".repeat(5000)).into();
     assert_eq!(entry.props["value"].as_str().map(str::len), Some(4096));
+    let row: Widget<Msg> = entry_row().value("y".repeat(5000)).into();
+    assert_eq!(row.props["value"].as_str().map(str::len), Some(4096));
+}
+
+#[test]
+fn entry_row_carries_its_props_handlers_and_end_child() {
+    let row: Widget<Msg> = entry_row()
+        .title("New alarm")
+        .placeholder("10m tea")
+        .value("x")
+        .tone(RowTone::Warning)
+        .inactive(true)
+        .tooltip("Type a time")
+        .on_change(Msg::Draft)
+        .on_submit(Msg::Draft)
+        .child(button().text("Add"))
+        .into();
+    assert_eq!(row.kind, "entryrow");
+    assert_eq!(
+        json!(row.props),
+        json!({"title": "New alarm", "placeholder": "10m tea", "value": "x", "tone": "warning", "inactive": true, "tooltip": "Type a time", "onChange": true, "onSubmit": true})
+    );
+    assert_eq!(row.children.len(), 1);
+    assert_eq!(row.children[0].kind, "button");
 }
 
 #[test]

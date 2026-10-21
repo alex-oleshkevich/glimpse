@@ -221,6 +221,24 @@ element holding its maximum.
 clips, draws a flat series as a centered line, breaks the line at every `None`, draws an isolated
 point as a dot, and clips to its bounds. A gap is a position on the x axis, not a skipped one.
 
+## EntryRow
+
+`EntryRow` is a `Gtk.Entry` drawn as a row: css name `listrow`, so it takes the row height, padding
+and radius, with the entry flat inside it and its text where a row title starts. The row owns the
+`changed` and `activated` signals and forwards them from the entry, because exec blocks a mounted
+widget's own handlers while it dresses it; **an owner `set_text` never emits `changed`** and keeps the
+caret, clamped to the new length. The text caps at 4096 characters, the title, placeholder and
+tooltip at `TEXT_MAX_CHARS`. One end child sits in `[end]`; `inactive` makes the entry and that child
+insensitive together. Only `warning` and `error` tint it.
+
+In exec a bare control (an `entry`, a `box` of buttons, a `scale`; anything that is not a section,
+row, separator, revealer or fact list) carries `exec-bare` when its parent stacks vertically: a
+section, the popover, a revealer or a container. The class spaces it from its neighbours and from
+the parent's end with margins, since rows stack flush and box spacing would separate them too. A
+`box` or `stack` lays out its own children, so they never carry it. The entry row rests on its own
+`--row-entry-bg` fill with a hairline, never `--gl-hover`, so it never reads as a hovered row, and
+keeps a small margin from an adjacent row so two filled rows never merge.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them **once** and gives every

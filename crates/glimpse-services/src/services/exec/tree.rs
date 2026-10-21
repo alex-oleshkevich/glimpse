@@ -51,6 +51,7 @@ pub enum ElementKind {
     Start,
     SliderRow,
     Entry,
+    EntryRow,
     Placeholder,
     Box,
     FactList,
@@ -185,6 +186,7 @@ pub enum Element {
     Start(EndProps),
     SliderRow(SliderRowProps),
     Entry(EntryProps),
+    EntryRow(EntryRowProps),
     Placeholder(PlaceholderProps),
     Box(BoxProps),
     FactList(FactListProps),
@@ -455,6 +457,19 @@ pub struct EntryProps {
     pub placeholder: Option<String>,
     pub value: String,
     pub class_name: Option<ClassName>,
+    pub on_change: bool,
+    pub on_submit: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct EntryRowProps {
+    pub title: Option<String>,
+    pub placeholder: Option<String>,
+    pub value: String,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
     pub on_change: bool,
     pub on_submit: bool,
 }
@@ -1074,6 +1089,7 @@ impl Element {
             Self::Start(_) => ElementKind::Start,
             Self::SliderRow(_) => ElementKind::SliderRow,
             Self::Entry(_) => ElementKind::Entry,
+            Self::EntryRow(_) => ElementKind::EntryRow,
             Self::Placeholder(_) => ElementKind::Placeholder,
             Self::Box(_) => ElementKind::Box,
             Self::FactList(_) => ElementKind::FactList,
@@ -1121,6 +1137,7 @@ impl ElementKind {
             Self::Start => "start",
             Self::SliderRow => "sliderrow",
             Self::Entry => "entry",
+            Self::EntryRow => "entryrow",
             Self::Placeholder => "placeholder",
             Self::Box => "box",
             Self::FactList => "factlist",
@@ -1172,6 +1189,7 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "start" => ElementKind::Start,
         "sliderrow" => ElementKind::SliderRow,
         "entry" => ElementKind::Entry,
+        "entryrow" => ElementKind::EntryRow,
         "placeholder" => ElementKind::Placeholder,
         "box" => ElementKind::Box,
         "factlist" => ElementKind::FactList,
@@ -1246,6 +1264,10 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
             matches!(child, ElementKind::End | ElementKind::Start) || is_drawer_child(child)
         }
         ElementKind::SliderRow => child == ElementKind::Start,
+        ElementKind::EntryRow => matches!(
+            child,
+            ElementKind::Image | ElementKind::Spinner | ElementKind::Button
+        ),
         ElementKind::Start => matches!(
             child,
             ElementKind::Image
@@ -1270,6 +1292,7 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::ExpanderRow
             | ElementKind::SliderRow
             | ElementKind::Entry
+            | ElementKind::EntryRow
             | ElementKind::Placeholder
             | ElementKind::Box
             | ElementKind::FactList
@@ -1405,6 +1428,7 @@ fn realize_into(
         ElementKind::Start => Element::Start(read_props(id, raw, kept)),
         ElementKind::SliderRow => Element::SliderRow(finish_slider_row(read_props(id, raw, kept))),
         ElementKind::Entry => Element::Entry(finish_entry(read_props(id, raw, kept))),
+        ElementKind::EntryRow => Element::EntryRow(finish_entry_row(read_props(id, raw, kept))),
         ElementKind::Placeholder => {
             Element::Placeholder(finish_placeholder(read_props(id, raw, kept)))
         }
@@ -1605,6 +1629,17 @@ fn finish_slider_row(mut props: SliderRowProps) -> SliderRowProps {
 fn finish_entry(mut props: EntryProps) -> EntryProps {
     props.placeholder = text(props.placeholder);
     props.value = entry_value(&props.value);
+    props
+}
+
+fn finish_entry_row(mut props: EntryRowProps) -> EntryRowProps {
+    props.title = row_text(props.title);
+    props.placeholder = text(props.placeholder);
+    props.value = entry_value(&props.value);
+    props.tooltip = row_text(props.tooltip);
+    if props.tone == RowTone::Destructive {
+        props.tone = RowTone::Normal;
+    }
     props
 }
 
@@ -1829,7 +1864,8 @@ fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> 
             | ElementKind::MeterRow
             | ElementKind::End
             | ElementKind::Start
-            | ElementKind::SliderRow => count <= 1,
+            | ElementKind::SliderRow
+            | ElementKind::EntryRow => count <= 1,
             ElementKind::ExpanderRow => of(ElementKind::End) <= 1 && of(ElementKind::Start) <= 1,
             ElementKind::Addon | ElementKind::Container => count <= 1,
             ElementKind::Popover => {

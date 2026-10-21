@@ -14,6 +14,7 @@ func SliderRow(p SliderRowProps, c ...any) Widget       { return W("sliderrow", 
 func Start(p StartProps, c ...any) Widget               { return W("start", p, c...) }
 func End(p EndProps, c ...any) Widget                   { return W("end", p, c...) }
 func Entry(p EntryProps, c ...any) Widget               { return W("entry", p, c...) }
+func EntryRow(p EntryRowProps, c ...any) Widget         { return W("entryrow", p, c...) }
 func Placeholder(p PlaceholderProps, c ...any) Widget   { return W("placeholder", p, c...) }
 func Box(p BoxProps, c ...any) Widget                   { return W("box", p, c...) }
 func Label(p LabelProps, c ...any) Widget               { return W("label", p, c...) }

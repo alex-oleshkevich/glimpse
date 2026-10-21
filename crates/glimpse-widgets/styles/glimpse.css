@@ -85,6 +85,8 @@
     --row-radius: 0.7rem;
     --row-gap: 10px;
     --row-hover-bg: var(--gl-hover, alpha(var(--gl-surface-fg), 0.08));
+    --row-entry-bg: alpha(var(--gl-surface-fg), 0.04);
+    --row-entry-border: var(--gl-border, alpha(currentColor, 0.15));
     --row-active-bg: var(--gl-active, alpha(var(--gl-surface-fg), 0.16));
     --row-tone-warning: var(--gl-warning-text, var(--warning-color, #ffc252));
     --row-tone-error: var(--gl-danger-text, var(--destructive-color, #ff938b));
@@ -440,6 +442,73 @@ listrow.row--error .row__value {
 
 listrow.row--destructive .row__title {
     color: var(--row-tone-destructive, var(--gl-danger-text, currentColor));
+}
+
+listrow.entry-row {
+    background-color: var(--row-entry-bg, alpha(currentColor, 0.04));
+    box-shadow: inset 0 0 0 1px var(--row-entry-border, alpha(currentColor, 0.15));
+}
+
+listrow + listrow.entry-row,
+listrow.entry-row + listrow {
+    margin-top: 0.25rem;
+}
+
+.exec-bare:not(:first-child) {
+    margin-top: 0.5rem;
+}
+
+.exec-bare + listrow {
+    margin-top: 0.5rem;
+}
+
+.exec-bare:last-child {
+    margin-bottom: 0.5rem;
+}
+
+listrow.entry-row:focus-within {
+    outline: 2px solid var(--gl-accent-text, currentColor);
+    outline-offset: -2px;
+}
+
+listrow.entry-row entry {
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    outline: none;
+    font-size: var(--gl-text-body, 1rem);
+}
+
+.entry-row__title {
+    font-size: var(--gl-text-caption, 0.85rem);
+    color: var(--gl-muted, alpha(currentColor, 0.65));
+}
+
+listrow.entry-row.row--warning {
+    background-color: var(--gl-warning-soft, alpha(currentColor, 0.08));
+}
+
+listrow.entry-row.row--warning .entry-row__title {
+    color: var(--gl-warning-text, currentColor);
+}
+
+listrow.entry-row.row--warning:focus-within {
+    outline-color: var(--gl-warning-text, currentColor);
+}
+
+listrow.entry-row.row--error {
+    background-color: var(--gl-danger-soft, alpha(currentColor, 0.08));
+}
+
+listrow.entry-row.row--error .entry-row__title {
+    color: var(--gl-danger-text, currentColor);
+}
+
+listrow.entry-row.row--error:focus-within {
+    outline-color: var(--gl-danger-text, currentColor);
 }
 
 listrow.meter-row--bar .row__content {

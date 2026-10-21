@@ -93,8 +93,8 @@ tree still records that set.
 | `onToggle` | switch, togglerow, expanderrow | `[active]` or `[open]` — boolean. `seq` is a number |
 | `onMove` | sliderrow | `[value]` — number during a drag. `seq` is `null` |
 | `onChange` | scale, sliderrow | `[value]` — number. `seq` is a number |
-| `onChange` | entry | `[value]` — string. `seq` is a number |
-| `onSubmit` | entry | `[value]` — string |
+| `onChange` | entry, entryrow | `[value]` — string. `seq` is a number |
+| `onSubmit` | entry, entryrow | `[value]` — string |
 | `onClick` | button | `[]` |
 | `onSelect` | choicelist, dropdown | `[index]` — number. `seq` is a number |
 | `onSelect` | calendar | `[date]` — `YYYY-MM-DD` string |
@@ -105,7 +105,7 @@ tree still records that set.
 A handler prop on an element is a boolean. `"onPress": true` subscribes. A missing or
 `false` handler does not.
 
-The controlled props are `entry.value`, `scale.value`, `switch.active`, `togglebutton.active`,
+The controlled props are `entry.value`, `entryrow.value`, `scale.value`, `switch.active`, `togglebutton.active`,
 `checkbutton.active`, `dropdown.selected`, `choicelist.selected`, `togglerow.active`,
 `expanderrow.open` and `sliderrow.value`.
 `sliderrow.onMove` reports motion without controlling `value`; `onChange` confirms the
@@ -248,12 +248,13 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | `end` | at most one of `image`, `readout`, `spinner`, `label`, `box`, `container` |
 | `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots`, `swatch` |
 | `sliderrow` | at most one `start` |
+| `entryrow` | at most one of `image`, `spinner`, `button`, drawn at its end |
 | `togglerow` | nothing |
 | `box` | body elements |
 | anything else | nothing |
 
 Body elements are `section`, `row`, `actionrow`, `togglerow`,
-`meterrow`, `expanderrow`, `sliderrow`, `entry`, `placeholder`, `box`,
+`meterrow`, `expanderrow`, `sliderrow`, `entry`, `entryrow`, `placeholder`, `box`,
 `container`,
 `label`, `image`, `button`, `switch`, `scale`, `spinner`, `separator`,
 `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
@@ -273,7 +274,7 @@ pair the table does not list.
 
 `type` is one of the lowercase names below. Props use camelCase. Every element takes
 `className`, one class from this list, or the key is dropped. `addon`, `container`, `row`,
-`actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start`, `sliderrow` and
+`actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start`, `sliderrow`, `entryrow` and
 `swatch` do not take `className`:
 
 `dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`,
@@ -507,6 +508,26 @@ capped at 4096 characters with no ellipsis.
 | `placeholder` | string | absent. This one is text-cleaned |
 | `value` | string | `""` |
 | `className` | class | |
+| `onChange` | boolean | |
+| `onSubmit` | boolean | |
+
+### `entryrow`
+
+A text field drawn as a row: the same height, padding and radius as `row`, on a filled
+background, with its text aligned to other rows' titles and an optional `title` caption
+above it. `value` is cleaned and capped exactly like `entry.value`. Holds at most one
+`image`, `spinner` or `button`, drawn at its end; a `button` there is the usual inline
+"Add". `tone` `destructive` is dropped to normal. `inactive` makes the field and its end
+child insensitive. `onSubmit` fires on Enter.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | string | absent. Caption above the text, cleaned and capped at 256 characters |
+| `placeholder` | string | absent. Text-cleaned |
+| `value` | string | `""`. Controlled by `onChange` |
+| `tone` | `warning`, `error` | Absent is normal |
+| `inactive` | boolean | `false` |
+| `tooltip` | string | Plain text |
 | `onChange` | boolean | |
 | `onSubmit` | boolean | |
 
@@ -811,7 +832,7 @@ not stored.
 | Text | 256 characters | The commit, via cleaning |
 | Element name | 64 characters | The commit, via cleaning |
 | `badge` | 8 characters | The commit, via cleaning |
-| `entry.value` | 4,096 characters | The commit, without trimming |
+| `entry.value`, `entryrow.value` | 4,096 characters | The commit, without trimming |
 | `dot` | 256 characters | The commit, without cleaning |
 
 ## Rejection

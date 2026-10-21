@@ -5,6 +5,7 @@ import {
   Container,
   Dots,
   End,
+  EntryRow,
   ExpanderRow,
   Image,
   Indicator,
@@ -31,6 +32,13 @@ function WidgetDemo() {
   const [volume, setVolume] = useState(0.5);
   const [muted, setMuted] = useState(false);
   const [quietVolume, setQuietVolume] = useState(0.2);
+  const [draft, setDraft] = useState("");
+  const [notes, setNotes] = useState<string[]>([]);
+  const add = () => {
+    if (!draft.trim()) return;
+    setNotes((current) => [...current, draft.trim()]);
+    setDraft("");
+  };
   return (
     <>
       <Indicator icon="applications-graphics-symbolic" text="ext" />
@@ -108,6 +116,12 @@ function WidgetDemo() {
             /></Start>
           </SliderRow>
           <SliderRow value={quietVolume} inactive tone="warning" onChange={setQuietVolume} />
+        </Section>
+        <Section title="Notes" count={String(notes.length)}>
+          {notes.map((note, index) => <ActionRow key={index} title={note} />)}
+          <EntryRow title="New note" placeholder="Type and press Enter" value={draft} onChange={setDraft} onSubmit={add}>
+            <Button text="Add" sensitive={draft.trim() !== ""} onClick={add} />
+          </EntryRow>
         </Section>
         <ExpanderRow icon="dialog-warning-symbolic" tone="warning" tint titleLines={3} title="Storm warning: strong wind gusts up to 90 km/h expected across the region" subtitle="Until 18:00" open={stormOpen} onToggle={setStormOpen}>
           <MeterRow title="Details" subtitle="Strong wind expected" />

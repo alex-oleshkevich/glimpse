@@ -27,7 +27,13 @@ class W:
                 self.handlers[wire] = value
                 self.props[wire] = True
             elif value is not None:
-                cap = 8 if wire == "badge" else 4096 if kind == "entry" and wire == "value" else 256
+                cap = (
+                    8
+                    if wire == "badge"
+                    else 4096
+                    if kind in ("entry", "entryrow") and wire == "value"
+                    else 256
+                )
                 self.props[wire] = value[:cap] if isinstance(value, str) else _clean(value)
 
         if (

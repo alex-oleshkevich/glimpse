@@ -9,6 +9,7 @@ pub(crate) const MAX_SERIES: usize = 366;
 
 pub(crate) const CONTROLLED: &[(&str, &str, &str)] = &[
     ("entry", "onChange", "value"),
+    ("entryrow", "onChange", "value"),
     ("scale", "onChange", "value"),
     ("switch", "onToggle", "active"),
     ("togglerow", "onToggle", "active"),
@@ -60,7 +61,7 @@ pub type Check<T> = Result<T, Fail>;
 pub(crate) fn cap(kind: &str, key: &str, value: &str) -> String {
     let limit = match key {
         "badge" => 8,
-        "value" if kind == "entry" => 4096,
+        "value" if kind == "entry" || kind == "entryrow" => 4096,
         _ => 256,
     };
     value.chars().take(limit).collect()

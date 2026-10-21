@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-20 21:36+0200\n"
+"POT-Creation-Date: 2026-10-21 17:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -160,7 +160,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/app.rs:450
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:122
-#: crates/glimpse-shot/src/gui/result.rs:956
+#: crates/glimpse-shot/src/gui/result.rs:965
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
 #: crates/glimpse-widgets/blueprints/network_popover.blp:164
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:99
@@ -410,7 +410,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:359
+#: crates/glimpse-widgets/src/lib.rs:385
 msgid "{percent}%"
 msgstr ""
 
@@ -914,12 +914,12 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1257
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:406
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1262
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:411
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
@@ -2140,13 +2140,13 @@ msgstr ""
 msgid "_About Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:399
+#: crates/glimpse-shot/src/gui/app.rs:395
 msgid "--portal needs a screen target"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:566
-#: crates/glimpse-shot/src/gui/app.rs:706
-#: crates/glimpse-shot/src/gui/app.rs:1004
+#: crates/glimpse-shot/src/gui/app.rs:562
+#: crates/glimpse-shot/src/gui/app.rs:702
+#: crates/glimpse-shot/src/gui/app.rs:1000
 #: crates/glimpse-shot/src/notify.rs:284
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
@@ -2154,36 +2154,36 @@ msgstr ""
 msgid "Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:614
+#: crates/glimpse-shot/src/gui/app.rs:610
 msgid "The clipboard holds no image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:836
+#: crates/glimpse-shot/src/gui/app.rs:832
 msgid "There is no window to capture"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:906
+#: crates/glimpse-shot/src/gui/app.rs:902
 msgid "That window has closed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:929
+#: crates/glimpse-shot/src/gui/app.rs:925
 msgid "Images"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:939
+#: crates/glimpse-shot/src/gui/app.rs:935
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:964
+#: crates/glimpse-shot/src/gui/app.rs:960
 msgid "The image must be a local file"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1080
+#: crates/glimpse-shot/src/gui/app.rs:1076
 msgid "Untitled window"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1185
+#: crates/glimpse-shot/src/gui/app.rs:1181
 msgid "Screenshot failed"
 msgstr ""
 
@@ -2192,7 +2192,7 @@ msgid "Waiting to take a screenshot"
 msgstr ""
 
 #: crates/glimpse-shot/src/gui/overlay.rs:1081
-#: crates/glimpse-shot/src/gui/result.rs:919
+#: crates/glimpse-shot/src/gui/result.rs:928
 msgid "Save Screenshot"
 msgstr ""
 
@@ -2218,7 +2218,7 @@ msgid "Saved as “{name}”"
 msgstr ""
 
 #: crates/glimpse-shot/src/gui/prefs.rs:219
-#: crates/glimpse-shot/src/gui/result.rs:1071
+#: crates/glimpse-shot/src/gui/result.rs:1080
 msgid "Copied to clipboard"
 msgstr ""
 
@@ -2227,42 +2227,42 @@ msgstr ""
 msgid "Choose Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:717
+#: crates/glimpse-shot/src/gui/result.rs:726
 msgid "A screenshot has unsaved changes"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:861
+#: crates/glimpse-shot/src/gui/result.rs:870
 msgid "A file name cannot be empty or contain “/”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:866
+#: crates/glimpse-shot/src/gui/result.rs:875
 msgid ""
 "There is no Pictures folder to save into; choose a folder in Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:952
+#: crates/glimpse-shot/src/gui/result.rs:961
 msgid "Discard this screenshot?"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:953
+#: crates/glimpse-shot/src/gui/result.rs:962
 msgid "It has not been saved or copied."
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:957
+#: crates/glimpse-shot/src/gui/result.rs:966
 msgid "Discard"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:958
+#: crates/glimpse-shot/src/gui/result.rs:967
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
 msgid "Save"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1120
+#: crates/glimpse-shot/src/gui/result.rs:1129
 msgid "Saved “{name}”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1128
+#: crates/glimpse-shot/src/gui/result.rs:1137
 #: crates/glimpse-shot/src/notify.rs:411
 #: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
@@ -2533,7 +2533,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:301
+#: crates/glimpse-widgets/src/lib.rs:327
 msgid "Play"
 msgstr ""
 
@@ -2840,25 +2840,25 @@ msgstr ""
 msgid "Save or Open"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:161
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
 msgid "Undo (Ctrl+Z)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:171
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:195
 msgid "Pan (hold Space)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:213
 msgid "Best Fit (Ctrl+0)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:219
 msgid "Actual Size (Ctrl+1)"
 msgstr ""
 
@@ -3363,7 +3363,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:300
+#: crates/glimpse-widgets/src/lib.rs:326
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr ""
@@ -3454,7 +3454,7 @@ msgstr ""
 msgid "Capturing in {n}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/shot_window_list/mod.rs:139
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:140
 msgid "captured when picked"
 msgstr ""
 

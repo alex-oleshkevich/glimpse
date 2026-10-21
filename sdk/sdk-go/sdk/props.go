@@ -174,6 +174,18 @@ type EntryProps struct {
 	OnSubmit    func(value string)
 }
 
+type EntryRowProps struct {
+	Key         any
+	Title       string
+	Placeholder string
+	Value       string
+	Tone        RowTone
+	Inactive    bool
+	Tooltip     string
+	OnChange    func(value string)
+	OnSubmit    func(value string)
+}
+
 type PlaceholderProps struct {
 	Key         any
 	Icon        string

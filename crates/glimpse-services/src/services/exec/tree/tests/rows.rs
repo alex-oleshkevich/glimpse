@@ -364,3 +364,92 @@ fn end_takes_a_label_box_or_container_but_a_row_does_not() {
         Err(Violation::BadParent { .. })
     ));
 }
+
+#[test]
+fn entry_row_takes_one_end_control_and_cleans_its_props() {
+    let tree = hosted(&Tree::default())
+        .apply(vec![insert(
+            1,
+            wire(
+                2,
+                "entryrow",
+                json!({
+                    "title": "New alarm",
+                    "placeholder": "10m tea",
+                    "value": "  07:30 \u{7}\u{202e}",
+                    "tone": "destructive",
+                    "inactive": true,
+                    "onChange": true,
+                    "onSubmit": true,
+                }),
+                vec![leaf(3, "button")],
+            ),
+            None,
+        )])
+        .expect("entry row with an end button");
+    let Element::EntryRow(props) = &tree.node(2).expect("entry row").element else {
+        panic!("expected an entry row");
+    };
+    assert_eq!(props.title.as_deref(), Some("New alarm"));
+    assert_eq!(props.placeholder.as_deref(), Some("10m tea"));
+    assert_eq!(props.value, "  07:30 ");
+    assert_eq!(props.tone, super::super::RowTone::Normal);
+    assert!(props.inactive && props.on_change && props.on_submit);
+
+    let long = "ж".repeat(4100);
+    let tree = tree
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"value": long})).expect("props"),
+            seq: Some(3),
+        }])
+        .expect("cap");
+    let Element::EntryRow(props) = &tree.node(2).expect("entry row").element else {
+        panic!("expected an entry row");
+    };
+    assert_eq!(props.value.chars().count(), 4096);
+    assert_eq!(tree.node(2).expect("entry row").seq, Some(3));
+
+    assert_eq!(
+        tree.apply(vec![insert(2, leaf(4, "spinner"), None)])
+            .expect_err("second end child"),
+        Violation::ChildCount { parent: 2 }
+    );
+    for child in ["image", "spinner"] {
+        hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(2, "entryrow", json!({}), vec![leaf(3, child)]),
+                None,
+            )])
+            .expect("an entry row ends with an image or a spinner");
+    }
+    for child in ["label", "readout", "end", "entry"] {
+        assert_eq!(
+            hosted(&Tree::default())
+                .apply(vec![insert(
+                    1,
+                    wire(2, "entryrow", json!({}), vec![leaf(3, child)]),
+                    None,
+                )])
+                .expect_err("not an entry row end"),
+            Violation::BadParent {
+                parent: ElementKind::EntryRow,
+                child: super::super::kind_of(child).expect("kind"),
+            }
+        );
+    }
+    assert!(
+        hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(2, "entryrow", json!({"onActivate": true}), Vec::new()),
+                None,
+            )])
+            .is_ok_and(|tree| !tree
+                .node(2)
+                .expect("entry row")
+                .raw
+                .contains_key("onActivate"))
+    );
+}

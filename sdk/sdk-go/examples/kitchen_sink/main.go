@@ -170,6 +170,11 @@ func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
 					OnChange: func(v string) { a.SetState(func(s *kitchenState) { s.draft = v }) },
 					OnSubmit: func(v string) { a.setLast("submit " + v) },
 				}),
+				sdk.EntryRow(sdk.EntryRowProps{
+					Title: "Note", Placeholder: "Type, then Enter or Add", Value: st.draft,
+					OnChange: func(v string) { a.SetState(func(s *kitchenState) { s.draft = v }) },
+					OnSubmit: func(v string) { a.setLast("add " + v) },
+				}, sdk.Button(sdk.ButtonProps{Text: "Add", OnClick: func() { a.setLast("add") }})),
 				sdk.DropDown(sdk.DropDownProps{
 					Options: []string{"Small", "Medium", "Large"}, Selected: sdk.Ptr(st.drop),
 					OnSelect: func(i int) { a.SetState(func(s *kitchenState) { s.drop = i }) },

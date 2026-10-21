@@ -132,7 +132,7 @@ export function wireProps(type: string, props: Props): Props {
 						value,
 						key === "badge"
 							? 8
-							: type === "entry" && key === "value"
+							: (type === "entry" || type === "entryrow") && key === "value"
 								? 4096
 								: 256,
 					)
@@ -175,6 +175,7 @@ export function diffProps(
 }
 export const CONTROLLED: Record<string, [string, string]> = {
 	entry: ["onChange", "value"],
+	entryrow: ["onChange", "value"],
 	scale: ["onChange", "value"],
 	switch: ["onToggle", "active"],
 	togglerow: ["onToggle", "active"],

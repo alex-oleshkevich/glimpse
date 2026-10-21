@@ -26,6 +26,7 @@ from glimpse_sdk import (
     DropDown,
     End,
     Entry,
+    EntryRow,
     ExpanderRow,
     FactList,
     Image,
@@ -234,6 +235,14 @@ class Kitchen(BaseApplet[KitchenState]):
                                 value=self.state.draft,
                                 on_change=lambda v: self.set_state(draft=v),
                                 on_submit=lambda v: self.event(f"submit {v}"),
+                            ),
+                            EntryRow(
+                                Button(text="Add", on_click=lambda: self.event("add")),
+                                title="Note",
+                                placeholder="Type, then Enter or Add",
+                                value=self.state.draft,
+                                on_change=lambda v: self.set_state(draft=v),
+                                on_submit=lambda v: self.event(f"add {v}"),
                             ),
                             DropDown(
                                 options=["Small", "Medium", "Large"],

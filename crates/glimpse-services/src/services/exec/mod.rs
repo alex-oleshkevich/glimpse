@@ -25,7 +25,7 @@ pub use catalog::{Catalog, DesktopCatalog, Entry, expand};
 pub use tree::{
     ActionRowProps, AddonProps, Align, BarsProps, BoxProps, ButtonProps, CalendarMarker,
     CalendarProps, CheckButtonProps, ChoiceItem, ChoiceListProps, ClassName, ContainerProps,
-    DotsProps, DropDownProps, Element, ElementKind, Ellipsize, EndProps, EntryProps,
+    DotsProps, DropDownProps, Element, ElementKind, Ellipsize, EndProps, EntryProps, EntryRowProps,
     ExpanderRowProps, FactItem, FactListProps, ImageProps, IndicatorProps, LabelProps,
     MeterRowProps, Node, NoticeProps, Paint, PlaceholderProps, PopoverProps, PopoverSize, ROOT,
     RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,

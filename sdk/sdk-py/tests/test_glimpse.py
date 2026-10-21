@@ -270,6 +270,34 @@ class TestSession(unittest.TestCase):
         self.assertEqual(len(widget.props["text"]), 256)
         entry = glimpse.Entry(value="z" * 5000)
         self.assertEqual(len(entry.props["value"]), 4096)
+        row = glimpse.EntryRow(value="z" * 5000)
+        self.assertEqual(len(row.props["value"]), 4096)
+
+    def test_entry_row_carries_props_handlers_and_end_child(self) -> None:
+        row = glimpse.EntryRow(
+            glimpse.Button(text="Add"),
+            title="New alarm",
+            placeholder="10m tea",
+            value="x",
+            tone="warning",
+            inactive=True,
+            on_change=lambda v: v,
+            on_submit=lambda v: v,
+        )
+        self.assertEqual(row.kind, "entryrow")
+        self.assertEqual(
+            row.props,
+            {
+                "title": "New alarm",
+                "placeholder": "10m tea",
+                "value": "x",
+                "tone": "warning",
+                "inactive": True,
+                "onChange": True,
+                "onSubmit": True,
+            },
+        )
+        self.assertEqual([child.kind for child in row.children], ["button"])
 
     def test_render_throw_is_a_render_error(self) -> None:
         class Boom(BaseApplet[State]):

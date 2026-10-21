@@ -49,6 +49,7 @@
     <file>widgets/meter_row.ui</file>
     <file>widgets/row.ui</file>
     <file>widgets/expander_row.ui</file>
+    <file>widgets/entry_row.ui</file>
     <file>widgets/slider_row.ui</file>
     <file>widgets/toggle_row.ui</file>
         <file>widgets/scrubber.ui</file>

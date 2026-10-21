@@ -20,6 +20,7 @@ var textKinds = map[string]bool{"label": true, "indicator": true, "button": true
 
 var controlled = map[string][2]string{
 	"entry":        {"onChange", "value"},
+	"entryrow":     {"onChange", "value"},
 	"scale":        {"onChange", "value"},
 	"switch":       {"onToggle", "active"},
 	"togglerow":    {"onToggle", "active"},
@@ -211,7 +212,7 @@ func capLimit(kind, wire string) int {
 		return 8
 	}
 
-	if kind == "entry" && wire == "value" {
+	if (kind == "entry" || kind == "entryrow") && wire == "value" {
 		return 4096
 	}
 

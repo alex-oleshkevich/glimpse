@@ -1,6 +1,9 @@
 package sdk
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNoticePropsConvertToWirePropsAndHandler(t *testing.T) {
 	activated := false
@@ -92,5 +95,36 @@ func TestTypedPropsUseWireNames(t *testing.T) {
 	image := Image(ImageProps{Icon: "image-symbolic", PixelSize: Ptr(32)})
 	if image.Props["pixelSize"] != 32 {
 		t.Errorf("image props = %v", image.Props)
+	}
+}
+
+func TestEntryRowPropsCapTheValueAndKeepTheEndChild(t *testing.T) {
+	submitted := ""
+	w := EntryRow(EntryRowProps{
+		Title:       "New alarm",
+		Placeholder: "10m tea",
+		Value:       strings.Repeat("y", 5000),
+		Tone:        "warning",
+		Inactive:    true,
+		OnChange:    func(string) {},
+		OnSubmit:    func(value string) { submitted = value },
+	}, Button(ButtonProps{Text: "Add"}))
+	if w.Kind != "entryrow" {
+		t.Errorf("kind = %v", w.Kind)
+	}
+	if got := len(w.Props["value"].(string)); got != 4096 {
+		t.Errorf("value length = %d", got)
+	}
+	for key, value := range map[string]any{"title": "New alarm", "placeholder": "10m tea", "tone": "warning", "inactive": true, "onChange": true, "onSubmit": true} {
+		if got := w.Props[key]; got != value {
+			t.Errorf("prop %s = %v, want %v", key, got, value)
+		}
+	}
+	if len(w.Children) != 1 || w.Children[0].Kind != "button" {
+		t.Errorf("children = %v", w.Children)
+	}
+	w.Handlers["onSubmit"]([]any{"07:30"})
+	if submitted != "07:30" {
+		t.Errorf("submitted = %q", submitted)
 	}
 }

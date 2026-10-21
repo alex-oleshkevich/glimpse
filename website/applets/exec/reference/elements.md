@@ -126,7 +126,7 @@ fn inbox(messages: &[Message], quiet: bool) -> Widget<Msg> {
 
 A control shows the value your applet passes. Update that value in the callback; if you do not, the
 next render puts the old value back. The controlled props are `togglerow.active`,
-`expanderrow.open`, `sliderrow.value`, `entry.value`, `scale.value`, `switch.active`,
+`expanderrow.open`, `sliderrow.value`, `entry.value`, `entryrow.value`, `scale.value`, `switch.active`,
 `togglebutton.active`, `checkbutton.active`, `dropdown.selected` and `choicelist.selected`.
 
 ### Class names
@@ -138,7 +138,7 @@ next render puts the old value back. The controlled props are `togglerow.active`
 `network-popover__rule`, `bluetooth-popover`, `network-popover`.
 
 Its type is `ClassName` in every SDK. `addon`, `container`, `row`, `actionrow`, `togglerow`,
-`meterrow`, `expanderrow`, `end`, `start`, `sliderrow`, `factlist` and `swatch` take no
+`meterrow`, `expanderrow`, `end`, `start`, `sliderrow`, `entryrow`, `factlist` and `swatch` take no
 `className`. There is no applet CSS.
 
 ### Severity and tone
@@ -146,7 +146,7 @@ Its type is `ClassName` in every SDK. `addon`, `container`, `row`, `actionrow`, 
 | Type | Values | Used by |
 | --- | --- | --- |
 | `Severity` | `info`, `warning`, `error` | `indicator`, `notice` |
-| `RowTone` | `warning`, `error`, `destructive` | the `tone` of rows and `sliderrow` |
+| `RowTone` | `warning`, `error`, `destructive` | the `tone` of rows, `sliderrow` and `entryrow`, which drops `destructive` |
 | `Tone` | `accent`, `dim`, `success`, `warning`, `error` | `dots`, `calendar` events |
 
 A `Tone` is a named theme color, so it follows the light or dark theme. These and every other enum
@@ -157,8 +157,8 @@ prop take one of the values their table lists, in the form the example above use
 - Text props (titles, subtitles, labels, values, tooltips, counts, descriptions and placeholders) are
   plain text, never markup. The panel drops control characters and bidi overrides, folds whitespace
   into single spaces, trims the ends, and cuts the text at 256 characters with a trailing `…`. Text
-  that ends up empty counts as absent. `entry.value` keeps its spaces and holds up to 4096
-  characters.
+  that ends up empty counts as absent. `entry.value` and `entryrow.value` keep their spaces and
+  hold up to 4096 characters.
 - An icon is a themed icon name matching `^[A-Za-z0-9_.-]+$`, such as `network-wireless-symbolic`,
   never a path. Any other value is dropped.
 - A prop of the wrong type, or an enum string its table does not list, is dropped as if absent.
@@ -187,11 +187,12 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | `end` | at most one of `image`, `readout`, `spinner`, `label`, `box`, `container` |
 | `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots`, `swatch` |
 | `sliderrow` | at most one `start` |
+| `entryrow` | at most one of `image`, `spinner`, `button`, drawn at its end |
 | `togglerow` | nothing |
 | anything else | nothing |
 
 Body elements are `section`, `row`, `actionrow`, `togglerow`, `meterrow`, `expanderrow`,
-`sliderrow`, `entry`, `placeholder`, `box`, `container`, `label`, `image`, `button`, `switch`,
+`sliderrow`, `entry`, `entryrow`, `placeholder`, `box`, `container`, `label`, `image`, `button`, `switch`,
 `scale`, `spinner`, `separator`, `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`,
 `dropdown`, `togglebutton`, `checkbutton`, `revealer`, `stack`, `rangebar`, `bars`, `sparkline` and
 `unsupported`.
@@ -998,6 +999,71 @@ entry()
 | `value` | string, up to 4096 characters, spaces kept | `""` | The text in the field |
 | `placeholder` | string | | Hint text shown while the field is empty |
 | `className` | class | | A style class from [Class names](#class-names) |
+| `onChange` | `(value: string)` | | Called on every edit, with the whole text |
+| `onSubmit` | `(value: string)` | | Called when the user presses Enter, with the whole text |
+
+### `entryrow`
+
+A text field drawn as a row, for a new item in a list: the height, padding and corners of the
+rows around it, on a filled background, its text lined up with their titles. An optional `title`
+sits above the text as a caption. One `image`, `spinner` or `button` child is drawn at its end,
+such as an inline Add button.
+
+::: code-group
+
+```tsx [TypeScript]
+<EntryRow
+    title="New task"
+    placeholder="Add a task"
+    value={draft}
+    onChange={setDraft}
+    onSubmit={addTask}
+>
+    <Button text="Add" onClick={addTask} />
+</EntryRow>
+```
+
+```python [Python]
+EntryRow(
+    Button(text="Add", on_click=add_task),
+    title="New task",
+    placeholder="Add a task",
+    value=draft,
+    on_change=set_draft,
+    on_submit=add_task,
+)
+```
+
+```go [Go]
+sdk.EntryRow(sdk.EntryRowProps{
+	Title:       "New task",
+	Placeholder: "Add a task",
+	Value:       draft,
+	OnChange:    setDraft,
+	OnSubmit:    addTask,
+}, sdk.Button(sdk.ButtonProps{Text: "Add", OnClick: addTaskNow}))
+```
+
+```rust [Rust]
+entry_row()
+    .title("New task")
+    .placeholder("Add a task")
+    .value(draft)
+    .on_change(Msg::Draft)
+    .on_submit(Msg::AddTask)
+    .child(button().text("Add").on_click(|| Msg::AddTaskNow))
+```
+
+:::
+
+| Prop | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `value` | string, up to 4096 characters, spaces kept | `""` | The text in the field |
+| `title` | string | | A caption above the text |
+| `placeholder` | string | | Hint text shown while the field is empty |
+| `tone` | `RowTone` | | `warning` or `error` tints the row and its caption; `destructive` is dropped |
+| `inactive` | boolean | `false` | Makes the field and its end child insensitive |
+| `tooltip` | string | | Plain text |
 | `onChange` | `(value: string)` | | Called on every edit, with the whole text |
 | `onSubmit` | `(value: string)` | | Called when the user presses Enter, with the whole text |
 
