@@ -242,3 +242,19 @@ fn shot_result_page_widgets() {
             .is_some()
     );
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn picture_sits_in_a_viewport_that_does_not_follow_focus() {
+    shot_display();
+
+    let page = ShotResultPage::new();
+    let imp = page.imp();
+    let viewport = imp
+        .picture
+        .parent()
+        .and_downcast::<gtk4::Viewport>()
+        .expect("the picture is inside an explicit viewport");
+    assert!(!viewport.is_scroll_to_focus());
+    assert_eq!(viewport.parent().as_ref(), Some(imp.scroller.upcast_ref()));
+}

@@ -39,7 +39,6 @@ pub struct ShotResultPage {
 
     pub colliding: Cell<bool>,
     pub level: Cell<Option<f64>>,
-    pub anchor: Cell<(Option<f64>, Option<f64>)>,
     pub pointer: Cell<Option<(f64, f64)>>,
     pub committed_name: RefCell<String>,
     pub actions: gio::SimpleActionGroup,
@@ -88,30 +87,6 @@ impl ObjectImpl for ShotResultPage {
             #[weak]
             obj,
             move |_| obj.apply_zoom()
-        ));
-        self.scroller.hadjustment().connect_changed(glib::clone!(
-            #[weak]
-            obj,
-            move |adjustment| {
-                let imp = obj.imp();
-                let (x, y) = imp.anchor.get();
-                if let Some(x) = x {
-                    imp.anchor.set((None, y));
-                    adjustment.set_value(x);
-                }
-            }
-        ));
-        self.scroller.vadjustment().connect_changed(glib::clone!(
-            #[weak]
-            obj,
-            move |adjustment| {
-                let imp = obj.imp();
-                let (x, y) = imp.anchor.get();
-                if let Some(y) = y {
-                    imp.anchor.set((x, None));
-                    adjustment.set_value(y);
-                }
-            }
         ));
         let motion = gtk4::EventControllerMotion::new();
         motion.connect_motion(glib::clone!(
