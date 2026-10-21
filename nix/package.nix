@@ -1,29 +1,80 @@
-{ lib, rustPlatform, pkg-config, blueprint-compiler, gettext, wrapGAppsHook4
-, clang, llvmPackages, gtk4, libadwaita, gtk4-layer-shell, libheif, pam
-, libpulseaudio, pipewire, systemd, udev, wayland, coreutils, glib }:
+{
+  lib,
+  rustPlatform,
+  pkg-config,
+  blueprint-compiler,
+  gettext,
+  wrapGAppsHook4,
+  clang,
+  llvmPackages,
+  gtk4,
+  libadwaita,
+  gtk4-layer-shell,
+  libheif,
+  pam,
+  libpulseaudio,
+  pipewire,
+  systemd,
+  udev,
+  wayland,
+  coreutils,
+  glib,
+}:
 rustPlatform.buildRustPackage {
   pname = "glimpse";
   version = (builtins.fromTOML (builtins.readFile ../Cargo.toml)).workspace.package.version;
 
   src = lib.cleanSourceWith {
     src = ../.;
-    filter = path: type:
+    filter =
+      path: type:
       let
         root = toString ../.;
         relative = lib.removePrefix "${root}/" (toString path);
         top = builtins.head (lib.splitString "/" relative);
       in
-        (toString path == root || builtins.elem top [ "Cargo.toml" "Cargo.lock" "LICENSE" "crates" "data" "po" "sdk" ])
-        && !(lib.hasPrefix "crates/glimpse-widgets/resources/widgets" relative)
-        && relative != "po/glimpse.pot";
+      (
+        toString path == root
+        || builtins.elem top [
+          "Cargo.toml"
+          "Cargo.lock"
+          "LICENSE"
+          "crates"
+          "data"
+          "po"
+          "sdk"
+        ]
+      )
+      && !(lib.hasPrefix "crates/glimpse-widgets/resources/widgets" relative)
+      && relative != "po/glimpse.pot";
   };
 
   cargoLock.lockFile = ../Cargo.lock;
-  cargoBuildFlags = [ "--workspace" "--bins" ];
+  cargoBuildFlags = [
+    "--workspace"
+    "--bins"
+  ];
   doCheck = false;
 
-  nativeBuildInputs = [ pkg-config blueprint-compiler gettext wrapGAppsHook4 clang ];
-  buildInputs = [ gtk4 libadwaita gtk4-layer-shell libheif pam libpulseaudio pipewire systemd udev wayland ];
+  nativeBuildInputs = [
+    pkg-config
+    blueprint-compiler
+    gettext
+    wrapGAppsHook4
+    clang
+  ];
+  buildInputs = [
+    gtk4
+    libadwaita
+    gtk4-layer-shell
+    libheif
+    pam
+    libpulseaudio
+    pipewire
+    systemd
+    udev
+    wayland
+  ];
   LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
 
   preBuild = ''
