@@ -105,9 +105,11 @@ needs only its file and verify command. The brief then carries:
 - All work happens in worktrees under `.worktrees/<name>`, created from local `master`. The main
   checkout stays on `master` and is never edited.
 - Commit only when the user asks for that. User want to review the code first.
-- Merge only when the user approves. Merge into `master`; never create another base branch.
+- Merge only when the user approves. Merge into `master` as one squashed commit (`git merge --squash
+  <branch>`, then one commit); never create another base branch.
 - Always close merged branches and worktrees: right after a merge, remove its worktree and delete
-  its branch with `git branch -d`, then check `git branch --merged master` for any other leftover.
+  its branch with `git branch -D` (a squashed branch never shows as merged), then check
+  `git worktree list` for any other leftover.
   A branch with no commits of its own but uncommitted changes in its worktree is work in progress,
   not merged; leave it.
 - When a branch changes behavior users see, update the same pages in every open docs branch in that
@@ -128,4 +130,4 @@ needs only its file and verify command. The brief then carries:
 - [ ] Each touched crate's checks pass in its worktree; live test passed on eDP-1.
 - [ ] Beads have notes; children Claude reviewed are closed.
 - [ ] Nothing merged without approval; every merged worktree and branch removed
-  (`git worktree list`, `git branch --merged master`).
+  (`git worktree list`, `git branch`).

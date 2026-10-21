@@ -29,7 +29,8 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 ## Hard rules
 
 - **Use `just`, never raw `cargo`.** `just verify` is what CI runs; `just` alone lists recipes.
-- **Do not commit or push unless asked.**
+- **Do not commit or push unless asked.** A branch or worktree lands on `master` as one squashed
+  commit: `git merge --squash <branch>`, then a single commit.
 - **Write no comments.** Reasoning goes in the crate `README.md`: present-tense rules only — no
   history, measurements, dates, bead ids or current state.
 - US English. Never prefix a type with `Glimpse`. Never build a glimpse path by hand — use
