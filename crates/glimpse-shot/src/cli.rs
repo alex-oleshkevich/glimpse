@@ -279,11 +279,7 @@ pub struct GuiArgs {
 #[derive(Debug, Clone, Args)]
 #[command(after_help = AGENT_POINTER, after_long_help = AGENT_POINTER)]
 pub struct AnnotateArgs {
-    #[arg(
-        value_name = "IMAGE",
-        required_unless_present = "pick",
-        help = "Image to edit (PNG, JPEG, WebP, …)."
-    )]
+    #[arg(value_name = "IMAGE", help = "Image to edit (PNG, JPEG, WebP, …).")]
     pub image: Option<PathBuf>,
     #[arg(
         long,
@@ -444,11 +440,12 @@ pub struct Terminal {
 pub fn validate_gui(args: &GuiArgs, terminal: Terminal) -> Result<(), String> {
     let mut problems = Vec::new();
     let target = args.target.resolve(false);
-    let targeted = args.target.is_set();
+    let imaged = args.file.is_some() || args.pick;
+    let targeted = args.target.is_set() || imaged;
     if let Err(error) = &target {
         problems.push(error.clone());
     }
-    if args.annotate.is_some() && !concrete(target.as_ref().ok()) {
+    if args.annotate.is_some() && !imaged && !concrete(target.as_ref().ok()) {
         problems.push("--annotate needs a screen, a window id or a region geometry: the marks need a known image".to_owned());
     }
     if !targeted && args.json {
@@ -505,7 +502,7 @@ pub fn validate_annotate(args: &AnnotateArgs, terminal: Terminal) -> Result<(), 
         terminal,
     );
     if args.image.is_none() && !args.pick {
-        problems.push("annotate needs IMAGE or --pick".to_owned());
+        problems.push("give an IMAGE or --pick".to_owned());
     }
     if args.pick && args.headless {
         problems.push("--pick needs the editor; omit --headless".to_owned());
@@ -645,7 +642,17 @@ fn editor_option_after(
             None
         };
         if let Some(hint) = hint {
-            return command.error(error.kind(), format!("{error}\n{hint}"));
+            let text = error.to_string();
+            let reason = text
+                .split("\n\n")
+                .next()
+                .unwrap_or_default()
+                .trim_start_matches("error: ");
+            let message = format!("{reason}\n{hint}");
+            return match command.find_subcommand_mut("annotate") {
+                Some(annotate) => annotate.error(error.kind(), message),
+                None => command.error(error.kind(), message),
+            };
         }
         return error;
     }

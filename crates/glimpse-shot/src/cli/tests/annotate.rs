@@ -20,7 +20,6 @@ fn annotate_picker_requires_no_image_but_preserves_an_explicit_one() {
             parse(argv).expect("picker").command.as_ref()
         ));
     }
-    assert_eq!(clap_code(&["annotate"]), 2);
     assert_eq!(
         clap_code(&[
             "annotate",
@@ -115,7 +114,10 @@ fn annotate_validates_modes_stdio_and_editor_options() {
     ] {
         let error = parse(&[&["annotate", "image.png"], args].concat()).expect_err("usage");
         assert_eq!(error.exit_code(), 2);
-        assert!(error.to_string().contains(hint), "{error}");
+        let text = error.to_string();
+        assert!(text.contains(hint), "{error}");
+        assert!(!text.contains("error: error:"), "{error}");
+        assert_eq!(text.matches("Usage:").count(), 1, "{error}");
     }
     for (args, terminal) in [
         (&["-o", "-"][..], PIPES),
@@ -223,4 +225,35 @@ fn annotate_refuses_canonical_output_aliases_without_changing_the_source() {
     }
     args.output = Some(dir.path().join("new.png"));
     assert!(validate_annotate(&args, PIPES).is_ok());
+}
+
+#[test]
+fn an_image_or_pick_is_a_known_target_but_still_validated() {
+    for (file, pick) in [(Some("image.png".into()), false), (None, true)] {
+        let mut gui = GuiArgs {
+            file,
+            pick,
+            annotate: Some("-".into()),
+            json: true,
+            prompt: Some("text".into()),
+            timeout: Some(5),
+            ..Default::default()
+        };
+        assert!(validate_gui(&gui, PIPES).is_ok());
+        assert_eq!(gui.target.resolve(false), Ok(Target::App));
+        gui.editor = Some(Editor::Window);
+        assert!(validate_gui(&gui, PIPES).is_err());
+    }
+}
+
+#[test]
+fn annotate_without_image_or_pick_points_at_both() {
+    let Some(Command::Annotate(args)) = parse(&["annotate"]).expect("parses").command else {
+        panic!("annotate");
+    };
+    let message = validate_annotate(&args, PIPES).expect_err("usage");
+    assert!(
+        message.contains("IMAGE") && message.contains("--pick"),
+        "{message}"
+    );
 }

@@ -378,19 +378,15 @@ impl Shell {
             answer(Err(Busy.into()));
             return;
         }
-        let checked = if gui.file.is_some() || gui.pick {
-            Ok(Target::App)
-        } else {
-            cli::validate_gui(
-                gui,
-                cli::Terminal {
-                    stdin: false,
-                    stdout: false,
-                },
-            )
-            .map_err(Usage)
-            .and_then(|()| gui.target.resolve(false).map_err(Usage))
-        };
+        let checked = cli::validate_gui(
+            gui,
+            cli::Terminal {
+                stdin: false,
+                stdout: false,
+            },
+        )
+        .map_err(Usage)
+        .and_then(|()| gui.target.resolve(false).map_err(Usage));
         let target = match checked {
             Ok(target) => target,
             Err(error) => return answer(Err(error.into())),
