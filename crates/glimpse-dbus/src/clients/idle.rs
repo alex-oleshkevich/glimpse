@@ -422,10 +422,7 @@ async fn follow_provider(
             return;
         }
     };
-    let mut owners = match dbus
-        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_IDLE_BUS_NAME)])
-        .await
-    {
+    let mut owners = match super::owners(&dbus, GLIMPSE_IDLE_BUS_NAME).await {
         Ok(owners) => owners,
         Err(error) => {
             replace_unavailable(&updates, error.to_string());
@@ -581,16 +578,17 @@ async fn follow_provider(
                     let Some(owner) = owner else {
                         break "idle provider owner stream ended".to_owned();
                     };
-                    let Ok(args) = owner.args() else {
-                        continue;
+                    let (old_owner, new_owner) = match owner {
+                        crate::Delivery::Item(change) => change,
+                        crate::Delivery::Missed => break "provider owner changed".to_owned(),
                     };
-                    if args.old_owner().is_some() {
-                        break match args.new_owner().is_some() {
+                    if old_owner {
+                        break match new_owner {
                             true => "provider owner changed",
                             false => "provider has no bus owner",
                         }.to_owned();
                     }
-                    if !serving && args.new_owner().is_some() {
+                    if !serving && new_owner {
                         break "provider took the name".to_owned();
                     }
                 }

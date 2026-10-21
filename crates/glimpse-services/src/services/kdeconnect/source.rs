@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::pin::Pin;
 
+use futures_util::stream::BoxStream;
 use futures_util::{Stream, StreamExt, future, stream};
 use zbus::fdo::{DBusProxy, PropertiesProxy};
 use zbus::message::Type;
@@ -58,36 +59,52 @@ pub async fn name_owner(ctx: Ctx<Kdeconnect>) -> Events {
         Ok(proxy) => proxy,
         Err(error) => return unavailable(error.to_string()),
     };
-    let changes = match proxy
+    let owners = match proxy
         .receive_name_owner_changed_with_args(&[(0, kdeconnect::SERVICE)])
         .await
-    {
-        Ok(changes) => changes,
+        .map(|changes| {
+            glimpse_dbus::events(changes.filter_map(|signal| async move {
+                Some(
+                    signal
+                        .args()
+                        .ok()?
+                        .new_owner
+                        .as_ref()
+                        .map(ToString::to_string),
+                )
+            }))
+        }) {
+        Ok(owners) => owners,
         Err(error) => return unavailable(error.to_string()),
     };
-    let current = match BusName::try_from(kdeconnect::SERVICE) {
-        Ok(name) => proxy
-            .get_name_owner(name)
-            .await
-            .ok()
-            .map(|owner| owner.to_string()),
-        Err(_) => None,
-    };
+    let current = current_owner(&proxy).await;
 
-    let changes = changes.filter_map(|signal| async move {
-        let args = signal.args().ok()?;
-        Some(Event::NameOwner(
-            args.new_owner.as_ref().map(ToString::to_string),
-        ))
+    let changes = owners.then(move |delivery| {
+        let proxy = proxy.clone();
+        async move {
+            match delivery {
+                glimpse_dbus::Delivery::Item(owner) => Event::NameOwner(owner),
+                glimpse_dbus::Delivery::Missed => Event::NameOwner(current_owner(&proxy).await),
+            }
+        }
     });
     Box::pin(stream::once(async move { Event::NameOwner(current) }).chain(changes))
+}
+
+async fn current_owner(proxy: &DBusProxy<'_>) -> Option<String> {
+    let name = BusName::try_from(kdeconnect::SERVICE).ok()?;
+    proxy
+        .get_name_owner(name)
+        .await
+        .ok()
+        .map(|owner| owner.to_string())
 }
 
 pub async fn devices(ctx: Ctx<Kdeconnect>, owner: String, generation: u64) -> Events {
     let Ok(connection) = ctx.session_bus() else {
         return nothing();
     };
-    let Some(signals) = signals(connection, &owner).await else {
+    let Some(changes) = signals(connection, &owner).await else {
         return Box::pin(stream::once(async move {
             Event::Failed {
                 generation,
@@ -101,18 +118,20 @@ pub async fn devices(ctx: Ctx<Kdeconnect>, owner: String, generation: u64) -> Ev
             stale: Stale::All,
         }
     });
-    let changes = signals.filter_map(move |message| {
-        future::ready(
-            message
-                .ok()
-                .and_then(|message| stale(&message))
-                .map(|stale| Event::Stale { generation, stale }),
-        )
+    let changes = changes.map(move |delivery| Event::Stale {
+        generation,
+        stale: match delivery {
+            glimpse_dbus::Delivery::Item(stale) => stale,
+            glimpse_dbus::Delivery::Missed => Stale::All,
+        },
     });
     Box::pin(first.chain(changes))
 }
 
-async fn signals(connection: &Connection, owner: &str) -> Option<MessageStream> {
+async fn signals(
+    connection: &Connection,
+    owner: &str,
+) -> Option<BoxStream<'static, glimpse_dbus::Delivery<Stale>>> {
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .sender(owner)
@@ -120,9 +139,12 @@ async fn signals(connection: &Connection, owner: &str) -> Option<MessageStream> 
         .path_namespace(kdeconnect::ROOT)
         .ok()?
         .build();
-    MessageStream::for_match_rule(rule, connection, None)
-        .await
-        .ok()
+    Some(glimpse_dbus::events(
+        MessageStream::for_match_rule(rule, connection, None)
+            .await
+            .ok()?
+            .filter_map(|message| future::ready(message.ok().and_then(|message| stale(&message)))),
+    ))
 }
 
 fn stale(message: &Message) -> Option<Stale> {

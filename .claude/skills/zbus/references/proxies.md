@@ -111,8 +111,8 @@ async fn run(&mut self) -> zbus::Result<()> {
     let nm = NetworkManagerProxy::new(&self.conn).await?;
 
     // 1. Subscribe first.
-    let mut added   = nm.receive_device_added().await?;
-    let mut removed = nm.receive_device_removed().await?;
+    let mut added   = glimpse_dbus::events(nm.receive_device_added().await?);
+    let mut removed = glimpse_dbus::events(nm.receive_device_removed().await?);
 
     // 2. Then enumerate.
     for path in nm.devices().await? {
@@ -122,12 +122,24 @@ async fn run(&mut self) -> zbus::Result<()> {
     // 3. Then follow.
     loop {
         tokio::select! {
-            Some(sig) = added.next()   => self.add_device(sig.args()?.path.into()).await,
-            Some(sig) = removed.next() => self.remove_device(sig.args()?.path.into()).await,
+            Some(delivery) = added.next() => match delivery {
+                Delivery::Item(sig) => self.add_device(sig.args()?.path.into()).await,
+                Delivery::Missed => self.reenumerate().await,
+            },
+            Some(delivery) = removed.next() => match delivery {
+                Delivery::Item(sig) => self.remove_device(sig.args()?.path.into()).await,
+                Delivery::Missed => self.reenumerate().await,
+            },
         }
     }
 }
 ```
+
+Every signal stream passes through `glimpse_dbus::events` (payload matters) or `glimpse_dbus::wake`
+(the signal only means "read it again") at creation. zbus parks its single socket reader on a full
+64-message subscription channel, which stops every reply on the connection; the helpers keep a
+forwarder polling the source and drop the oldest instead. `Delivery::Missed` means messages were
+dropped: take the path that re-reads full state. Property streams are exempt.
 
 Signal streams yield a typed wrapper, not a raw message. `sig.args()?` returns a struct with one
 accessor per signal argument, named after the parameter in the trait. The wrapper also derefs to
@@ -183,11 +195,11 @@ A backend that is not running is not an error state to retry out of — it is a 
 `None` when it goes away.
 
 ```rust
-let mut owner = nm.receive_owner_changed().await?;
-while let Some(new_owner) = owner.next().await {
-    match new_owner {
-        Some(_) => self.reenumerate().await,      // came back: enumerate again
-        None    => self.publish_degraded().await, // gone: say so, keep running
+let mut owner = glimpse_dbus::events(nm.receive_owner_changed().await?);
+while let Some(delivery) = owner.next().await {
+    match delivery {
+        Delivery::Item(None) => self.publish_degraded().await, // gone: say so, keep running
+        Delivery::Item(Some(_)) | Delivery::Missed => self.reenumerate().await,
     }
 }
 ```

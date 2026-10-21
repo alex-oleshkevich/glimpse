@@ -482,5 +482,16 @@ async fn an_unpolled_watch_never_stalls_the_connection() {
     )
     .await;
     assert!(answered.is_ok(), "the connection stopped being read");
-    drop(watch);
+
+    FakeManager::unit_removed(
+        &emitter,
+        "applet.service".to_owned(),
+        zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/applet").unwrap(),
+    )
+    .await
+    .unwrap();
+    let state = tokio::time::timeout(Duration::from_secs(3), watch.next())
+        .await
+        .expect("the watch never reported the removal");
+    assert!(matches!(state, Some(UnitState::Gone)), "{state:?}");
 }

@@ -27,10 +27,7 @@ async fn an_unowned_provider_parks_without_backoff() {
     let connection = bus.connection().await;
     let name = "me.aresa.Glimpse.RetryTest";
     let dbus = zbus::fdo::DBusProxy::new(&connection).await.unwrap();
-    let mut owners = dbus
-        .receive_name_owner_changed_with_args(&[(0, name)])
-        .await
-        .unwrap();
+    let mut owners = owners(&dbus, name).await.unwrap();
     let mut delay = RetryDelay::default();
     let (retried, owned) = tokio::join!(
         retry_after_failure(&dbus, &mut owners, name, &mut delay),

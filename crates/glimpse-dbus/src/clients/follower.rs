@@ -11,6 +11,7 @@ use zbus::proxy::PropertyStream;
 use zbus::zvariant::OwnedValue;
 
 use super::{DEADLINE, RetryDelay, retry_after_failure};
+use crate::Delivery;
 
 pub const REASON: usize = 240;
 const NO_OWNER: &str = "provider has no bus owner";
@@ -183,10 +184,7 @@ pub async fn follow_snapshots<S: Snapshots>(
             return;
         }
     };
-    let mut owners = match dbus
-        .receive_name_owner_changed_with_args(&[(0, S::BUS_NAME)])
-        .await
-    {
+    let mut owners = match super::owners(&dbus, S::BUS_NAME).await {
         Ok(owners) => owners,
         Err(error) => {
             replace_unavailable(&updates, error.to_string());
@@ -273,16 +271,17 @@ pub async fn follow_snapshots<S: Snapshots>(
                     let Some(owner) = owner else {
                         break format!("{name} provider owner stream ended");
                     };
-                    let Ok(args) = owner.args() else {
-                        continue;
+                    let (old_owner, new_owner) = match owner {
+                        Delivery::Item(change) => change,
+                        Delivery::Missed => break "provider owner changed".to_owned(),
                     };
-                    if args.old_owner().is_some() {
-                        break match args.new_owner().is_some() {
+                    if old_owner {
+                        break match new_owner {
                             true => "provider owner changed",
                             false => NO_OWNER,
                         }.to_owned();
                     }
-                    if !serving && args.new_owner().is_some() {
+                    if !serving && new_owner {
                         break "provider took the name".to_owned();
                     }
                 }

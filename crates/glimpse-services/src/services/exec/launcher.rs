@@ -310,23 +310,10 @@ impl Launcher for SystemdLauncher {
     fn watch(&self, name: &str) -> BoxStream<'static, UnitState> {
         let connection = self.inner.connection.clone();
         let name = name.to_owned();
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        tokio::spawn(async move {
-            let mut watch = Watch::new(name, connection);
-            loop {
-                let state = tokio::select! {
-                    state = watch.next() => state,
-                    () = tx.closed() => None,
-                };
-                let Some(state) = state else { break };
-                if tx.send(state).is_err() {
-                    break;
-                }
-            }
-        });
-        Box::pin(futures_util::stream::unfold(rx, |mut rx| async move {
-            rx.recv().await.map(|state| (state, rx))
-        }))
+        Box::pin(futures_util::stream::unfold(
+            Watch::new(name, connection),
+            |mut watch| async move { watch.next().await.map(|state| (state, watch)) },
+        ))
     }
 
     fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
@@ -355,6 +342,7 @@ impl Launcher for SystemdLauncher {
 
 enum Change {
     Removed,
+    Missed,
     Sub(String),
     Active(String),
 }
@@ -401,14 +389,16 @@ impl Watch {
             .await
             .ok()?;
         let name = self.name.clone();
-        let removed = manager
-            .receive_unit_removed()
-            .await
-            .ok()?
-            .filter_map(move |signal| {
+        let removed = glimpse_dbus::events(manager.receive_unit_removed().await.ok()?.filter_map(
+            move |signal| {
                 let hit = signal.args().is_ok_and(|args| args.id == name);
-                future::ready(hit.then_some(Change::Removed))
-            });
+                future::ready(hit.then_some(()))
+            },
+        ))
+        .map(|delivery| match delivery {
+            glimpse_dbus::Delivery::Item(()) => Change::Removed,
+            glimpse_dbus::Delivery::Missed => Change::Missed,
+        });
         let subs = unit
             .receive_sub_state_changed()
             .await
@@ -436,6 +426,15 @@ impl Watch {
                 Change::Removed => {
                     self.done = true;
                     return Some(UnitState::Gone);
+                }
+                Change::Missed => {
+                    let manager = Systemd1ManagerProxy::new(self.connection.as_ref()?)
+                        .await
+                        .ok()?;
+                    if manager.get_unit(&self.name).await.is_err() {
+                        self.done = true;
+                        return Some(UnitState::Gone);
+                    }
                 }
                 Change::Sub(value) => {
                     let restarting = value.contains("auto-restart");

@@ -640,30 +640,47 @@ async fn owners(ctx: &Ctx<Mpris>) -> Result<impl Stream<Item = Event> + Send + '
     let connection = ctx.session_bus().map_err(str::to_owned)?.clone();
     let dbus = zbus::fdo::DBusProxy::new(&connection).await.map_err(say)?;
 
-    let changes = dbus.receive_name_owner_changed().await.map_err(say)?;
+    let signals = dbus
+        .receive_name_owner_changed()
+        .await
+        .map(|changes| {
+            glimpse_dbus::events(changes.filter_map(|signal| async move {
+                let args = signal.args().ok()?;
+                let name = args.name().to_string();
+                name.starts_with(MPRIS_NAME_PREFIX)
+                    .then(|| (name, args.new_owner().is_some()))
+            }))
+        })
+        .map_err(say)?;
 
-    let listed: Vec<String> = dbus
+    let listed = list_players(&dbus).await?;
+
+    let following = signals.then(move |delivery| {
+        let dbus = dbus.clone();
+        async move {
+            match delivery {
+                glimpse_dbus::Delivery::Item((name, true)) => Event::Appeared(name),
+                glimpse_dbus::Delivery::Item((name, false)) => Event::Vanished(name),
+                glimpse_dbus::Delivery::Missed => match list_players(&dbus).await {
+                    Ok(listed) => Event::Listed(listed),
+                    Err(reason) => Event::Unavailable(reason),
+                },
+            }
+        }
+    });
+
+    Ok(stream::once(async move { Event::Listed(listed) }).chain(following))
+}
+
+async fn list_players(dbus: &zbus::fdo::DBusProxy<'_>) -> Result<Vec<String>, String> {
+    Ok(dbus
         .list_names()
         .await
         .map_err(say)?
         .into_iter()
         .map(|name| name.to_string())
         .filter(|name| name.starts_with(MPRIS_NAME_PREFIX))
-        .collect();
-
-    let following = changes.filter_map(|signal| async move {
-        let args = signal.args().ok()?;
-        let name = args.name().to_string();
-        if !name.starts_with(MPRIS_NAME_PREFIX) {
-            return None;
-        }
-        Some(match args.new_owner().is_some() {
-            true => Event::Appeared(name),
-            false => Event::Vanished(name),
-        })
-    });
-
-    Ok(stream::once(async move { Event::Listed(listed) }).chain(following))
+        .collect())
 }
 
 async fn follow(ctx: Ctx<Mpris>, bus: String) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
@@ -705,8 +722,16 @@ async fn watch(
         .await
         .map_err(say)?;
 
-    let changes = properties.receive_properties_changed().await.map_err(say)?;
-    let seeks = player.receive_seeked().await.map_err(say)?;
+    let changes = properties
+        .receive_properties_changed()
+        .await
+        .map(glimpse_dbus::wake)
+        .map_err(say)?;
+    let seeks = player
+        .receive_seeked()
+        .await
+        .map(glimpse_dbus::wake)
+        .map_err(say)?;
 
     let first = read(bus.clone(), &root, &player).await;
 
@@ -720,9 +745,9 @@ async fn watch(
 
     let updated = changes.then({
         let again = again.clone();
-        move |_| again()
+        move |()| again()
     });
-    let seeked = seeks.then(move |_| again());
+    let seeked = seeks.then(move |()| again());
 
     Ok(stream::once(async move { first }).chain(futures_util::stream::select(updated, seeked)))
 }

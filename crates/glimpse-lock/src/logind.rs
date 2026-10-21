@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
-use futures_util::StreamExt;
+use futures_util::{StreamExt, TryFutureExt};
 use glimpse_dbus::login1::{Login1ManagerProxy, Login1SessionProxy, session_path};
 use tokio::sync::mpsc;
 use zbus::zvariant::OwnedFd;
@@ -81,9 +81,13 @@ impl Logind {
     ) {
         let streams = tokio::time::timeout(CALL_TIMEOUT, async {
             tokio::try_join!(
-                self.session.receive_lock(),
-                self.session.receive_unlock(),
-                self.manager.receive_prepare_for_sleep(),
+                self.session.receive_lock().map_ok(glimpse_dbus::wake),
+                self.session.receive_unlock().map_ok(glimpse_dbus::wake),
+                self.manager.receive_prepare_for_sleep().map_ok(|stream| {
+                    glimpse_dbus::events(stream.filter_map(|signal| async move {
+                        signal.args().ok().map(|args| args.start)
+                    }))
+                }),
             )
         })
         .await
@@ -129,6 +133,7 @@ impl Logind {
 
         let mut blocks = self.manager.receive_block_inhibited_changed().await;
 
+        let manager = self.manager.clone();
         let mut worker = relm4::spawn(serve(self.manager, self.session, requests, events.clone()));
 
         let (mut locking, mut unlocking, mut sleeping, mut serving, mut watching_blocks) =
@@ -150,9 +155,20 @@ impl Logind {
                     Some(_) => events(Event::Lifecycle(Input::UnlockRequested)),
                     None => unlocking = ended("Session.Unlock"),
                 },
-                signal = sleeps.next(), if sleeping => match signal.map(|signal| signal.args().map(|args| args.start)) {
-                    Some(Ok(start)) => events(Event::Lifecycle(Input::PrepareForSleep(start))),
-                    Some(Err(error)) => tracing::warn!(%error, "undecodable PrepareForSleep"),
+                signal = sleeps.next(), if sleeping => match signal {
+                    Some(glimpse_dbus::Delivery::Item(start)) => events(Event::Lifecycle(Input::PrepareForSleep(start))),
+                    Some(glimpse_dbus::Delivery::Missed) => {
+                        let preparing = bounded(
+                            "PreparingForSleep",
+                            manager.inner().get_property::<bool>("PreparingForSleep"),
+                        )
+                        .await;
+                        match preparing {
+                            Some(Ok(start)) => events(Event::Lifecycle(Input::PrepareForSleep(start))),
+                            Some(Err(error)) => tracing::warn!(%error, "cannot read PreparingForSleep"),
+                            None => {}
+                        }
+                    }
                     None => sleeping = ended("PrepareForSleep"),
                 },
                 change = blocks.next(), if watching_blocks => match change {

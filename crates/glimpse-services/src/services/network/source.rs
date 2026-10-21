@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::pin::Pin;
 
-use futures_util::{Stream, StreamExt, stream};
+use futures_util::{Stream, StreamExt, future, stream};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy};
 use zbus::message::Type;
 use zbus::zvariant::OwnedObjectPath;
@@ -14,9 +14,30 @@ use crate::context::Ctx;
 use super::{Event, Interfaces, Network, Objects, Properties};
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
+type Messages = Pin<Box<dyn Stream<Item = Option<Message>> + Send>>;
 
 const OBJECT_MANAGER: &str = "org.freedesktop.DBus.ObjectManager";
 const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
+
+async fn queued(rule: MatchRule<'static>, connection: &Connection) -> Option<Messages> {
+    let messages = glimpse_dbus::events(
+        MessageStream::for_match_rule(rule, connection, None)
+            .await
+            .ok()?
+            .filter_map(|message| future::ready(message.ok())),
+    );
+    Some(Box::pin(messages.map(|delivery| match delivery {
+        glimpse_dbus::Delivery::Item(message) => Some(message),
+        glimpse_dbus::Delivery::Missed => None,
+    })))
+}
+
+fn resolve(message: Option<Message>, decode: fn(&Message) -> Option<Event>) -> Option<Event> {
+    match message {
+        Some(message) => decode(&message),
+        None => Some(Event::NameOwner(Some(nm::SERVICE.to_owned()))),
+    }
+}
 
 fn nothing() -> Events {
     Box::pin(stream::empty())
@@ -32,7 +53,7 @@ async fn signals(
     interface: &str,
     member: &str,
     namespace: &str,
-) -> Option<MessageStream> {
+) -> Option<Messages> {
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .sender(nm::SERVICE)
@@ -45,9 +66,7 @@ async fn signals(
         .ok()?
         .build();
 
-    MessageStream::for_match_rule(rule, connection, None)
-        .await
-        .ok()
+    queued(rule.to_owned(), connection).await
 }
 
 fn object_manager_rule(member: &str) -> Option<MatchRule<'static>> {
@@ -67,11 +86,9 @@ fn object_manager_rule(member: &str) -> Option<MatchRule<'static>> {
     )
 }
 
-async fn object_manager_signals(connection: &Connection, member: &str) -> Option<MessageStream> {
+async fn object_manager_signals(connection: &Connection, member: &str) -> Option<Messages> {
     let rule = object_manager_rule(member)?;
-    MessageStream::for_match_rule(rule, connection, None)
-        .await
-        .ok()
+    queued(rule.to_owned(), connection).await
 }
 
 pub async fn name_owner(ctx: Ctx<Network>) -> Events {
@@ -81,18 +98,19 @@ pub async fn name_owner(ctx: Ctx<Network>) -> Events {
     let Ok(proxy) = DBusProxy::new(connection).await else {
         return nothing();
     };
-    let Ok(stream) = proxy.receive_name_owner_changed().await else {
+    let Ok(owners) = proxy.receive_name_owner_changed().await.map(|stream| {
+        glimpse_dbus::events(stream.filter_map(|signal| async move {
+            let args = signal.args().ok()?;
+            (args.name.as_str() == nm::SERVICE)
+                .then(|| args.new_owner.as_ref().map(ToString::to_string))
+        }))
+    }) else {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|signal| async move {
-        let args = signal.args().ok()?;
-        if args.name.as_str() != nm::SERVICE {
-            return None;
-        }
-        Some(Event::NameOwner(
-            args.new_owner.as_ref().map(ToString::to_string),
-        ))
+    Box::pin(owners.map(|delivery| match delivery {
+        glimpse_dbus::Delivery::Item(owner) => Event::NameOwner(owner),
+        glimpse_dbus::Delivery::Missed => Event::OwnerMissed,
     }))
 }
 
@@ -107,13 +125,13 @@ pub async fn objects(ctx: Ctx<Network>) -> Events {
 
     let mut changes: Vec<Events> = Vec::new();
     if let Some(added) = added {
-        changes.push(Box::pin(added.filter_map(|message| async move {
-            interfaces_added(&message.ok()?)
+        changes.push(Box::pin(added.filter_map(|message| {
+            future::ready(resolve(message, interfaces_added))
         })));
     }
     if let Some(removed) = removed {
-        changes.push(Box::pin(removed.filter_map(|message| async move {
-            interfaces_removed(&message.ok()?)
+        changes.push(Box::pin(removed.filter_map(|message| {
+            future::ready(resolve(message, interfaces_removed))
         })));
     }
 
@@ -130,7 +148,7 @@ pub async fn properties(ctx: Ctx<Network>) -> Events {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|message| async move { properties_changed(&message.ok()?) }))
+    Box::pin(stream.filter_map(|message| future::ready(resolve(message, properties_changed))))
 }
 
 pub async fn active_states(ctx: Ctx<Network>) -> Events {
@@ -141,16 +159,7 @@ pub async fn active_states(ctx: Ctx<Network>) -> Events {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|message| async move {
-        let message = message.ok()?;
-        let path = message.header().path()?.to_string();
-        let (state, reason) = message.body().deserialize::<(u32, u32)>().ok()?;
-        Some(Event::ActiveStateChanged {
-            path,
-            state: nm::ActiveState::from_code(state),
-            reason,
-        })
-    }))
+    Box::pin(stream.filter_map(|message| future::ready(resolve(message, active_state_changed))))
 }
 
 pub async fn device_states(ctx: Ctx<Network>) -> Events {
@@ -161,16 +170,7 @@ pub async fn device_states(ctx: Ctx<Network>) -> Events {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|message| async move {
-        let message = message.ok()?;
-        let path = message.header().path()?.to_string();
-        let (state, _previous, reason) = message.body().deserialize::<(u32, u32, u32)>().ok()?;
-        Some(Event::DeviceStateChanged {
-            path,
-            state: nm::DeviceState::from_code(state),
-            reason,
-        })
-    }))
+    Box::pin(stream.filter_map(|message| future::ready(resolve(message, device_state_changed))))
 }
 
 pub async fn profile_updates(ctx: Ctx<Network>) -> Events {
@@ -182,11 +182,7 @@ pub async fn profile_updates(ctx: Ctx<Network>) -> Events {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|message| async move {
-        let message = message.ok()?;
-        let path = message.header().path()?.to_string();
-        Some(Event::ProfilesChanged(path))
-    }))
+    Box::pin(stream.filter_map(|message| future::ready(resolve(message, profile_changed))))
 }
 
 async fn enumerate(connection: &Connection) -> Event {
@@ -219,6 +215,30 @@ fn collect(objects: zbus::fdo::ManagedObjects) -> Objects {
             (path.to_string(), interfaces)
         })
         .collect::<BTreeMap<_, _>>()
+}
+
+fn active_state_changed(message: &Message) -> Option<Event> {
+    let path = message.header().path()?.to_string();
+    let (state, reason) = message.body().deserialize::<(u32, u32)>().ok()?;
+    Some(Event::ActiveStateChanged {
+        path,
+        state: nm::ActiveState::from_code(state),
+        reason,
+    })
+}
+
+fn device_state_changed(message: &Message) -> Option<Event> {
+    let path = message.header().path()?.to_string();
+    let (state, _previous, reason) = message.body().deserialize::<(u32, u32, u32)>().ok()?;
+    Some(Event::DeviceStateChanged {
+        path,
+        state: nm::DeviceState::from_code(state),
+        reason,
+    })
+}
+
+fn profile_changed(message: &Message) -> Option<Event> {
+    Some(Event::ProfilesChanged(message.header().path()?.to_string()))
 }
 
 fn interfaces_added(message: &Message) -> Option<Event> {

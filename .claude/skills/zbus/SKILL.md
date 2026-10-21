@@ -1,6 +1,6 @@
 ---
 name: zbus
-description: D-Bus clients and services in Rust with zbus 5. Use for any code in glimpse-services or a provider binary that consumes NetworkManager, BlueZ, logind, UPower, MPRIS, StatusNotifierItem or com.canonical.dbusmenu, or that exports org.freedesktop.Notifications or org.kde.StatusNotifierWatcher. Covers crate features and the tokio integration, #[proxy] and #[interface], property caching, signal streams, bus name ownership, and compile traps keyed by error text. Trigger on the dependency, not the wording — if a file imports zbus, this applies.
+description: D-Bus clients and services in Rust with zbus 5. Use for any code in glimpse-services or a provider binary that consumes NetworkManager, BlueZ, logind, UPower, MPRIS, StatusNotifierItem or com.canonical.dbusmenu, or that exports org.freedesktop.Notifications or org.kde.StatusNotifierWatcher. Covers crate features and the tokio integration, #[proxy] and #[interface], property caching, signal streams and the wake/events subscription helpers, a connection that stops answering, bus name ownership, and compile traps keyed by error text. Trigger on the dependency, not the wording — if a file imports zbus, this applies.
 ---
 
 # zbus
@@ -86,6 +86,38 @@ A service that needs a bus reaches it through the connection handed to it at con
 The resource is injected, so a service test can hand over a
 connection to a fixture bus instead.
 
+## Signal Streams Never Stall the Connection
+
+zbus gives every signal subscription a 64-message queue, and its single socket reader **waits** for
+room in a full queue before it reads anything else, method replies included. One subscription left
+unread for a moment (its consumer is awaiting a call, sleeping, or busy in another `select!` branch)
+therefore freezes every signal and every call on that connection, permanently if the consumer is
+waiting for a reply that sits behind the full queue. This froze the whole panel once: a burst of
+`UnitRemoved` filled an applet watch while its loop served the applet socket.
+
+So no code holds a raw zbus signal stream. Every `receive_<signal>`, `receive_name_owner_changed*`,
+`receive_all_signals`, `MessageStream::for_match_rule` and `MessageStream::from` goes straight into
+one of the two `glimpse_dbus` helpers at creation; their forwarder reads zbus's queue continuously,
+so it never fills:
+
+- **`glimpse_dbus::wake(stream)`** — the signal only means "read it again" (`New*`, most
+  `PropertiesChanged`, `DeviceAdded`). Keeps at most one pending `()`; any burst becomes one re-read.
+- **`glimpse_dbus::events(stream)`** — the payload matters (`UnitRemoved`, `NameOwnerChanged`,
+  `InterfacesAdded`). Bounded to 64, the oldest dropped first, delivered as `Delivery::Item(t)`.
+  Filter before it (`filter_map` for the one unit or name you care about) so only relevant signals
+  are queued.
+- **`Delivery::Missed`** means messages were dropped. Handle it with the site's existing re-read —
+  re-enumerate, `NameHasOwner`/`GetNameOwner`, re-read the property — never by ignoring it and never
+  with a reset heavier than the state that may have been lost (do not tear down agents, scans or
+  pending connects to recover a dropped signal).
+- `PropertyStream`s (`receive_<prop>_changed` from `#[zbus(property)]`) are exempt: zbus fills them
+  from its own always-polled task and they cannot block the reader.
+- Do not make D-Bus calls inside the stream handed to a helper (`events(s.then(|_| proxy.call()))`);
+  the forwarder would wait on the call and the queue behind it fills again. Call after the helper.
+
+`crates/glimpse-dbus/tests/signal_streams.rs` fails `just verify` on a raw signal stream outside
+`glimpsectl` and test code.
+
 ## Decision Table
 
 | Task | Go to |
@@ -97,6 +129,7 @@ connection to a fixture bus instead.
 | Need the exact signature of a remote method, property or signal | `references/interfaces.md` |
 | Property changed but nothing fired | `references/proxies.md` → Caching and `emits_changed_signal` |
 | A handler can block on a D-Bus round trip | `.claude/rules/daemon.md` → move the `Responder` into `ctx.spawn` |
+| Subscribe to a signal, or the bus stopped answering | Signal Streams Never Stall the Connection, above |
 
 ## The Five Rules
 
@@ -139,6 +172,8 @@ panic and it does not exit.
 - `zbus` is declared once in `[workspace.dependencies]` with `default-features = false`.
 - No `zbus::blocking::*` anywhere. It should not compile; if it does, the features are wrong.
 - Every proxy is built once and stored, not built per call.
+- Every signal stream goes through `glimpse_dbus::wake` or `glimpse_dbus::events` at creation, and
+  every `Delivery::Missed` re-reads state.
 - Every mirror service enumerates once and then follows signals.
 - No `unwrap()` or `expect()` on a bus result in a handler or a provider's object-server method.
 - Every handler that makes a D-Bus call either returns promptly or moves its `Responder` into

@@ -177,7 +177,13 @@ pub async fn watch_disconnects(
             return;
         }
     };
-    let mut owners = match dbus.receive_name_owner_changed().await {
+    let mut owners = match dbus.receive_name_owner_changed().await.map(|stream| {
+        glimpse_dbus::events(stream.filter_map(|signal| async move {
+            let args = signal.args().ok()?;
+            (args.old_owner().is_some() && args.new_owner().is_none())
+                .then(|| args.name().to_string())
+        }))
+    }) {
         Ok(owners) => owners,
         Err(error) => {
             tracing::warn!(%error, "cannot subscribe to NameOwnerChanged");
@@ -188,25 +194,36 @@ pub async fn watch_disconnects(
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
-            signal = owners.next() => match signal {
-                Some(signal) => {
-                    let Ok(args) = signal.args() else { continue };
-                    if args.old_owner().is_some() && args.new_owner().is_none() {
-                        let name = args.name().to_string();
-                        let handles = registry
-                            .mutate(move |registry| {
-                                let handles = registry.portal_handles_of(&name);
-                                registry.release_by_bus_name(&name);
-                                handles
-                            })
-                            .await;
-                        super::portal::remove_requests(connection.object_server(), handles).await;
+            delivery = owners.next() => match delivery {
+                Some(glimpse_dbus::Delivery::Item(name)) => {
+                    release(&connection, &registry, name).await;
+                }
+                Some(glimpse_dbus::Delivery::Missed) => {
+                    for name in registry.mutate(|registry| registry.bus_names()).await {
+                        let gone = match BusName::try_from(name.as_str()) {
+                            Ok(bus_name) => matches!(dbus.name_has_owner(bus_name).await, Ok(false)),
+                            Err(_) => false,
+                        };
+                        if gone {
+                            release(&connection, &registry, name).await;
+                        }
                     }
                 }
                 None => break,
             }
         }
     }
+}
+
+async fn release(connection: &Connection, registry: &SharedRegistry, name: String) {
+    let handles = registry
+        .mutate(move |registry| {
+            let handles = registry.portal_handles_of(&name);
+            registry.release_by_bus_name(&name);
+            handles
+        })
+        .await;
+    super::portal::remove_requests(connection.object_server(), handles).await;
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::pin::Pin;
 
-use futures_util::{Stream, StreamExt, stream};
+use futures_util::{Stream, StreamExt, future, stream};
 use zbus::fdo::{DBusProxy, ObjectManagerProxy};
 use zbus::message::Type;
 use zbus::zvariant::OwnedObjectPath;
@@ -14,9 +14,30 @@ use crate::context::Ctx;
 use super::{Event, Interfaces, Objects, Properties, Removable};
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
+type Messages = Pin<Box<dyn Stream<Item = Option<Message>> + Send>>;
 
 const OBJECT_MANAGER: &str = "org.freedesktop.DBus.ObjectManager";
 const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
+
+async fn queued(rule: MatchRule<'static>, connection: &Connection) -> Option<Messages> {
+    let messages = glimpse_dbus::events(
+        MessageStream::for_match_rule(rule, connection, None)
+            .await
+            .ok()?
+            .filter_map(|message| future::ready(message.ok())),
+    );
+    Some(Box::pin(messages.map(|delivery| match delivery {
+        glimpse_dbus::Delivery::Item(message) => Some(message),
+        glimpse_dbus::Delivery::Missed => None,
+    })))
+}
+
+fn resolve(message: Option<Message>, decode: fn(&Message) -> Option<Event>) -> Option<Event> {
+    match message {
+        Some(message) => decode(&message),
+        None => Some(Event::NameOwner(Some(udisks2::SERVICE.to_owned()))),
+    }
+}
 
 fn nothing() -> Events {
     Box::pin(stream::empty())
@@ -27,7 +48,7 @@ fn unavailable(reason: impl Into<String>) -> Events {
     Box::pin(stream::once(async move { Event::Unavailable(reason) }))
 }
 
-async fn signals(connection: &Connection, interface: &str, member: &str) -> Option<MessageStream> {
+async fn signals(connection: &Connection, interface: &str, member: &str) -> Option<Messages> {
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .sender(udisks2::SERVICE)
@@ -40,9 +61,7 @@ async fn signals(connection: &Connection, interface: &str, member: &str) -> Opti
         .ok()?
         .build();
 
-    MessageStream::for_match_rule(rule, connection, None)
-        .await
-        .ok()
+    queued(rule.to_owned(), connection).await
 }
 
 pub async fn name_owner(ctx: Ctx<Removable>) -> Events {
@@ -52,18 +71,19 @@ pub async fn name_owner(ctx: Ctx<Removable>) -> Events {
     let Ok(proxy) = DBusProxy::new(connection).await else {
         return nothing();
     };
-    let Ok(stream) = proxy.receive_name_owner_changed().await else {
+    let Ok(owners) = proxy.receive_name_owner_changed().await.map(|stream| {
+        glimpse_dbus::events(stream.filter_map(|signal| async move {
+            let args = signal.args().ok()?;
+            (args.name.as_str() == udisks2::SERVICE)
+                .then(|| args.new_owner.as_ref().map(ToString::to_string))
+        }))
+    }) else {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|signal| async move {
-        let args = signal.args().ok()?;
-        if args.name.as_str() != udisks2::SERVICE {
-            return None;
-        }
-        Some(Event::NameOwner(
-            args.new_owner.as_ref().map(ToString::to_string),
-        ))
+    Box::pin(owners.map(|delivery| match delivery {
+        glimpse_dbus::Delivery::Item(owner) => Event::NameOwner(owner),
+        glimpse_dbus::Delivery::Missed => Event::NameOwner(Some(udisks2::SERVICE.to_owned())),
     }))
 }
 
@@ -78,13 +98,13 @@ pub async fn objects(ctx: Ctx<Removable>) -> Events {
 
     let mut changes: Vec<Events> = Vec::new();
     if let Some(added) = added {
-        changes.push(Box::pin(added.filter_map(|message| async move {
-            interfaces_added(&message.ok()?)
+        changes.push(Box::pin(added.filter_map(|message| {
+            future::ready(resolve(message, interfaces_added))
         })));
     }
     if let Some(removed) = removed {
-        changes.push(Box::pin(removed.filter_map(|message| async move {
-            interfaces_removed(&message.ok()?)
+        changes.push(Box::pin(removed.filter_map(|message| {
+            future::ready(resolve(message, interfaces_removed))
         })));
     }
 
@@ -100,7 +120,7 @@ pub async fn properties(ctx: Ctx<Removable>) -> Events {
         return nothing();
     };
 
-    Box::pin(stream.filter_map(|message| async move { properties_changed(&message.ok()?) }))
+    Box::pin(stream.filter_map(|message| future::ready(resolve(message, properties_changed))))
 }
 
 async fn enumerate(connection: &Connection) -> Event {

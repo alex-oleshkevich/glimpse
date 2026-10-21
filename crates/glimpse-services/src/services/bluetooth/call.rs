@@ -101,32 +101,46 @@ async fn audio_profile_connected(connection: &Connection, device: &str) -> Resul
         .path(bluez::ROOT)?
         .build()
         .await?;
-    let mut added = manager.receive_interfaces_added().await?;
+    let mut added = manager.receive_interfaces_added().await.map(|signals| {
+        glimpse_dbus::events(signals.filter_map(|signal| async move {
+            let args = signal.args().ok()?;
+            let interfaces = args
+                .interfaces_and_properties()
+                .keys()
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>();
+            Some((args.object_path().to_string(), interfaces))
+        }))
+    })?;
+    if listed_audio_profile(&manager, device).await? {
+        return Ok(true);
+    }
+    while let Some(delivery) = added.next().await {
+        match delivery {
+            glimpse_dbus::Delivery::Item((path, interfaces)) => {
+                if proves_audio_profile(device, &path, interfaces.iter().map(String::as_str)) {
+                    return Ok(true);
+                }
+            }
+            glimpse_dbus::Delivery::Missed => {
+                if listed_audio_profile(&manager, device).await? {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
+async fn listed_audio_profile(manager: &ObjectManagerProxy<'_>, device: &str) -> Result<bool> {
     let objects = manager.get_managed_objects().await?;
-    if objects.iter().any(|(path, interfaces)| {
+    Ok(objects.iter().any(|(path, interfaces)| {
         proves_audio_profile(
             device,
             path.as_str(),
             interfaces.keys().map(|name| name.as_str()),
         )
-    }) {
-        return Ok(true);
-    }
-    while let Some(signal) = added.next().await {
-        let Ok(args) = signal.args() else {
-            continue;
-        };
-        if proves_audio_profile(
-            device,
-            args.object_path().as_str(),
-            args.interfaces_and_properties()
-                .keys()
-                .map(|name| name.as_str()),
-        ) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+    }))
 }
 
 pub async fn disconnect(connection: &Connection, path: &str) -> Result<()> {

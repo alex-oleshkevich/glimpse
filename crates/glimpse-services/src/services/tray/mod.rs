@@ -96,6 +96,8 @@ pub enum Event {
     Attached(Result<Vec<String>, String>),
     /// The foreign watcher's item set moved; read it again.
     Resync,
+    /// Name changes were dropped under load; read the watcher name afresh and reap vanished owners.
+    NamesMissed,
     /// `name` is whichever bus name moved; `new_owner` is `None` when it was released.
     NameOwnerChanged {
         name: String,
@@ -377,6 +379,29 @@ impl Service for Tray {
                 tracing::debug!("the foreign watcher's item set moved; reading it again");
                 self.resync(ctx);
             }
+            Input::Event(Event::NamesMissed) => {
+                let claimed = self.claimed;
+                ctx.spawn_detached(move |ctx| async move {
+                    let Ok(connection) = ctx.session_bus().cloned() else {
+                        return;
+                    };
+                    let Some(owner) = watcher::current_owner(&connection).await else {
+                        return;
+                    };
+                    let ours = connection.unique_name().map(ToString::to_string);
+                    let new_owner = owner.filter(|owner| !claimed || Some(owner) == ours.as_ref());
+                    let _ = ctx
+                        .events()
+                        .send(Input::Event(Event::NameOwnerChanged {
+                            name: WATCHER_NAME.to_owned(),
+                            new_owner,
+                        }))
+                        .await;
+                });
+                if claimed {
+                    self.reap(ctx);
+                }
+            }
             Input::Event(Event::NameOwnerChanged { name, new_owner }) => {
                 self.name_moved(ctx, &name, new_owner.as_deref()).await;
             }
@@ -484,6 +509,33 @@ impl Tray {
                 .events()
                 .send(Input::Event(Event::Attached(outcome)))
                 .await;
+        });
+    }
+
+    fn reap(&self, ctx: &Ctx<Self>) {
+        let mut owners: Vec<String> = self
+            .keys()
+            .iter()
+            .filter_map(|key| {
+                glimpse_dbus::status_notifier_watcher::split_key(key)
+                    .map(|(owner, _)| owner.to_owned())
+            })
+            .collect();
+        owners.sort();
+        owners.dedup();
+        ctx.spawn_detached(|ctx| async move {
+            let Ok(connection) = ctx.session_bus().cloned() else {
+                return;
+            };
+            for name in watcher::vanished(&connection, owners).await {
+                let _ = ctx
+                    .events()
+                    .send(Input::Event(Event::NameOwnerChanged {
+                        name,
+                        new_owner: None,
+                    }))
+                    .await;
+            }
         });
     }
 

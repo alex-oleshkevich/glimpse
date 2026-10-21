@@ -277,7 +277,7 @@ impl AppletHost {
 
 struct Vanish {
     dbus: zbus::fdo::DBusProxy<'static>,
-    changes: zbus::fdo::NameOwnerChangedStream,
+    changes: futures_util::stream::BoxStream<'static, glimpse_dbus::Delivery<bool>>,
     name: zbus::names::BusName<'static>,
 }
 
@@ -294,6 +294,11 @@ impl Vanish {
         let changes = dbus
             .receive_name_owner_changed_with_args(&[(0, sender)])
             .await
+            .map(|stream| {
+                glimpse_dbus::events(stream.filter_map(|change| async move {
+                    change.args().ok().map(|args| args.new_owner().is_none())
+                }))
+            })
             .map_err(unwatchable)?;
         Ok(Self {
             dbus,
@@ -303,15 +308,23 @@ impl Vanish {
     }
 
     async fn wait(mut self) {
-        if !self.dbus.name_has_owner(self.name).await.unwrap_or(true) {
+        if gone(&self.dbus, &self.name).await {
             return;
         }
         while let Some(change) = self.changes.next().await {
-            if change.args().is_ok_and(|args| args.new_owner().is_none()) {
+            let vanished = match change {
+                glimpse_dbus::Delivery::Item(vanished) => vanished,
+                glimpse_dbus::Delivery::Missed => gone(&self.dbus, &self.name).await,
+            };
+            if vanished {
                 return;
             }
         }
     }
+}
+
+async fn gone(dbus: &zbus::fdo::DBusProxy<'_>, name: &zbus::names::BusName<'_>) -> bool {
+    !dbus.name_has_owner(name.to_owned()).await.unwrap_or(true)
 }
 
 fn unknown_handle() -> zbus::fdo::Error {

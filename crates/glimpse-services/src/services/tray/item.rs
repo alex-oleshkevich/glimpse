@@ -48,36 +48,56 @@ async fn sources(ctx: &Ctx<Tray>, key: &str) -> Option<Pin<Box<dyn Stream<Item =
         .ok()?;
 
     let mut triggers: Vec<Trigger> = Vec::new();
-    if let Ok(changed) = properties.receive_properties_changed().await {
-        triggers.push(Box::pin(changed.map(|_| ())));
+    if let Ok(changed) = properties
+        .receive_properties_changed()
+        .await
+        .map(glimpse_dbus::wake)
+    {
+        triggers.push(changed);
     }
     // The `New*` signals carry no arguments — they mean "read it again".
-    if let Ok(signal) = item.receive_new_title().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item.receive_new_title().await.map(glimpse_dbus::wake) {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_icon().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item.receive_new_icon().await.map(glimpse_dbus::wake) {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_attention_icon().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item
+        .receive_new_attention_icon()
+        .await
+        .map(glimpse_dbus::wake)
+    {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_overlay_icon().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item
+        .receive_new_overlay_icon()
+        .await
+        .map(glimpse_dbus::wake)
+    {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_tool_tip().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item.receive_new_tool_tip().await.map(glimpse_dbus::wake) {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_menu().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item.receive_new_menu().await.map(glimpse_dbus::wake) {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_icon_theme_path().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item
+        .receive_new_icon_theme_path()
+        .await
+        .map(glimpse_dbus::wake)
+    {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_new_status().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item.receive_new_status().await.map(glimpse_dbus::wake) {
+        triggers.push(signal);
     }
-    if let Ok(signal) = item.receive_x_ayatana_new_label().await {
-        triggers.push(Box::pin(signal.map(|_| ())));
+    if let Ok(signal) = item
+        .receive_x_ayatana_new_label()
+        .await
+        .map(glimpse_dbus::wake)
+    {
+        triggers.push(signal);
     }
 
     let first = read(&properties, key).await;

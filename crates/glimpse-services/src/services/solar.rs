@@ -163,12 +163,12 @@ pub(crate) async fn resumes<S: Service>(
     let Ok(manager) = Login1ManagerProxy::new(bus).await else {
         return stream::empty().boxed();
     };
-    match manager.receive_prepare_for_sleep().await {
-        Ok(signals) => signals
-            .filter_map(move |signal| {
-                future::ready(signal.args().is_ok_and(|args| !args.start).then(tick))
-            })
-            .boxed(),
+    match manager.receive_prepare_for_sleep().await.map(|signals| {
+        glimpse_dbus::wake(signals.filter_map(|signal| {
+            future::ready(signal.args().is_ok_and(|args| !args.start).then_some(()))
+        }))
+    }) {
+        Ok(resumes) => resumes.map(move |()| tick()).boxed(),
         Err(_) => stream::empty().boxed(),
     }
 }

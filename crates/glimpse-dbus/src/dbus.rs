@@ -1,3 +1,8 @@
+use std::pin::pin;
+
+use futures_util::stream::{self, BoxStream, Stream, StreamExt};
+use tokio::sync::{broadcast, mpsc};
+use tokio_util::sync::CancellationToken;
 use zbus::Connection;
 use zbus::fdo::RequestNameFlags;
 
@@ -78,6 +83,69 @@ fn bus(kind: &'static str, connected: zbus::Result<Connection>) -> Result<Connec
             Err(error.to_string())
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Delivery<T> {
+    Item(T),
+    Missed,
+}
+
+pub fn wake<T, S>(source: S) -> BoxStream<'static, ()>
+where
+    T: Send + 'static,
+    S: Stream<Item = T> + Send + 'static,
+{
+    let (tx, rx) = mpsc::channel(1);
+    tokio::spawn(async move {
+        let mut source = pin!(source);
+        loop {
+            tokio::select! {
+                () = tx.closed() => break,
+                item = source.next() => {
+                    if item.is_none() || matches!(tx.try_send(()), Err(mpsc::error::TrySendError::Closed(()))) {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    stream::unfold(
+        rx,
+        |mut rx| async move { rx.recv().await.map(|()| ((), rx)) },
+    )
+    .boxed()
+}
+
+pub fn events<T, S>(source: S) -> BoxStream<'static, Delivery<T>>
+where
+    T: Clone + Send + 'static,
+    S: Stream<Item = T> + Send + 'static,
+{
+    let (tx, rx) = broadcast::channel(64);
+    let stop = CancellationToken::new();
+    let guard = stop.clone().drop_guard();
+    tokio::spawn(async move {
+        let mut source = pin!(source);
+        loop {
+            tokio::select! {
+                () = stop.cancelled() => break,
+                item = source.next() => {
+                    if item.is_none_or(|item| tx.send(item).is_err()) {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    stream::unfold((rx, guard), |(mut rx, guard)| async move {
+        match rx.recv().await {
+            Ok(item) => Some((Delivery::Item(item), (rx, guard))),
+            Err(broadcast::error::RecvError::Lagged(_)) => Some((Delivery::Missed, (rx, guard))),
+            Err(broadcast::error::RecvError::Closed) => None,
+        }
+    })
+    .boxed()
 }
 
 #[cfg(test)]

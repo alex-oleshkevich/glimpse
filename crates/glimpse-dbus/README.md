@@ -37,6 +37,16 @@ connections they run on.
 `AllowReplacement | ReplaceExisting | DoNotQueue`, stealing the name from whoever holds it; `own_name`
 requests `DoNotQueue` alone, so a duplicate owner gets `Error::NameTaken` instead.
 
+**Every zbus signal stream goes through `wake` or `events` at creation.** zbus parks its single socket
+reader on a subscription channel that holds 64 unread messages, so one signal stream nobody is
+polling stops every reply on the connection. `wake` is for a signal that only means "read it again"
+and keeps at most one pending wake; `events` is for a signal whose payload matters and keeps the
+newest 64 per stream, yielding one `Delivery::Missed` where it dropped older ones, which the site maps
+to the re-read it already has. Filter before `events` wherever most signals are discarded.
+`PropertyStream`s are exempt, since zbus fills them from its own task; `tests/signal_streams.rs`
+fails any other `receive_<signal>`, `receive_all_signals` or `MessageStream` use that does not feed
+one of the two helpers.
+
 **`ObjectManager` sits at a different path per service.** BlueZ is at `/`, NetworkManager at
 `/org/freedesktop`, UDisks2 at `/org/freedesktop/UDisks2` — a `path_namespace` copied from one
 service's watcher matches nothing on another.

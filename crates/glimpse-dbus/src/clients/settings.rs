@@ -227,10 +227,7 @@ async fn follow(
             return;
         }
     };
-    let mut owners = match dbus
-        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_SETTINGS_BUS_NAME)])
-        .await
-    {
+    let mut owners = match super::owners(&dbus, GLIMPSE_SETTINGS_BUS_NAME).await {
         Ok(owners) => owners,
         Err(error) => {
             tracing::warn!(%error, "cannot observe settings owner changes");
@@ -299,11 +296,14 @@ async fn follow(
                         publish(&locations, Ok(None));
                         return;
                     };
-                    if let Ok(args) = owner.args()
-                        && (args.old_owner().is_some()
-                            || (args.new_owner().is_some() && updates.borrow().is_none()))
-                    {
-                        break;
+                    match owner {
+                        crate::Delivery::Missed => break,
+                        crate::Delivery::Item((old_owner, new_owner))
+                            if old_owner || (new_owner && updates.borrow().is_none()) =>
+                        {
+                            break;
+                        }
+                        crate::Delivery::Item(_) => {}
                     }
                 }
             }

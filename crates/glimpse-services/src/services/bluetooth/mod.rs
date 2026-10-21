@@ -282,6 +282,7 @@ pub enum Command {
 pub enum Event {
     Enumerated(Box<Objects>),
     NameOwner(Option<String>),
+    OwnerMissed,
     InterfacesAdded {
         path: String,
         interfaces: Interfaces,
@@ -543,6 +544,10 @@ impl Service for Bluetooth {
                 ctx.running();
                 self.settle_scan(ctx);
                 self.publish();
+            }
+            Input::Event(Event::OwnerMissed) => {
+                self.generation = self.generation.wrapping_add(1);
+                self.adopted = false;
             }
             Input::Event(Event::NameOwner(owner)) => match owner {
                 Some(_) => {

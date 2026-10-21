@@ -170,3 +170,198 @@ async fn losing_the_backend_empties_the_bar_rather_than_leaving_stale_chips() {
         matches!(&*health.borrow(), crate::ServiceState::Degraded { reason } if reason.contains("taken")),
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_item_that_floods_signals_never_stalls_the_connection() {
+    use futures_util::StreamExt;
+    use std::time::Duration;
+
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let app = bus.connection().await;
+    let panel = bus.connection().await;
+    let app_name = app.unique_name().unwrap().to_string();
+
+    let served = app.clone();
+    let reads = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted = reads.clone();
+    tokio::spawn(async move {
+        let mut calls = zbus::MessageStream::from(&served);
+        let mut n = 0;
+        while let Some(Ok(msg)) = calls.next().await {
+            let header = msg.header();
+            if header.message_type() != zbus::message::Type::MethodCall {
+                continue;
+            }
+            if header.member().map(|m| m.as_str()) != Some("GetAll") {
+                continue;
+            }
+            n += 1;
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let map: std::collections::HashMap<String, zbus::zvariant::OwnedValue> =
+                Default::default();
+            if n == 1 {
+                served.reply(&header, &map).await.unwrap();
+                served
+                    .emit_signal(
+                        None::<&str>,
+                        "/StatusNotifierItem",
+                        "org.kde.StatusNotifierItem",
+                        "NewIcon",
+                        &(),
+                    )
+                    .await
+                    .unwrap();
+            } else if n == 2 {
+                for _ in 0..200 {
+                    served
+                        .emit_signal(
+                            None::<&str>,
+                            "/StatusNotifierItem",
+                            "org.kde.StatusNotifierItem",
+                            "NewIcon",
+                            &(),
+                        )
+                        .await
+                        .unwrap();
+                }
+                served.reply(&header, &map).await.unwrap();
+            } else {
+                served.reply(&header, &map).await.unwrap();
+            }
+        }
+    });
+
+    let cancel = CancellationToken::new();
+    let (events, mut inbox) = tokio::sync::mpsc::channel(4);
+    let (state, _state_rx) = tokio::sync::watch::channel(TrayItems::default());
+    let (health, _health_rx) = tokio::sync::watch::channel(crate::ServiceState::Starting);
+    let ctx = Ctx::<Tray>::new(
+        events,
+        &cancel,
+        state,
+        health,
+        Buses::for_session(panel.clone()),
+    );
+    let key = format!("{app_name}/StatusNotifierItem");
+    let _source = ctx.stream(move |ctx| item::follow(ctx, key));
+    tokio::spawn(async move { while inbox.recv().await.is_some() {} });
+
+    tokio::time::sleep(Duration::from_millis(1000)).await;
+    let answered = tokio::time::timeout(
+        Duration::from_secs(3),
+        zbus::fdo::DBusProxy::new(&panel)
+            .await
+            .unwrap()
+            .list_names(),
+    )
+    .await;
+    assert!(answered.is_ok(), "the connection stopped being read");
+    assert!(
+        reads.load(std::sync::atomic::Ordering::SeqCst) <= 10,
+        "one burst caused {} reads",
+        reads.load(std::sync::atomic::Ordering::SeqCst)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_missed_name_change_evicts_only_the_item_whose_owner_vanished() {
+    use std::time::Duration;
+
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let panel = bus.connection().await;
+    let kept = bus.connection().await;
+    let lost = bus.connection().await;
+    let kept_name = kept.unique_name().unwrap().to_string();
+    let lost_name = lost.unique_name().unwrap().to_string();
+
+    let cancel = CancellationToken::new();
+    let (events, mut inbox) = tokio::sync::mpsc::channel(16);
+    let (state, _state_rx) = tokio::sync::watch::channel(TrayItems::default());
+    let (health, _health_rx) = tokio::sync::watch::channel(crate::ServiceState::Starting);
+    let ctx = Ctx::<Tray>::new(
+        events,
+        &cancel,
+        state,
+        health,
+        Buses::for_session(panel.clone()),
+    );
+    let mut tray = Tray::start(&ctx, NoConfig, ()).await;
+    glimpse_dbus::own_name(&panel, WATCHER_NAME).await.unwrap();
+    tray.claimed = true;
+    {
+        let mut registry = tray.registry.lock().unwrap();
+        registry.register(&kept_name, "/StatusNotifierItem");
+        registry.register(&lost_name, "/StatusNotifierItem");
+    }
+    assert_eq!(tray.keys().len(), 2);
+
+    drop(lost);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    tray.handle(&ctx, Input::Event(Event::NamesMissed)).await;
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while tray.keys().len() == 2 && tokio::time::Instant::now() < deadline {
+        if let Ok(Some(Input::Event(event @ Event::NameOwnerChanged { .. }))) =
+            tokio::time::timeout(Duration::from_millis(100), inbox.recv()).await
+        {
+            tray.handle(&ctx, Input::Event(event)).await;
+        }
+    }
+
+    assert_eq!(tray.keys(), [format!("{kept_name}/StatusNotifierItem")]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_missed_release_of_a_foreign_watcher_makes_us_claim_the_name() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let panel = bus.connection().await;
+    let cancel = CancellationToken::new();
+    let (events, mut inbox) = tokio::sync::mpsc::channel(16);
+    let (state, _state_rx) = tokio::sync::watch::channel(TrayItems::default());
+    let (health, _health_rx) = tokio::sync::watch::channel(crate::ServiceState::Starting);
+    let ctx = Ctx::<Tray>::new(events, &cancel, state, health, Buses::for_session(panel));
+    let mut tray = Tray::start(&ctx, NoConfig, ()).await;
+    tray.hosting = true;
+    tray.handle(&ctx, Input::Event(Event::NamesMissed)).await;
+    assert!(!tray.claimed);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !tray.claimed && tokio::time::Instant::now() < deadline {
+        if let Ok(Some(input)) =
+            tokio::time::timeout(std::time::Duration::from_millis(100), inbox.recv()).await
+        {
+            tray.handle(&ctx, input).await;
+        }
+    }
+    assert!(tray.claimed);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_missed_loss_of_our_watcher_name_clears_claimed() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let panel = bus.connection().await;
+    let other = bus.connection().await;
+    glimpse_dbus::own_name(&other, WATCHER_NAME).await.unwrap();
+    let cancel = CancellationToken::new();
+    let (events, mut inbox) = tokio::sync::mpsc::channel(16);
+    let (state, _state_rx) = tokio::sync::watch::channel(TrayItems::default());
+    let (health, _health_rx) = tokio::sync::watch::channel(crate::ServiceState::Starting);
+    let ctx = Ctx::<Tray>::new(events, &cancel, state, health, Buses::for_session(panel));
+    let mut tray = Tray::start(&ctx, NoConfig, ()).await;
+    tray.claimed = true;
+
+    tray.handle(&ctx, Input::Event(Event::NamesMissed)).await;
+    let moved = tokio::time::timeout(std::time::Duration::from_secs(5), inbox.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        moved,
+        Input::Event(Event::NameOwnerChanged {
+            new_owner: None,
+            ..
+        })
+    ));
+    tray.handle(&ctx, moved).await;
+
+    assert!(!tray.claimed);
+}

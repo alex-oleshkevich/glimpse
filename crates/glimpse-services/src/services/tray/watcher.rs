@@ -396,15 +396,23 @@ pub async fn foreign_changes(
     let Ok(watcher) = StatusNotifierWatcherProxy::new(connection).await else {
         return Box::pin(attach);
     };
-    let Ok(registered) = watcher.receive_status_notifier_item_registered().await else {
+    let Ok(registered) = watcher
+        .receive_status_notifier_item_registered()
+        .await
+        .map(glimpse_dbus::wake)
+    else {
         return Box::pin(attach);
     };
-    let Ok(unregistered) = watcher.receive_status_notifier_item_unregistered().await else {
+    let Ok(unregistered) = watcher
+        .receive_status_notifier_item_unregistered()
+        .await
+        .map(glimpse_dbus::wake)
+    else {
         return Box::pin(attach);
     };
     let moved = futures_util::stream::select(
-        futures_util::StreamExt::map(registered, |_| Event::Resync),
-        futures_util::StreamExt::map(unregistered, |_| Event::Resync),
+        futures_util::StreamExt::map(registered, |()| Event::Resync),
+        futures_util::StreamExt::map(unregistered, |()| Event::Resync),
     );
     Box::pin(futures_util::StreamExt::chain(attach, moved))
 }
@@ -455,6 +463,33 @@ pub async fn sweep(ctx: &Ctx<Tray>, registry: &Shared) {
     }
 }
 
+pub async fn current_owner(connection: &Connection) -> Option<Option<String>> {
+    let proxy = zbus::fdo::DBusProxy::new(connection).await.ok()?;
+    let target = zbus::names::BusName::try_from(WATCHER_NAME).ok()?;
+    match tokio::time::timeout(glimpse_dbus::DEADLINE, proxy.get_name_owner(target)).await {
+        Ok(Ok(owner)) => Some(Some(owner.to_string())),
+        Ok(Err(zbus::fdo::Error::NameHasNoOwner(_))) => Some(None),
+        _ => None,
+    }
+}
+
+pub async fn vanished(connection: &Connection, owners: Vec<String>) -> Vec<String> {
+    let Ok(proxy) = zbus::fdo::DBusProxy::new(connection).await else {
+        return Vec::new();
+    };
+    let mut gone = Vec::new();
+    for owner in owners {
+        let Ok(name) = zbus::names::BusName::try_from(owner.as_str()) else {
+            continue;
+        };
+        let answer = tokio::time::timeout(glimpse_dbus::DEADLINE, proxy.name_has_owner(name)).await;
+        if matches!(answer, Ok(Ok(false))) {
+            gone.push(owner);
+        }
+    }
+    gone
+}
+
 /// A well-known name in the range proves nothing on its own — the owner may be a stale activatable
 /// entry. Reading one property is what says an item is really there.
 async fn responds(connection: &Connection, owner: &str) -> bool {
@@ -503,16 +538,26 @@ pub async fn name_changes(
     let Ok(proxy) = zbus::fdo::DBusProxy::new(connection).await else {
         return Box::pin(claim);
     };
-    let Ok(stream) = proxy.receive_name_owner_changed().await else {
+    let Ok(stream) = proxy.receive_name_owner_changed().await.map(|stream| {
+        glimpse_dbus::events(futures_util::StreamExt::filter_map(
+            stream,
+            |signal| async move {
+                let args = signal.args().ok()?;
+                Some((
+                    args.name().to_string(),
+                    args.new_owner().as_ref().map(ToString::to_string),
+                ))
+            },
+        ))
+    }) else {
         return Box::pin(claim);
     };
 
-    let changes = futures_util::StreamExt::filter_map(stream, |signal| async move {
-        let args = signal.args().ok()?;
-        Some(Event::NameOwnerChanged {
-            name: args.name().to_string(),
-            new_owner: args.new_owner().as_ref().map(ToString::to_string),
-        })
+    let changes = futures_util::StreamExt::map(stream, |delivery| match delivery {
+        glimpse_dbus::Delivery::Item((name, new_owner)) => {
+            Event::NameOwnerChanged { name, new_owner }
+        }
+        glimpse_dbus::Delivery::Missed => Event::NamesMissed,
     });
     Box::pin(futures_util::StreamExt::chain(claim, changes))
 }

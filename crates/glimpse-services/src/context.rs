@@ -97,8 +97,9 @@ impl<S: Service> Ctx<S> {
         self.spawn_raw(async move { task(ctx).await }).detach();
     }
 
-    /// An event per tick, starting now. Like every source, it is polled while the handler is busy,
-    /// so ticks queue until the handler reads them.
+    /// An event per tick, starting now. A tick that is still running when the next is due does not
+    /// stack them up: the missed one is skipped, so a slow handler falls behind rather than
+    /// building a backlog it can never clear.
     pub fn interval<F, Fut>(&self, period: time::Duration, on_tick: F) -> SourceGuard
     where
         F: Fn(Ctx<S>) -> Fut + Send + 'static,
@@ -141,23 +142,9 @@ impl<S: Service> Ctx<S> {
             let stream = source(ctx).await;
             tokio::pin!(stream);
 
-            let mut queue = std::collections::VecDeque::new();
-            let mut open = true;
-            loop {
-                tokio::select! {
-                    next = stream.next(), if open => match next {
-                        Some(event) => queue.push_back(event),
-                        None => open = false,
-                    },
-                    permit = events.reserve(), if !queue.is_empty() => match permit {
-                        Ok(permit) => {
-                            if let Some(event) = queue.pop_front() {
-                                permit.send(Input::Event(event));
-                            }
-                        }
-                        Err(_) => break,
-                    },
-                    else => break,
+            while let Some(event) = stream.next().await {
+                if events.send(Input::Event(event)).await.is_err() {
+                    break;
                 }
             }
         })

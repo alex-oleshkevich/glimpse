@@ -99,12 +99,18 @@ async fn start(
     properties: Vec<(&'static str, Value<'static>)>,
 ) -> zbus::Result<Option<String>> {
     let manager = MANAGER.get_or_try_init(manager).await?;
-    let mut removed = manager.receive_job_removed().await?;
+    let mut removed = manager
+        .receive_job_removed()
+        .await
+        .map(glimpse_dbus::events)?;
     let job = manager
         .start_transient_unit(&unit, "fail", &properties, &[])
         .await?;
     let result = async {
-        while let Some(signal) = removed.next().await {
+        while let Some(delivery) = removed.next().await {
+            let glimpse_dbus::Delivery::Item(signal) = delivery else {
+                return None;
+            };
             if let Ok(args) = signal.args()
                 && args.job == job
             {

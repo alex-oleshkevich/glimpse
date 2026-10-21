@@ -613,11 +613,15 @@ async fn upower_owner_changes(
     let dbus = zbus::fdo::DBusProxy::new(ctx.system_bus().ok()?)
         .await
         .ok()?;
-    let owners = dbus.receive_name_owner_changed().await.ok()?;
-    Some(Box::pin(owners.filter_map(|signal| async move {
-        let args = signal.args().ok()?;
-        (args.name.as_str() == upower::SERVICE && args.new_owner.is_some()).then_some(())
-    })))
+    dbus.receive_name_owner_changed()
+        .await
+        .map(|owners| {
+            glimpse_dbus::wake(owners.filter_map(|signal| async move {
+                let args = signal.args().ok()?;
+                (args.name.as_str() == upower::SERVICE && args.new_owner.is_some()).then_some(())
+            }))
+        })
+        .ok()
 }
 
 async fn keyboard_change_events(
@@ -635,13 +639,24 @@ async fn keyboard_change_events(
         .build()
         .await
         .map_err(say)?;
-    let changes = proxy
+    let values = proxy
         .receive_brightness_changed_with_source()
         .await
+        .map(|changes| {
+            glimpse_dbus::events(
+                changes.filter_map(|signal| async move { Some(signal.args().ok()?.value) }),
+            )
+        })
         .map_err(say)?;
-    Ok(changes.filter_map(move |signal| async move {
-        let args = signal.args().ok()?;
-        Some(keyboard_rescan_event(args.value, max_brightness))
+    Ok(values.filter_map(move |delivery| {
+        let proxy = proxy.clone();
+        async move {
+            let value = match delivery {
+                glimpse_dbus::Delivery::Item(value) => value,
+                glimpse_dbus::Delivery::Missed => proxy.get_brightness().await.ok()?,
+            };
+            Some(keyboard_rescan_event(value, max_brightness))
+        }
     }))
 }
 

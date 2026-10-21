@@ -162,6 +162,10 @@ impl Registry {
             .collect()
     }
 
+    pub fn bus_names(&self) -> Vec<String> {
+        self.bus_name_to_ids.keys().cloned().collect()
+    }
+
     pub fn lookup_by_cookie(&self, cookie: u32) -> Option<u64> {
         self.cookie_to_id.get(&cookie).copied()
     }

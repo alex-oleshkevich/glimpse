@@ -61,10 +61,7 @@ pub async fn notifier(ctx: Ctx<Printing>, config: Config, floor: Duration) -> Ev
         (stream, config, floor, time::Instant::now()),
         |(mut stream, config, floor, mut next_allowed)| async move {
             loop {
-                let message = stream.next().await?;
-                if message.is_err() {
-                    continue;
-                }
+                stream.next().await?;
                 let now = time::Instant::now();
                 if now < next_allowed {
                     continue;
@@ -77,7 +74,7 @@ pub async fn notifier(ctx: Ctx<Printing>, config: Config, floor: Duration) -> Ev
     ))
 }
 
-async fn signal_stream(connection: &Connection) -> Option<MessageStream> {
+async fn signal_stream(connection: &Connection) -> Option<Pin<Box<dyn Stream<Item = ()> + Send>>> {
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .interface(NOTIFIER_INTERFACE)
@@ -86,9 +83,11 @@ async fn signal_stream(connection: &Connection) -> Option<MessageStream> {
         .ok()?
         .build();
 
-    MessageStream::for_match_rule(rule, connection, None)
-        .await
-        .ok()
+    Some(glimpse_dbus::wake(
+        MessageStream::for_match_rule(rule, connection, None)
+            .await
+            .ok()?,
+    ))
 }
 
 async fn fetch_state(uri: Uri) -> Result<PrintingState, IppError> {

@@ -136,3 +136,19 @@ async fn a_zero_timeout_declares_no_deadline_at_all() {
         "with no timeout there is nothing to stop it but the popover"
     );
 }
+
+#[tokio::test]
+async fn missed_owner_messages_re_read_without_dropping_a_running_scan() {
+    let (mut service, ctx, state, _health) = bluetooth().await;
+    enumerated(&mut service, &ctx, session()).await;
+    service.begin_scan(Hold::Held);
+    service.publish();
+    let before = service.generation;
+
+    service.handle(&ctx, Input::Event(Event::OwnerMissed)).await;
+
+    assert!(state.borrow().scanning());
+    assert_eq!(service.scan, Some((1, Hold::Held)));
+    assert_ne!(service.generation, before);
+    assert!(!service.adopted);
+}

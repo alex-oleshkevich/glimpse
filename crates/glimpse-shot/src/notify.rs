@@ -241,6 +241,7 @@ async fn post(
             .inner()
             .receive_all_signals()
             .await
+            .map(glimpse_dbus::events)
             .map_err(|error| error.to_string())
     })
     .await?;
@@ -251,7 +252,10 @@ async fn post(
         tokio::select! {
             biased;
             message = signals.next() => match message {
-                Some(message) => match heard(&message, id) {
+                Some(glimpse_dbus::Delivery::Missed) => {
+                    tracing::warn!("notification signals were dropped under load");
+                }
+                Some(glimpse_dbus::Delivery::Item(message)) => match heard(&message, id) {
                     Some(Heard::Token(value)) => token = value,
                     Some(Heard::Action(key)) => {
                         if invoked(&connection, opener, &notice, &key, &token).await {

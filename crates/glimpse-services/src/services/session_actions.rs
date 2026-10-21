@@ -4,6 +4,7 @@ use futures_util::{Stream, StreamExt, stream};
 use glimpse_dbus::login1::{
     Login1InhibitorEntry, Login1ManagerProxy, Login1SessionProxy, session_path,
 };
+use glimpse_dbus::wake;
 use glimpse_utils::clean;
 use tokio::sync::oneshot;
 
@@ -255,11 +256,11 @@ async fn logind_events(ctx: Ctx<SessionActions>) -> Events {
     };
 
     let mut wakes: Vec<Pin<Box<dyn Stream<Item = ()> + Send>>> = Vec::new();
-    if let Ok(new) = manager.receive_session_new().await {
-        wakes.push(wake(new));
+    if let Ok(new) = manager.receive_session_new().await.map(wake) {
+        wakes.push(new);
     }
-    if let Ok(removed) = manager.receive_session_removed().await {
-        wakes.push(wake(removed));
+    if let Ok(removed) = manager.receive_session_removed().await.map(wake) {
+        wakes.push(removed);
     }
     wakes.push(wake(manager.receive_block_inhibited_changed().await));
     wakes.push(wake(manager.receive_delay_inhibited_changed().await));
@@ -279,13 +280,6 @@ async fn logind_events(ctx: Ctx<SessionActions>) -> Events {
                 Err(error) => Event::Failed(error),
             }),
     )
-}
-
-fn wake<S>(stream: S) -> Pin<Box<dyn Stream<Item = ()> + Send>>
-where
-    S: Stream + Send + 'static,
-{
-    Box::pin(stream.map(|_| ()))
 }
 
 async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, String> {

@@ -19,6 +19,10 @@ paths:
   `.await`. Use `tokio::fs` and `ctx.spawn`.
 - A service never retries what its backend already retries, and never reimplements a decision the
   backend makes.
+- A zbus signal stream goes straight into `glimpse_dbus::wake` or `glimpse_dbus::events` at
+  creation, and `Delivery::Missed` re-reads state. A raw stream left unread while its consumer
+  awaits anything fills zbus's 64-message queue and freezes the whole connection — every signal and
+  every call. Details in the `zbus` skill.
 - A long-lived source is declared in `subscriptions`, not started in `start`. The runtime diffs the
   declared set after every input, so dropping a guard is never something a handler has to remember.
   Whatever must force a restart belongs in the `SubKey`; `ctx.spawn` stays for effects that fire

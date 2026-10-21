@@ -1,16 +1,35 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use futures_util::stream::BoxStream;
 use futures_util::{Stream, StreamExt};
+
+use crate::Delivery;
 
 use chrono::{DateTime, Utc};
 use zbus::zvariant::{OwnedValue, Value};
 
 pub const DEADLINE: Duration = Duration::from_secs(5);
 
+pub(crate) type Owners = BoxStream<'static, Delivery<(bool, bool)>>;
+
+pub(crate) async fn owners(
+    dbus: &zbus::fdo::DBusProxy<'_>,
+    name: &'static str,
+) -> zbus::Result<Owners> {
+    dbus.receive_name_owner_changed_with_args(&[(0, name)])
+        .await
+        .map(|stream| {
+            crate::events(stream.filter_map(|signal| async move {
+                let args = signal.args().ok()?;
+                Some((args.old_owner().is_some(), args.new_owner().is_some()))
+            }))
+        })
+}
+
 pub(crate) async fn retry_after_failure(
     dbus: &zbus::fdo::DBusProxy<'_>,
-    owners: &mut zbus::fdo::NameOwnerChangedStream,
+    owners: &mut Owners,
     name: &'static str,
     delay: &mut RetryDelay,
 ) -> bool {
@@ -24,11 +43,10 @@ pub(crate) async fn retry_after_failure(
     match dbus.name_has_owner(name.clone()).await {
         Ok(false) => {
             while let Some(owner) = owners.next().await {
-                if let Ok(args) = owner.args()
-                    && args.new_owner().is_some()
-                {
-                    return true;
+                if matches!(owner, Delivery::Item((_, false))) {
+                    continue;
                 }
+                return true;
             }
             false
         }

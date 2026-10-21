@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use futures_util::stream::BoxStream;
-use futures_util::{Stream, StreamExt, future, stream};
+use futures_util::{Stream, StreamExt, stream};
 use glimpse_config::Geolocation as ConfiguredGeolocation;
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
 use glimpse_dbus::weather::GeoCoordinates;
@@ -360,7 +360,14 @@ async fn attempt(ctx: Ctx<Geolocation>, bus: Connection) -> Result<Option<Event>
 
     // Subscribed before `Start`, because the first fix can arrive before it returns.
     let updates = client.receive_location_changed().await;
-    let vanished = client.inner().receive_owner_changed().await.map_err(say)?;
+    let vanished = client
+        .inner()
+        .receive_owner_changed()
+        .await
+        .map(glimpse_dbus::events)
+        .map_err(say)?;
+    let dbus = zbus::fdo::DBusProxy::new(&bus).await.map_err(say)?;
+    let service = client.inner().destination().to_owned();
 
     client.set_desktop_id(DESKTOP_ID).await.map_err(say)?;
     client
@@ -382,7 +389,19 @@ async fn attempt(ctx: Ctx<Geolocation>, bus: Connection) -> Result<Option<Event>
         }))
     };
 
-    let mut vanished = std::pin::pin!(vanished.filter(|owner| future::ready(owner.is_none())));
+    let mut vanished = std::pin::pin!(vanished.filter_map(|delivery| {
+        let dbus = dbus.clone();
+        let service = service.clone();
+        async move {
+            let gone = match delivery {
+                glimpse_dbus::Delivery::Item(owner) => owner.is_none(),
+                glimpse_dbus::Delivery::Missed => {
+                    matches!(dbus.name_has_owner(service).await, Ok(false))
+                }
+            };
+            gone.then_some(())
+        }
+    }));
     let event = tokio::select! {
         event = first_fix(decoded) => event,
         _ = vanished.next() => {

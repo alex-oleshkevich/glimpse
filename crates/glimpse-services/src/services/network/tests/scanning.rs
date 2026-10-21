@@ -167,3 +167,20 @@ async fn networkmanager_disappearing_clears_a_running_scan() {
 
     assert!(harness.service.scan.is_none());
 }
+
+#[tokio::test]
+async fn missed_owner_messages_re_read_without_dropping_a_running_scan() {
+    let mut harness = harness().await;
+    enumerate(&mut harness, measured_objects()).await;
+    start(&mut harness).await;
+    let before = harness.service.generation;
+
+    harness
+        .service
+        .handle(&harness.ctx, Input::Event(Event::OwnerMissed))
+        .await;
+
+    assert!(harness.service.scan.is_some());
+    assert_ne!(harness.service.generation, before);
+    assert!(!harness.service.adopted);
+}

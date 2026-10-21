@@ -25,27 +25,32 @@ pub async fn follow(
     let Some(menu) = proxy(connection, &key, &path).await else {
         return Box::pin(stream::empty());
     };
-    let Ok(updates) = menu.receive_layout_updated().await else {
+    let Ok(revisions) = menu.receive_layout_updated().await.map(|updates| {
+        glimpse_dbus::events(
+            updates.filter_map(|signal| async move { Some(signal.args().ok()?.revision) }),
+        )
+    }) else {
         return Box::pin(stream::empty());
     };
-    let layouts = updates.filter_map({
+    let layouts = revisions.map({
         let key = key.clone();
-        move |signal| {
-            let key = key.clone();
-            async move {
-                let revision = signal.args().ok()?.revision;
-                Some(Event::MenuChanged(key, revision))
-            }
+        move |delivery| match delivery {
+            glimpse_dbus::Delivery::Item(revision) => Event::MenuChanged(key.clone(), revision),
+            glimpse_dbus::Delivery::Missed => Event::MenuStale(key.clone()),
         }
     });
 
     // Labels, enabled flags and toggle states move on `ItemsPropertiesUpdated`, which carries no
     // revision at all. Without this the cached tree keeps its old text and `fetch` sees a revision
     // that has not moved, so it hands the stale one back forever. `MenuStale` drops the cache.
-    let properties = match menu.receive_items_properties_updated().await {
+    let properties = match menu
+        .receive_items_properties_updated()
+        .await
+        .map(glimpse_dbus::wake)
+    {
         Ok(stream) => {
             let key = key.clone();
-            futures_util::future::Either::Left(stream.map(move |_| Event::MenuStale(key.clone())))
+            futures_util::future::Either::Left(stream.map(move |()| Event::MenuStale(key.clone())))
         }
         Err(_) => futures_util::future::Either::Right(stream::empty()),
     };

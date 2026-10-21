@@ -8,6 +8,7 @@ use glimpse_dbus::upower::{
     self, ChargeState, ChargeThreshold, DeviceKind, DeviceProperties, Technology, UPowerProxy,
     WarningLevel,
 };
+use glimpse_dbus::wake;
 use tokio::sync::{oneshot, watch};
 use zbus::Connection;
 use zbus::fdo::{DBusProxy, PropertiesProxy};
@@ -458,23 +459,25 @@ async fn upower_events(ctx: Ctx<Battery>) -> Events {
     };
 
     let mut wakes: Vec<Pin<Box<dyn Stream<Item = ()> + Send>>> = Vec::new();
-    if let Ok(added) = proxy.receive_device_added().await {
-        wakes.push(wake(added));
+    if let Ok(added) = proxy.receive_device_added().await.map(wake) {
+        wakes.push(added);
     }
-    if let Ok(removed) = proxy.receive_device_removed().await {
-        wakes.push(wake(removed));
+    if let Ok(removed) = proxy.receive_device_removed().await.map(wake) {
+        wakes.push(removed);
     }
     wakes.push(wake(proxy.receive_on_battery_changed().await));
     if let Some(changed) = device_properties(&bus).await {
-        wakes.push(Box::pin(changed.map(|_| ())));
+        wakes.push(changed);
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await
-        && let Ok(owner) = dbus.receive_name_owner_changed().await
+        && let Ok(owner) = dbus.receive_name_owner_changed().await.map(|stream| {
+            wake(stream.filter_map(|signal| async move {
+                let args = signal.args().ok()?;
+                (args.name.as_str() == upower::SERVICE).then_some(())
+            }))
+        })
     {
-        wakes.push(Box::pin(owner.filter_map(|signal| async move {
-            let args = signal.args().ok()?;
-            (args.name.as_str() == upower::SERVICE).then_some(())
-        })));
+        wakes.push(owner);
     }
 
     let first = snapshot_upower(&bus).await;
@@ -506,12 +509,14 @@ async fn profile_events(ctx: Ctx<Battery>) -> Events {
         wakes.push(wake(proxy.receive_performance_degraded_changed().await));
     }
     if let Ok(dbus) = DBusProxy::new(&bus).await
-        && let Ok(owner) = dbus.receive_name_owner_changed().await
+        && let Ok(owner) = dbus.receive_name_owner_changed().await.map(|stream| {
+            wake(stream.filter_map(|signal| async move {
+                let args = signal.args().ok()?;
+                (args.name.as_str() == power_profiles::SERVICE).then_some(())
+            }))
+        })
     {
-        wakes.push(Box::pin(owner.filter_map(|signal| async move {
-            let args = signal.args().ok()?;
-            (args.name.as_str() == power_profiles::SERVICE).then_some(())
-        })));
+        wakes.push(owner);
     }
 
     let first = profiles(&bus).await;
@@ -526,14 +531,7 @@ async fn profile_events(ctx: Ctx<Battery>) -> Events {
     ))
 }
 
-fn wake<S>(stream: S) -> Pin<Box<dyn Stream<Item = ()> + Send>>
-where
-    S: Stream + Send + 'static,
-{
-    Box::pin(stream.map(|_| ()))
-}
-
-async fn device_properties(bus: &Connection) -> Option<MessageStream> {
+async fn device_properties(bus: &Connection) -> Option<Pin<Box<dyn Stream<Item = ()> + Send>>> {
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .sender(upower::SERVICE)
@@ -545,7 +543,9 @@ async fn device_properties(bus: &Connection) -> Option<MessageStream> {
         .path_namespace(upower::DEVICES)
         .ok()?
         .build();
-    MessageStream::for_match_rule(rule, bus, None).await.ok()
+    Some(wake(
+        MessageStream::for_match_rule(rule, bus, None).await.ok()?,
+    ))
 }
 
 async fn snapshot_upower(bus: &Connection) -> Result<UpowerSnapshot, String> {
