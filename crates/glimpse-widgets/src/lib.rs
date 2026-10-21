@@ -292,6 +292,30 @@ pub(crate) fn set_text_capped(label: &gtk4::Label, value: Option<&str>, cap: usi
     label.set_visible(!text.is_empty());
 }
 
+pub(crate) fn tooltip_when_ellipsized(labels: &[&gtk4::Label]) {
+    use gtk4::prelude::*;
+
+    for label in labels {
+        label.set_has_tooltip(true);
+        label.connect_query_tooltip(|label, _, _, _, tooltip| {
+            let Some(text) = ellipsis_tooltip(label) else {
+                return false;
+            };
+            tooltip.set_text(Some(&text));
+            true
+        });
+    }
+}
+
+pub(crate) fn ellipsis_tooltip(label: &gtk4::Label) -> Option<glib::GString> {
+    use gtk4::prelude::*;
+
+    let explicit = std::iter::successors(label.parent(), |widget| widget.parent())
+        .take_while(|widget| !widget.is::<gtk4::Native>())
+        .any(|widget| widget.has_tooltip());
+    (!explicit && label.layout().is_ellipsized()).then(|| label.text())
+}
+
 pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
     use gettextrs::gettext;
     use gtk4::prelude::*;

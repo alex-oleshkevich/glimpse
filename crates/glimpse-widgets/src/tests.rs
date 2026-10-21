@@ -136,6 +136,46 @@ fn widgets() {
     display_checks::pause();
 }
 
+#[test]
+#[ignore = "needs a display"]
+fn ellipsized_meter_row_title_shows_its_text_as_tooltip() {
+    gtk4::init().expect("display");
+    register_resources().expect("resources");
+    let long = "Battery of the wireless keyboard in the living room";
+    let meter = MeterRow::new();
+    let row = meter.upcast_ref::<Row>();
+    row.set_title(Some(long));
+    let window = gtk4::Window::new();
+    window.set_child(Some(&meter));
+    window.present();
+    let context = glib::MainContext::default();
+    while context.iteration(false) {}
+    let title = row.imp().title.get();
+    assert!(title.has_tooltip());
+
+    meter.allocate(
+        1000,
+        meter.measure(gtk4::Orientation::Vertical, 1000).1,
+        -1,
+        None,
+    );
+    assert_eq!(ellipsis_tooltip(&title), None);
+
+    meter.allocate(
+        120,
+        meter.measure(gtk4::Orientation::Vertical, 120).1,
+        -1,
+        None,
+    );
+    assert_eq!(ellipsis_tooltip(&title).as_deref(), Some(long));
+
+    row.set_tooltip(Some("Explicit"));
+    assert_eq!(ellipsis_tooltip(&title), None);
+    row.set_tooltip(None::<&str>);
+    assert_eq!(ellipsis_tooltip(&title).as_deref(), Some(long));
+    window.destroy();
+}
+
 fn held_display_readout_check() {
     let popover = DisplayPopover::new();
     let mut source = Source {

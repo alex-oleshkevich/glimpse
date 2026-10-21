@@ -58,6 +58,7 @@ impl ObjectImpl for TrackCard {
 
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.title, &self.artist]);
         let card = self.obj();
 
         self.play.connect_clicked(glib::clone!(

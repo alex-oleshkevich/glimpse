@@ -112,6 +112,7 @@ impl ObjectSubclass for NotificationTextBody {
 impl ObjectImpl for NotificationTextBody {
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.title, &self.body]);
         self.sync();
     }
 

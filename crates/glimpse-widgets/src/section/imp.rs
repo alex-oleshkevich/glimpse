@@ -116,6 +116,11 @@ impl ObjectSubclass for Section {
 
 #[glib::derived_properties]
 impl ObjectImpl for Section {
+    fn constructed(&self) {
+        self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.title]);
+    }
+
     fn dispose(&self) {
         self.dispose_template();
     }

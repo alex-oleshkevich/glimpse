@@ -134,6 +134,7 @@ fn row(entry: &ShotWindowEntry, list: &ShotWindowList) -> gtk4::Button {
         .visible(shows_title(entry))
         .build();
     title.add_css_class("shot-list__title");
+    crate::tooltip_when_ellipsized(&[&app, &title]);
 
     let note = gtk4::Label::builder()
         .label(gettext("captured when picked"))

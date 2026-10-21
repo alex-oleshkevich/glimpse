@@ -116,6 +116,7 @@ impl ObjectImpl for SessionSheet {
 
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.error]);
         let sheet = self.obj();
 
         self.suspend.connect_activated(glib::clone!(

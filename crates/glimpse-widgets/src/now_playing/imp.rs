@@ -135,6 +135,11 @@ impl ObjectSubclass for NowPlaying {
 
 #[glib::derived_properties]
 impl ObjectImpl for NowPlaying {
+    fn constructed(&self) {
+        self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.source, &self.title, &self.artist, &self.album]);
+    }
+
     fn dispose(&self) {
         self.dispose_template();
         while let Some(child) = self.obj().first_child() {

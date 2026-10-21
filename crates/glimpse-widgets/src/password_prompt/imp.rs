@@ -89,6 +89,7 @@ impl ObjectSubclass for PasswordPrompt {
 impl ObjectImpl for PasswordPrompt {
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.user]);
         self.caps.set_child_visible(false);
         let message: &gtk4::Accessible = self.message.upcast_ref();
         let user: &gtk4::Accessible = self.user.upcast_ref();

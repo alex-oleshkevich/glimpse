@@ -83,6 +83,11 @@ impl ObjectSubclass for Hero {
 
 #[glib::derived_properties]
 impl ObjectImpl for Hero {
+    fn constructed(&self) {
+        self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.title, &self.subtitle]);
+    }
+
     fn dispose(&self) {
         self.dispose_template();
     }

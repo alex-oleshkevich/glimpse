@@ -48,6 +48,7 @@ impl ObjectSubclass for Indicator {
 impl ObjectImpl for Indicator {
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.label]);
         self.dot.set_max(1);
         self.dot.set_size(super::DOT_SIZE);
     }

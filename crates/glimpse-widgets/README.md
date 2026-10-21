@@ -25,6 +25,9 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
   slider recovery icons stay usable. Expander heads always permit inspection, and inactivity never
   propagates to drawer children.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
+- **An ellipsized label shows its text as a tooltip** through `tooltip_when_ellipsized`, decided
+  at hover from `Layout::is_ellipsized` so a label that fits shows none; an ancestor below the
+  `Native` with its own tooltip wins, so a `Row`'s explicit `tooltip` is never shadowed.
 - **Untrusted text is capped and set as plain text**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
 

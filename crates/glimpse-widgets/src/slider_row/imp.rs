@@ -242,6 +242,7 @@ impl ObjectImpl for SliderRow {
     }
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.subtitle]);
         let row = self.obj().clone();
         self.set_step(0.01);
         self.scale.adjustment().connect_value_changed(glib::clone!(

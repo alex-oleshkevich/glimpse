@@ -93,6 +93,7 @@ impl ObjectImpl for NotificationHeader {
 
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.app_name]);
         self.close.connect_clicked(glib::clone!(
             #[weak(rename_to = header)]
             self,

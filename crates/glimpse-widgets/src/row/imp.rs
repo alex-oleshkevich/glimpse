@@ -105,6 +105,7 @@ impl ObjectSubclass for Row {
 impl ObjectImpl for Row {
     fn constructed(&self) {
         self.parent_constructed();
+        crate::tooltip_when_ellipsized(&[&self.title, &self.subtitle, &self.value]);
         self.sync_accessible();
     }
 
