@@ -303,3 +303,64 @@ fn retired_expander_tag_uses_unknown_tag_behavior() {
         matches!(&tree.node(2).expect("unsupported").element, Element::Unsupported(tag) if tag == concat!("notice", "expander"))
     );
 }
+
+#[test]
+fn end_takes_a_label_box_or_container_but_a_row_does_not() {
+    let tree = hosted(&Tree::default())
+        .apply(vec![insert(
+            1,
+            wire(
+                2,
+                "expanderrow",
+                json!({}),
+                vec![wire(
+                    3,
+                    "end",
+                    json!({}),
+                    vec![wire(
+                        4,
+                        "label",
+                        json!({"text": "+0.28%", "className": "success"}),
+                        vec![],
+                    )],
+                )],
+            ),
+            None,
+        )])
+        .expect("label in end");
+    assert!(matches!(
+        &tree.node(4).expect("label").element,
+        Element::Label(_)
+    ));
+    for holder in ["box", "container"] {
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(
+                    2,
+                    "expanderrow",
+                    json!({}),
+                    vec![wire(
+                        3,
+                        "end",
+                        json!({}),
+                        vec![wire(4, holder, json!({}), vec![leaf(5, "label")])],
+                    )],
+                ),
+                None,
+            )])
+            .unwrap_or_else(|error| panic!("{holder} in end: {error:?}"));
+        assert!(matches!(
+            &tree.node(5).expect("label").element,
+            Element::Label(_)
+        ));
+    }
+    assert!(matches!(
+        hosted(&Tree::default()).apply(vec![insert(
+            1,
+            wire(2, "row", json!({}), vec![leaf(3, "label")]),
+            None
+        )]),
+        Err(Violation::BadParent { .. })
+    ));
+}

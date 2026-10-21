@@ -245,7 +245,7 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | `actionrow` | at most one of `image`, `readout`, `spinner`, drawn at its end, and at most one `start` |
 | `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
 | `expanderrow` | at most one `end` and one `start`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
-| `end` | at most one of `image`, `readout`, `spinner` |
+| `end` | at most one of `image`, `readout`, `spinner`, `label`, `box`, `container` |
 | `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots`, `swatch` |
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |
@@ -437,7 +437,7 @@ Its level is a fraction from `0` to `1`. No events.
 ### `expanderrow`
 
 A body element. Its head may contain one `end` element with at most one
-`image`, `readout` or `spinner` child, and one `start` element. Its other children fill the drawer as
+`image`, `readout`, `spinner`, `label`, `box` or `container` child, and one `start` element. Its other children fill the drawer as
 listed in the parent table. `onToggle` sends `[open]` with a `seq` in every state.
 Expansion is inspection, so the head stays activatable when inactive. Every drawer participates
 in the accordion. `inactive` never propagates to drawer children.

@@ -184,7 +184,7 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | `actionrow` | at most one of `image`, `readout`, `spinner`, drawn at its end, and at most one `start` |
 | `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
 | `expanderrow` | at most one `end` and one `start`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
-| `end` | at most one of `image`, `readout`, `spinner` |
+| `end` | at most one of `image`, `readout`, `spinner`, `label`, `box`, `container` |
 | `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots`, `swatch` |
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |

@@ -1229,9 +1229,18 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
             child,
             ElementKind::Image | ElementKind::Readout | ElementKind::Spinner | ElementKind::Start
         ),
-        ElementKind::Row | ElementKind::MeterRow | ElementKind::End => matches!(
+        ElementKind::Row | ElementKind::MeterRow => matches!(
             child,
             ElementKind::Image | ElementKind::Readout | ElementKind::Spinner
+        ),
+        ElementKind::End => matches!(
+            child,
+            ElementKind::Image
+                | ElementKind::Readout
+                | ElementKind::Spinner
+                | ElementKind::Label
+                | ElementKind::Box
+                | ElementKind::Container
         ),
         ElementKind::ExpanderRow => {
             matches!(child, ElementKind::End | ElementKind::Start) || is_drawer_child(child)
