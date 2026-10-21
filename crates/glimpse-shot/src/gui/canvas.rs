@@ -1279,10 +1279,20 @@ fn rect(rect: Rect<BufferPx>) -> graphene::Rect {
 
 fn dim_outside(snapshot: &gtk4::Snapshot, frame: graphene::Rect, crop: graphene::Rect) {
     let dim = gdk::RGBA::new(0.0, 0.0, 0.0, 0.5);
-    let path = gsk::PathBuilder::new();
-    path.add_rect(&frame);
-    path.add_rect(&crop);
-    snapshot.append_fill(&path.to_path(), gsk::FillRule::EvenOdd, &dim);
+    let (x0, y0) = (frame.x(), frame.y());
+    let (x1, y1) = (x0 + frame.width(), y0 + frame.height());
+    let left = crop.x().clamp(x0, x1);
+    let top = crop.y().clamp(y0, y1);
+    let right = (crop.x() + crop.width()).clamp(left, x1);
+    let bottom = (crop.y() + crop.height()).clamp(top, y1);
+    for (x, y, width, height) in [
+        (x0, y0, x1 - x0, top - y0),
+        (x0, bottom, x1 - x0, y1 - bottom),
+        (x0, top, left - x0, bottom - top),
+        (right, top, x1 - right, bottom - top),
+    ] {
+        snapshot.append_color(&dim, &graphene::Rect::new(x, y, width, height));
+    }
 }
 
 fn handles(snapshot: &gtk4::Snapshot, crop: graphene::Rect, size: f32) {
