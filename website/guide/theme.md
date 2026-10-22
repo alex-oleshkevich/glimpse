@@ -36,11 +36,10 @@ there is nothing to set.
 
 ```toml
 [appearance]
-blur = ["all"]
+blur = true
 ```
 
-The list takes `panel`, `popover`, `notification` or `all`. Your compositor draws the blur and sets
-its strength; where blur is not supported, glimpse stays solid and works the same.
+Your compositor draws the blur and sets its strength; where blur is not supported, glimpse stays solid and works the same.
 
 ## Animation speed
 

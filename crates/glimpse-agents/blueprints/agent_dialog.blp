@@ -1,0 +1,123 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $AgentDialog: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  Adw.Clamp {
+    maximum-size: 760;
+    tightening-threshold: 760;
+    valign: center;
+
+    child: Adw.Bin {
+      styles [
+        "agent-dialog",
+      ]
+
+      Adw.StatusPage status {
+        hexpand: true;
+        icon-name: "system-lock-screen-symbolic";
+
+        styles [
+          "compact",
+        ]
+
+        child: Gtk.Box {
+          orientation: vertical;
+          spacing: 18;
+
+          Gtk.ListBox rows {
+            selection-mode: none;
+            visible: false;
+
+            styles [
+              "boxed-list",
+            ]
+
+            Adw.ComboRow account {
+              use-markup: false;
+              title: _("Account");
+              visible: false;
+
+              model: Gtk.StringList accounts {};
+            }
+
+            Adw.EntryRow username {
+              use-markup: false;
+              title: _("Username");
+              visible: false;
+            }
+
+            Adw.PasswordEntryRow secret {
+              use-markup: false;
+              visible: false;
+
+              [suffix]
+              Adw.Spinner spinner {
+                visible: false;
+              }
+            }
+
+            Adw.SwitchRow autoconnect {
+              use-markup: false;
+              title: _("Connect automatically");
+              visible: false;
+            }
+
+            Adw.ExpanderRow details {
+              use-markup: false;
+              title: _("Details");
+              visible: false;
+            }
+          }
+
+          Gtk.Label code {
+            halign: center;
+            visible: false;
+
+            styles [
+              "agent-code",
+              "numeric",
+            ]
+          }
+
+          Gtk.Label note {
+            ellipsize: end;
+            single-line-mode: true;
+            lines: 1;
+            xalign: 0.5;
+            visible: false;
+
+            styles [
+              "caption",
+            ]
+          }
+
+          Gtk.Box {
+            spacing: 12;
+            homogeneous: true;
+            margin-top: 12;
+
+            Gtk.Button cancel {
+              label: _("Cancel");
+
+              styles [
+                "pill",
+              ]
+            }
+
+            Gtk.Button confirm {
+              label: _("Confirm");
+              visible: false;
+
+              styles [
+                "pill",
+                "suggested-action",
+              ]
+            }
+          }
+        };
+      }
+    };
+  }
+}

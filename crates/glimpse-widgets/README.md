@@ -14,6 +14,10 @@ Adding a template is three edits: the `build.rs` pair, the `gresource.xml` entry
 `TemplateChild`, even one Rust never reads** — binding registers the GType before `init_template`
 resolves the class by name, or `Builder` reports `Invalid object type` and the constructor panics.
 
+`preview::run` (feature `preview`) is the preview host. It compiles the blueprint to
+`$TMPDIR/glimpse-preview-{pid}.ui`, so two previews never share a file. The example that calls
+`run` registers the types that blueprint names.
+
 ## Recurring rules
 
 - **Every setter compares before it writes**; `gio::Icon` compares with `Icon::equal`.
@@ -110,9 +114,7 @@ state without emitting `toggled`. **A detail unfolds in place, never beside the 
 belongs to `PopoverShell`**: opening one detail closes every unrelated `Expandable` in the shell, and
 a press on anything else dimmed closes the detail instead of acting, claimed in the capture phase.
 **A question the user starts is a page of its own popover**, and `NetworkPopover::set_prompt`
-clears the box whenever the key changes. **A question a service raises is a dialog**, so it opens
-once however many bars exist: `PairingDialog` covers every pairing kind and clears its entry only
-when the **device** changes, not the name, so a credential cannot reach the next device.
+clears the box whenever the key changes.
 
 ## ForecastStrip, ForecastList, the media widgets and SourceList
 

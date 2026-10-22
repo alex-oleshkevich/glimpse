@@ -37,9 +37,7 @@ own `Can*` answer — hidden where polkit can't prompt through a lock, disabled 
 inhibitor's reason otherwise.
 
 `Mpris`, `Compositor`, `Keyboard`, `Battery`, `Network` and `Bluetooth`, plus the notifications and
-weather providers, are hosted once at daemon start, never on the lock path. **`Network` and
-`Bluetooth` run with `agent: false`**, since a locked screen that registered an agent would accept
-a pairing or hand out a Wi-Fi password prompt to whoever is standing at it. `status.rs` never shows
+weather providers, are hosted once at daemon start, never on the lock path. `status.rs` never shows
 an SSID or device name, and the locker never leases a weather place of its own, only what the
 panel's applet already asked for. Notifications group by `app_id` (never `app_name`,
 sender-chosen), and `lock_started` marks which count as "since this lock", clearing only on a real

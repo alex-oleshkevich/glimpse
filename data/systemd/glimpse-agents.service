@@ -1,0 +1,15 @@
+[Unit]
+Description=Glimpse polkit, NetworkManager and BlueZ agents
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=glimpse-session.target
+Requisite=glimpse-session.target
+After=glimpse-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=dbus
+BusName=me.aresa.Glimpse.Agents
+ExecStart=/usr/bin/glimpse-agents
+Restart=on-failure
+RestartSec=2

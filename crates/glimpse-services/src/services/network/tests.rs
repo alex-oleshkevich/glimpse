@@ -71,5 +71,4 @@ mod model;
 mod profiles;
 mod review;
 mod scanning;
-mod secrets;
 pub(super) mod service;

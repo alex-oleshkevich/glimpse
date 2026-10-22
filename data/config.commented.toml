@@ -7,7 +7,7 @@
 # theme-variant = ""
 # color-scheme = "dark"
 # desktop-color-scheme = "sun"
-# blur = []
+# blur = false
 # animation-speed = 1.0
 
 [regional]

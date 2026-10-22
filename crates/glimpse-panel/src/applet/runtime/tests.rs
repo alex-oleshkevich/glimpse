@@ -704,7 +704,7 @@ fn a_bluetooth_popover_signal_reaches_the_service() {
     use crate::applet::popover::Seat;
     use crate::applets::bluetooth::Bluetooth as BluetoothApplet;
     use glimpse_dbus::Buses;
-    use glimpse_services::{BluetoothDependencies, Confirmation, DeviceId, Running};
+    use glimpse_services::{Confirmation, DeviceId, Running};
     use glimpse_widgets::BluetoothPopover;
 
     const DEVICE: &str = "/org/bluez/hci0/dev_F8_4E_17_BC_EE_D5";
@@ -717,7 +717,7 @@ fn a_bluetooth_popover_signal_reaches_the_service() {
     let (mut service, bluetooth) = Running::<glimpse_services::Bluetooth>::spawn(
         &glimpse_config::Config::default(),
         Buses::unavailable("no bus in tests"),
-        BluetoothDependencies { agent: true },
+        (),
     );
 
     let notifications =

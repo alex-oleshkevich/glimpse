@@ -147,10 +147,6 @@ pub async fn disconnect(connection: &Connection, path: &str) -> Result<()> {
     device(connection, path).await?.disconnect().await
 }
 
-pub async fn cancel_pairing(connection: &Connection, path: &str) -> Result<()> {
-    device(connection, path).await?.cancel_pairing().await
-}
-
 pub async fn set_trusted(connection: &Connection, path: &str, trusted: bool) -> Result<()> {
     device(connection, path).await?.set_trusted(trusted).await
 }

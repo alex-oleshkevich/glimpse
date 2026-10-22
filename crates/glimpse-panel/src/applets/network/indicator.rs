@@ -8,8 +8,8 @@ use gtk4::prelude::*;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::network_manager as nm;
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{NetworkError, NetworkHandle, NetworkId, NetworkSecret, NetworkState};
-use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkEntered, NetworkPopover};
+use glimpse_services::{NetworkError, NetworkHandle, NetworkId, NetworkState};
+use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkPopover};
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
@@ -20,12 +20,11 @@ use super::render;
 const IDLE: &str = "network-wireless-symbolic";
 
 /// What the popover's prompt page is asking for. A hidden network asks twice — its name, then its
-/// password — so the name is carried into the second ask.
+/// security — so the name is carried into the second ask.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Asking {
     Name,
     Hidden { ssid: String },
-    Joining { id: NetworkId, name: String },
 }
 
 const HIDDEN_SECURITY: [nm::Security; 4] = [
@@ -42,15 +41,6 @@ fn hidden_choices() -> Vec<String> {
         gettext("WPA & WPA2 Personal"),
         gettext("WPA3 Personal"),
     ]
-}
-
-/// What a secret asked for under this setting name is allowed to look like. A VPN plugin's token
-/// obeys no Wi-Fi rule, so only a wireless secret is held to the passphrase lengths.
-pub fn entered_for(setting: &str) -> NetworkEntered {
-    match setting {
-        "802-11-wireless-security" => NetworkEntered::Passphrase,
-        _ => NetworkEntered::Secret,
-    }
 }
 
 /// Which command a row's own id belongs to. A row in *Known networks* or *VPN* carries a settings
@@ -74,16 +64,6 @@ fn route(state: &NetworkState, id: &NetworkId) -> Route {
         true => Route::Profile,
         false => Route::AccessPoint,
     }
-}
-
-/// The name to ask a password for before requesting activation, or `None` when nothing needs
-/// asking. NetworkManager tears the working connection down the moment an activation is requested,
-/// so a network that would then ask for a password is asked about first.
-fn asks_first(state: &NetworkState, id: &NetworkId) -> Option<String> {
-    let access = state.networks.iter().find(|one| &one.id == id)?;
-    let unsaved = access.saved.is_none();
-    (unsaved && access.security.needs_a_secret() && !access.security.is_enterprise())
-        .then(|| render::name_of(access))
 }
 
 fn tell<T: 'static>(
@@ -195,19 +175,6 @@ impl Network {
         }
     }
 
-    fn joining_entry(&self, id: &NetworkId) -> NetworkEntered {
-        let point = self
-            .state
-            .networks
-            .iter()
-            .find(|network| &network.id == id)
-            .map(|network| network.security);
-        match point {
-            Some(nm::Security::Wep) => NetworkEntered::Secret,
-            _ => NetworkEntered::Passphrase,
-        }
-    }
-
     fn ask(&self) -> Option<NetworkAsk> {
         let asking = self.asking.borrow().clone();
         match asking? {
@@ -215,28 +182,15 @@ impl Network {
                 key: "hidden".to_owned(),
                 network: gettext("Hidden network"),
                 question: gettext("Type the name the network broadcasts nothing about."),
-                entered: NetworkEntered::Name,
                 accept: gettext("Continue"),
                 choices: Vec::new(),
-                open_choice: None,
             }),
             Asking::Hidden { ssid } => Some(NetworkAsk {
-                key: format!("hidden-secret:{ssid}"),
+                key: format!("hidden-security:{ssid}"),
                 network: glimpse_utils::clean(&ssid, render::LABEL_MAX_CHARS),
-                question: gettext("Choose how the network is secured, then type its password."),
-                entered: NetworkEntered::Secret,
+                question: gettext("Choose how the network is secured."),
                 accept: gettext("Connect"),
                 choices: hidden_choices(),
-                open_choice: Some(0),
-            }),
-            Asking::Joining { id, name } => Some(NetworkAsk {
-                key: format!("secret:{name}"),
-                network: glimpse_utils::clean(&name, render::LABEL_MAX_CHARS),
-                question: gettext("The network needs a password before this computer can join it."),
-                entered: self.joining_entry(&id),
-                accept: gettext("Connect"),
-                choices: Vec::new(),
-                open_choice: None,
             }),
         }
     }
@@ -314,7 +268,6 @@ impl Applet for Network {
         shown.connect_activated({
             let network = self.network.clone();
             let notifications = self.notifications.clone();
-            let asking = Rc::clone(&self.asking);
             let opener = seat.opener();
             let shown = shown.downgrade();
             move |_, id| {
@@ -322,11 +275,6 @@ impl Applet for Network {
                 let key = id.clone();
                 let state = network.snapshot();
                 let route = route(&state, &id);
-                if let Some(name) = asks_first(&state, &id) {
-                    asking.replace(Some(Asking::Joining { id, name }));
-                    opener.wake();
-                    return;
-                }
                 let network = network.clone();
                 let closing = Some((&shown, &key));
                 match route {
@@ -360,7 +308,7 @@ impl Applet for Network {
                         closing,
                         "network.connect_access_point",
                         gettext("Could not connect"),
-                        async move { network.connect_access_point(id, None).await },
+                        async move { network.connect_access_point(id).await },
                     ),
                 }
             }
@@ -456,26 +404,13 @@ impl Applet for Network {
                             .get(chosen as usize)
                             .copied()
                             .unwrap_or(nm::Security::Wpa2);
-                        let secret = (security != nm::Security::Open)
-                            .then(|| NetworkSecret::new(entered.to_owned()));
                         tell(
                             &notifications,
                             &opener,
                             None,
                             "network.connect_hidden",
                             gettext("Could not connect"),
-                            async move { network.connect_hidden(ssid, security, secret).await },
-                        );
-                    }
-                    (Some(Asking::Joining { id, .. }), true) => {
-                        let secret = NetworkSecret::new(entered.to_owned());
-                        tell(
-                            &notifications,
-                            &opener,
-                            None,
-                            "network.connect_access_point",
-                            gettext("Could not connect"),
-                            async move { network.connect_access_point(id, Some(secret)).await },
+                            async move { network.connect_hidden(ssid, security).await },
                         );
                     }
                     _ => {}

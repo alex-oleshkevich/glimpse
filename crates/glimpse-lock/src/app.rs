@@ -18,9 +18,9 @@ use glimpse_dbus::notifications::{
 };
 use glimpse_dbus::weather::{WeatherProvider, WeatherProviderState};
 use glimpse_services::{
-    Battery, BatteryState, Bluetooth, BluetoothDependencies, BluetoothState, Compositor,
-    CompositorState, Keyboard, KeyboardDependencies, KeyboardLayouts, Mpris, MprisHandle,
-    MprisPlayers, Network, NetworkDependencies, NetworkState, PlayerAction, Running,
+    Battery, BatteryState, Bluetooth, BluetoothState, Compositor, CompositorState, Keyboard,
+    KeyboardDependencies, KeyboardLayouts, Mpris, MprisHandle, MprisPlayers, Network, NetworkState,
+    PlayerAction, Running,
 };
 use glimpse_widgets::SessionActionState;
 use glimpse_widgets::Styles;
@@ -807,10 +807,8 @@ impl StatusServices {
         );
         let (battery, battery_handle) =
             Running::<Battery>::spawn(&config, buses.clone(), <_>::default());
-        let (network, network_handle) =
-            Running::<Network>::spawn(&config, buses.clone(), NetworkDependencies { agent: false });
-        let (bluetooth, bluetooth_handle) =
-            Running::<Bluetooth>::spawn(&config, buses, BluetoothDependencies { agent: false });
+        let (network, network_handle) = Running::<Network>::spawn(&config, buses.clone(), ());
+        let (bluetooth, bluetooth_handle) = Running::<Bluetooth>::spawn(&config, buses, ());
         let feeds = vec![
             forward_focus(compositor_handle.subscribe(), sender),
             forward(layouts.subscribe(), sender, AppInput::Layouts),

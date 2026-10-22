@@ -1,8 +1,8 @@
 use super::*;
 
 #[test]
-fn a_secured_network_carries_a_key_management_setting_and_a_secret_only_when_one_was_typed() {
-    let settings = wifi_settings(b"Skylink", nm::Security::Wpa2, false, None);
+fn a_secured_network_carries_a_key_management_setting_and_no_secret() {
+    let settings = wifi_settings(b"Skylink", nm::Security::Wpa2, false);
     let guard = settings
         .get("802-11-wireless-security")
         .expect("a security setting");
@@ -10,34 +10,13 @@ fn a_secured_network_carries_a_key_management_setting_and_a_secret_only_when_one
     assert_eq!(guard.get("key-mgmt"), Some(&Value::from("wpa-psk")));
     assert!(
         !guard.contains_key("psk"),
-        "with nothing typed the agent supplies it, and NetworkManager stores what it returns"
+        "the profile is created keyless and NetworkManager asks the agent"
     );
-
-    let asked = wifi_settings(
-        b"Skylink",
-        nm::Security::Wpa2,
-        false,
-        Some("hunter2hunter2"),
-    );
-    assert_eq!(
-        asked["802-11-wireless-security"].get("psk"),
-        Some(&Value::from("hunter2hunter2")),
-        "a password typed before the join travels with the profile, so NetworkManager never \
-             tears down the working connection for one it then has to ask about"
-    );
-
-    let wep = wifi_settings(b"Ancient", nm::Security::Wep, false, Some("s3cr3"));
-    assert_eq!(
-        wep["802-11-wireless-security"].get("wep-key0"),
-        Some(&Value::from("s3cr3")),
-        "WEP keeps its key under its own name"
-    );
-    assert!(!wep["802-11-wireless-security"].contains_key("psk"));
 }
 
 #[test]
 fn an_open_network_carries_no_security_setting_at_all() {
-    let settings = wifi_settings(b"Kaffeehaus", nm::Security::Open, false, None);
+    let settings = wifi_settings(b"Kaffeehaus", nm::Security::Open, false);
     assert!(!settings.contains_key("802-11-wireless-security"));
 }
 
@@ -114,7 +93,7 @@ fn every_key_management_a_profile_can_carry_is_the_one_the_network_advertises() 
 
 #[test]
 fn an_encrypted_open_network_carries_its_key_management_and_no_secret() {
-    let settings = wifi_settings(b"Cafe", nm::Security::Owe, false, None);
+    let settings = wifi_settings(b"Cafe", nm::Security::Owe, false);
     let guard = settings
         .get("802-11-wireless-security")
         .expect("owe needs the setting");
@@ -124,7 +103,7 @@ fn an_encrypted_open_network_carries_its_key_management_and_no_secret() {
 
 #[test]
 fn wpa3_asks_for_sae_rather_than_psk() {
-    let settings = wifi_settings(b"Modern", nm::Security::Wpa3, false, None);
+    let settings = wifi_settings(b"Modern", nm::Security::Wpa3, false);
     assert_eq!(
         settings["802-11-wireless-security"].get("key-mgmt"),
         Some(&Value::from("sae"))
@@ -133,13 +112,13 @@ fn wpa3_asks_for_sae_rather_than_psk() {
 
 #[test]
 fn a_hidden_network_says_so_in_its_profile() {
-    let settings = wifi_settings(b"Skylink Guest", nm::Security::Wpa2, true, None);
+    let settings = wifi_settings(b"Skylink Guest", nm::Security::Wpa2, true);
     assert_eq!(
         settings["802-11-wireless"].get("hidden"),
         Some(&Value::from(true))
     );
 
-    let visible = wifi_settings(b"Skylink", nm::Security::Wpa2, false, None);
+    let visible = wifi_settings(b"Skylink", nm::Security::Wpa2, false);
     assert!(
         !visible["802-11-wireless"].contains_key("hidden"),
         "a visible network must not be marked hidden"
@@ -149,7 +128,7 @@ fn a_hidden_network_says_so_in_its_profile() {
 #[test]
 fn an_ssid_goes_on_the_wire_as_bytes_and_not_as_a_string() {
     let raw: &[u8] = &[0x53, 0x6b, 0x79, 0x6c, 0x69, 0x6e, 0x6b];
-    let settings = wifi_settings(raw, nm::Security::Wpa2, false, None);
+    let settings = wifi_settings(raw, nm::Security::Wpa2, false);
     assert_eq!(
         settings["802-11-wireless"].get("ssid"),
         Some(&Value::from(raw))

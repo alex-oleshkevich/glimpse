@@ -1,4 +1,3 @@
-mod agent;
 mod call;
 mod failure;
 mod source;
@@ -19,10 +18,7 @@ use crate::{
 
 pub(crate) type Properties = HashMap<String, OwnedValue>;
 pub(crate) type Interfaces = HashMap<String, Properties>;
-pub use agent::{Answer, Request};
 pub use failure::{Action, Failure};
-
-pub type Secret = zeroize::Zeroizing<String>;
 
 pub(crate) type Objects = BTreeMap<String, Interfaces>;
 pub(crate) type Profiles = BTreeMap<String, nm::Profile>;
@@ -197,7 +193,6 @@ pub struct NetworkState {
     pub wired: Vec<Wired>,
     pub vpn: Vec<Vpn>,
     pub scanning: bool,
-    pub secret: Option<Request>,
 }
 
 impl NetworkState {
@@ -324,13 +319,11 @@ pub enum Command {
     },
     ConnectAccessPoint {
         id: NetworkId,
-        secret: Option<Secret>,
         reply: Reply,
     },
     ConnectHidden {
         ssid: String,
         security: nm::Security,
-        secret: Option<Secret>,
         reply: Reply,
     },
     ConnectProfile {
@@ -352,10 +345,6 @@ pub enum Command {
     SetAutoconnect {
         id: NetworkId,
         autoconnect: bool,
-        reply: Reply,
-    },
-    AnswerSecret {
-        answer: Answer,
         reply: Reply,
     },
     ConnectVpn {
@@ -396,12 +385,6 @@ pub enum Event {
         key: String,
     },
     ScanExpired(u64),
-    Secrets(Request, oneshot::Sender<Answer>),
-    SecretsCancelled {
-        path: String,
-        setting: String,
-    },
-    AgentRegistered(bool),
     ActiveStateChanged {
         path: String,
         state: nm::ActiveState,
@@ -420,10 +403,6 @@ struct DeviceRecord {
     properties: nm::DeviceProperties,
     wireless: nm::WirelessProperties,
     wired: nm::WiredProperties,
-}
-
-pub struct Dependencies {
-    pub agent: bool,
 }
 
 pub struct Network {
@@ -445,9 +424,6 @@ pub struct Network {
     scan: Option<u64>,
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
-    agent_enabled: bool,
-    agent: bool,
-    secret: Option<(Request, oneshot::Sender<Answer>)>,
 }
 
 pub type NetworkHandle = crate::ServiceEndpoint<Network>;
@@ -481,13 +457,9 @@ impl crate::ServiceEndpoint<Network> {
         .await?
     }
 
-    pub async fn connect_access_point(
-        &self,
-        id: NetworkId,
-        secret: Option<Secret>,
-    ) -> Result<(), NetworkError> {
+    pub async fn connect_access_point(&self, id: NetworkId) -> Result<(), NetworkError> {
         self.call("network stopped before completing the command", |reply| {
-            Command::ConnectAccessPoint { id, secret, reply }
+            Command::ConnectAccessPoint { id, reply }
         })
         .await?
     }
@@ -496,13 +468,11 @@ impl crate::ServiceEndpoint<Network> {
         &self,
         ssid: String,
         security: nm::Security,
-        secret: Option<Secret>,
     ) -> Result<(), NetworkError> {
         self.call("network stopped before completing the command", |reply| {
             Command::ConnectHidden {
                 ssid,
                 security,
-                secret,
                 reply,
             }
         })
@@ -548,13 +518,6 @@ impl crate::ServiceEndpoint<Network> {
                 autoconnect,
                 reply,
             }
-        })
-        .await?
-    }
-
-    pub async fn answer_secret(&self, answer: Answer) -> Result<(), NetworkError> {
-        self.call("network stopped before completing the command", |reply| {
-            Command::AnswerSecret { answer, reply }
         })
         .await?
     }
@@ -617,7 +580,7 @@ impl Service for Network {
     type State = NetworkState;
     type Command = Command;
     type Event = Event;
-    type Dependencies = Dependencies;
+    type Dependencies = ();
     type SubKey = Watch;
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -649,7 +612,7 @@ impl Service for Network {
     async fn start(
         ctx: &Ctx<Self>,
         config: Self::Config,
-        dependencies: Self::Dependencies,
+        _dependencies: Self::Dependencies,
     ) -> Self {
         Self {
             state: ctx.publisher(),
@@ -670,15 +633,6 @@ impl Service for Network {
             scan: None,
             scans: 0,
             deadline: None,
-            agent_enabled: dependencies.agent,
-            agent: false,
-            secret: None,
-        }
-    }
-
-    async fn stop(self, ctx: &Ctx<Self>) {
-        if let (true, Ok(connection)) = (self.agent, ctx.system_bus()) {
-            agent::unregister(connection).await;
         }
     }
 
@@ -695,9 +649,6 @@ impl Service for Network {
                 ctx.running();
                 self.publish();
                 self.load_profiles(ctx, paths);
-                if !self.agent {
-                    self.reregister(ctx);
-                }
             }
             Input::Event(Event::Profiles(profiles)) => {
                 self.profiles = *profiles;
@@ -717,32 +668,9 @@ impl Service for Network {
                 self.busy.remove(&key);
                 self.publish();
             }
-            Input::Event(Event::AgentRegistered(registered)) => self.agent = registered,
             Input::Event(Event::ScanExpired(scan)) => {
                 if self.scan == Some(scan) {
                     self.halt();
-                }
-            }
-            Input::Event(Event::Secrets(request, answer)) => {
-                if self.secret.is_some() {
-                    tracing::warn!(
-                        network = %request.name,
-                        "a second secret request arrived while one was open; refusing it"
-                    );
-                    let _ = answer.send(Answer::Refused);
-                    return;
-                }
-                self.secret = Some((request, answer));
-                self.publish();
-            }
-            Input::Event(Event::SecretsCancelled { path, setting }) => {
-                let open = self
-                    .secret
-                    .as_ref()
-                    .is_some_and(|(open, _)| open.path == path && open.setting == setting);
-                if open && let Some((_, answer)) = self.secret.take() {
-                    let _ = answer.send(Answer::Refused);
-                    self.publish();
                 }
             }
             Input::Event(Event::OwnerMissed) => {
@@ -753,20 +681,14 @@ impl Service for Network {
                 Some(_) => {
                     self.generation = self.generation.wrapping_add(1);
                     self.adopted = false;
-                    self.agent = false;
                     self.scan = None;
                     self.deadline = None;
                     self.forget_everything();
                     self.publish();
-                    self.reregister(ctx);
                 }
                 None => {
-                    self.agent = false;
                     self.scan = None;
                     self.deadline = None;
-                    if let Some((_, answer)) = self.secret.take() {
-                        let _ = answer.send(Answer::Refused);
-                    }
                     self.forget_everything();
                     self.publish();
                     ctx.degraded("NetworkManager left the bus");
@@ -893,28 +815,6 @@ impl Network {
         self.failures.clear();
         self.vpn_states.clear();
         self.ip4.clear();
-    }
-
-    fn reregister(&self, ctx: &Ctx<Self>) {
-        if !self.agent_enabled {
-            return;
-        }
-        let Ok(connection) = ctx.system_bus().cloned() else {
-            return;
-        };
-        ctx.spawn_detached(move |ctx| async move {
-            let registered = match agent::register(&connection, ctx.events()).await {
-                Ok(()) => true,
-                Err(error) => {
-                    tracing::warn!(%error, "could not register the network secret agent");
-                    false
-                }
-            };
-            let _ = ctx
-                .events()
-                .send(Input::Event(Event::AgentRegistered(registered)))
-                .await;
-        });
     }
 
     fn adopt(&mut self, objects: Objects) -> Vec<String> {
@@ -1300,7 +1200,6 @@ impl Network {
             wired,
             vpn,
             scanning: self.scan.is_some(),
-            secret: self.secret.as_ref().map(|(request, _)| request.clone()),
         }
     }
 
@@ -1419,7 +1318,7 @@ impl Network {
                     settle(Action::Radio, call::set_wifi(&connection, enabled).await)
                 });
             }
-            Command::ConnectAccessPoint { id, secret, reply } => {
+            Command::ConnectAccessPoint { id, reply } => {
                 let Some(device) = self.wireless_device().map(|(path, _)| path.clone()) else {
                     let _ = reply.send(Err(NetworkError::Failed(Failure::NoDevice)));
                     return;
@@ -1455,7 +1354,6 @@ impl Network {
                                 &raw,
                                 security,
                                 false,
-                                secret.as_ref().map(|one| one.as_str()),
                                 &device,
                                 &specific,
                             )
@@ -1468,7 +1366,6 @@ impl Network {
             Command::ConnectHidden {
                 ssid,
                 security,
-                secret,
                 reply,
             } => {
                 let Some(device) = self.wireless_device().map(|(path, _)| path.clone()) else {
@@ -1479,16 +1376,8 @@ impl Network {
                 self.dispatch(ctx, None, reply, move |connection| async move {
                     settle(
                         Action::Hidden,
-                        call::add_and_activate(
-                            &connection,
-                            &raw,
-                            security,
-                            true,
-                            secret.as_ref().map(|one| one.as_str()),
-                            &device,
-                            "/",
-                        )
-                        .await,
+                        call::add_and_activate(&connection, &raw, security, true, &device, "/")
+                            .await,
                     )
                 });
             }
@@ -1593,18 +1482,6 @@ impl Network {
                 self.deadline = None;
                 self.publish();
                 let _ = reply.send(Ok(()));
-            }
-            Command::AnswerSecret { answer, reply } => {
-                match self.secret.take() {
-                    Some((_, sender)) => {
-                        let _ = sender.send(answer);
-                        let _ = reply.send(Ok(()));
-                    }
-                    None => {
-                        let _ = reply.send(Err(NetworkError::Failed(Failure::Unknown)));
-                    }
-                }
-                self.publish();
             }
             Command::ConnectVpn { id, reply } => {
                 let saved = id.as_str().to_owned();

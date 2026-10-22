@@ -33,10 +33,6 @@ fn main() {
             "resources/widgets/power_popover.ui",
         ),
         (
-            "blueprints/bluetooth_pairing_dialog.blp",
-            "resources/widgets/bluetooth_pairing_dialog.ui",
-        ),
-        (
             "blueprints/bluetooth_popover.blp",
             "resources/widgets/bluetooth_popover.ui",
         ),
@@ -55,10 +51,6 @@ fn main() {
         (
             "blueprints/network_row.blp",
             "resources/widgets/network_row.ui",
-        ),
-        (
-            "blueprints/network_secret_dialog.blp",
-            "resources/widgets/network_secret_dialog.ui",
         ),
         ("blueprints/calendar.blp", "resources/widgets/calendar.ui"),
         (

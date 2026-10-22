@@ -47,27 +47,6 @@ async fn a_blocking_command_publishes_busy_and_does_not_hold_the_handler() {
 }
 
 #[tokio::test]
-async fn a_prompt_survives_an_adapter_the_service_has_not_seen_yet() {
-    let (mut service, ctx, state, _health) = bluetooth().await;
-    let (answer, _reply) = oneshot::channel();
-
-    service
-        .handle(
-            &ctx,
-            Input::Event(Event::Prompt(
-                Prompt::Authorize(DeviceId(HEADSET.to_owned())),
-                Some(answer),
-            )),
-        )
-        .await;
-
-    assert!(
-        state.borrow().pairing.is_some(),
-        "a prompt is not the adapter list's to withhold; BlueZ asked and the answer is owed"
-    );
-}
-
-#[tokio::test]
 async fn an_absent_adapter_publishes_nothing_and_stays_running() {
     let (mut service, ctx, state, health) = bluetooth().await;
 

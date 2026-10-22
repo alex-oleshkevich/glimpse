@@ -1,4 +1,4 @@
-use super::{Appearance, BlurSurface, ColorScheme, DesktopColorScheme, blurs};
+use super::{Appearance, ColorScheme, DesktopColorScheme};
 
 #[test]
 fn desktop_color_scheme_defaults_to_sun_and_accepts_only_its_policies() {
@@ -49,32 +49,10 @@ fn glimpse_color_scheme_accepts_desktop_light_and_dark() {
 }
 
 #[test]
-fn blur_names_the_surfaces_it_applies_to() {
-    let parsed: Appearance =
-        toml::from_str("blur = [\"panel\", \"notification\"]\n").expect("the surfaces parse");
-
-    assert_eq!(parsed.blur, [BlurSurface::Panel, BlurSurface::Notification]);
-}
-
-#[test]
-fn blur_all_covers_every_surface_and_a_list_only_what_it_names() {
-    let all: Appearance = toml::from_str("blur = [\"all\"]\n").expect("all parses");
-    let some: Appearance = toml::from_str("blur = [\"panel\"]\n").expect("a list parses");
-
-    for surface in [
-        BlurSurface::Panel,
-        BlurSurface::Popover,
-        BlurSurface::Notification,
-    ] {
-        assert!(blurs(&all.blur, surface));
-        assert_eq!(blurs(&some.blur, surface), surface == BlurSurface::Panel);
-        assert!(!blurs(&[], surface));
-    }
-}
-
-#[test]
-fn blur_is_off_until_asked_for() {
-    assert!(Appearance::default().blur.is_empty());
+fn blur_is_a_boolean_that_defaults_to_off() {
+    assert!(!Appearance::default().blur);
+    let on: Appearance = toml::from_str("blur = true\n").expect("true parses");
+    assert!(on.blur);
 }
 
 #[test]
@@ -99,6 +77,7 @@ fn animation_speed_rejects_a_negative_a_crawl_an_absurd_and_a_non_number() {
 }
 
 #[test]
-fn blur_rejects_a_surface_it_does_not_know() {
-    assert!(toml::from_str::<Appearance>("blur = [\"lock\"]\n").is_err());
+fn blur_rejects_the_removed_list_form() {
+    assert!(toml::from_str::<Appearance>("blur = [\"all\"]\n").is_err());
+    assert!(toml::from_str::<Appearance>("blur = [\"panel\"]\n").is_err());
 }

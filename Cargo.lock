@@ -1325,6 +1325,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-agents"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "futures-util",
+ "gettext-rs",
+ "gio",
+ "glib",
+ "glib-build-tools",
+ "glimpse-config",
+ "glimpse-dbus",
+ "glimpse-utils",
+ "glimpse-widgets",
+ "gtk4",
+ "gtk4-layer-shell",
+ "libadwaita",
+ "relm4",
+ "shadow-rs",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "zbus",
+ "zeroize",
+]
+
+[[package]]
 name = "glimpse-compositors"
 version = "0.16.0"
 dependencies = [
@@ -1527,7 +1555,6 @@ dependencies = [
  "tracing",
  "url",
  "zbus",
- "zeroize",
 ]
 
 [[package]]
@@ -1572,7 +1599,6 @@ dependencies = [
  "udev",
  "url",
  "zbus",
- "zeroize",
 ]
 
 [[package]]
@@ -1742,6 +1768,7 @@ dependencies = [
  "glib-build-tools",
  "glimpse-config",
  "glimpse-utils",
+ "glimpse-widgets",
  "gtk4",
  "libadwaita",
  "libc",

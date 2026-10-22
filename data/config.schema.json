@@ -7,7 +7,7 @@
       "$ref": "#/$defs/Appearance",
       "default": {
         "animation-speed": 1.0,
-        "blur": [],
+        "blur": false,
         "color-scheme": "dark",
         "desktop-color-scheme": "sun",
         "theme": "adwaita",
@@ -253,12 +253,9 @@
           "minimum": 0.0
         },
         "blur": {
-          "description": "Choose which surfaces blur what is behind them: `panel`, `popover`, `notification`, or `all`.\nYour compositor must support blur.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/BlurSurface"
-          }
+          "description": "Blur what is behind the bar, popovers, notifications and dialogs. Your compositor must support blur.",
+          "type": "boolean",
+          "default": false
         },
         "color-scheme": {
           "description": "Choose `desktop` to follow your desktop mode, or `light` or `dark` to keep glimpse in one mode.",
@@ -363,14 +360,6 @@
       },
       "additionalProperties": false
     },
-    "BatteryIndicatorStyle": {
-      "type": "string",
-      "enum": [
-        "icon-only",
-        "icon-text",
-        "text"
-      ]
-    },
     "Bluetooth": {
       "type": "object",
       "properties": {
@@ -388,15 +377,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "BlurSurface": {
-      "type": "string",
-      "enum": [
-        "panel",
-        "popover",
-        "notification",
-        "all"
-      ]
     },
     "Brightness": {
       "type": "object",
@@ -923,40 +903,6 @@
         }
       ]
     },
-    "Margin": {
-      "type": "object",
-      "properties": {
-        "bottom": {
-          "description": "Pixels between the panel and the bottom screen edge.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 0,
-          "minimum": 0
-        },
-        "left": {
-          "description": "Pixels between the panel and the left screen edge.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 0,
-          "minimum": 0
-        },
-        "right": {
-          "description": "Pixels between the panel and the right screen edge.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 0,
-          "minimum": 0
-        },
-        "top": {
-          "description": "Pixels between the panel and the top screen edge.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 0,
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false
-    },
     "Mpris": {
       "description": "Choose which media players you follow and whether to download their artwork.\nPlaying players take priority over paused, then stopped players, with the most recently active first.",
       "type": "object",
@@ -1055,14 +1001,6 @@
         "bottom-right"
       ]
     },
-    "NotificationIndicatorStyle": {
-      "type": "string",
-      "enum": [
-        "icon-only",
-        "icon-dot",
-        "icon-counter"
-      ]
-    },
     "Notifications": {
       "type": "object",
       "properties": {
@@ -1117,31 +1055,6 @@
       },
       "additionalProperties": false
     },
-    "PagerMode": {
-      "description": "Choose `workspaces` for one slot per workspace, or `windows` for windows on each in-scope workspace active on its output.\nIn `windows` mode, scroll vertically between windows and horizontally between workspaces; `workspaces` reverses those axes.\nYour slot tooltip shows the window title in `windows` mode and the workspace name or number otherwise.",
-      "type": "string",
-      "enum": [
-        "workspaces",
-        "windows"
-      ]
-    },
-    "PagerScope": {
-      "description": "How much of the session the strip covers: `current` for only the workspace the user is on,\n`output` for the workspaces on this panel's monitor, `session` for every workspace on every\nmonitor.",
-      "type": "string",
-      "enum": [
-        "current",
-        "output",
-        "session"
-      ]
-    },
-    "PagerShape": {
-      "description": "How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes\nthe least room on the bar, or `labels` for the slot's label in a pill.",
-      "type": "string",
-      "enum": [
-        "dots",
-        "labels"
-      ]
-    },
     "PaletteColor": {
       "type": "string",
       "enum": [
@@ -1150,153 +1063,6 @@
         "green",
         "blue",
         "white"
-      ]
-    },
-    "Panel": {
-      "type": "object",
-      "properties": {
-        "center": {
-          "description": "Applet names for the middle of the panel.",
-          "type": "array",
-          "default": [
-            "clock",
-            "weather",
-            "notifications",
-            "privacy"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "left": {
-          "description": "Applet names for the start of the panel: the left end, or the top on a side panel.",
-          "type": "array",
-          "default": [
-            "workspace-name",
-            "pager",
-            "places",
-            "mpris"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "margin": {
-          "description": "Space in pixels between the panel and the screen edges.",
-          "$ref": "#/$defs/Margin",
-          "default": {
-            "bottom": 0,
-            "left": 0,
-            "right": 0,
-            "top": 0
-          }
-        },
-        "monitor": {
-          "description": "The connector name of the one monitor this panel appears on, e.g. `eDP-1`. Unset puts a\ncopy of the panel on every monitor.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "position": {
-          "description": "The screen edge the panel sits on.",
-          "$ref": "#/$defs/Position",
-          "default": "top"
-        },
-        "right": {
-          "description": "Applet names for the end of the panel: the right end, or the bottom on a side panel.",
-          "type": "array",
-          "default": [
-            "next-event",
-            "tray",
-            "removable",
-            "clipboard",
-            "printing",
-            "bluetooth",
-            "network",
-            "display",
-            "audio",
-            "idle",
-            "power",
-            "keyboard",
-            "session"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "size": {
-          "description": "The panel's thickness in pixels: its height on a top or bottom edge, its width on a side.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 36,
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false
-    },
-    "Place": {
-      "description": "Where a weather applet looks. Tagged on `at`, matching the shape `WatchPlace` takes, so a\nplace reads the same in a document and on the wire.",
-      "oneOf": [
-        {
-          "description": "Your current location.",
-          "type": "object",
-          "properties": {
-            "at": {
-              "type": "string",
-              "const": "here"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "at"
-          ]
-        },
-        {
-          "description": "A fixed location.",
-          "type": "object",
-          "properties": {
-            "at": {
-              "type": "string",
-              "const": "latlon"
-            },
-            "latitude": {
-              "description": "Degrees north of the equator, between -90 and 90.",
-              "type": "number",
-              "format": "double"
-            },
-            "longitude": {
-              "description": "Degrees east of Greenwich, between -180 and 180.",
-              "type": "number",
-              "format": "double"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "latitude",
-            "longitude"
-          ]
-        },
-        {
-          "description": "A city and country.",
-          "type": "object",
-          "properties": {
-            "at": {
-              "type": "string",
-              "const": "location"
-            },
-            "name": {
-              "description": "Your city and two-letter uppercase country code, such as `Amsterdam, NL`.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "name"
-          ]
-        }
       ]
     },
     "Places": {
@@ -1314,15 +1080,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "Position": {
-      "type": "string",
-      "enum": [
-        "left",
-        "top",
-        "right",
-        "bottom"
-      ]
     },
     "Printing": {
       "description": "The printing service: how often it polls CUPS for job state, and which server it polls.",
@@ -1351,21 +1108,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "PrintingShow": {
-      "description": "When the printing chip is on the bar.",
-      "oneOf": [
-        {
-          "description": "Show whenever a printer exists.",
-          "type": "string",
-          "const": "always"
-        },
-        {
-          "description": "Show while a print job is active.",
-          "type": "string",
-          "const": "jobs"
-        }
-      ]
     },
     "Profile": {
       "type": "object",
@@ -1619,39 +1361,6 @@
         "thin",
         "medium",
         "thick"
-      ]
-    },
-    "Timezone": {
-      "description": "One zone in the clock popover's world clock.",
-      "type": "object",
-      "properties": {
-        "icon": {
-          "description": "An icon name replacing the sun or moon the row picks from the hour it is showing.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "label": {
-          "description": "What the row is called, such as `Tokyo`.",
-          "type": "string"
-        },
-        "note": {
-          "description": "A note beside the time, such as `the office`.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "timezone": {
-          "description": "The time zone for this row, such as `Asia/Tokyo`.",
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "label",
-        "timezone"
       ]
     },
     "Transition": {

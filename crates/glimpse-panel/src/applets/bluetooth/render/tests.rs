@@ -31,7 +31,6 @@ fn state(power: Power, scanning: bool, devices: Vec<Device>) -> BluetoothState {
         }),
         devices,
         scan: scanning.then_some(glimpse_services::Hold::Held),
-        pairing: None,
         confirm: None,
     }
 }
@@ -329,12 +328,6 @@ fn a_token_inside_a_device_name_is_not_substituted() {
     );
 }
 
-fn asking(prompt: Prompt) -> BluetoothState {
-    let mut state = state(Power::On, false, vec![device("Pixel", false)]);
-    state.pairing = Some(prompt);
-    state
-}
-
 fn pixel() -> DeviceId {
     device("Pixel", false).id
 }
@@ -349,80 +342,10 @@ fn forgetting() -> BluetoothState {
 }
 
 #[test]
-fn a_pairing_prompt_never_becomes_a_page_or_a_waiting_chip() {
-    for one in [
-        Prompt::Confirm {
-            device: pixel(),
-            passkey: 0,
-        },
-        Prompt::Authorize(pixel()),
-        Prompt::RequestPin(pixel()),
-        Prompt::DisplayPin {
-            device: pixel(),
-            pin: "0000".to_owned(),
-        },
-    ] {
-        let named = format!("{one:?}");
-        let state = asking(one);
-        assert!(prompt(&state).is_none(), "{named} is answered in a dialog");
-        assert_eq!(waiting(&state), None, "{named} is answered in a dialog");
-    }
-
+fn the_only_confirmation_left_is_the_forget_page() {
     assert_eq!(waiting(&state(Power::On, false, vec![])), None);
     assert!(prompt(&forgetting()).is_some());
     assert!(waiting(&forgetting()).is_some());
-}
-
-#[test]
-fn every_prompt_has_a_dialog_mode_and_the_code_it_shows() {
-    let of = |prompt: Prompt| prompt_entry(&prompt);
-    let pin = || "0000".to_owned();
-
-    assert_eq!(
-        of(Prompt::Confirm {
-            device: pixel(),
-            passkey: 418_209
-        }),
-        (PairingEntry::Confirm, "418 209".to_owned())
-    );
-    assert_eq!(
-        of(Prompt::Authorize(pixel())),
-        (PairingEntry::Authorize, String::new())
-    );
-    assert_eq!(
-        of(Prompt::RequestPin(pixel())),
-        (PairingEntry::Pin, String::new())
-    );
-    assert_eq!(
-        of(Prompt::RequestPasskey(pixel())),
-        (PairingEntry::Passkey, String::new())
-    );
-    assert_eq!(
-        of(Prompt::DisplayPin {
-            device: pixel(),
-            pin: pin()
-        }),
-        (PairingEntry::ShowPin, pin())
-    );
-}
-
-#[test]
-fn a_passkey_is_six_zero_padded_digits_and_its_progress_stops_at_six() {
-    let shown = |passkey, entered| {
-        prompt_entry(&Prompt::DisplayPasskey {
-            device: pixel(),
-            passkey,
-            entered,
-        })
-    };
-
-    assert_eq!(shown(18_402, 3).1, "018 402\n3 of 6 entered");
-    assert_eq!(shown(u32::MAX, 0).1, "999 999\n0 of 6 entered");
-    assert_eq!(
-        shown(418_209, 9).1,
-        "418 209\n6 of 6 entered",
-        "a remote count past the passkey length is clamped, never rendered"
-    );
 }
 
 #[test]

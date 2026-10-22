@@ -13,9 +13,8 @@ pub struct Appearance {
     /// Choose `sun` to turn your desktop dark at sunset and light at sunrise, `light` or `dark` to keep it in one mode, or `external` to let another tool decide.
     /// Without a known location, `sun` leaves your desktop mode alone.
     pub desktop_color_scheme: DesktopColorScheme,
-    /// Choose which surfaces blur what is behind them: `panel`, `popover`, `notification`, or `all`.
-    /// Your compositor must support blur.
-    pub blur: Vec<BlurSurface>,
+    /// Blur what is behind the bar, popovers, notifications and dialogs. Your compositor must support blur.
+    pub blur: bool,
     /// Set your animation speed from 0.1 to 10, or `0` to turn animations off.
     /// Use `2.0` for twice as fast or `0.5` for half as fast; your wallpaper uses `transition-ms` instead.
     #[serde(deserialize_with = "speed")]
@@ -30,7 +29,7 @@ impl Default for Appearance {
             theme_variant: String::new(),
             color_scheme: ColorScheme::Dark,
             desktop_color_scheme: DesktopColorScheme::Sun,
-            blur: Vec::new(),
+            blur: false,
             animation_speed: 1.0,
         }
     }
@@ -81,21 +80,6 @@ impl From<&crate::Config> for DesktopColorScheme {
     fn from(document: &crate::Config) -> Self {
         document.appearance.desktop_color_scheme
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum BlurSurface {
-    Panel,
-    Popover,
-    Notification,
-    All,
-}
-
-pub fn blurs(selected: &[BlurSurface], surface: BlurSurface) -> bool {
-    selected
-        .iter()
-        .any(|entry| *entry == BlurSurface::All || *entry == surface)
 }
 
 #[cfg(test)]

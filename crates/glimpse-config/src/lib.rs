@@ -38,9 +38,75 @@ pub fn json_schema_document(documents: Documents) -> String {
     {
         properties.retain(|table, _| documents.renders(table));
     }
+    retain_reachable_defs(&mut schema);
     let mut body = serde_json::to_string_pretty(&schema).expect("a JsonSchema always serializes");
     body.push('\n');
     body
+}
+
+fn retain_reachable_defs(schema: &mut schemars::Schema) {
+    let Some(root) = schema.as_object_mut() else {
+        return;
+    };
+    let Some(definitions) = root.remove("$defs") else {
+        return;
+    };
+    let serde_json::Value::Object(mut definitions) = definitions else {
+        root.insert("$defs".to_owned(), definitions);
+        return;
+    };
+
+    let mut reached = std::collections::BTreeSet::new();
+    let mut pending = Vec::new();
+    for value in root.values() {
+        collect_definition_refs(value, &mut reached, &mut pending);
+    }
+    while let Some(name) = pending.pop() {
+        if let Some(definition) = definitions.get(&name) {
+            collect_definition_refs(definition, &mut reached, &mut pending);
+        }
+    }
+    definitions.retain(|name, _| reached.contains(name));
+    if !definitions.is_empty() {
+        root.insert("$defs".to_owned(), serde_json::Value::Object(definitions));
+    }
+}
+
+fn collect_definition_refs(
+    value: &serde_json::Value,
+    reached: &mut std::collections::BTreeSet<String>,
+    pending: &mut Vec<String>,
+) {
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_definition_refs(item, reached, pending);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            if let Some(name) = map
+                .get("$ref")
+                .and_then(serde_json::Value::as_str)
+                .and_then(definition_name)
+                && reached.insert(name.to_owned())
+            {
+                pending.push(name.to_owned());
+            }
+            for child in map.values() {
+                collect_definition_refs(child, reached, pending);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn definition_name(reference: &str) -> Option<&str> {
+    let name = reference.strip_prefix("#/$defs/")?;
+    if name.is_empty() || name.contains('/') {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 pub(crate) fn document_body(documents: Documents) -> String {

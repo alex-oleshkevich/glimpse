@@ -1,5 +1,5 @@
 use adw::gdk;
-use glimpse_config::{Applet as AppletConfig, BlurSurface, Margin, Position, Regional};
+use glimpse_config::{Applet as AppletConfig, Margin, Position, Regional};
 use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -90,7 +90,7 @@ pub struct Config {
     pub attached: Vec<(Zone, String)>,
     pub applets: BTreeMap<String, AppletConfig>,
     pub regional: Regional,
-    pub blur: Vec<BlurSurface>,
+    pub blur: bool,
     pub handles: crate::services::Handles,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
@@ -247,16 +247,9 @@ impl Panel {
             gtk::Orientation::Horizontal => config.margin.left,
             _ => config.margin.top,
         };
-        self.catcher.reconfigure(
-            &config.monitor,
-            config.position,
-            pixels(inset),
-            glimpse_config::blurs(&config.blur, BlurSurface::Popover),
-        );
-        blur::apply(
-            &self.window,
-            glimpse_config::blurs(&config.blur, BlurSurface::Panel),
-        );
+        self.catcher
+            .reconfigure(&config.monitor, config.position, pixels(inset), config.blur);
+        blur::apply(&self.window, config.blur);
         self.reconcile_applets(config, orientation);
 
         tracing::debug!(

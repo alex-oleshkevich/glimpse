@@ -92,18 +92,3 @@ fn bar_wire_retains_empty_surfaces_and_their_configured_indices() {
             .is_empty()
     );
 }
-
-#[test]
-#[ignore = "needs a display"]
-fn a_closed_prompt_dialog_is_not_open() {
-    gtk4::init().expect("display");
-    adw::init().expect("adwaita");
-    glimpse_widgets::register_resources().expect("resources");
-
-    let dialog = PairingDialog::new();
-    assert!(!is_open(&dialog));
-    dialog.present(None::<&gtk4::Widget>);
-    assert!(is_open(&dialog));
-    dialog.force_close();
-    assert!(!is_open(&dialog));
-}

@@ -100,7 +100,7 @@ in. One catcher per panel means **one popover at a time is structural**, and `Ke
 means `Escape` dismisses nothing. A popover that asks for typing gives its surface
 `KeyboardMode::Exclusive`, since on-demand focus arrives only with a click into the surface and keys
 would reach the window behind; there `Escape` closes it. **Blur is the body and the arrow, not a
-surface** — `[appearance] blur` marks only the popover surface, and `backdrop-filter` sits on the
+surface** — `[appearance] blur` blurs the popover surface, and `backdrop-filter` sits on the
 body and the arrow inside it.
 
 `Applet::anchor` names a widget in the view; `placement()` keeps the arrow centred on the pressed
@@ -181,12 +181,9 @@ guessed wrong.
 
 **bluetooth** — the chip is the adapter's power state alone. **`unmap` stops a scan
 unconditionally**, since any gate on published state would lose a scan started in the last round
-trip. **Every pairing prompt is the app's `PairingDialog`, never a popover page**, so it opens once
-however many bars carry the applet; only the Forget confirmation lives in the popover. `BondBroken` is stated on the row, never notified.
+trip. Only the Forget confirmation lives in the popover. `BondBroken` is stated on the row, never notified.
 
-**network** — the chip is the connection's own icon alone. **The password is asked for before the
-join**, because NetworkManager drops the working connection the moment activation is requested.
-**Every network row opens a drawer with Connect or Disconnect first.** A wired row routes to
+**network** — the chip is the connection's own icon alone. **Every network row opens a drawer with Connect or Disconnect first.** A wired row routes to
 `connect_device` — sent to `connect_access_point` it is silently not found.
 
 **audio** — needs a PulseAudio-protocol server and renders nothing without one. **Muted is the

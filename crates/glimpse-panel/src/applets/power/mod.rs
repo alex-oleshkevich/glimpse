@@ -11,7 +11,7 @@ use glimpse_dbus::idle::{IdleProviderHandle, IdleProviderState};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_dbus::upower::ChargeState;
 use glimpse_services::{BatteryHandle, BatteryHistoryPoint, BatteryState};
-use glimpse_widgets::{IndicatorSpec, PowerPopover, Severity};
+use glimpse_widgets::{IndicatorSpec, PowerPopover};
 use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
@@ -31,7 +31,6 @@ pub struct Power {
     twelve: bool,
     spec: Vec<IndicatorSpec>,
     icon: Option<(String, gio::Icon)>,
-    hold_icon: gio::Icon,
     since_unplugged: Option<DateTime<Local>>,
     seen_plugged: bool,
     history: Rc<RefCell<Vec<BatteryHistoryPoint>>>,
@@ -64,7 +63,6 @@ impl Power {
             twelve: false,
             spec: Vec::new(),
             icon: None,
-            hold_icon: gio::ThemedIcon::new("dialog-warning-symbolic").upcast(),
             since_unplugged: None,
             seen_plugged,
             history: Rc::new(RefCell::new(Vec::new())),
@@ -85,14 +83,6 @@ impl Power {
             .inhibitors
             .retain(crate::applets::idle::render::holds_idle_or_sleep);
         self.spec = vec![self.indicator()];
-        if let Some(notice) = render::hold_notice(&self.idle_state, self.ends().as_deref()) {
-            self.spec.push(IndicatorSpec {
-                icon: Some(self.hold_icon.clone()),
-                tooltip: Some(format!("{} · {}", notice.title, notice.subtitle)),
-                severity: Some(Severity::Warning),
-                ..Default::default()
-            });
-        }
         if let Some(shown) = self.shown.upgrade() {
             self.dress(&shown);
         }

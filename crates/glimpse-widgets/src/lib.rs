@@ -4,7 +4,6 @@ mod applet_popover;
 mod artwork;
 mod audio_popover;
 mod bars;
-mod bluetooth_pairing_dialog;
 mod bluetooth_popover;
 pub mod blur;
 mod calendar;
@@ -37,7 +36,6 @@ pub(crate) mod meter_row;
 mod monitors;
 mod mpris_popover;
 mod network_popover;
-mod network_secret_dialog;
 mod next_event_popover;
 mod notice;
 mod notification_card;
@@ -57,6 +55,8 @@ mod player_list;
 pub mod popover_arrow;
 mod popover_shell;
 mod power_popover;
+#[cfg(feature = "preview")]
+pub mod preview;
 mod printing_popover;
 mod privacy_popover;
 mod range_bar;
@@ -103,9 +103,6 @@ pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
 pub use bars::Bars;
-pub use bluetooth_pairing_dialog::{
-    Entry as PairingEntry, PASSKEY_MAX, PIN_MAX, PairingAnswer, PairingDialog,
-};
 pub use bluetooth_popover::{
     Ask as BluetoothAsk, BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry,
     Line as BluetoothLine, Place as BluetoothPlace,
@@ -139,10 +136,9 @@ pub use meter_row::MeterRow;
 pub use monitors::watch_monitors;
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
-    Ask as NetworkAsk, Details as NetworkDetails, Entered as NetworkEntered, Entry as NetworkEntry,
-    Line as NetworkLine, NetworkPopover, Place as NetworkPlace,
+    Ask as NetworkAsk, Details as NetworkDetails, Entry as NetworkEntry, Line as NetworkLine,
+    NetworkPopover, Place as NetworkPlace,
 };
-pub use network_secret_dialog::{SecretAnswer, SecretDialog};
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_card::{Action, Body, Notification, NotificationCard, Urgency};

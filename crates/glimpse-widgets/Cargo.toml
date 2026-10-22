@@ -5,9 +5,13 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+preview = ["dep:clap"]
+
 [dependencies]
 adw.workspace = true
 anyhow.workspace = true
+clap = { workspace = true, optional = true }
 gettext-rs.workspace = true
 gio.workspace = true
 glib.workspace = true
@@ -21,8 +25,12 @@ wayland-protocols.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
-clap.workspace = true
+glimpse-widgets = { path = ".", features = ["preview"] }
 tracing-subscriber.workspace = true
+
+[[example]]
+name = "preview"
+required-features = ["preview"]
 
 [build-dependencies]
 glib-build-tools.workspace = true

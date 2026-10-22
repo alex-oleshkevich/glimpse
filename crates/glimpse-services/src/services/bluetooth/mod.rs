@@ -1,4 +1,3 @@
-mod agent;
 mod call;
 mod failure;
 mod source;
@@ -13,7 +12,6 @@ use glimpse_dbus::bluez::{
     TransportProperties,
 };
 
-pub use agent::Answer;
 pub use failure::Failure;
 use failure::{Action, classify};
 
@@ -76,39 +74,6 @@ pub struct Device {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Prompt {
-    Confirm {
-        device: DeviceId,
-        passkey: u32,
-    },
-    Authorize(DeviceId),
-    RequestPin(DeviceId),
-    RequestPasskey(DeviceId),
-    DisplayPin {
-        device: DeviceId,
-        pin: String,
-    },
-    DisplayPasskey {
-        device: DeviceId,
-        passkey: u32,
-        entered: u16,
-    },
-}
-
-impl Prompt {
-    pub fn device(&self) -> &DeviceId {
-        match self {
-            Prompt::Confirm { device, .. }
-            | Prompt::Authorize(device)
-            | Prompt::RequestPin(device)
-            | Prompt::RequestPasskey(device)
-            | Prompt::DisplayPin { device, .. }
-            | Prompt::DisplayPasskey { device, .. } => device,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Confirmation {
     Forget { device: DeviceId, connected: bool },
 }
@@ -141,7 +106,6 @@ pub struct BluetoothState {
     pub adapter: Option<Adapter>,
     pub devices: Vec<Device>,
     pub scan: Option<Hold>,
-    pub pairing: Option<Prompt>,
     pub confirm: Option<Confirmation>,
 }
 
@@ -256,10 +220,6 @@ pub enum Command {
         id: DeviceId,
         reply: Reply,
     },
-    CancelPairing {
-        id: DeviceId,
-        reply: Reply,
-    },
     SetTrusted {
         id: DeviceId,
         trusted: bool,
@@ -271,10 +231,6 @@ pub enum Command {
         reply: Reply,
     },
     DismissConfirmation {
-        reply: Reply,
-    },
-    AnswerPairing {
-        answer: Answer,
         reply: Reply,
     },
 }
@@ -306,14 +262,6 @@ pub enum Event {
         path: String,
         reason: DisconnectReason,
     },
-    Prompt(Prompt, Option<oneshot::Sender<Answer>>),
-    PromptGone,
-    AuthorizeService {
-        device: DeviceId,
-        reply: oneshot::Sender<bool>,
-    },
-    AgentReleased,
-    AgentRegistered(bool),
     ScanExpired(u64),
     Unavailable(String),
 }
@@ -326,10 +274,6 @@ struct Record {
     failure: Option<Failure>,
 }
 
-pub struct Dependencies {
-    pub agent: bool,
-}
-
 pub struct Bluetooth {
     state: Publisher<BluetoothState>,
     config: Config,
@@ -338,9 +282,6 @@ pub struct Bluetooth {
     scan: Option<(u64, Hold)>,
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
-    agent_enabled: bool,
-    agent: bool,
-    prompt: Option<(Prompt, Option<oneshot::Sender<Answer>>)>,
     confirm: Option<Confirmation>,
     adapters: BTreeMap<String, AdapterProperties>,
     devices: BTreeMap<String, Record>,
@@ -399,13 +340,6 @@ impl crate::ServiceEndpoint<Bluetooth> {
         .await?
     }
 
-    pub async fn cancel_pairing(&self, id: DeviceId) -> Result<(), BluetoothError> {
-        self.call("bluetooth stopped before completing the command", |reply| {
-            Command::CancelPairing { id, reply }
-        })
-        .await?
-    }
-
     pub async fn set_trusted(&self, id: DeviceId, trusted: bool) -> Result<(), BluetoothError> {
         self.call("bluetooth stopped before completing the command", |reply| {
             Command::SetTrusted { id, trusted, reply }
@@ -427,13 +361,6 @@ impl crate::ServiceEndpoint<Bluetooth> {
     pub async fn dismiss_confirmation(&self) -> Result<(), BluetoothError> {
         self.call("bluetooth stopped before completing the command", |reply| {
             Command::DismissConfirmation { reply }
-        })
-        .await?
-    }
-
-    pub async fn answer_pairing(&self, answer: Answer) -> Result<(), BluetoothError> {
-        self.call("bluetooth stopped before completing the command", |reply| {
-            Command::AnswerPairing { answer, reply }
         })
         .await?
     }
@@ -468,7 +395,7 @@ impl Service for Bluetooth {
     type State = BluetoothState;
     type Command = Command;
     type Event = Event;
-    type Dependencies = Dependencies;
+    type Dependencies = ();
     type SubKey = Watch;
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -495,9 +422,9 @@ impl Service for Bluetooth {
     async fn start(
         ctx: &Ctx<Self>,
         config: Self::Config,
-        dependencies: Self::Dependencies,
+        _dependencies: Self::Dependencies,
     ) -> Self {
-        let service = Self {
+        Self {
             state: ctx.publisher(),
             config,
             generation: 0,
@@ -505,18 +432,11 @@ impl Service for Bluetooth {
             scan: None,
             scans: 0,
             deadline: None,
-            agent_enabled: dependencies.agent,
-            agent: false,
-            prompt: None,
             confirm: None,
             adapters: BTreeMap::new(),
             devices: BTreeMap::new(),
             transports: BTreeMap::new(),
-        };
-
-        service.reregister(ctx);
-
-        service
+        }
     }
 
     async fn stop(self, ctx: &Ctx<Self>) {
@@ -525,9 +445,6 @@ impl Service for Bluetooth {
         };
         if let (Some(adapter), true) = (self.adapter_path(), self.scan.is_some()) {
             let _ = call::stop_scan(connection, adapter).await;
-        }
-        if self.agent {
-            agent::unregister(connection).await;
         }
     }
 
@@ -553,15 +470,11 @@ impl Service for Bluetooth {
                 Some(_) => {
                     self.generation = self.generation.wrapping_add(1);
                     self.adopted = false;
-                    self.agent = false;
                     self.scan = None;
                     self.deadline = None;
                     self.publish();
-                    self.reregister(ctx);
                 }
                 None => {
-                    self.agent = false;
-                    self.prompt = None;
                     self.confirm = None;
                     self.scan = None;
                     self.deadline = None;
@@ -572,37 +485,6 @@ impl Service for Bluetooth {
                     ctx.degraded("org.bluez left the bus");
                 }
             },
-            Input::Event(Event::AgentRegistered(registered)) => self.agent = registered,
-            Input::Event(Event::AgentReleased) => {
-                self.agent = false;
-                self.prompt = None;
-                if let Ok(connection) = ctx.system_bus().cloned() {
-                    ctx.spawn_detached(move |_ctx| async move {
-                        agent::withdraw(&connection).await;
-                    });
-                }
-                self.publish();
-            }
-            Input::Event(Event::Prompt(prompt, answer)) => {
-                if let Some((held, Some(_))) = self.prompt.replace((prompt, answer)) {
-                    tracing::warn!(
-                        prompt = ?held,
-                        "a pairing question was replaced before it was answered"
-                    );
-                }
-                self.publish();
-            }
-            Input::Event(Event::PromptGone) => {
-                self.prompt = None;
-                self.publish();
-            }
-            Input::Event(Event::AuthorizeService { device, reply }) => {
-                let bonded = self
-                    .devices
-                    .get(device.as_str())
-                    .is_some_and(|record| record.properties.bonded == Some(true));
-                let _ = reply.send(bonded);
-            }
             Input::Event(Event::InterfacesAdded { path, interfaces }) if self.adopted => {
                 self.add(&path, interfaces);
                 self.publish();
@@ -619,7 +501,6 @@ impl Service for Bluetooth {
             }) if self.adopted => {
                 self.change(&path, &interface, &changed);
                 self.invalidate(&path, &interface, &invalidated);
-                self.bonded(ctx, &path);
                 self.settle_scan(ctx);
                 self.publish();
             }
@@ -661,7 +542,6 @@ impl Service for Bluetooth {
 impl Bluetooth {
     async fn run(&mut self, ctx: &Ctx<Self>, command: Command) {
         match command {
-            Command::AnswerPairing { answer, reply } => self.answer(ctx, answer, reply).await,
             Command::DismissConfirmation { reply } => {
                 self.confirm = None;
                 self.publish();
@@ -682,13 +562,6 @@ impl Bluetooth {
                 });
                 self.publish();
                 let _ = reply.send(Ok(()));
-            }
-            Command::Pair { id, reply } if !self.agent => {
-                if let Some(record) = self.devices.get_mut(id.as_str()) {
-                    record.failure = Some(Failure::NoAgent);
-                }
-                self.publish();
-                let _ = reply.send(Err(BluetoothError::Failed(Failure::NoAgent)));
             }
             command => {
                 if matches!(command, Command::Forget { .. } | Command::SetTrusted { .. }) {
@@ -751,12 +624,6 @@ impl Bluetooth {
                     call::set_trusted(&connection, &path, trusted).await
                 });
             }
-            Command::CancelPairing { id, reply } => {
-                let path = id.as_str().to_owned();
-                detached(ctx, Action::CancelPairing, reply, async move {
-                    call::cancel_pairing(&connection, &path).await
-                });
-            }
             Command::Connect { id, reply } => {
                 let path = id.as_str().to_owned();
                 self.spawned(
@@ -796,45 +663,13 @@ impl Bluetooth {
                     async move { call::forget(&connection, &adapter, &path).await },
                 );
             }
-            Command::AnswerPairing { reply, .. } | Command::DismissConfirmation { reply } => {
+            Command::DismissConfirmation { reply } => {
                 let _ = reply.send(Err(CommandError::Internal(
                     "that command is answered locally and never reaches the bus".to_owned(),
                 )
                 .into()));
             }
         }
-    }
-
-    async fn answer(&mut self, ctx: &Ctx<Self>, answer: Answer, reply: Reply) {
-        let Some((prompt, sender)) = self.prompt.take() else {
-            let _ = reply.send(Err(CommandError::Unavailable(
-                "nothing is waiting for an answer".to_owned(),
-            )
-            .into()));
-            return;
-        };
-        self.publish();
-
-        if let Some(sender) = sender {
-            let _ = sender.send(answer);
-            let _ = reply.send(Ok(()));
-            return;
-        }
-        if answer == Answer::Confirm {
-            let _ = reply.send(Ok(()));
-            return;
-        }
-
-        let Ok(connection) = ctx.system_bus().cloned() else {
-            let _ = reply.send(Err(
-                CommandError::Unavailable("no system bus".to_owned()).into()
-            ));
-            return;
-        };
-        let path = prompt.device().as_str().to_owned();
-        detached(ctx, Action::CancelPairing, reply, async move {
-            call::cancel_pairing(&connection, &path).await
-        });
     }
 
     fn spawned(
@@ -880,48 +715,6 @@ impl Bluetooth {
     fn settled(&mut self) {
         if self.confirm.take().is_some() {
             self.publish();
-        }
-    }
-
-    fn reregister(&self, ctx: &Ctx<Self>) {
-        if !self.agent_enabled {
-            return;
-        }
-        let Ok(connection) = ctx.system_bus().cloned() else {
-            return;
-        };
-        let events = ctx.events();
-        ctx.spawn_detached(move |ctx| async move {
-            let registered = agent::register(&connection, events).await;
-            if let Err(error) = &registered {
-                tracing::warn!(%error, "could not register the bluetooth pairing agent");
-            }
-            let _ = ctx
-                .events()
-                .send(Input::Event(Event::AgentRegistered(registered.is_ok())))
-                .await;
-        });
-    }
-
-    fn bonded(&mut self, ctx: &Ctx<Self>, path: &str) {
-        let shown = self
-            .prompt
-            .as_ref()
-            .is_some_and(|(prompt, answer)| answer.is_none() && prompt.device().as_str() == path);
-        if !shown {
-            return;
-        }
-        let Some(record) = self.devices.get(path) else {
-            return;
-        };
-        if record.properties.bonded != Some(true) {
-            return;
-        }
-        let trusted = record.properties.trusted == Some(true);
-
-        self.prompt = None;
-        if !trusted {
-            self.trust_then_connect(ctx, &DeviceId(path.to_owned()));
         }
     }
 
@@ -1083,12 +876,10 @@ impl Bluetooth {
     }
 
     fn publish(&mut self) {
-        let pairing = self.prompt.as_ref().map(|(prompt, _)| prompt.clone());
         let confirm = self.confirm.clone();
 
         let Some((adapter_path, properties)) = self.adapters.first_key_value() else {
             self.state.set(BluetoothState {
-                pairing,
                 confirm,
                 ..Default::default()
             });
@@ -1118,7 +909,6 @@ impl Bluetooth {
             adapter: Some(adapter),
             devices,
             scan: self.scan.map(|(_, hold)| hold),
-            pairing,
             confirm,
         });
     }
@@ -1183,10 +973,8 @@ fn reject(command: Command, reason: &str) {
         | Command::Connect { reply, .. }
         | Command::Disconnect { reply, .. }
         | Command::Pair { reply, .. }
-        | Command::CancelPairing { reply, .. }
         | Command::SetTrusted { reply, .. }
         | Command::Forget { reply, .. }
-        | Command::AnswerPairing { reply, .. }
         | Command::DismissConfirmation { reply } => {
             let _ = reply.send(refused);
         }

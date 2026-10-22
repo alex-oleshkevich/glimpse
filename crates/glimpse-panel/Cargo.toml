@@ -34,7 +34,6 @@ tokio-util.workspace = true
 tracing.workspace = true
 url.workspace = true
 zbus.workspace = true
-zeroize.workspace = true
 
 [build-dependencies]
 glib-build-tools.workspace = true

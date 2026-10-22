@@ -6,7 +6,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 use crate::{Row, RowTone, none_if_empty, reconcile};
 use row::NetworkRow;
 
-pub use imp::{Ask, Details, Entered, Entry, Line, Place, accepts};
+pub use imp::{Ask, Details, Entry, Line, Place};
 
 const NETWORKS_PAGE: &str = "networks";
 const PROMPT_PAGE: &str = "prompt";
@@ -154,17 +154,12 @@ impl NetworkPopover {
 
     pub(crate) fn answer(&self, accepted: bool) {
         let imp = self.imp();
-        let entered = match accepted {
+        let asks_name = imp.asks_name();
+        let entered = match accepted && asks_name {
             true => imp.typed(),
             false => String::new(),
         };
-        let kind = imp
-            .prompt
-            .borrow()
-            .as_ref()
-            .map(|ask| ask.entered)
-            .unwrap_or_default();
-        if accepted && !imp.open_chosen() && !imp::accepts(&entered, kind) {
+        if accepted && asks_name && !imp::accepts(&entered) {
             return;
         }
         self.emit_by_name::<()>("answered", &[&accepted, &entered]);
@@ -173,7 +168,6 @@ impl NetworkPopover {
     fn render_prompt(&self, switched: bool) {
         let imp = self.imp();
         if switched {
-            imp.prompt_secret.set_text("");
             imp.prompt_name.set_text("");
         }
 
@@ -190,9 +184,9 @@ impl NetworkPopover {
             none_if_empty(&ask.question),
             crate::ASK_MAX_CHARS,
         );
-        let naming = ask.entered == Entered::Name;
-        imp.prompt_name.set_visible(naming);
-        imp.prompt_security.set_visible(!ask.choices.is_empty());
+        let asks_name = ask.choices.is_empty();
+        imp.prompt_name.set_visible(asks_name);
+        imp.prompt_security.set_visible(!asks_name);
         if switched && !ask.choices.is_empty() {
             let labels: Vec<&str> = ask.choices.iter().map(String::as_str).collect();
             imp.prompt_security
@@ -216,10 +210,11 @@ impl NetworkPopover {
         imp.quiet.set(false);
         imp.pages.set_visible_child_name(PROMPT_PAGE);
         imp.wifi.set_sensitive(false);
-        match naming {
-            true => imp.prompt_name.grab_focus(),
-            false => imp.prompt_secret.grab_focus(),
-        };
+        if asks_name {
+            imp.prompt_name.grab_focus();
+        } else {
+            imp.prompt_security.grab_focus();
+        }
     }
 
     pub fn connect_wifi_toggled<F: Fn(&Self, bool) + 'static>(

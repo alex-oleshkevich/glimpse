@@ -1,11 +1,7 @@
 use super::*;
 
 fn type_in(network: &NetworkPopover, text: &str) {
-    let imp = network.imp();
-    match imp.prompt_name.get_visible() {
-        true => imp.prompt_name.set_text(text),
-        false => imp.prompt_secret.set_text(text),
-    }
+    network.imp().prompt_name.set_text(text);
 }
 
 fn can_submit(network: &NetworkPopover) -> bool {
@@ -409,15 +405,13 @@ pub(super) fn check() {
         key: "hidden".to_owned(),
         network: "Hidden network".to_owned(),
         question: "Type the name the network broadcasts nothing about.".to_owned(),
-        entered: NetworkEntered::Name,
         accept: "Continue".to_owned(),
         choices: Vec::new(),
-        open_choice: None,
     }));
     assert!(
         network.prompting()
             && network.imp().prompt_name.get_visible()
-            && !network.imp().prompt_secret.get_visible(),
+            && !network.imp().prompt_security.get_visible(),
         "a network with no name to show asks for one, not for a password"
     );
     assert!(
@@ -428,7 +422,7 @@ pub(super) fn check() {
     network.set_others(1, true, None);
     assert!(
         !network.imp().more.open() && !dimmed(network.imp().prompt_accept.upcast_ref()),
-        "network refreshes cannot reopen a drawer over the password page"
+        "network refreshes cannot reopen a drawer over the question page"
     );
     assert!(
         !can_submit(&network),
@@ -452,72 +446,13 @@ pub(super) fn check() {
     assert_eq!(
         *answers.borrow(),
         [(true, "Skylink Guest".to_owned())],
-        "the name reaches the applet, which asks for the password next"
+        "the name reaches the applet, which asks for the security next"
     );
 
     network.set_prompt(Some(&NetworkAsk {
-        key: "secret:Skylink Guest".to_owned(),
+        key: "hidden-security:Skylink Guest".to_owned(),
         network: "Skylink Guest".to_owned(),
-        question: "The network needs a password before this computer can join it.".to_owned(),
-        entered: NetworkEntered::Secret,
-        accept: "Connect".to_owned(),
-        choices: Vec::new(),
-        open_choice: None,
-    }));
-    assert!(
-        network.imp().prompt_secret.get_visible() && !network.imp().prompt_name.get_visible(),
-        "the second ask is a password box, with the peek icon a name box must not have"
-    );
-    assert!(
-        !can_submit(&network),
-        "a new question starts empty; carrying the name over would submit it as a password"
-    );
-    let long = "word ".repeat(40);
-    network.set_prompt(Some(&NetworkAsk {
-        key: "secret:Long".to_owned(),
-        network: "Skylink Guest".to_owned(),
-        question: long.clone(),
-        entered: NetworkEntered::Secret,
-        accept: "Connect".to_owned(),
-        choices: Vec::new(),
-        open_choice: None,
-    }));
-    assert_eq!(
-        network.imp().prompt_ask.text(),
-        long,
-        "a question longer than the shared text cap is shown whole"
-    );
-
-    type_in(&network, "wrongpassword");
-    assert!(can_submit(&network));
-    network
-        .imp()
-        .prompt_secret
-        .emit_by_name::<()>("activate", &[]);
-    assert_eq!(
-        answers.borrow().last(),
-        Some(&(true, "wrongpassword".to_owned())),
-        "Enter in the password box submits it"
-    );
-    network.set_prompt(Some(&NetworkAsk {
-        key: "802-11-wireless-security:Skylink Guest".to_owned(),
-        network: "Skylink Guest".to_owned(),
-        question: "Skylink Guest refused that password. Check it and try again.".to_owned(),
-        entered: NetworkEntered::Secret,
-        accept: "Try again".to_owned(),
-        choices: Vec::new(),
-        open_choice: None,
-    }));
-    assert!(
-        !can_submit(&network),
-        "a retry clears the password that was refused; leaving it invites sending it again"
-    );
-
-    network.set_prompt(Some(&NetworkAsk {
-        key: "hidden-secret:Skylink Guest".to_owned(),
-        network: "Skylink Guest".to_owned(),
-        question: "Choose how the network is secured, then type its password.".to_owned(),
-        entered: NetworkEntered::Secret,
+        question: "Choose how the network is secured.".to_owned(),
         accept: "Connect".to_owned(),
         choices: vec![
             "None".to_owned(),
@@ -525,24 +460,28 @@ pub(super) fn check() {
             "WPA & WPA2 Personal".to_owned(),
             "WPA3 Personal".to_owned(),
         ],
-        open_choice: Some(0),
     }));
     assert!(
-        network.imp().prompt_security.get_visible(),
+        network.imp().prompt_security.get_visible() && !network.imp().prompt_name.get_visible(),
         "a hidden network has no beacon to read its security off, so the user picks it"
     );
     assert!(
-        !network.imp().prompt_secret.get_visible() && can_submit(&network),
-        "an open network takes no password, and demanding one makes it unjoinable"
+        can_submit(&network),
+        "a security choice is all the page asks for"
     );
     network.imp().prompt_security.set_selected(2);
-    assert!(
-        network.imp().prompt_secret.get_visible() && !can_submit(&network),
-        "choosing WPA brings the password box back, empty and unsubmittable"
-    );
     assert_eq!(network.chosen(), 2);
+    answers.borrow_mut().clear();
+    network
+        .imp()
+        .prompt_accept
+        .emit_by_name::<()>("clicked", &[]);
+    assert_eq!(
+        *answers.borrow(),
+        [(true, String::new())],
+        "the security choice alone connects the hidden network"
+    );
 
-    type_in(&network, "hunter2hunter2");
     answers.borrow_mut().clear();
     network
         .imp()

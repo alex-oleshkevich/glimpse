@@ -45,6 +45,32 @@ fn referenced(text: &str) -> Vec<&str> {
         .collect()
 }
 
+fn outside_var_groups(line: &str) -> String {
+    let mut rest = line;
+    let mut kept = String::new();
+    while let Some(at) = rest.find("var(") {
+        kept.push_str(&rest[..at]);
+        let mut depth = 1;
+        let mut end = rest.len();
+        for (index, character) in rest[at + 4..].char_indices() {
+            match character {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = at + index + 5;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        rest = &rest[end..];
+    }
+    kept.push_str(rest);
+    kept
+}
+
 #[test]
 fn every_glimpse_token_the_stylesheet_reads_is_declared() {
     let (block, rules) = split(BUILTIN);
@@ -94,19 +120,83 @@ fn no_rule_sets_a_pixel_font_size() {
 
 #[test]
 fn only_hairlines_and_borders_are_measured_in_pixels() {
-    const BORDERS: [&str; 4] = ["outline:", "outline-offset:", "box-shadow:", "border:"];
     let (_, rules) = split(BUILTIN);
 
     for line in rules.lines().map(str::trim) {
-        if !line.contains("px") {
-            continue;
-        }
-        let border = BORDERS.iter().any(|property| line.starts_with(property));
-        let hairline = line.ends_with(": 1px;") || line.ends_with(": 999px;");
         assert!(
-            border || hairline,
+            pixel_lengths_allowed(line),
             "a length in px does not follow the user's text size: {line}"
         );
+    }
+}
+
+fn pixel_lengths_allowed(line: &str) -> bool {
+    let Some((property, value)) = line.split_once(':') else {
+        return true;
+    };
+    value
+        .split(|c: char| !c.is_ascii_alphanumeric() && !matches!(c, '.' | '-' | '+'))
+        .filter(|length| length.ends_with("px"))
+        .all(|length| match property.trim() {
+            "border"
+            | "border-top"
+            | "border-right"
+            | "border-bottom"
+            | "border-left"
+            | "border-width"
+            | "border-top-width"
+            | "border-right-width"
+            | "border-bottom-width"
+            | "border-left-width"
+            | "outline"
+            | "outline-width"
+            | "outline-offset"
+            | "box-shadow" => true,
+            "border-radius" => length == "999px",
+            _ => false,
+        })
+}
+
+#[test]
+fn pixel_lengths_are_rejected_in_scaled_properties_and_fallbacks() {
+    for line in [
+        "border-radius: 12px;",
+        "padding: var(--gl-radius, 8px);",
+        "-gtk-icon-size: var(--gl-text-body, 1px);",
+        "padding: var(--gl-radius, var(--gl-space, 8px));",
+        "border-radius: var(--gl-radius, 12px);",
+        "border-radius: 999px 12px;",
+        "border-top-left-radius: 12px;",
+        "border-spacing: 1px;",
+        "outline-radius: 1px;",
+    ] {
+        assert!(!pixel_lengths_allowed(line), "accepted {line}");
+    }
+}
+
+#[test]
+fn pixel_lengths_are_allowed_for_borders_outlines_shadows_and_pills() {
+    for line in [
+        "border: 1px solid var(--gl-border);",
+        "border-top: 1px solid var(--gl-border);",
+        "border-right: 1px solid var(--gl-border);",
+        "border-bottom: 1px solid var(--gl-border);",
+        "border-left: 1px solid var(--gl-border);",
+        "border-width: 1px;",
+        "border-top-width: 1px;",
+        "border-right-width: 1px;",
+        "border-bottom-width: 1px;",
+        "border-left-width: 1px;",
+        "outline: 1px solid var(--gl-border);",
+        "outline-width: 1px;",
+        "outline-offset: -1px;",
+        "box-shadow: 0 6px 20px alpha(black, 0.4);",
+        "box-shadow: var(--gl-elevation-floating, 0 6px 20px alpha(black, 0.4));",
+        "border-radius: 999px;",
+        "border-radius: var(--gl-radius, 999px);",
+        "padding: var(--gl-radius, 0.5rem);",
+    ] {
+        assert!(pixel_lengths_allowed(line), "rejected {line}");
     }
 }
 
@@ -135,8 +225,9 @@ fn no_visual_rule_names_a_literal_color() {
         if line.starts_with("--gl-") {
             continue;
         }
+        let painted = outside_var_groups(line);
         assert!(
-            !line.contains('#') && !line.contains("rgb(") && !line.contains("rgba("),
+            !painted.contains('#') && !painted.contains("rgb(") && !painted.contains("rgba("),
             "a rule names a literal color, which cannot follow a theme: {line}"
         );
     }

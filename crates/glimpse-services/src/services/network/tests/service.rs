@@ -14,14 +14,10 @@ pub(in crate::services::network) struct Harness {
 }
 
 pub(in crate::services::network) async fn harness() -> Harness {
-    started(Dependencies { agent: true }).await
+    started(()).await
 }
 
-pub(in crate::services::network) async fn harness_without_agent() -> Harness {
-    started(Dependencies { agent: false }).await
-}
-
-async fn started(dependencies: Dependencies) -> Harness {
+async fn started(_dependencies: ()) -> Harness {
     let (events, inbox) = mpsc::channel(32);
     let cancel = CancellationToken::new();
     let config = Config::from(&glimpse_config::Config::default());
@@ -35,7 +31,7 @@ async fn started(dependencies: Dependencies) -> Harness {
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Network::start(&ctx, config, dependencies).await;
+    let service = Network::start(&ctx, config, _dependencies).await;
 
     Harness {
         service,
@@ -235,46 +231,6 @@ async fn networkmanager_coming_back_bumps_the_generation_so_every_source_restart
         keys.contains(&Watch::ProfileUpdates(harness.service.generation)),
         "a profile edited in place announces itself only through Settings.Connection.Updated,              so that source has to be declared and to restart with the generation"
     );
-}
-
-#[tokio::test]
-async fn mirror_only_mode_never_enables_agent_registration() {
-    let mut harness = harness_without_agent().await;
-    assert!(
-        !harness.service.agent_enabled,
-        "a locked screen must never register a secret agent"
-    );
-
-    enumerate(&mut harness, measured_objects()).await;
-    assert!(!harness.service.agent_enabled);
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
-        )
-        .await;
-    assert!(
-        !harness.service.agent_enabled,
-        "coming back onto the bus must not attempt registration in mirror-only mode"
-    );
-}
-
-#[tokio::test]
-async fn the_panel_path_still_enables_agent_registration() {
-    let mut harness = harness().await;
-    assert!(harness.service.agent_enabled);
-
-    enumerate(&mut harness, measured_objects()).await;
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
-        )
-        .await;
-    assert!(harness.service.agent_enabled);
 }
 
 fn activated(path: &str, settings: &str, device: &str) -> nm::ActiveProperties {

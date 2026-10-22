@@ -1,14 +1,14 @@
 use gettextrs::{gettext, ngettext};
 use glimpse_dbus::bluez::{Codec, DeviceIcon, Power};
-use glimpse_services::{BluetoothState, Busy, Confirmation, Device, DeviceId, Failure, Prompt};
+use glimpse_services::{BluetoothState, Busy, Confirmation, Device, DeviceId, Failure};
 use glimpse_widgets::{
     BluetoothAsk as Ask, BluetoothDetails as Details, BluetoothEntry as Entry,
-    BluetoothLine as Line, BluetoothPlace as Place, Fact, PASSKEY_MAX, PIN_MAX, PairingEntry,
+    BluetoothLine as Line, BluetoothPlace as Place, Fact,
 };
 
 pub const IDLE: &str = "bluetooth-symbolic";
 
-pub const NAME_CAP: usize = 24;
+const NAME_CAP: usize = 24;
 
 pub fn tooltip(state: &BluetoothState, format: Option<&str>) -> Option<String> {
     let adapter = state.adapter.as_ref()?;
@@ -65,29 +65,6 @@ pub fn hero(state: &BluetoothState) -> Hero {
     }
 }
 
-pub fn prompt_entry(prompt: &Prompt) -> (PairingEntry, String) {
-    match prompt {
-        Prompt::RequestPin(_) => (PairingEntry::Pin, String::new()),
-        Prompt::RequestPasskey(_) => (PairingEntry::Passkey, String::new()),
-        Prompt::Confirm { passkey, .. } => (PairingEntry::Confirm, digits(*passkey)),
-        Prompt::Authorize(_) => (PairingEntry::Authorize, String::new()),
-        Prompt::DisplayPin { pin, .. } => {
-            (PairingEntry::ShowPin, glimpse_utils::clean(pin, PIN_MAX))
-        }
-        Prompt::DisplayPasskey {
-            passkey, entered, ..
-        } => (
-            PairingEntry::ShowPasskey,
-            format!(
-                "{}\n{}",
-                digits(*passkey),
-                gettext("{entered} of 6 entered")
-                    .replace("{entered}", &(*entered).min(6).to_string())
-            ),
-        ),
-    }
-}
-
 pub fn asked(state: &BluetoothState) -> Option<DeviceId> {
     let Confirmation::Forget { device, .. } = state.confirm.as_ref()?;
     Some(device.clone())
@@ -131,11 +108,6 @@ fn named(state: &BluetoothState, device: &DeviceId) -> String {
             || gettext("Unknown device"),
             |name| glimpse_utils::clean(name, NAME_CAP),
         )
-}
-
-fn digits(passkey: u32) -> String {
-    let padded = format!("{:06}", passkey.min(PASSKEY_MAX));
-    format!("{} {}", &padded[..3], &padded[3..])
 }
 
 pub struct Hero {
@@ -320,9 +292,6 @@ pub fn wording(failure: Failure) -> String {
         }
         Failure::PairingTimeout => gettext("The pairing timed out."),
         Failure::PairingCanceled => gettext("The pairing was cancelled."),
-        Failure::NoAgent => gettext(
-            "This panel could not register a pairing agent, so it cannot pair. Devices that are already paired still connect.",
-        ),
         Failure::Busy => gettext("The device is busy, possibly connected to another device."),
         Failure::NotReady => gettext("Bluetooth is switched off."),
         Failure::Dropped => gettext("The device disconnected."),

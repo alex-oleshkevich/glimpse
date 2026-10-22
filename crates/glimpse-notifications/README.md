@@ -49,7 +49,7 @@ on or closed; a positive `expire_timeout` is the popup's lifetime in millisecond
 The exit fade reads the card's opacity **before** `reset()`: resetting the entry animation writes its
 start value, 0, to the frame, so a start value read afterwards fades from nothing.
 
-`[appearance] blur = ["notification"]` blurs behind each card rather than the surface, for the same
+`[appearance] blur = true` blurs behind each card rather than the surface, for the same
 reason the input region is narrowed: the gutter is not the card.
 
 The card owns the same `34rem` width in this surface and the notifications popover. The paint gutter

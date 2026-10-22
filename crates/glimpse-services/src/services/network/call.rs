@@ -58,12 +58,7 @@ pub async fn activate(
         .map(|_| ())
 }
 
-fn wifi_settings<'a>(
-    ssid: &'a [u8],
-    security: nm::Security,
-    hidden: bool,
-    secret: Option<&'a str>,
-) -> Settings<'a> {
+fn wifi_settings<'a>(ssid: &'a [u8], security: nm::Security, hidden: bool) -> Settings<'a> {
     let mut connection: Setting<'a> = HashMap::new();
     connection.insert("type", Value::from("802-11-wireless"));
 
@@ -81,15 +76,6 @@ fn wifi_settings<'a>(
     if let Some(management) = key_mgmt(security) {
         let mut guard: Setting<'a> = HashMap::new();
         guard.insert("key-mgmt", Value::from(management));
-        if let Some(secret) = secret {
-            guard.insert(
-                match security {
-                    nm::Security::Wep => "wep-key0",
-                    _ => "psk",
-                },
-                Value::from(secret),
-            );
-        }
         settings.insert("802-11-wireless-security", guard);
     }
     settings
@@ -136,7 +122,6 @@ pub async fn add_and_activate(
     ssid: &[u8],
     security: nm::Security,
     hidden: bool,
-    secret: Option<&str>,
     device: &str,
     specific: &str,
 ) -> zbus::Result<()> {
@@ -144,7 +129,7 @@ pub async fn add_and_activate(
     manager(connection)
         .await?
         .add_and_activate_connection2(
-            wifi_settings(ssid, security, hidden, secret),
+            wifi_settings(ssid, security, hidden),
             &path(device)?,
             &path(specific)?,
             HashMap::new(),

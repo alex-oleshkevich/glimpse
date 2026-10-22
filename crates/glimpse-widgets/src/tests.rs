@@ -1,14 +1,10 @@
 use super::*;
 
-use crate::bluetooth_pairing_dialog::PIN_MAX;
-
 use crate::forecast::ForecastDay;
 
 use crate::pager::PagerItem;
 
 use crate::player_list::PlayerRow;
-
-use adw::prelude::AlertDialogExt;
 
 use adw::prelude::{ActionRowExt, ComboRowExt, PreferencesRowExt};
 
@@ -106,7 +102,6 @@ fn widgets() {
     weather_popover_checks::check();
     tray_strip_checks::check();
     bluetooth_popover_checks::check();
-    pairing_dialog_checks::check();
     network_popover_checks::check();
     audio_popover_checks::check();
     source_list_checks::check();
@@ -439,7 +434,6 @@ mod notification_stack_checks;
 mod notifications_popover_checks;
 mod now_playing_checks;
 mod pager_checks;
-mod pairing_dialog_checks;
 mod placeholder_checks;
 mod places_popover_checks;
 mod player_list_checks;

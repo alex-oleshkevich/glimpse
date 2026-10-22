@@ -143,8 +143,8 @@ a failed claim registers as a host with the incumbent and follows its registrati
 would race the signal that recovers a lost name. **A fresh owner sweeps, because items register once
 and never learn they were forgotten**: it announces itself first, then sweeps `ListNames`.
 
-**bluetooth** — one adapter, its devices, a pairing prompt and a confirmation in one state value,
-enumerated once per generation and never polled. **BlueZ's `ObjectManager` is at `/`, not
+**bluetooth** — one adapter, its devices and a confirmation in one state value, enumerated once per
+generation and never polled. **BlueZ's `ObjectManager` is at `/`, not
 `/org/bluez`** — only `PropertiesChanged` and `Disconnected` use that namespace. **Match a device path
 by shape, not by prefix** — connecting adds `dev_XX/fd0` and `sep1`…`sep6` as children a prefix match
 would count as phantom devices. **`busy` is cleared by its own command's completion, never by the
@@ -152,13 +152,10 @@ property moving** — `Connect()` on an already-connected device returns `Alread
 state change, which would leave that row spinning forever under a property-based clear. **Pairing ends
 connected.**
 
-**network** — devices, access points, saved profiles, active connections and the secret prompt in one
-state value, enumerated once per generation. **Only a device a user can act on reaches the model** —
+**network** — devices, access points, saved profiles and active connections in one state value,
+enumerated once per generation. **Only a device a user can act on reaches the model** —
 `Managed` and a user-facing `DeviceType`, since `Devices` and `AllDevices` both return bridges too.
-**The connected beacon wins** an access-point row regardless of signal, and **NetworkManager stores
-every secret and glimpse stores none** — a password typed before a join travels in the profile
-`AddAndActivateConnection2` creates, and **`REQUEST_NEW` implies interaction is allowed**, so
-`ALLOW_INTERACTION` alone drops every retry.
+**The connected beacon wins** an access-point row regardless of signal.
 
 **audio** — the libpulse bridge (`services/audio/pulse.rs`) owns one OS thread: lock, create the
 `Operation`, unlock, await the oneshot its callback completes, since a Pulse callback runs under that

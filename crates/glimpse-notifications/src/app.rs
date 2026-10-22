@@ -10,8 +10,7 @@ use adw::prelude::*;
 use futures_util::StreamExt;
 use gettextrs::gettext;
 use glimpse_config::{
-    BlurSurface, Config, Documents, NotificationEdge, PANEL_STYLESHEET, Reload, Theme,
-    watch_config, watch_theme,
+    Config, Documents, NotificationEdge, PANEL_STYLESHEET, Reload, Theme, watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_services::SessionStatus;
@@ -902,7 +901,7 @@ fn anchors(edge: NotificationEdge) -> &'static [Edge] {
 }
 
 fn blurred(config: &Config) -> bool {
-    glimpse_config::blurs(&config.appearance.blur, BlurSurface::Notification)
+    config.appearance.blur
 }
 
 fn enclosing_rectangle(bounds: gtk4::graphene::Rect) -> cairo::RectangleInt {

@@ -41,11 +41,11 @@ The desktop preference is `org.gnome.desktop.interface color-scheme`: `prefer-li
 
 ### Blur
 
-With `blur` set, the bar, popovers and notifications blur the windows and wallpaper behind them:
+With `blur` set, the bar, popovers, notifications and password dialogs blur the windows and wallpaper behind them:
 
 ```toml
 [appearance]
-blur = ["all"]
+blur = true
 ```
 
 Your compositor draws the blur, so it needs to support it, and how strong it looks is set in the
@@ -56,12 +56,12 @@ With `niri` 26.04 or newer you don't enable anything on the compositor side: it 
 that asks. Its `blur {}` section sets the strength for all of them.
 
 By default `niri` blurs these surfaces against the wallpaper only, ignoring the windows behind them.
-To blur what is actually underneath the bar, popovers and notifications, add this layer rule:
+To blur what is actually underneath the bar, popovers, notifications and dialogs, add this layer rule:
 
 ```kdl
 // ~/.config/niri/config.kdl
 layer-rule {
-    match namespace="^glimpse-(popover|notifications|panel)$"
+    match namespace="^glimpse-(popover|notifications|panel|agents)$"
     background-effect {
         xray false
     }

@@ -7,7 +7,7 @@ set positional-arguments
 # Single source of truth for every script that walks the shipped binaries, passed to them as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it.
-binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot glimpse-settings-daemon"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-agents glimpse-weather glimpse-idle glimpse-lens glimpse-shot glimpse-settings-daemon"
 
 [doc("list recipes")]
 default:
@@ -166,7 +166,12 @@ click *ARGS:
 
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:
-    cargo run -q -p glimpse-widgets --example preview -- {{ BLUEPRINT }} {{ ARGS }}
+    case "{{ BLUEPRINT }}" in \
+    	*crates/glimpse-agents/*) \
+    		cargo run -q -p glimpse-agents --example agents-preview -- "{{ BLUEPRINT }}" {{ ARGS }} ;; \
+    	*) \
+    		cargo run -q -p glimpse-widgets --features preview --example preview -- "{{ BLUEPRINT }}" {{ ARGS }} ;; \
+    esac
 
 [doc("two fake tray items on whatever bus DBUS_SESSION_BUS_ADDRESS names")]
 fake-tray:

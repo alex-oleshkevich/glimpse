@@ -3,9 +3,10 @@
 `just preview <path/to/blueprint.blp>` renders one blueprint with the **real widgets** and
 reloads on save. The path is resolved against the working directory — there is no search of
 `var/widget_examples/`, so a bare `notifications.blp` fails. Compile errors render into the window
-in red. It is a cargo example in `glimpse-widgets`, so `Builder` resolves `$PopoverShell` and
-`$Hero` to the Rust types. `Esc` closes it. `--scheme dark|light` forces the scheme; a widget is not
-checked until it has been seen under both.
+in red. The host is `glimpse_widgets::preview::run`. The `glimpse-widgets` example registers the
+widget types and calls it, so `Builder` resolves `$PopoverShell` and `$Hero`. A blueprint path under
+`crates/glimpse-agents/` runs that crate's example. `Esc` closes it.
+`--scheme dark|light` forces the scheme; a widget is not checked until it has been seen under both.
 
 Four things it must do, each of which fails silently otherwise:
 
@@ -15,7 +16,7 @@ Four things it must do, each of which fails silently otherwise:
   example naming `$Scrubber` with no Rust touching it does.
 - **Take `ApplicationFlags::NON_UNIQUE`.** The application ID is on the shared session bus, so a
   second preview otherwise hands off to the first, possibly on another monitor, and exits 0 with no
-  window and no message.
+  window and no message. The compiled UI is `$TMPDIR/glimpse-preview-{pid}.ui`, one file per process.
 - **Read `glimpse.css` from disk, not through `Styles::install`**, which loads it with
   `include_str!` — a preview built on that renders a compiled-in copy no edit can reach.
 - **Spell a watched path the way the file monitor spells it back.** A relative argument or a `..`

@@ -34,6 +34,7 @@
     --gl-shot-ink: #000000;
     --gl-shot-ring: rgb(0 0 0 / 0.45);
     --gl-scrim: rgb(0 0 0 / 0.55);
+    --gl-agent-scrim: rgb(0 0 0 / 0.35);
 
     --gl-danger-text: var(--destructive-color, #ff938b);
     --gl-danger-soft: alpha(var(--destructive-bg-color, #c01c28), 0.18);
@@ -109,7 +110,7 @@
 .panel separator {
     background-color: var(--gl-border);
     margin: 0.6rem 0.55rem;
-    min-width: 1px;
+    min-width: 0.0625rem;
 }
 
 .panel--vertical {
@@ -119,7 +120,7 @@
 .panel--vertical separator {
     margin: 0.55rem 0.6rem;
     min-width: 0;
-    min-height: 1px;
+    min-height: 0.0625rem;
 }
 
 .indicator-group {
@@ -380,7 +381,7 @@
 .popover-shell separator,
 popover separator {
     background-color: transparent;
-    min-height: 1px;
+    min-height: 0.0625rem;
     margin: 0.28rem 0.55rem;
 }
 
@@ -1565,6 +1566,85 @@ window.ruler {
     border: 1px solid alpha(var(--gl-panel-fg), 0.28);
 }
 
+window.agent-surface {
+    background-color: transparent;
+}
+
+.agent-backdrop {
+    background-color: var(--gl-agent-scrim, rgb(0 0 0 / 0.35));
+    animation: agent-backdrop-in calc(var(--gl-duration, 150ms) * 4 / 3) ease-out;
+}
+
+@keyframes agent-backdrop-in {
+    from { opacity: 0; }
+}
+
+.agent-dialog {
+    background-color: var(--gl-surface, #36363a);
+    color: var(--gl-surface-fg, #ffffff);
+    border-radius: var(--gl-radius, 0.95rem);
+    box-shadow: var(--gl-elevation-floating, 0 6px 20px alpha(black, 0.4));
+    border-top: 1px solid alpha(var(--gl-surface-fg, #ffffff), 0.06);
+    min-width: 27rem;
+    animation: agent-dialog-in calc(var(--gl-duration, 150ms) * 4 / 3) ease-out;
+}
+
+@keyframes agent-dialog-in {
+    from { opacity: 0; transform: scale(0.95); }
+}
+
+window.agent-surface.closing .agent-backdrop {
+    animation: agent-backdrop-out var(--gl-duration, 150ms) ease-in forwards;
+}
+
+@keyframes agent-backdrop-out {
+    to { opacity: 0; }
+}
+
+window.agent-surface.closing .agent-dialog {
+    animation: agent-dialog-out var(--gl-duration, 150ms) ease-in forwards;
+}
+
+@keyframes agent-dialog-out {
+    to { opacity: 0; transform: scale(0.95); }
+}
+
+.agent-dialog label,
+.agent-dialog button,
+.agent-dialog .title {
+    font-weight: 400;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .agent-dialog button.suggested-action {
+        transition: opacity 200ms ease-out, color 200ms ease-out, background-color 200ms ease-out;
+    }
+}
+
+.agent-dialog statuspage .icon {
+    -gtk-icon-size: 1.6rem;
+    padding: 0.9rem;
+    border-radius: 999px;
+    opacity: 1;
+    color: var(--gl-surface-fg, #ffffff);
+    background-color: var(--gl-accent-soft, alpha(var(--gl-accent, #3584e4), 0.18));
+}
+
+.agent-dialog row.entry image.edit-icon {
+    -gtk-icon-size: 0.125rem;
+    opacity: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.agent-dialog .agent-code {
+    font-size: calc(var(--gl-text-body, 1rem) * 2);
+    font-weight: 400;
+    font-feature-settings: "tnum";
+    letter-spacing: 0.15em;
+}
+
 window.blurred {
     background-color: transparent;
 }
@@ -1572,6 +1652,10 @@ window.blurred {
 window.blurred .panel {
     background-color: color-mix(in srgb, var(--gl-panel) var(--gl-blur-opacity), transparent);
     backdrop-filter: blur(var(--gl-blur-radius));
+}
+
+window.agent-surface.blurred .agent-backdrop {
+    backdrop-filter: blur(var(--gl-blur-radius, 0.75rem));
 }
 
 window.blurred .applet-popover__body {
@@ -1864,7 +1948,7 @@ window.shot-flash {
 .shot-toolbar > separator {
     margin: 0.35rem 0.25rem;
     background-color: var(--gl-border);
-    min-width: 1px;
+    min-width: 0.0625rem;
 }
 
 .shot-handle {
@@ -1917,7 +2001,7 @@ window.shot-flash {
 }
 
 .shot-stroke--thin {
-    min-height: 1px;
+    min-height: 0.0625rem;
 }
 
 .shot-stroke--medium {

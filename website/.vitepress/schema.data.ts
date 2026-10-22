@@ -45,7 +45,11 @@ export default defineLoader({
   async load(): Promise<Data> {
     const config: Json = JSON.parse(readFileSync(schemaPath, "utf8"));
     const panel: Json = JSON.parse(readFileSync(panelSchemaPath, "utf8"));
-    const schema: Json = { ...config, properties: { ...config.properties, ...panel.properties } };
+    const schema: Json = {
+      ...config,
+      properties: { ...config.properties, ...panel.properties },
+      $defs: { ...config.$defs, ...panel.$defs },
+    };
     const md = await createMarkdownRenderer(process.cwd());
     const defs: Json = schema.$defs;
     const tables: Record<string, Table> = {};

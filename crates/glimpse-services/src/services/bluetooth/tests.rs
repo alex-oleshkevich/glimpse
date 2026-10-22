@@ -18,11 +18,11 @@ async fn bluetooth() -> (
     tokio::sync::watch::Receiver<BluetoothState>,
     tokio::sync::watch::Receiver<crate::ServiceState>,
 ) {
-    started(Dependencies { agent: true }).await
+    started(()).await
 }
 
 async fn started(
-    dependencies: Dependencies,
+    _dependencies: (),
 ) -> (
     Bluetooth,
     Ctx<Bluetooth>,
@@ -43,7 +43,7 @@ async fn started(
     let service = Bluetooth::start(
         &ctx,
         Config::from(&glimpse_config::Config::default()),
-        dependencies,
+        _dependencies,
     )
     .await;
     (service, ctx, state_rx, health_rx)
@@ -164,7 +164,6 @@ fn state(power: Power, scanning: bool, devices: Vec<Device>) -> BluetoothState {
         }),
         devices,
         scan: scanning.then_some(Hold::Held),
-        pairing: None,
         confirm: None,
     }
 }
@@ -177,7 +176,6 @@ mod failures;
 mod icon;
 mod mirror;
 mod pairing;
-mod prompts;
 mod properties;
 mod review;
 mod scanning;

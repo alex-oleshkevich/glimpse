@@ -38,8 +38,8 @@ at sunrise, based on where you live. You can give the wallpaper a different pict
 ## See-through blur
 
 The bar, its popovers and notifications can blur whatever sits behind them, so your wallpaper and
-windows show through as soft color instead of a flat background. You choose which of the three get
-the effect, or all of them, in the settings file. It is off until you turn it on.
+windows show through as soft color instead of a flat background. Turn it on with `blur = true` in
+the settings file; it is off by default.
 
 Blur needs a compositor and a GTK version that support it. Where they don't, everything stays
 solid and works the same. How strong the blur looks is up to your compositor's own settings.

@@ -135,6 +135,53 @@ fn each_schema_offers_only_its_own_tables() {
 }
 
 #[test]
+fn each_schema_keeps_only_the_definitions_its_tables_reach() {
+    let config = json_schema(crate::Documents::Config);
+    let panel = json_schema(crate::Documents::ConfigAndPanel);
+
+    for schema in [&config, &panel] {
+        let definitions = schema["$defs"].as_object().expect("$defs");
+        let mut refs = Vec::new();
+        collect_refs(schema, &mut refs);
+        for reference in refs {
+            let name = reference
+                .strip_prefix("#/$defs/")
+                .expect("a reference into $defs");
+            assert!(
+                definitions.contains_key(name),
+                "{reference} does not resolve"
+            );
+        }
+    }
+
+    assert!(config["$defs"].get("Panel").is_none());
+    assert!(panel["$defs"].get("Appearance").is_none());
+}
+
+fn json_schema(documents: crate::Documents) -> serde_json::Value {
+    serde_json::from_str(&crate::json_schema_document(documents)).expect("JSON")
+}
+
+fn collect_refs(value: &serde_json::Value, refs: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Object(map) => {
+            if let Some(reference) = map.get("$ref").and_then(serde_json::Value::as_str) {
+                refs.push(reference.to_owned());
+            }
+            for child in map.values() {
+                collect_refs(child, refs);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_refs(item, refs);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[test]
 fn each_default_document_holds_only_its_own_tables() {
     let config: toml::Table = crate::default_document(crate::Documents::Config)
         .parse()
@@ -159,11 +206,13 @@ fn each_default_document_holds_only_its_own_tables() {
 
 #[test]
 fn every_key_and_enum_value_is_kebab_case() {
-    let schema: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config))
-            .expect("the schema is JSON");
     let mut offenders = Vec::new();
-    collect_underscored(&schema, &mut offenders);
+    for documents in [crate::Documents::Config, crate::Documents::ConfigAndPanel] {
+        let schema: serde_json::Value =
+            serde_json::from_str(&crate::json_schema_document(documents))
+                .expect("the schema is JSON");
+        collect_underscored(&schema, &mut offenders);
+    }
 
     assert!(
         offenders.is_empty(),

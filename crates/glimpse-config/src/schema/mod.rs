@@ -27,7 +27,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub use appearance::{Appearance, BlurSurface, ColorScheme, DesktopColorScheme, blurs};
+pub use appearance::{Appearance, ColorScheme, DesktopColorScheme};
 pub use applets::{
     Applet, Audio as AudioAppletConfig, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig,
     Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,

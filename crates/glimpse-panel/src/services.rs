@@ -12,15 +12,14 @@ use glimpse_dbus::{
 use glimpse_services::SystemdLauncher;
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryDependencies, BatteryHandle, BatterySource,
-    Bluetooth, BluetoothDependencies, BluetoothHandle, Brightness, BrightnessDependencies,
-    BrightnessHandle, Calendar, CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle,
-    CompositeBacklight, Compositor, CompositorHandle, DdcBacklight, DesktopCatalog, Exec,
-    ExecDependencies, ExecHandle, Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle,
-    Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkDependencies, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy,
-    PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle, Running, Selection,
-    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray,
-    TrayHandle, kdeconnect_batteries,
+    Bluetooth, BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
+    CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, CompositeBacklight,
+    Compositor, CompositorHandle, DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle,
+    Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies,
+    KeyboardHandle, Mpris, MprisHandle, Network, NetworkHandle, Places, PlacesHandle, Printing,
+    PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle,
+    Running, Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle,
+    SysfsBacklight, Tray, TrayHandle, kdeconnect_batteries,
 };
 
 #[derive(Clone)]
@@ -114,13 +113,9 @@ impl PanelServices {
         let (heartbeat_service, heartbeat) =
             Running::<Heartbeat>::spawn(document, buses.clone(), ());
         let (tray_service, tray) = Running::<Tray>::spawn(document, buses.clone(), ());
-        let (bluetooth_service, bluetooth) = Running::<Bluetooth>::spawn(
-            document,
-            buses.clone(),
-            BluetoothDependencies { agent: true },
-        );
-        let (network_service, network) =
-            Running::<Network>::spawn(document, buses.clone(), NetworkDependencies { agent: true });
+        let (bluetooth_service, bluetooth) =
+            Running::<Bluetooth>::spawn(document, buses.clone(), ());
+        let (network_service, network) = Running::<Network>::spawn(document, buses.clone(), ());
         let (audio_service, audio) = Running::<Audio>::spawn(document, buses.clone(), ());
         let sysfs: Arc<dyn Backlight> = Arc::new(SysfsBacklight::new(buses.clone()));
         let backend: Arc<dyn Backlight> = if document.brightness.ddc {

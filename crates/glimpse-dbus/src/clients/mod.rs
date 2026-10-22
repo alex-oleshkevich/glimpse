@@ -133,6 +133,7 @@ pub mod mpris;
 pub mod network_manager;
 pub mod night_light;
 pub mod notifications;
+pub mod polkit;
 pub mod power_profiles;
 pub mod settings;
 pub mod status_notifier_item;
