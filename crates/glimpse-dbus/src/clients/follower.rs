@@ -103,7 +103,7 @@ impl<S: Follow> ProviderHandle<S> {
         self.state.clone()
     }
 
-    pub(crate) async fn proxy(&self) -> Result<S::Proxy, S::Error> {
+    pub async fn proxy(&self) -> Result<S::Proxy, S::Error> {
         self.proxy.read().await.clone().ok_or_else(|| {
             S::Error::unavailable(self.state.borrow().reason().unwrap_or(NO_OWNER).to_owned())
         })

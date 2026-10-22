@@ -1,24 +1,24 @@
-//! Compositor state and control for niri and Hyprland, behind one model.
-//!
-//! Both compositors are reached over their own Unix socket — this crate touches no `wl_` object,
-//! so the daemon-era `wayland/` rule does not apply to it.
+pub mod backend;
+pub mod client;
+pub mod contract;
+pub mod event;
+mod legacy;
+pub mod merge;
+pub mod model;
+pub mod provider;
+pub mod sanitize;
 
-mod error;
-mod event;
-mod hyprland;
-mod keyboard;
-mod model;
-mod niri;
-
-pub use error::CompositorError;
-pub use event::{Event, Resync};
-pub use hyprland::Hyprland;
-pub use keyboard::layout_code;
-pub use model::{
+pub use legacy::error::CompositorError;
+pub use legacy::event::{Event, Resync};
+pub use legacy::hyprland::Hyprland;
+pub use legacy::keyboard::layout_code;
+pub use legacy::model::{
     Cast, CastKind, CastTarget, KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Rect,
     Snapshot, Window, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget,
 };
-pub use niri::Niri;
+pub use legacy::niri::Niri;
+
+use legacy::{hyprland, niri};
 
 use std::path::Path;
 

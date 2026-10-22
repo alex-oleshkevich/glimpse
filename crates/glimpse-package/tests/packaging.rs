@@ -506,6 +506,24 @@ fn weather_provider_is_not_started_by_the_session_target() {
 }
 
 #[test]
+fn session_target_wants_both_compositor_providers() {
+    let root = workspace_root();
+    let target = fs::read_to_string(root.join("data/systemd/glimpse-session.target"))
+        .expect("session target");
+    let wants = target
+        .lines()
+        .find_map(|line| line.strip_prefix("Wants="))
+        .expect("Wants=");
+    for unit in [
+        "glimpse-compositor-niri.service",
+        "glimpse-compositor-hyprland.service",
+    ] {
+        assert!(root.join("data/systemd").join(unit).is_file(), "{unit}");
+        assert!(wants.split_whitespace().any(|want| want == unit), "{unit}");
+    }
+}
+
+#[test]
 fn notification_and_weather_providers_are_standalone() {
     let root = workspace_root();
     for provider in ["glimpse-notifications", "glimpse-weather"] {

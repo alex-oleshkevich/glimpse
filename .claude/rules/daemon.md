@@ -53,6 +53,7 @@ is a property of the framework rather than something each binary has to remember
 - No service crate binds a `wl_` object. Services reach a compositor through `trait Gamma` and
   `glimpse-compositors`, both of which are injected so a headless test can substitute them.
 - The dependency order is one-way: `glimpse-services` depends on `glimpse-dbus`, never the reverse.
-  A domain type a provider decodes off the bus lives in `glimpse-dbus` beside its decoder;
-  everything else lives beside the service that owns it. No GTK in either.
+  The compositor contract lives in `glimpse-compositors`; every other provider's domain type lives
+  in `glimpse-dbus` beside its decoder; everything else lives beside the service that owns it. No
+  GTK in either.
 - Nothing depends on a binary crate.

@@ -10,6 +10,8 @@ use crate::model::WindowId;
 struct Numbers;
 
 impl LineDecoder for Numbers {
+    type Event = Event;
+
     fn decode(&mut self, line: &str) -> impl Future<Output = Vec<Event>> + Send {
         let events = line
             .split(',')

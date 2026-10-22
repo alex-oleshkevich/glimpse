@@ -13,9 +13,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::OnceCell;
 
-use crate::error::CompositorError;
-use crate::event::{Event, LineDecoder, line_events};
-use crate::model::{
+use crate::event::{LineDecoder, line_events};
+use crate::legacy::error::CompositorError;
+use crate::legacy::event::Event;
+use crate::legacy::model::{
     KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Rect, Snapshot, Window, WindowId,
     WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_edid_str,
     capped_name_str, capped_title_str, fill_window_outputs, is_built_in,
@@ -336,6 +337,8 @@ struct EventDecoder {
 }
 
 impl LineDecoder for EventDecoder {
+    type Event = Event;
+
     async fn decode(&mut self, line: &str) -> Vec<Event> {
         if EventState::is_layout_event(line) {
             let mut events = Vec::new();

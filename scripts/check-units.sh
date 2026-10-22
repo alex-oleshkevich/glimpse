@@ -5,7 +5,7 @@ binaries=" ${GLIMPSE_BINARIES:?set by the justfile; run through just} "
 lock=data/systemd/glimpse-lock.service
 
 noise='is not executable: No such file or directory|^Configuration file .* is marked'
-if systemd-analyze --user verify data/systemd/*.service data/systemd/*.target 2>&1 | grep -Ev "$noise" | grep .; then
+if { systemd-analyze --user verify data/systemd/*.service data/systemd/*.target 2>&1 || true; } | grep -Ev "$noise" | grep .; then
     exit 1
 fi
 

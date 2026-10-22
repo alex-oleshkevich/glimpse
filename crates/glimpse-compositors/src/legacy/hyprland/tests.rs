@@ -5,8 +5,8 @@ use serde_json::json;
 
 use super::testing::FakeHyprland;
 use super::*;
-use crate::event::Resync;
-use crate::model::{Cast, CastKind, CastTarget, WindowId};
+use crate::legacy::event::Resync;
+use crate::legacy::model::{Cast, CastKind, CastTarget, WindowId};
 
 fn snapshot_server() -> FakeHyprland {
     snapshot_server_with(Vec::new())

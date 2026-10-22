@@ -6,7 +6,7 @@ const FILE: &str = "language-codes.json";
 
 /// The same table that ships to `/usr/share/glimpse`, compiled in so a build that has never been
 /// installed still names layouts — the two can therefore never disagree.
-const BUILT_IN: &str = include_str!("../../../data/language-codes.json");
+const BUILT_IN: &str = include_str!("../../../../data/language-codes.json");
 
 type Codes = BTreeMap<String, String>;
 

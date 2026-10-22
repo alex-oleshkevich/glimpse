@@ -13,21 +13,24 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 
 | File | Holds |
 | --- | --- |
-| `lib.rs` | `detect_compositor()`, `Compositor`, `Capabilities` |
-| `model.rs` | `Snapshot` and everything in it, the id and target types, the text caps |
-| `event.rs` | `Event`, `Resync`, and the line loop both backends' event streams share |
-| `error.rs` | `CompositorError` |
-| `keyboard.rs` | `layout_code()` — the short badge a panel renders, and the table behind it |
-| `niri/` | the JSON protocol, action shapes, event decoding |
-| `hyprland/` | the control socket, dispatch strings, event decoding, the monitor-config cache |
+| `lib.rs` | `detect_compositor()`, `Compositor`, `Capabilities`, the legacy re-exports |
+| `model.rs` | `Snapshot` and everything in it, as the provider contract carries it |
+| `event.rs` | `Event` and `Resync`, from a backend to the provider runtime |
+| `sanitize.rs` | the text caps every backend and the client apply |
+| `contract.rs` | bus name, object path, property keys, `Capability`, `Error` |
+| `backend.rs` | `Backend`, the trait a provider binary implements |
+| `merge.rs` | `apply()`, folding one `Event` into a `Snapshot` |
+| `provider.rs` | `run()` and `serve()`, exporting a `Backend` on the session bus |
+| `client.rs` | `CompositorState`, `CompositorProvider` and `Handle`, the consumer mirror |
+| `legacy/` | the in-process niri and Hyprland backends behind `Compositor` |
 
 ## Rules
 
 - **Nothing here retries or reconnects.** If a compositor socket closes, the session is gone and the
   event stream ends.
-- **Text from other applications is capped in `model.rs`.** `title` and `app_id` are truncated on a
-  char boundary and stripped of control characters and bidi overrides during deserialization, so no
-  caller can forget to; ellipsizing and markup escaping stay the UI's job.
+- **Text from other applications is capped in `sanitize.rs`**, by every backend while decoding and
+  again by the client. Text is truncated on a char boundary and stripped of control characters and
+  bidi overrides, so no caller can forget to; ellipsizing and markup escaping stay the UI's job.
 - **`WindowId` and `WorkspaceId` are opaque and scoped to one compositor run** — a counter under
   niri, the window's address under Hyprland. Never render or persist one across sessions.
 - **The crate reports; the caller diffs.** No event is synthesized by comparing against cached

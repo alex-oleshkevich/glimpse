@@ -1325,12 +1325,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-compositor-hyprland"
+version = "0.16.0"
+dependencies = [
+ "clap",
+ "dirs",
+ "futures-util",
+ "glimpse-compositors",
+ "glimpse-utils",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "glimpse-compositor-niri"
+version = "0.16.0"
+dependencies = [
+ "clap",
+ "futures-util",
+ "glimpse-compositors",
+ "glimpse-utils",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "glimpse-compositors"
 version = "0.16.0"
 dependencies = [
  "dirs",
  "futures-util",
  "glimpse-config",
+ "glimpse-dbus",
+ "glimpse-utils",
  "rustix",
  "serde",
  "serde_json",
@@ -1338,6 +1372,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "zbus",
 ]
 
 [[package]]
