@@ -2,7 +2,7 @@
 
 ## Install the dependencies
 
-You need Rust 1.93 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`,
+You need Rust 1.95 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`,
 gettext, clang, ripgrep and python3, plus the development files for GTK4, libadwaita,
 gtk4-layer-shell, PulseAudio, PipeWire, PAM and udev.
 
@@ -23,7 +23,7 @@ sudo pacman -S --needed base-devel rust just blueprint-compiler gettext clang ri
 
 The Debian and Ubuntu line is the one CI builds with. It does not include Rust or `just`: install
 Rust with [rustup](https://rustup.rs) and `just` from its releases page, because the packaged Rust is
-usually older than 1.93. Older releases may also not carry GTK 4.22 and libadwaita 1.9, which glimpse
+usually older than 1.95. Older releases may also not carry GTK 4.22 and libadwaita 1.9, which glimpse
 needs.
 
 ## Clone and verify

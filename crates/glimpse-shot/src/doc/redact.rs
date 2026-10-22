@@ -71,7 +71,9 @@ pub fn redact(frame: &Frame, rect: Rect<BufferPx>) -> Tile {
     }
 
     let rgba = rgb
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .flat_map(|pixel| {
             [
                 pixel[0].round() as u8,

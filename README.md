@@ -70,7 +70,7 @@ under [Start the shell](#start-the-shell):
 }
 ```
 
-To build from source you need Rust 1.93 or newer, `just`, `blueprint-compiler` and gettext, plus the
+To build from source you need Rust 1.95 or newer, `just`, `blueprint-compiler` and gettext, plus the
 development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PAM and udev. Then:
 
 ```sh

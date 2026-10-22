@@ -1,5 +1,3 @@
-use clap::CommandFactory;
-
 use super::*;
 
 use crate::errors::Exit;

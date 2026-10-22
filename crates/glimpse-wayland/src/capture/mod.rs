@@ -121,7 +121,12 @@ impl Frame {
                 let Some(source) = bytes.get(start..start + w * 4) else {
                     continue;
                 };
-                for (to, from) in target.chunks_exact_mut(4).zip(source.chunks_exact(4)) {
+                for (to, from) in target
+                    .as_chunks_mut::<4>()
+                    .0
+                    .iter_mut()
+                    .zip(source.as_chunks::<4>().0.iter())
+                {
                     to.copy_from_slice(&match raw.layout {
                         Layout::Bgrx => [from[2], from[1], from[0], 255],
                         Layout::Rgbx => [from[0], from[1], from[2], 255],

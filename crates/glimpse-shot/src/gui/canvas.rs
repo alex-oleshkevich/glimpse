@@ -1400,8 +1400,6 @@ impl Canvas {
 }
 
 mod sheet {
-    use gtk4::gdk::subclass::prelude::*;
-
     use super::*;
 
     #[derive(Default)]

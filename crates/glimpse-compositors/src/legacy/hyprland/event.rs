@@ -109,7 +109,7 @@ impl EventState {
         let _ = self
             .shared
             .casts
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, update);
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, update);
         vec![Event::CastsChanged(self.shared.casts())]
     }
 }

@@ -1,8 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use gtk4::prelude::*;
-
 use super::*;
 use crate::{
     ActionRow, MeterRow, Row, RowTone, RowTypography, TEXT_MAX_CHARS, ToggleControl, ToggleRow,

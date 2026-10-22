@@ -392,7 +392,7 @@ struct Sending;
 impl Sending {
     fn start() -> Option<Self> {
         SENDING
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |live| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |live| {
                 (live < MAX_CONCURRENT_SENDS).then_some(live + 1)
             })
             .ok()
