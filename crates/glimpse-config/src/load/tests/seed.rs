@@ -1,104 +1,100 @@
 use super::*;
 
+const CONFIG: &str = concat!(
+    "#:schema ",
+    env!("GLIMPSE_DATA_DIR_DEFAULT"),
+    "/config.schema.json\n# https://alex-oleshkevich.github.io/glimpse/config/\n"
+);
+const PANEL: &str = concat!(
+    "#:schema ",
+    env!("GLIMPSE_DATA_DIR_DEFAULT"),
+    "/panel.schema.json\n# https://alex-oleshkevich.github.io/glimpse/config/panels\n"
+);
+
 #[test]
-fn a_first_run_seeds_the_user_config_from_the_shipped_file() {
+fn a_first_run_seeds_both_stubs_byte_for_byte() {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    let source = shipped(dir.path());
     let user = dir.path().join("config/glimpse");
 
-    let seeded = seed_from(&source, Some(&user), None)
-        .expect("seeding succeeds")
-        .expect("a first run writes the file");
+    let created = seed_from(None, Some(&user)).expect("seeding succeeds");
 
-    assert_eq!(seeded, user.join(FILE_NAME));
-    assert_eq!(
-        std::fs::read_to_string(&seeded).expect("reads"),
-        crate::commented_document()
-    );
+    assert_eq!(created, [user.join("config.toml"), user.join("panel.toml")]);
+    assert_eq!(fs::read_to_string(&created[0]).expect("reads"), CONFIG);
+    assert_eq!(fs::read_to_string(&created[1]).expect("reads"), PANEL);
 }
 
 #[test]
-fn an_existing_user_config_is_never_replaced() {
+fn an_existing_file_is_never_replaced_and_the_other_is_still_seeded() {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    let source = shipped(dir.path());
     let user = dir.path().join("glimpse");
-    std::fs::create_dir_all(&user).expect("creates");
-    std::fs::write(user.join(FILE_NAME), "[appearance]\ntheme = \"mine\"\n").expect("writes");
-
-    assert_eq!(
-        seed_from(&source, Some(&user), None).expect("succeeds"),
-        None
+    write(
+        &user.join("config.toml"),
+        "[appearance]\ntheme = \"mine\"\n",
     );
+
+    let created = seed_from(None, Some(&user)).expect("succeeds");
+
+    assert_eq!(created, [user.join("panel.toml")]);
     assert_eq!(
-        std::fs::read_to_string(user.join(FILE_NAME)).expect("reads"),
+        fs::read_to_string(user.join("config.toml")).expect("reads"),
         "[appearance]\ntheme = \"mine\"\n"
     );
 }
 
 #[test]
-fn an_explicit_config_path_seeds_nothing() {
+fn a_config_dir_seeds_nothing() {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    let source = shipped(dir.path());
     let user = dir.path().join("glimpse");
-    let explicit = dir.path().join("elsewhere.toml");
+    let explicit = dir.path().join("elsewhere");
 
-    assert_eq!(
-        seed_from(&source, Some(&user), Some(&explicit)).expect("succeeds"),
-        None
+    assert!(
+        seed_from(Some(&explicit), Some(&user))
+            .expect("succeeds")
+            .is_empty()
     );
     assert!(!user.exists());
+    assert!(!explicit.exists());
 }
 
 #[test]
-fn a_missing_shipped_file_is_not_a_failure() {
-    let dir = tempfile::tempdir().expect("a temporary directory");
-    let user = dir.path().join("glimpse");
-
-    let source = dir.path().join(COMMENTED_FILE_NAME);
-    assert_eq!(
-        seed_from(&source, Some(&user), None).expect("succeeds"),
-        None
-    );
-    assert!(!user.exists());
+fn no_user_dir_seeds_nothing() {
+    assert!(seed_from(None, None).expect("succeeds").is_empty());
 }
 
 #[test]
-fn a_seeded_document_loads_to_the_shipped_defaults() {
+fn the_seeded_stubs_load_to_the_shipped_defaults() {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    let source = shipped(dir.path());
     let user = dir.path().join("glimpse");
-    let seeded = seed_from(&source, Some(&user), None)
-        .expect("succeeds")
-        .expect("writes");
+    let created = seed_from(None, Some(&user)).expect("succeeds");
 
-    let empty = dir.path().join("empty");
-    std::fs::create_dir_all(&empty).expect("creates");
     assert_eq!(
-        load_from(&empty, Some(&user), None).expect("the seed loads"),
+        load_files(&created).expect("the stubs load"),
         Config::default()
     );
-    assert!(seeded.is_file());
 }
 
 #[test]
-fn two_binaries_starting_at_once_seed_one_intact_file() {
+fn two_binaries_starting_at_once_seed_each_file_once() {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    let source = shipped(dir.path());
     let user = dir.path().join("glimpse");
 
     let written = std::thread::scope(|scope| {
         let handles: Vec<_> = (0..8)
-            .map(|_| scope.spawn(|| seed_from(&source, Some(&user), None).expect("succeeds")))
+            .map(|_| scope.spawn(|| seed_from(None, Some(&user)).expect("succeeds")))
             .collect();
         handles
             .into_iter()
-            .filter_map(|handle| handle.join().expect("the thread finishes"))
-            .count()
+            .map(|handle| handle.join().expect("the thread finishes").len())
+            .sum::<usize>()
     });
 
-    assert_eq!(written, 1);
+    assert_eq!(written, 2);
     assert_eq!(
-        std::fs::read_to_string(user.join(FILE_NAME)).expect("reads"),
-        crate::commented_document()
+        fs::read_to_string(user.join("config.toml")).expect("reads"),
+        CONFIG
+    );
+    assert_eq!(
+        fs::read_to_string(user.join("panel.toml")).expect("reads"),
+        PANEL
     );
 }

@@ -112,19 +112,27 @@ fn clap_rows_exit_two() {
 #[test]
 fn global_options_go_before_or_after_the_subcommand() {
     for args in [
-        &["--config", "/x.toml", "capture", "--screen", "DP-9"][..],
-        &["capture", "--config", "/x.toml", "--screen", "DP-9"][..],
+        &["--config-dir", "/x", "capture", "--screen", "DP-9"][..],
+        &["capture", "--config-dir", "/x", "--screen", "DP-9"][..],
         &[
-            "-c", "/x.toml", "--log", "debug", "--color", "never", "capture", "--screen", "DP-9",
+            "--config-dir",
+            "/x",
+            "--log",
+            "debug",
+            "--color",
+            "never",
+            "capture",
+            "--screen",
+            "DP-9",
         ][..],
     ] {
-        let cli = parse(args).unwrap_or_else(|error| panic!("{args:?}: {error}"));
+        let parsed = parse(args).unwrap_or_else(|error| panic!("{args:?}: {error}"));
         assert_eq!(
-            cli.config.as_deref(),
-            Some(Path::new("/x.toml")),
+            parsed.config.config_dir.as_deref(),
+            Some(Path::new("/x")),
             "{args:?}"
         );
-        match cli.command {
+        match parsed.command {
             Some(Command::Capture(capture)) => {
                 assert_eq!(capture.target.screen.as_deref(), Some("DP-9"))
             }
@@ -142,7 +150,7 @@ fn global_options_go_before_or_after_the_subcommand() {
 
 #[test]
 fn without_a_subcommand_the_default_command_still_takes_its_file_and_target() {
-    let cli = parse(&["--config", "/x.toml", "shot.png"]).expect("parses");
+    let cli = parse(&["--config-dir", "/x", "shot.png"]).expect("parses");
     assert!(cli.command.is_none());
     assert_eq!(cli.gui.file.as_deref(), Some(Path::new("shot.png")));
 

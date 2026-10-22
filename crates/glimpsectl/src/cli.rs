@@ -52,9 +52,6 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    #[command(subcommand, hide = true)]
-    Sunset(SunsetCommand),
-
     #[command(subcommand, about = "The night light")]
     NightLight(NightLightCommand),
 
@@ -63,9 +60,6 @@ pub enum Command {
 
     #[command(subcommand, about = "Current conditions and the forecast")]
     Weather(WeatherCommand),
-
-    #[command(subcommand, hide = true)]
-    Settings(SettingsCommand),
 
     #[command(subcommand, about = "Desktop light/dark mode")]
     Appearance(AppearanceCommand),
@@ -81,9 +75,6 @@ pub enum Command {
 
     #[command(subcommand, about = "Inspect the configuration stack")]
     Config(ConfigCommand),
-
-    #[command(subcommand, hide = true)]
-    Applets(AppletsCommand),
 
     #[command(subcommand, about = "Inspect, control and develop applets")]
     Applet(AppletCommand),
@@ -161,46 +152,6 @@ pub enum AppearanceCommand {
 pub enum GeolocationCommand {
     #[command(about = "Print location and solar phase")]
     Status,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum SunsetCommand {
-    #[command(about = "Print the mode, the temperature applied and why it is not applying one")]
-    Status,
-
-    #[command(
-        about = "Hold neutral daylight until the current night ends",
-        long_about = "Hold neutral daylight until the current night ends. Refused during the day; \
-                      the pause is dropped when glimpse-sunset restarts."
-    )]
-    Pause,
-
-    #[command(about = "End a pause and follow the schedule again")]
-    Resume,
-
-    #[command(
-        about = "Change the mode in force",
-        long_about = "Change the mode in force. The document is not written: the mode lasts until \
-                      `[night-light]` is edited or glimpse-sunset restarts."
-    )]
-    Mode {
-        #[arg(value_name = "MODE", help = "Which schedule to run")]
-        mode: Mode,
-    },
-
-    #[command(
-        about = "Hold a fixed temperature, or clear it",
-        long_about = "Hold a fixed temperature, or clear it. The document is not written: the \
-                      temperature lasts until it is cleared or glimpse-sunset restarts."
-    )]
-    Temperature {
-        #[arg(
-            value_name = "KELVIN|clear",
-            value_parser = temperature,
-            help = "A color temperature in Kelvin, or `clear` to follow the schedule again"
-        )]
-        kelvin: u32,
-    },
 }
 
 pub fn temperature(raw: &str) -> Result<u32, String> {
@@ -299,16 +250,6 @@ pub enum WeatherCommand {
 
     #[command(about = "Fetch now instead of waiting for the next poll")]
     Refresh,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum SettingsCommand {
-    #[command(about = "Print location, solar phase and desktop mode status")]
-    Status,
-    #[command(about = "Hold light or dark mode until resume or daemon shutdown")]
-    Mode { mode: DesktopMode },
-    #[command(about = "Release the temporary mode and follow the configured policy")]
-    Resume,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -448,9 +389,6 @@ pub enum ClipboardCommand {
     #[command(about = "Let a pinned entry be evicted again")]
     Unpin(EntryTarget),
 
-    #[command(hide = true)]
-    Forget(EntryTarget),
-
     #[command(about = "Remove one entry from the history")]
     Remove(EntryTarget),
 
@@ -485,26 +423,6 @@ pub enum ConfigCommand {
 
     #[command(about = "Print the files the layered stack resolved to, in order")]
     Path,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum AppletsCommand {
-    #[command(about = "Create an external applet")]
-    New(NewAppletArgs),
-    #[command(about = "List installed and placed external applets")]
-    List,
-    #[command(about = "Inspect an external applet")]
-    Inspect {
-        #[arg(value_name = "ID", help = "The applet's desktop-file id")]
-        id: String,
-    },
-    #[command(about = "Signal the applet's running units so systemd restarts them")]
-    Restart {
-        #[arg(value_name = "ID", help = "The applet's desktop-file id")]
-        id: String,
-    },
-    #[command(about = "Run an applet in the panel until Ctrl-C")]
-    Run(RunArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -689,34 +607,12 @@ pub enum PanelCommand {
         position: Option<Position>,
     },
     #[command(subcommand, hide = true)]
-    Popover(PopoverCommand),
-    #[command(subcommand, hide = true)]
     Popovers(PopoversCommand),
-}
-
-#[derive(Debug, Subcommand)]
-pub enum PopoverCommand {
-    #[command(about = "Open the applet's popover")]
-    Open(LegacyAppletTarget),
-    #[command(about = "Close the applet's popover")]
-    Close(LegacyAppletTarget),
-    #[command(about = "Open it when closed, close it when open")]
-    Toggle(LegacyAppletTarget),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum PopoversCommand {
     Close,
-}
-
-#[derive(Debug, Args)]
-pub struct LegacyAppletTarget {
-    #[arg(help = "Output connector")]
-    pub connector: String,
-    #[arg(help = "Applet name")]
-    pub applet: String,
-    #[arg(long, help = "Panel edge")]
-    pub position: Option<Position>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
@@ -921,7 +817,6 @@ impl Command {
             self,
             Self::Config(_)
                 | Self::Doctor
-                | Self::Applets(_)
                 | Self::Completions { .. }
                 | Self::Dev(DevCommand::Panel(_))
                 | Self::Applet(
@@ -950,119 +845,13 @@ impl Cli {
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        let matches = Self::command().try_get_matches_from(normalize_legacy(arguments))?;
+        let matches = Self::command().try_get_matches_from(arguments)?;
         let explicit_config =
-            matches.value_source("config") == Some(clap::parser::ValueSource::CommandLine);
+            matches.value_source("config_dir") == Some(clap::parser::ValueSource::CommandLine);
         let mut cli = Self::from_arg_matches(&matches)?;
         if matches!(cli.command, Command::Dev(DevCommand::Panel(_))) && !explicit_config {
-            cli.config.config = None;
+            cli.config.config_dir = None;
         }
         Ok(cli)
     }
-
-    pub fn deprecation(&self) -> Option<&'static str> {
-        match &self.command {
-            Command::Sunset(_) => Some("sunset is deprecated; use night-light"),
-            Command::Settings(_) => Some("settings is deprecated; use appearance or geolocation"),
-            Command::Applets(_) => Some("applets is deprecated; use applet"),
-            Command::Clipboard(ClipboardCommand::Forget(_)) => {
-                Some("clipboard forget is deprecated; use clipboard remove")
-            }
-            Command::Panel(args)
-                if args.app_id.is_some()
-                    || !matches!(
-                        args.command,
-                        PanelCommand::List { .. } | PanelCommand::Reload
-                    ) =>
-            {
-                Some(
-                    "legacy panel syntax is deprecated; use applet or dev close-popovers, and global --panel",
-                )
-            }
-            _ => None,
-        }
-    }
-}
-
-fn command_index(arguments: &[OsString], mut index: usize) -> Option<usize> {
-    while let Some(argument) = arguments.get(index).and_then(|value| value.to_str()) {
-        if argument == "--" {
-            return None;
-        }
-        if matches!(
-            argument,
-            "--panel" | "--config" | "-c" | "--color" | "--log" | "--log-format"
-        ) {
-            index += 2;
-        } else if argument.starts_with('-') {
-            index += 1;
-        } else {
-            return Some(index);
-        }
-    }
-    None
-}
-
-fn normalize_legacy<I, T>(arguments: I) -> Vec<OsString>
-where
-    I: IntoIterator<Item = T>,
-    T: Into<OsString>,
-{
-    let mut arguments: Vec<OsString> = arguments.into_iter().map(Into::into).collect();
-    let Some(noun) = command_index(&arguments, 1) else {
-        return arguments;
-    };
-    if arguments[noun] != "applets" {
-        return arguments;
-    }
-    let Some(verb) = command_index(&arguments, noun + 1) else {
-        return arguments;
-    };
-    if arguments[verb] != "run" {
-        return arguments;
-    }
-    let mut index = verb + 1;
-    while index < arguments.len() {
-        let Some(argument) = arguments[index].to_str() else {
-            index += 1;
-            continue;
-        };
-        if argument == "--" {
-            break;
-        }
-        if argument == "--panel"
-            && arguments
-                .get(index + 1)
-                .and_then(|value| value.to_str())
-                .is_some_and(|value| {
-                    !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
-                })
-        {
-            arguments[index] = "--bar".into();
-            index += 2;
-        } else if let Some(value) = argument.strip_prefix("--panel=") {
-            if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) {
-                arguments[index] = format!("--bar={value}").into();
-            }
-            index += 1;
-        } else if matches!(
-            argument,
-            "--panel"
-                | "--bar"
-                | "--output"
-                | "--zone"
-                | "--env"
-                | "--applet-config"
-                | "--config"
-                | "-c"
-                | "--color"
-                | "--log"
-                | "--log-format"
-        ) {
-            index += 2;
-        } else {
-            index += 1;
-        }
-    }
-    arguments
 }

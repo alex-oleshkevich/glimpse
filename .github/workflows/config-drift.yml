@@ -21,12 +21,14 @@ jobs:
 
       - uses: extractions/setup-just@v4
 
-      - name: Regenerate and check the three generated config references
+      - name: Regenerate and check the six generated config references
         run: |
-          just gen-config-default
-          just gen-config-schema
-          just gen-config-commented
-          if ! git diff --exit-code -- data/config.default.toml data/config.schema.json data/config.commented.toml; then
-            echo "::error::stale generated config file — run 'just gen-config-default', 'just gen-config-schema' and 'just gen-config-commented' and commit the result"
+          for doc in config panel; do
+            just gen-config-default "$doc"
+            just gen-config-schema "$doc"
+            just gen-config-commented "$doc"
+          done
+          if ! git diff --exit-code -- data/config.* data/panel.*; then
+            echo "::error::stale generated config file — run 'just gen-config-default|schema|commented config|panel' and commit the result"
             exit 1
           fi

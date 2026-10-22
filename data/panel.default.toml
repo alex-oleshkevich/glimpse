@@ -1,0 +1,41 @@
+#:schema /usr/share/glimpse/panel.schema.json
+# This is glimpse's default panel.toml — every setting, with the value it ships with.
+
+[[panels]]
+size = 36
+position = "top"
+left = [
+    "workspace-name",
+    "pager",
+    "places",
+    "mpris",
+]
+center = [
+    "clock",
+    "weather",
+    "notifications",
+    "privacy",
+]
+right = [
+    "next-event",
+    "tray",
+    "removable",
+    "clipboard",
+    "printing",
+    "bluetooth",
+    "network",
+    "display",
+    "audio",
+    "idle",
+    "power",
+    "keyboard",
+    "session",
+]
+
+[panels.margin]
+left = 0
+right = 0
+top = 0
+bottom = 0
+
+[applets]

@@ -209,18 +209,13 @@ async fn placement_change_does_not_respawn() {
 }
 
 #[tokio::test]
-async fn options_change_does_not_respawn() {
-    let (_dir, entry, output) = script(&format!(
-        "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"
-    ));
+async fn options_change_respawns_with_the_new_options() {
+    let (_dir, entry, output) = script(LOOP);
     let ((handle, sender, cancel, task, _launcher), mut config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
-    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    let before = status(&handle, 1, |s| matches!(s, Status::Running)).await;
     file_contains(&output, "\"t\":\"hello\"").await;
-    let pid = tokio::fs::read_to_string(output.with_extension("pid"))
-        .await
-        .expect("pid");
     config
         .applets
         .get_mut("test")
@@ -228,13 +223,8 @@ async fn options_change_does_not_respawn() {
         .options
         .insert("color".to_owned(), Value::from("red"));
     sender.try_send(Input::Config(config)).expect("queued");
-    file_contains(&output, "\"t\":\"options\"").await;
-    assert_eq!(
-        tokio::fs::read_to_string(output.with_extension("pid"))
-            .await
-            .expect("pid"),
-        pid
-    );
+    next_generation(&handle, 1, before.generation).await;
+    file_contains(&output, "\"color\":\"red\"").await;
     handle.detach(1).await.expect("detach");
     cancel.cancel();
     let _ = task.await;
@@ -260,6 +250,36 @@ async fn env_change_respawns_with_the_new_env() {
     next_generation(&handle, 1, before.generation).await;
     file_contains(&output.with_extension("env"), "changed").await;
     handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn an_alias_promoted_after_a_config_change_starts_with_the_new_env() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.env', 'w').write(os.environ.get('MARK', ''))\n{LOOP}"
+    ));
+    let ((handle, sender, cancel, task, _launcher), mut config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.attach(2, "test", placement()).await.expect("attach");
+    let before = status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    config
+        .applets
+        .get_mut("test")
+        .expect("config")
+        .env
+        .insert("MARK".to_owned(), "changed".to_owned());
+    sender.try_send(Input::Config(config)).expect("queued");
+    next_generation(&handle, 2, before.generation).await;
+    file_contains(&output.with_extension("env"), "changed").await;
+    tokio::fs::write(output.with_extension("env"), "")
+        .await
+        .expect("reset");
+    handle.detach(1).await.expect("detach primary");
+    file_contains(&output.with_extension("env"), "changed").await;
+    handle.detach(2).await.expect("detach");
     cancel.cancel();
     let _ = task.await;
 }

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::log::LogFormat;
 
@@ -32,18 +32,18 @@ pub struct LogArgs {
 #[command(about=None, long_about=None)]
 pub struct ConfigArg {
     #[arg(
-        short,
         long,
         global = true,
-        env = "GLIMPSE_CONFIG_PATH",
-        value_name = "PATH",
-        help = "Path to the configuration file."
+        env = "GLIMPSE_CONFIG_DIR",
+        value_name = "DIR",
+        value_parser = clap::builder::TypedValueParser::map(
+            clap::builder::OsStringValueParser::new(),
+            PathBuf::from
+        ),
+        help = "Directory stacked above the user configuration."
     )]
-    pub config: Option<PathBuf>,
+    pub config_dir: Option<PathBuf>,
 }
 
-impl ConfigArg {
-    pub fn as_deref(&self) -> Option<&Path> {
-        self.config.as_deref()
-    }
-}
+#[cfg(test)]
+mod tests;

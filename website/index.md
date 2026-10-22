@@ -4,7 +4,7 @@ layout: home
 hero:
   name: glimpse
   text: A desktop shell for Wayland
-  tagline: The bar, notifications, wallpaper and lock screen for your Linux desktop. Looks at home next to your GNOME apps, and every setting lives in one file.
+  tagline: The bar, notifications, wallpaper and lock screen for your Linux desktop. Looks at home next to your GNOME apps, and every setting lives in plain text files.
   image:
     src: /assets/logo.svg
     alt: glimpse
@@ -48,8 +48,8 @@ features:
       src: /icons/text-x-generic.svg
       width: 28
       height: 28
-    title: One config file
-    details: Every setting lives in one text file. Save it and the change shows up right away.
+    title: Two config files
+    details: Settings live in one text file and the panel layout in another. Save either and the change shows up right away.
   - icon:
       src: /icons/application-x-addon.svg
       width: 28

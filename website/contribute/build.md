@@ -51,7 +51,8 @@ sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 
 The second line copies the binaries, systemd units, D-Bus services, the PAM entry for the lock screen
-and the data files under `/usr` and `/etc`. It also gives you a starter `config.toml` if you have none.
+and the data files under `/usr` and `/etc`. Your `config.toml` and `panel.toml` are written the
+first time a glimpse program starts.
 The units and D-Bus services expect the binaries in `/usr/bin`, so keep the default prefix for a
 working desktop. To stage the files for a package instead, set `DESTDIR`:
 

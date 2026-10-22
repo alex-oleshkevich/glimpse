@@ -220,8 +220,8 @@ async fn session() -> Result<Connection> {
     within(Connection::session()).await
 }
 
-pub async fn applets_list(config_path: Option<PathBuf>, json: bool) -> Result<()> {
-    let config = glimpse_config::load(config_path.as_deref())?;
+pub async fn applets_list(json: bool) -> Result<()> {
+    let config = glimpse_config::load(glimpse_config::Documents::ConfigAndPanel)?;
     let placed = placements(&config);
     let installed = DesktopCatalog.installed();
     let mut running = BTreeSet::new();
@@ -442,9 +442,9 @@ async fn runtime(connection: &Connection, id: &str) -> Result<Runtime> {
     })
 }
 
-pub async fn applets_inspect(config_path: Option<PathBuf>, id: String, json: bool) -> Result<()> {
+pub async fn applets_inspect(id: String, json: bool) -> Result<()> {
     valid_id(&id)?;
-    let config = glimpse_config::load(config_path.as_deref())?;
+    let config = glimpse_config::load(glimpse_config::Documents::ConfigAndPanel)?;
     let desktop = desktop(DesktopCatalog.resolve(&id));
     let placed = placements(&config).remove(&id).unwrap_or_default();
     let runtime = match session().await {

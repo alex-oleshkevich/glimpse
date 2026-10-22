@@ -88,7 +88,7 @@ rustPlatform.buildRustPackage {
     mkdir -p "$out/share/glimpse/sdk" "$out/share/glimpse/themes"
     cp -r sdk/templates "$out/share/glimpse/sdk/"
     cp -r data/themes/. "$out/share/glimpse/themes/"
-    for name in config.default.toml config.commented.toml config.schema.json language-codes.json; do
+    for name in config.default.toml config.commented.toml config.schema.json panel.default.toml panel.commented.toml panel.schema.json language-codes.json; do
       install -Dm644 "data/$name" "$out/share/glimpse/$name"
     done
     install -Dm644 LICENSE "$out/share/glimpse/LICENSE"
@@ -128,6 +128,12 @@ rustPlatform.buildRustPackage {
     substituteInPlace "$out/share/glimpse/config.commented.toml" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
     substituteInPlace "$out/share/glimpse/config.schema.json" \
+      --replace-fail /usr/share/glimpse "$out/share/glimpse"
+    substituteInPlace "$out/share/glimpse/panel.default.toml" \
+      --replace-fail /usr/share/glimpse "$out/share/glimpse"
+    substituteInPlace "$out/share/glimpse/panel.commented.toml" \
+      --replace-fail /usr/share/glimpse "$out/share/glimpse"
+    substituteInPlace "$out/share/glimpse/panel.schema.json" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
 
     while read -r language; do

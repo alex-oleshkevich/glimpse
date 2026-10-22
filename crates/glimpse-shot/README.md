@@ -72,7 +72,7 @@ code.
 
 GLib's own debug and info logging goes to stderr, so stdout stays data-only.
 
-Global options (`--config`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
+Global options (`--config-dir`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
 An editor option before or after `capture` or `list` is refused with exit 2 by `cli::parse`, naming
 the `glimpse-shot …` command that would open the editor. A bare file must end in `.png`;
 `annotate IMAGE` accepts any image gdk-pixbuf reads (PNG, JPEG, WebP, …) regardless of its extension. `--pick` chooses an omitted IMAGE;
@@ -250,8 +250,8 @@ overrides it) with `HANDLES_COMMAND_LINE | HANDLES_OPEN`; `capture`, `list`, `pr
 `hold` and headless `annotate` never construct it (`opens_app`). The local process parses and validates first, so a usage
 error exits 2 without contacting the app; the whole argv then goes to GApplication, which forwards
 it to the primary (`--gapplication-service` alone reaches GTK on D-Bus activation). The primary
-re-parses with `cli::parse_forwarded`, takes the caller's `--config` or `GLIMPSE_CONFIG_PATH`,
-anchors relative paths at the caller's `cwd`, reads `--annotate -` from the line's `stdin()`
+re-parses with `cli::parse` and ignores the caller's `--config-dir`: the one instance serves every
+invocation from its own roots. It anchors relative paths at the caller's `cwd`, reads `--annotate -` from the line's `stdin()`
 asynchronously under `ANNOTATIONS_CAP`, and answers through `app::reply`, then
 `g_application_command_line_set_exit_status` on the held line (gio-rs binds no setter). A forwarded
 `-o -` is exit 2; while an overlay is up any GUI invocation is `busy`, exit 1; SIGINT and SIGTERM
@@ -273,10 +273,10 @@ exit 130 and 143. Overlay surfaces belong to no application, so its accelerators
   (`FileLauncher` with `always-ask`), holding the app until it answers — in the overlay too, whose
   surface is gone by then. Ctrl+drag drags the image out as a 0600 file under `runtime_dir()` plus
   its PNG bytes.
-- **Preferences.** Only `[screenshot]` of `glimpse_config::screenshot_file` — `shot.toml` beside the
-  `--config` file or in `user_dir()` — is written, through `glimpse_config::write_table` 500 ms
-  after the last change and on close, typed values only; config.toml is never written, and its
-  `[screenshot]` still supplies any key shot.toml leaves out. The dialog holds its state until
+- **Preferences.** Only `[screenshot]` of `glimpse_config::writable_file("config")` — the top root's
+  config.toml — is written, through `glimpse_config::write_table` 500 ms after the last change and
+  on close, typed values only; the dialog shows that file alone. Children shot spawns (the headless
+  capture, the clipboard hold) get `--config-dir` when `glimpse_config::config_dir()` is set. The dialog holds its state until
   closed; a file that does not parse or validate makes the page read-only behind a banner; any other
   write failure is a toast.
 - **Inhibits.** A countdown holds `IDLE` ("Waiting to take a screenshot") until the capture, so the

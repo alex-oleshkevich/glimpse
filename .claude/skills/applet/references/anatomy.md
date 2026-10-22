@@ -155,7 +155,7 @@ a dependency is missing, as `Session` does without a `dialog`.
 
 Nothing else. `components/panel.rs` resolves each name in `left`/`center`/`right` through
 `applets::configured`, builds it with `applets::build` and launches an `AppletHandle` per
-`(zone, name, kind)`. Add the name to a scratch config to see it:
+`(zone, name, kind)`. Add the name to a scratch `panel.toml` to see it:
 
 ```toml
 [[panels]]

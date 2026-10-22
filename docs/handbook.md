@@ -27,7 +27,7 @@ glimpse/
 | Crate                   | Role                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------- |
 | `glimpse-dbus`          | D-Bus proxies and the shared bus connections                                      |
-| `glimpse-config`        | layered TOML load, drop-ins, merge, validate, watch                               |
+| `glimpse-config`        | two TOML documents over a root stack: load, merge, validate, watch                |
 | `glimpse-compositors`   | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
 | `glimpse-services`      | service framework and every service implementation                                |
 | `glimpse-widgets`       | GObject subclasses, Blueprint templates, shared CSS, compositor blur              |
@@ -108,10 +108,13 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   `IndicatorGroup` — the crate already says whose they are. The prefix survives only where a
   reverse-DNS identifier demands it: application IDs, D-Bus names, the gresource path.
 - **Never build a glimpse path by hand.** `glimpse-config` owns where glimpse files live:
-  `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. A user-overridable file
-  is looked up in `user_dir()` first, then `DATA_DIR`.
-- One config file, `config.toml`, with a top-level table per owner: one per service, plus `[panel]`,
-  `[wallpaper]` and `[lock]`. A binary reads only the tables it owns — except that the lock
+  `find()` returns the first hit across the config roots (`--config-dir`, `~/.config/glimpse`,
+  `/etc/glimpse`) and then `DATA_DIR` (`/usr/share/glimpse`, built-in assets only);
+  `writable_file()` names the file a write goes to.
+- Two config files with a top-level table per owner. `config.toml` holds one per service, plus
+  `[wallpaper]` and `[lock]`; `panel.toml` and `panel.d/` hold `[[panels]]` and `[applets]`. A binary
+  that is not the panel reads `config.toml` only, and a table in the wrong file fails the load. A
+  binary reads only the tables it owns — except that the lock
   inherits `[wallpaper]`'s `image` and `image-dark` while `[lock.background]` names neither, because
   a lock screen that differs from the desktop by default reads as a bug. Stylesheets stay separate:
   `panel.css`, `lock.css`, and one `dark.css` per theme that every surface loads while the effective
@@ -184,7 +187,7 @@ just fmt-blueprints  # format blueprints; pass paths, or every one by default
 just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor
 just check-units     # systemd-analyze verify on the shipped units
 just check-examples  # compile every blueprint in var/widget_examples/
-just gen-config-commented  # regenerate the seed installed into ~/.config/glimpse
+just gen-config-commented config  # regenerate data/config.commented.toml (or panel)
 just net-guard arm   # restore connectivity automatically if a network test strands the machine
 ```
 
@@ -209,8 +212,8 @@ when the caller knows where to put it back.
 
 Full account: `docs/live-testing.md`. The three that break the user's session:
 
-- **`direnv` exports `GLIMPSE_CONFIG_PATH`**, which beats a scratch `HOME` — pass `--config` and read
-  the `load config path=` log line.
+- **`direnv` exports `GLIMPSE_CONFIG_DIR`**, which stacks over your real config — pass `--config-dir`
+  and a temporary `XDG_CONFIG_HOME`, and read the `load config path=` log lines.
 - **Give every test panel a fresh `GLIMPSE_PANEL_APP_ID`**, or it hands off to a running one and
   looks like a hang.
 - **Never `pkill -x glimpse-panel`** — it kills the session bar. Kill the pid you started.

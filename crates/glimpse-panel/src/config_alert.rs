@@ -12,7 +12,9 @@ const RETRY: Duration = Duration::from_secs(5);
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Problems {
     pub failure: Option<String>,
+    pub panels_only: bool,
     pub rejected: Option<String>,
+    pub theme: Option<String>,
     pub unknown_applets: Vec<String>,
 }
 
@@ -21,6 +23,7 @@ impl Problems {
         self.failure
             .as_ref()
             .or(self.rejected.as_ref())
+            .or(self.theme.as_ref())
             .map_or(Ok(()), |reason| Err(reason.clone()))
     }
 
@@ -28,15 +31,25 @@ impl Problems {
         let mut lines = Vec::new();
         if let Some(failure) = &self.failure {
             lines.push(failure.clone());
-            lines.push(gettext(
-                "Idle and night light are off until it is fixed; everything else uses its defaults.",
-            ));
+            lines.push(match self.panels_only {
+                true => gettext(
+                    "The panels use their defaults until it is fixed; everything else is as configured.",
+                ),
+                false => gettext(
+                    "Idle and night light are off until it is fixed; everything else uses its defaults.",
+                ),
+            });
         }
         if let Some(rejected) = &self.rejected {
             lines.push(rejected.clone());
             lines.push(gettext(
                 "The last change was not applied; the previous configuration is still running.",
             ));
+        }
+        if let Some(theme) = &self.theme {
+            lines.push(
+                gettext("A stylesheet could not be read: {reason}").replace("{reason}", theme),
+            );
         }
         lines.extend(self.unknown_applets.iter().cloned());
         (!lines.is_empty()).then(|| lines.join("\n"))

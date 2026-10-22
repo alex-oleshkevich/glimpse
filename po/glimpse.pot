@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-21 17:26+0200\n"
+"POT-Creation-Date: 2026-10-22 09:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -123,12 +123,12 @@ msgstr ""
 msgid "Blocked by {who}: {why}"
 msgstr ""
 
-#: crates/glimpse-notifications/src/app.rs:491
+#: crates/glimpse-notifications/src/app.rs:502
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:382
+#: crates/glimpse-panel/src/app.rs:401
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:271
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:296
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
@@ -136,31 +136,31 @@ msgstr ""
 msgid "Bluetooth"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:383
+#: crates/glimpse-panel/src/app.rs:402
 msgid "The pairing answer was not delivered."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:387
+#: crates/glimpse-panel/src/app.rs:406
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:433
+#: crates/glimpse-panel/src/app.rs:452
 #: crates/glimpse-panel/src/applets/network/indicator.rs:99
 #: crates/glimpse-widgets/blueprints/places_popover.blp:51
 msgid "Network"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:434
+#: crates/glimpse-panel/src/app.rs:453
 msgid "The password was not delivered."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:438
+#: crates/glimpse-panel/src/app.rs:457
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:450
+#: crates/glimpse-panel/src/app.rs:469
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:122
-#: crates/glimpse-shot/src/gui/result.rs:965
+#: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
 #: crates/glimpse-widgets/blueprints/network_popover.blp:164
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:99
@@ -175,24 +175,24 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:513
+#: crates/glimpse-panel/src/app.rs:527
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:515
+#: crates/glimpse-panel/src/app.rs:529
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:517
+#: crates/glimpse-panel/src/app.rs:531
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:527
+#: crates/glimpse-panel/src/app.rs:541
 msgid "Could not answer the request"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:600
+#: crates/glimpse-panel/src/app.rs:614
 msgid "this device"
 msgstr ""
 
@@ -1060,7 +1060,7 @@ msgid "Preventing idle"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:202
-#: crates/glimpse-panel/src/config_alert.rs:110
+#: crates/glimpse-panel/src/config_alert.rs:123
 msgid "Glimpse"
 msgstr ""
 
@@ -2105,18 +2105,28 @@ msgstr ""
 msgid "Already the name of {workspace}"
 msgstr ""
 
-#: crates/glimpse-panel/src/config_alert.rs:32
+#: crates/glimpse-panel/src/config_alert.rs:36
+msgid ""
+"The panels use their defaults until it is fixed; everything else is as "
+"configured."
+msgstr ""
+
+#: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
 "Idle and night light are off until it is fixed; everything else uses its "
 "defaults."
 msgstr ""
 
-#: crates/glimpse-panel/src/config_alert.rs:38
+#: crates/glimpse-panel/src/config_alert.rs:46
 msgid ""
 "The last change was not applied; the previous configuration is still running."
 msgstr ""
 
-#: crates/glimpse-panel/src/config_alert.rs:113
+#: crates/glimpse-panel/src/config_alert.rs:51
+msgid "A stylesheet could not be read: {reason}"
+msgstr ""
+
+#: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
 msgstr ""
 
@@ -2124,205 +2134,200 @@ msgstr ""
 msgid "a screenshot is already being taken"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:230
+#: crates/glimpse-shot/src/gui/app.rs:215
 msgid "_Open Image…"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:232
+#: crates/glimpse-shot/src/gui/app.rs:217
 msgid "_Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:233
+#: crates/glimpse-shot/src/gui/app.rs:218
 msgid "_Keyboard Shortcuts"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:234
+#: crates/glimpse-shot/src/gui/app.rs:219
 msgid "_About Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:395
+#: crates/glimpse-shot/src/gui/app.rs:368
 msgid "--portal needs a screen target"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:562
-#: crates/glimpse-shot/src/gui/app.rs:702
-#: crates/glimpse-shot/src/gui/app.rs:1000
-#: crates/glimpse-shot/src/notify.rs:284
+#: crates/glimpse-shot/src/gui/app.rs:521
+#: crates/glimpse-shot/src/gui/app.rs:651
+#: crates/glimpse-shot/src/gui/app.rs:935 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:610
+#: crates/glimpse-shot/src/gui/app.rs:568
 msgid "The clipboard holds no image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:832
+#: crates/glimpse-shot/src/gui/app.rs:774
 msgid "There is no window to capture"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:902
+#: crates/glimpse-shot/src/gui/app.rs:843
 msgid "That window has closed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:925
+#: crates/glimpse-shot/src/gui/app.rs:860
 msgid "Images"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:935
+#: crates/glimpse-shot/src/gui/app.rs:870
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:960
+#: crates/glimpse-shot/src/gui/app.rs:895
 msgid "The image must be a local file"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1076
+#: crates/glimpse-shot/src/gui/app.rs:1011
 msgid "Untitled window"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1181
+#: crates/glimpse-shot/src/gui/app.rs:1103
 msgid "Screenshot failed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:383
+#: crates/glimpse-shot/src/gui/overlay.rs:380
 msgid "Waiting to take a screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1081
-#: crates/glimpse-shot/src/gui/result.rs:928
+#: crates/glimpse-shot/src/gui/overlay.rs:1078
+#: crates/glimpse-shot/src/gui/result.rs:925
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1639
+#: crates/glimpse-shot/src/gui/overlay.rs:1636
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1801
+#: crates/glimpse-shot/src/gui/overlay.rs:1798
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1802
+#: crates/glimpse-shot/src/gui/overlay.rs:1799
 msgid "Copied"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:90
+#: crates/glimpse-shot/src/gui/prefs.rs:97
 msgid "Pictures/Screenshots"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:108
-#: crates/glimpse-shot/src/gui/prefs.rs:127
+#: crates/glimpse-shot/src/gui/prefs.rs:115
+#: crates/glimpse-shot/src/gui/prefs.rs:134
 msgid "Saved as “{name}”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:219
-#: crates/glimpse-shot/src/gui/result.rs:1080
+#: crates/glimpse-shot/src/gui/prefs.rs:226
+#: crates/glimpse-shot/src/gui/result.rs:1077
 msgid "Copied to clipboard"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-shot/src/gui/prefs.rs:302
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
 msgid "Choose Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:726
+#: crates/glimpse-shot/src/gui/result.rs:723
 msgid "A screenshot has unsaved changes"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:870
+#: crates/glimpse-shot/src/gui/result.rs:867
 msgid "A file name cannot be empty or contain “/”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:875
+#: crates/glimpse-shot/src/gui/result.rs:872
 msgid ""
 "There is no Pictures folder to save into; choose a folder in Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:961
+#: crates/glimpse-shot/src/gui/result.rs:958
 msgid "Discard this screenshot?"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:962
+#: crates/glimpse-shot/src/gui/result.rs:959
 msgid "It has not been saved or copied."
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:966
+#: crates/glimpse-shot/src/gui/result.rs:963
 msgid "Discard"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:967
+#: crates/glimpse-shot/src/gui/result.rs:964
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
 msgid "Save"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1129
+#: crates/glimpse-shot/src/gui/result.rs:1126
 msgid "Saved “{name}”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1137
-#: crates/glimpse-shot/src/notify.rs:411
+#: crates/glimpse-shot/src/gui/result.rs:1134
+#: crates/glimpse-shot/src/notify.rs:415
 #: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:397
+#: crates/glimpse-shot/src/notify.rs:401
 #: crates/glimpse-shot/src/notify/tests.rs:307
 msgid "Screenshot saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:398
+#: crates/glimpse-shot/src/notify.rs:402
 #: crates/glimpse-shot/src/notify/tests.rs:340
 msgid "Screenshot copied"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:409
+#: crates/glimpse-shot/src/notify.rs:413
 #: crates/glimpse-shot/src/notify/tests.rs:319
 msgctxt "notification action"
 msgid "Open"
 msgstr ""
 
-#: crates/glimpse-shot/src/portal.rs:126
+#: crates/glimpse-shot/src/portal.rs:117
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:605
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:18
+#: crates/glimpse-wallpaper/src/portal/notify.rs:16
 msgid "Wallpaper changed"
 msgstr ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:22
+#: crates/glimpse-wallpaper/src/portal/notify.rs:20
 msgid "Wallpaper not changed"
 msgstr ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:29
+#: crates/glimpse-wallpaper/src/portal/notify.rs:27
 msgid "{count} output keeps its own image."
 msgid_plural "{count} outputs keep their own image."
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:38
+#: crates/glimpse-wallpaper/src/portal/notify.rs:36
 msgid "Only the background can be set."
 msgstr ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:43
-msgid "{file} already sets the wallpaper image."
-msgstr ""
-
-#: crates/glimpse-wallpaper/src/portal/notify.rs:47
+#: crates/glimpse-wallpaper/src/portal/notify.rs:40
 msgid "The wallpaper could not be saved."
 msgstr ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:81
+#: crates/glimpse-wallpaper/src/portal/notify.rs:74
 msgid "Wallpaper"
 msgstr ""
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:151
+#: crates/glimpse-wallpaper/src/portal/notify.rs:145
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
 msgid "Undo"
 msgstr ""
@@ -2676,7 +2681,7 @@ msgid "Preferences"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-msgid "config.toml cannot be read, so nothing here can be saved"
+msgid "config.toml is invalid or read-only, so nothing here can be saved"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10

@@ -1,32 +1,30 @@
 # glimpse-config
 
-Layered TOML load, drop-ins, merge, validate and watch. Owns where glimpse files live and the one
-place that asks the environment a regional question.
+Two TOML documents over one root stack: load, merge, validate and watch. Owns where glimpse files
+live and the one place that asks the environment a regional question.
 
 ## Layers
 
-`load(config_path)` resolves the layer stack, reads it, merges it and types it:
+Two documents make one `Config`. **Each file owns its tables**: `config.toml` holds every table
+except `PANEL_TABLES` (`[[panels]]`, `[applets]`), which belong to `panel.toml` and `panel.d/*.toml`.
+A table in the wrong file, and any schema error, fails the load with an error naming the file.
+`Documents::Config` reads `config.toml` only, so a broken `panel.toml` never sends a daemon to
+defaults; `Documents::ConfigAndPanel` (the panel and `glimpsectl`) reads both.
 
-| #   | Layer           | Source                                                    |
-| --- | --------------- | --------------------------------------------------------- |
-| 1   | defaults        | the `Default` impls under `schema/`                       |
-| 2   | system          | `/etc/glimpse/config.toml`                                |
-| 3   | system drop-ins | `/etc/glimpse/config.d/*.toml`, lexical order             |
-| 4   | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                    |
-| 5   | user drop-ins   | `$XDG_CONFIG_HOME/glimpse/config.d/*.toml`, lexical order |
-| 6   | screenshot      | `shot.toml` beside the user or `--config` file            |
+`roots()` is the stack, highest first: `--config-dir`/`GLIMPSE_CONFIG_DIR` (stored once by `init`),
+`$XDG_CONFIG_HOME/glimpse`, `/etc/glimpse`. `DATA_DIR` (`$PREFIX/share/glimpse`, baked by `build.rs`
+from the same `PREFIX` `scripts/glimpse-paths.sh` and `glimpse-utils` read) holds built-in assets
+and is never a config layer. `config_files` lists every root's `config.toml`, then each root's
+`panel.toml` and `panel.d/*.toml` (lexical order), lowest root first; a later file wins and a
+missing one is skipped. `load_files(&[PathBuf])` loads a given list and decides ownership by file
+name, so tests and `glimpsectl config validate PATH` never reach `roots()`.
 
-`--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included. Layer 6
-contributes only its `[screenshot]` table, and a change to `[screenshot]` alone is not a reload for
-any binary: only glimpse-shot reads it, and it calls `load` itself.
-`resolved_files(config_path)` returns the same ordered list without reading any of it.
-
-**`user_dir()` (`~/.config/glimpse`) is owned by this crate** — anything needing a glimpse path asks
-here rather than rebuilding `dirs::config_dir().join("glimpse")`. **Merging is per key: tables
-merge, scalars replace, arrays replace rather than append** — an appending array could never be
-shortened by a later layer. `DATA_DIR` is `$PREFIX/share/glimpse`, baked by `build.rs` from the
-same `PREFIX` `scripts/glimpse-paths.sh` and `glimpse-utils` read. `runtime_dir()` resolves to `$XDG_RUNTIME_DIR/glimpse` without
-creating it, and returns `None` when the environment variable is unset.
+**Anything needing a glimpse path asks here.** `find(relative)` returns the first hit across the
+roots and then `DATA_DIR`; **`writable_file(name)` is `--config-dir` when given, else the user
+directory, and `None` with neither — never `/etc/glimpse`.** **Merging is per key: tables merge,
+scalars replace, arrays replace rather than append** — an appending array could never be shortened
+by a later layer. `runtime_dir()` resolves to `$XDG_RUNTIME_DIR/glimpse` without creating it, and
+returns `None` when the environment variable is unset.
 
 ## Schema
 
@@ -43,16 +41,16 @@ names and returns one message per miss, so the panel starts without it and tells
 
 ## Generated references
 
-`default_document()`, `json_schema_document()` and `commented_document()` render
-`data/config.{default,schema,commented}.{toml,json}` from the types, checked by a test against the
-file in the tree; none is read at runtime. `seed_user_config` writes the commented document to
-`user_dir()/config.toml` once and never replaces it; `--config`/`GLIMPSE_CONFIG_PATH` skip seeding.
-**A `[table]` header in the seed stays uncommented only when an empty table means the same as no
-table** — an `[[array]]` header never qualifies, since an empty element replaces rather than merges
-as nothing; `[applets]` is documentation only. A retired table with a live seed header keeps a
-skipped field that accepts it, so existing documents load. Retired appearance forms stay out of
-generated documents and fail with guidance: `auto-dark` names `desktop-color-scheme`, and
-`color-scheme = "auto"` names `color-scheme = "desktop"`.
+`default_document`, `json_schema_document` and `commented_document` render
+`data/{config,panel}.{default.toml,commented.toml,schema.json}` from the types, each restricted to
+its file's tables; a test checks them against the tree and none is read at runtime.
+**A `[table]` header in a commented document stays uncommented only when an empty table means the
+same as no table** — an `[[array]]` header never qualifies, since an empty element replaces rather
+than merges as nothing; `[applets]` is documentation only.
+
+`seed_user_config` creates the user directory and writes a stub `config.toml` and `panel.toml` (a
+`#:schema` line and the docs link) into it, each only when absent, and seeds nothing when
+`--config-dir` is given. A stub `panel.toml` sets nothing, so the default layout applies.
 
 ## Reading and errors
 
@@ -62,9 +60,9 @@ missing file is an absent layer; a file that exists and is wrong fails the whole
 **No `ConfigError` renders any file content** —
 only the message and span are taken from `toml::de::Error`, so a `config.toml` aimed at an SSH key
 is never echoed into the journal. A syntax error names file, line, column and the drop-in it came
-from; a schema error names the key path, since it is found only in the merged document. **No
+from; a schema error names the file and the key path. **No
 config error stops a daemon:** `load_or_default` logs and starts `Config::default()`; `glimpse-idle` and `glimpse-sunset` turn
-their feature off on that default (`main.rs:38-39`), since the document may have set it. A reload
+their feature off on that default, since the document may have set it. A reload
 drops the update, and only the panel notifies, so one broken document is one notification.
 **A value the runtime cannot use is refused here, where the key can be named.** `[night-light]`
 `start-time`/`end-time` are checked against `%H:%M` at deserialization, so a typo fails on the
@@ -73,48 +71,56 @@ document rather than reaching the night light as an indistinguishable "not set".
 ## Writing
 
 `write_table` edits only the named TOML table — setting the given values and removing the given
-keys — while preserving comments, ordering, quoting, CRLF and the config path's symlink. It
-refuses an invalid document, a dangling symlink, a read-only file or a table value. Before
-replacing the target, it compares mtime, size and inode and retries a concurrent edit against a
-fresh read, up to three times. `shadowing_dropin` names the user `config.d` file that sets a key a
-write to `config.toml` could not override.
+keys — while preserving comments, ordering, quoting, CRLF and the path's symlink. It refuses an
+invalid document, a dangling symlink, a read-only file or a table value. Before replacing the
+target, it compares mtime, size and inode and retries a concurrent edit against a fresh read, up to
+three times. Callers pass it a `writable_file`.
 
 ## Themes
 
-A theme is a directory of stylesheets under `<root>/<name>/`, resolved from `user_dir()/themes`
-then `DATA_DIR/themes` unless `GLIMPSE_THEMES_DIR` replaces both. `GLIMPSE_THEME` overrides
-`appearance.theme` at read time, so `Config` keeps reporting the document on disk. **Resolution
-picks one directory, not one file at a time.** Stylesheet resolution uses the first of
-`user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that exists, because GTK resolves a
-relative `@import` against the importing file's own directory — a theme assembled from two roots
-could not import across them.
-`dark.css` is a theme directory's fourth member, loaded only while the effective scheme is dark.
-`appearance.theme-variant` is a CSS class on every window, not a file; a name outside
+A theme is a directory of stylesheets named `<name>`: the first `<root>/themes/<name>` across the
+roots, then `DATA_DIR/themes/<name>`, then the same for `adwaita`. `GLIMPSE_THEMES_DIR` replaces all
+of those roots. `GLIMPSE_THEME` overrides `appearance.theme` at read time, so `Config` keeps
+reporting the document on disk. **Resolution picks one directory, not one file at a time**, so a
+theme's stylesheet and its `dark.css` always come from the same place. A user's `styles.css` and
+`dark.css` are the first hit across the roots; at startup an unreadable one leaves only its own layer empty. `dark.css` is loaded only while the effective scheme
+is dark. `appearance.theme-variant` is a CSS class on every window, not a file; a name outside
 letters/digits/`-`/`_` or starting with a digit is dropped with a warning.
+
+`Theme` carries stylesheet contents, read off the GTK thread. CSS loads with `load_from_string`, so
+a relative `url()` or `@import` in a stylesheet resolves against nothing.
 
 ## Watching
 
-Every binary watches and re-reads its own files. `watch_dirs(config_path)` is the layer stack's
-directories, existing or not; `--config` replaces the whole stack and so the whole watch set.
+**One watch per process, shared by every reader.** The first `watch_config` or `watch_theme`
+subscription starts it over the writable roots (`--config-dir` and the user directory, never
+`/etc/glimpse`): each root, its `panel.d/`, `themes/` and every directory directly under `themes/`,
+`DATA_DIR/themes` the same way,
+the parent of a symlinked `config.toml` or `panel.toml` target, and `GLIMPSE_THEMES_DIR` with its
+immediate subdirectories. SIGHUP signals the same stream. Each subscriber rereads on every signal
+and yields a `Reload<T>` when the result differs from what it holds:
+
+- `Changed(T)` is a new value.
+- `Recovered` is a broken document that loads again unchanged.
+- `Rejected(reason)` keeps the running value and is reported once per distinct failure. For a theme
+  it is an unreadable file or an unknown name, never a CSS syntax error.
+
+`watch_theme` reads once after it subscribes, so a renamed theme arrives without a file event.
+`watch_dirs` is a separate watch for service watchers (calendar, places, exec applications).
 
 - **Watches go on directories, never files** — a per-file watch cannot see a drop-in that does not
-  exist yet, and creation is exactly the change that needs noticing. Events coalesce after 250 ms
-  of quiet, since one editor save is a write, a rename, and sometimes a delete and a create; one
-  inotify instance covers the whole set and the timer arms only on the first event, so an idle
-  session costs zero wakeups.
+  exist yet. Nothing is filtered by extension, which would drop the creation of `panel.d/` itself.
+  Events coalesce after 250 ms of quiet, since one editor save is a write, a rename, and sometimes
+  a delete and a create; one inotify instance covers the set and an idle session costs zero wakeups.
 - **A missing directory is watched through its nearest existing ancestor within the watched set**,
   descending when the component appears; an absent `glimpse/` falls back onto nothing, since
   `$XDG_CONFIG_HOME`/`/etc` churn from unrelated software — creating the config directory needs a
   restart. Every watched directory is made absolute with `std::path::absolute` before arming, or a
   relatively-armed watch matches none of its own events.
 - **A watch re-arms when its directory is replaced**, since it is bound to an inode, not a name;
-  the gap produces no events, so a re-arm means "read everything again." The watch set is
-  recomputed after each change or re-arm, so re-pointing a symlinked base file also watches edits at
-  the new target.
-
-`reread` answers with a new document only if it parsed **and differs outside `[screenshot]`**. `watch_config` merges the
-filesystem watch with `SIGHUP` — neither replaces the other. Nothing is filtered by extension,
-which would drop the creation of `config.d/` itself.
+  the gap produces no events, so a re-arm means "read everything again." The watch set is a
+  function recomputed after each change or re-arm, so a theme directory created later joins it and
+  re-pointing a symlinked base file also watches edits at the new target.
 
 ## Applets
 

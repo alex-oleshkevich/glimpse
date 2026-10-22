@@ -120,7 +120,6 @@ fn outputs_with_their_own_image_are_counted() {
     assert!(notify::changed_body(1).contains('1'));
     assert!(notify::changed_body(2).contains('2'));
     assert!(notify::lockscreen_body().contains("background"));
-    assert!(notify::shadowed_body(Path::new("/home/x/config.d/10-a.toml")).contains("10-a.toml"));
 }
 
 #[test]
@@ -251,7 +250,7 @@ struct Started {
 }
 
 impl Started {
-    async fn new(dropin: Option<&str>) -> Self {
+    async fn new() -> Self {
         let directory = tempfile::tempdir().expect("a temporary directory");
         let config = directory.path().join("config.toml");
         std::fs::write(
@@ -259,11 +258,6 @@ impl Started {
             "[wallpaper]\nimage = \"old.jpg\"\nimage-dark = \"dark.jpg\"\n",
         )
         .expect("writes");
-        if let Some(text) = dropin {
-            let dropins = directory.path().join("config.d");
-            std::fs::create_dir_all(&dropins).expect("creates");
-            std::fs::write(dropins.join("10.toml"), text).expect("writes");
-        }
         let copies = directory.path().join("state").join("wallpaper");
         let bus = PrivateBus::start();
         let server = bus.connection().await;
@@ -273,9 +267,8 @@ impl Started {
         serve_at(
             &server,
             Settings {
-                config_path: dropin.is_none().then(|| config.clone()),
-                user_config: config.clone(),
-                user_dir: dropin.map(|_| directory.path().to_path_buf()),
+                config: config.clone(),
+                files: vec![config.clone()],
                 copies: copies.clone(),
             },
         )
@@ -312,7 +305,7 @@ trait WallpaperPortalTest {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn setting_the_background_copies_the_image_and_rewrites_the_config() {
-    let started = Started::new(None).await;
+    let started = Started::new().await;
     let proxy = WallpaperPortalTestProxy::new(&started.client)
         .await
         .expect("a proxy");
@@ -397,21 +390,9 @@ async fn set_background(started: &Started, path: &str) -> u32 {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_dropin_setting_image_dark_refuses_the_set_and_leaves_the_config() {
-    let started = Started::new(Some("[wallpaper]\nimage-dark = \"mine.jpg\"\n")).await;
-    let before = std::fs::read_to_string(&started.config).expect("reads");
-
-    assert_eq!(set_background(&started, "/req/shadowed").await, OTHER);
-    assert_eq!(
-        std::fs::read_to_string(&started.config).expect("reads"),
-        before
-    );
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_unwritable_config_refuses_the_set_and_removes_the_copy() {
     use std::os::unix::fs::PermissionsExt;
-    let started = Started::new(None).await;
+    let started = Started::new().await;
     std::fs::set_permissions(&started.config, std::fs::Permissions::from_mode(0o444))
         .expect("sets permissions");
 
@@ -424,7 +405,7 @@ async fn an_unwritable_config_refuses_the_set_and_removes_the_copy() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_fifo_request_is_refused_and_the_next_one_is_served() {
-    let started = Started::new(None).await;
+    let started = Started::new().await;
     let proxy = WallpaperPortalTestProxy::new(&started.client)
         .await
         .expect("a proxy");

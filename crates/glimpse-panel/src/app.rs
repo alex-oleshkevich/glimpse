@@ -5,12 +5,11 @@ use gettextrs::gettext;
 use glib::prelude::ToVariant;
 use gtk4::gio;
 use gtk4::prelude::{ActionMapExt, GtkWindowExt, WidgetExt};
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 use zeroize::Zeroizing;
 
 use glimpse_config::{
-    Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, unknown_applets, user_dark_stylesheet,
-    user_stylesheet, watch_config_reporting, watch_theme,
+    Config, Documents, PANEL_STYLESHEET, Reload, Theme, unknown_applets, watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
@@ -21,7 +20,7 @@ use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::color_scheme;
 use glimpse_widgets::{
     NetworkEntered, PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer,
-    SecretDialog, Sheets, Styles,
+    SecretDialog, Styles,
 };
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -56,8 +55,9 @@ pub struct SessionDialog {
 
 pub struct AppInit {
     pub config: Config,
-    pub config_path: Option<PathBuf>,
+    pub theme: Theme,
     pub failure: Option<String>,
+    pub panels_only: bool,
 }
 
 type Pairing = (Entry, String, String, String);
@@ -74,7 +74,7 @@ pub enum AppInput {
     ClosePopovers,
     MonitorsChanged,
     ServicesReady(PanelServices),
-    ThemeChanged,
+    Theme(Reload<Theme>),
     Attached,
     Detached,
 }
@@ -92,7 +92,7 @@ impl std::fmt::Debug for AppInput {
             AppInput::ClosePopovers => "ClosePopovers",
             AppInput::MonitorsChanged => "MonitorsChanged",
             AppInput::ServicesReady(_) => "ServicesReady",
-            AppInput::ThemeChanged => "ThemeChanged",
+            AppInput::Theme(_) => "Theme",
             AppInput::Attached => "Attached",
             AppInput::Detached => "Detached",
         })
@@ -104,6 +104,7 @@ pub struct App {
     panels: Vec<PanelState>,
     theme_watch: JoinHandle<()>,
     styles: Styles,
+    theme: Theme,
     services: Option<PanelServices>,
     services_start: JoinHandle<()>,
     bluetooth_watch: Option<JoinHandle<()>>,
@@ -141,18 +142,19 @@ impl SimpleComponent for App {
     ) -> ComponentParts<Self> {
         tracing::info!("initializing app");
         watch_monitors(sender.clone());
-        let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
-        let services_start = spawn_services(init.config.clone(), sender.clone());
-        spawn_config_watch(
-            init.config_path,
-            init.config.clone(),
-            init.failure.clone(),
+        let theme_watch = spawn_theme_watch(
+            &init.config.appearance.theme,
+            init.theme.clone(),
             sender.clone(),
         );
+        let services_start = spawn_services(init.config.clone(), sender.clone());
+        spawn_config_watch(init.config.clone(), init.failure.clone(), sender.clone());
 
         let problems = Problems {
             failure: init.failure,
+            panels_only: init.panels_only,
             rejected: None,
+            theme: None,
             unknown_applets: unknown_applets(&init.config),
         };
         let actions = ComponentActions::install(
@@ -181,6 +183,7 @@ impl SimpleComponent for App {
             config: init.config,
             panels: Default::default(),
             theme_watch,
+            theme: init.theme,
             styles,
             services: None,
             services_start,
@@ -213,6 +216,9 @@ impl SimpleComponent for App {
                 );
                 self.config = config;
                 self.problems.recover();
+                if renamed {
+                    self.problems.theme = None;
+                }
                 self.problems.unknown_applets = unknown_applets(&self.config);
                 self.publish_problems();
                 if let Some(services) = &self.services {
@@ -222,9 +228,11 @@ impl SimpleComponent for App {
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
                 if renamed {
                     self.theme_watch.abort();
-                    self.theme_watch =
-                        spawn_theme_watch(&self.config.appearance.theme, sender.clone());
-                    self.reload_styles();
+                    self.theme_watch = spawn_theme_watch(
+                        &self.config.appearance.theme,
+                        self.theme.clone(),
+                        sender.clone(),
+                    );
                 }
             }
             AppInput::ConfigRejected(reason) => {
@@ -289,7 +297,18 @@ impl SimpleComponent for App {
                 self.run_session_action(action);
                 return;
             }
-            AppInput::ThemeChanged => self.reload_styles(),
+            AppInput::Theme(reload) => {
+                match reload {
+                    Reload::Changed(theme) => {
+                        self.theme = theme;
+                        self.problems.theme = None;
+                        self.reload_styles();
+                    }
+                    Reload::Recovered => self.problems.theme = None,
+                    Reload::Rejected(reason) => self.problems.theme = Some(reason),
+                }
+                self.publish_problems();
+            }
         }
         reconcile_panels(
             &mut self.panels,
@@ -486,12 +505,7 @@ impl App {
 
     fn reload_styles(&self) {
         let appearance = &self.config.appearance;
-        self.styles.load(&Sheets {
-            theme: stylesheet(&appearance.theme, PANEL_STYLESHEET),
-            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
-            dropin: user_stylesheet(),
-            dropin_dark: user_dark_stylesheet(),
-        });
+        self.styles.load(&self.theme);
         self.styles.set_variant(&appearance.theme_variant);
         self.styles.set_animation_speed(appearance.animation_speed);
     }
@@ -671,29 +685,24 @@ fn ended_dev(
         .collect()
 }
 
-fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
-    let themes = watch_theme(theme);
+fn spawn_theme_watch(name: &str, current: Theme, sender: ComponentSender<App>) -> JoinHandle<()> {
+    let themes = watch_theme(name, PANEL_STYLESHEET, current);
     relm4::spawn(async move {
         let mut themes = Box::pin(themes);
-        while themes.next().await.is_some() {
-            sender.input(AppInput::ThemeChanged);
+        while let Some(reload) = themes.next().await {
+            sender.input(AppInput::Theme(reload));
         }
     })
 }
 
-fn spawn_config_watch(
-    path: Option<PathBuf>,
-    current: Config,
-    failure: Option<String>,
-    sender: ComponentSender<App>,
-) {
+fn spawn_config_watch(current: Config, failure: Option<String>, sender: ComponentSender<App>) {
     relm4::spawn(async move {
-        let mut configs = Box::pin(watch_config_reporting(path, current, failure));
+        let mut configs = Box::pin(watch_config(Documents::ConfigAndPanel, current, failure));
         while let Some(reloaded) = configs.next().await {
             sender.input(match reloaded {
-                Ok(Some(config)) => AppInput::ConfigChanged(config),
-                Ok(None) => AppInput::ConfigRecovered,
-                Err(reason) => AppInput::ConfigRejected(reason),
+                Reload::Changed(config) => AppInput::ConfigChanged(config),
+                Reload::Recovered => AppInput::ConfigRecovered,
+                Reload::Rejected(reason) => AppInput::ConfigRejected(reason),
             });
         }
     });

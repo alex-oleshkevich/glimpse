@@ -16,11 +16,10 @@ while they need the place and the provider fetches nothing when no lease remains
 no client registry and does not own solar state, Night Light, UI theme, or regional configuration
 beyond applying the configured weather units.
 
-With the normal layered configuration, the panel and provider read the same `config.toml` on their
-own. An explicit `glimpse-panel --config` applies only to the panel process; D-Bus activation cannot
-inherit that argument, so an alternate stack starts `glimpse-weather --config <path>` separately
-before the panel. The startup log records the provider's explicit configuration path when one is
-set.
+The panel and the provider read the same `config.toml` on their own. An explicit
+`glimpse-panel --config-dir` applies only to the panel process; D-Bus activation cannot inherit that
+argument, so an alternate stack starts `glimpse-weather --config-dir <dir>` separately before the
+panel. The startup log records the provider's `--config-dir` when one is set.
 
 Glimpse's logs report process, bus-name, service-health, configuration, watch-kind, refresh, and
 shutdown transitions without coordinates, provider URLs, or response payloads. A broad dependency

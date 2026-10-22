@@ -46,7 +46,7 @@ Options:
       --json                 Print the result object when the human finishes.
       --prompt <TEXT>        A banner saying what is being asked for, plain text.
       --timeout <SECONDS>    Close the editor unanswered after this long, exit 7.
-  -c, --config <PATH>        Path to the configuration file. [env: GLIMPSE_CONFIG_PATH=]
+      --config-dir <DIR>     Directory stacked above the user configuration. [env: GLIMPSE_CONFIG_DIR=]
       --log-format <FORMAT>  Select the log output format (plain text or JSON). [default: plain] [possible values: plain, json]
       --log <LEVEL>          Set the logging filter (for example, info, debug, or trace). [env: RUST_LOG=] [default: info]
       --color <WHEN>         Controls when to use color [default: auto] [possible values: auto, always, never]

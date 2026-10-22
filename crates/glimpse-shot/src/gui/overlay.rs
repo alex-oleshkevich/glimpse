@@ -63,7 +63,6 @@ pub struct Options {
     pub marks: Vec<Mark>,
     pub output: Option<PathBuf>,
     pub config: ScreenshotConfig,
-    pub config_path: Option<PathBuf>,
     pub snapshot: Option<Snapshot>,
     pub tool: Option<Tool>,
 }
@@ -146,9 +145,7 @@ pub fn start(
     let (phase, effects) = session::start(options.target.clone(), until, face);
     let run = Rc::new(Run {
         app: app.clone(),
-        clipboard: HoldClipboard {
-            config: options.config_path.clone(),
-        },
+        clipboard: HoldClipboard,
         options,
         phase: RefCell::new(phase),
         target: RefCell::default(),

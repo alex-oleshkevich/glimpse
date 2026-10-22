@@ -6,6 +6,7 @@ on:
       - .github/workflows/docs.yml
       - website/**
       - data/config.schema.json
+      - data/panel.schema.json
       - docs/screenshots/**
   push:
     branches: [master]
@@ -13,6 +14,7 @@ on:
       - .github/workflows/docs.yml
       - website/**
       - data/config.schema.json
+      - data/panel.schema.json
       - docs/screenshots/**
   workflow_dispatch:
 

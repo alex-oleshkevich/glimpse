@@ -65,6 +65,8 @@ pub use screenshot::{Editor, FileTemplate, PaletteColor, Screenshot as Screensho
 pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
+pub const PANEL_TABLES: [&str; 2] = ["panels", "applets"];
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Config {
@@ -92,9 +94,6 @@ pub struct Config {
     #[serde(deserialize_with = "applets::deserialize")]
     #[schemars(schema_with = "applets::schema")]
     pub applets: BTreeMap<String, Applet>,
-    #[serde(rename = "power", skip_serializing)]
-    #[schemars(skip)]
-    pub retired_power: toml::Table,
 }
 
 impl Config {
@@ -164,7 +163,6 @@ impl Default for Config {
             removable: Removable::default(),
             panels: vec![Panel::default()],
             applets: BTreeMap::new(),
-            retired_power: toml::Table::new(),
         }
     }
 }

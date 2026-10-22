@@ -8,16 +8,14 @@ use adw::prelude::*;
 use anyhow::{Context as _, Result, anyhow, bail};
 use gettextrs::gettext;
 use glimpse_compositors::Snapshot;
-use glimpse_config::{
-    Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet, user_stylesheet,
-};
+use glimpse_config::{Config, Documents, PANEL_STYLESHEET, load_theme};
 use glimpse_shot::doc::document::{Document, Mark, Source, Style};
 use glimpse_shot::doc::wire::TargetV1;
 use glimpse_shot::ports::Notice;
 use glimpse_shot::session::{Outcome, Target};
 use glimpse_utils::init_translations;
 use glimpse_widgets::color_scheme;
-use glimpse_widgets::{Sheets, ShotCapturePage, Styles};
+use glimpse_widgets::{ShotCapturePage, Styles};
 use gtk4::{gdk, gio, glib};
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -37,7 +35,6 @@ const APP_ID_VARIABLE: &str = "GLIMPSE_SHOT_APP_ID";
 const SERVICE_FLAG: &str = "--gapplication-service";
 const TITLE_MAX: usize = 200;
 const ICON: &str = APP_ID;
-const CONFIG_VARIABLE: &str = "GLIMPSE_CONFIG_PATH";
 const PORTAL_TIMEOUT_MS: i32 = 1000;
 const PROJECT_URL: &str = "https://github.com/alex-oleshkevich/glimpse";
 const STDIN_CHUNK: usize = 64 * 1024;
@@ -100,12 +97,12 @@ pub fn reply(settled: Result<Option<String>>, json: bool) -> Reply {
     }
 }
 
-pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
+pub fn run(gui: &GuiArgs) -> Result<()> {
     gui.target.resolve(false).map_err(Usage)?;
     if let Some(dir) = missing_directory(gui.output.as_deref()) {
         bail!("the directory {} does not exist", dir.display());
     }
-    let (document, unreadable) = load_config(config_path);
+    let (document, unreadable) = load_config();
     init_translations(document.regional.language());
     if let Some(error) = unreadable {
         tracing::warn!("running on defaults: {error:#}");
@@ -118,12 +115,7 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     glimpse_widgets::register_resources()?;
     let appearance = &document.appearance;
     let styles = Styles::install(color_scheme(appearance.color_scheme));
-    styles.load(&Sheets {
-        theme: stylesheet(&appearance.theme, PANEL_STYLESHEET),
-        theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
-        dropin: user_stylesheet(),
-        dropin_dark: user_dark_stylesheet(),
-    });
+    styles.load(&load_theme(&appearance.theme, PANEL_STYLESHEET).unwrap_or_default());
     styles.set_variant(&appearance.theme_variant);
     styles.set_animation_speed(appearance.animation_speed);
 
@@ -131,7 +123,7 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
         .application_id(&app_id)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE | gio::ApplicationFlags::HANDLES_OPEN)
         .build();
-    let shell = Shell::new(&app, config_path);
+    let shell = Shell::new(&app);
     let started = Rc::clone(&shell);
     app.connect_startup(move |_| started.startup());
     let lines = Rc::clone(&shell);
@@ -139,13 +131,7 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     let opened = Rc::clone(&shell);
     app.connect_open(move |_, files, _| {
         for path in files.iter().filter_map(gio::File::path) {
-            opened.open_file(
-                &path,
-                None,
-                opened.config_path.as_deref(),
-                &GuiArgs::default(),
-                &[],
-            );
+            opened.open_file(&path, None, &GuiArgs::default(), &[]);
         }
     });
     let activated = Rc::clone(&shell);
@@ -195,8 +181,8 @@ fn register_with_portal(app_id: &str) -> Option<gio::DBusConnection> {
     Some(connection)
 }
 
-fn load_config(config_path: Option<&Path>) -> (Config, Option<anyhow::Error>) {
-    match glimpse_config::load(config_path) {
+fn load_config() -> (Config, Option<anyhow::Error>) {
+    match glimpse_config::load(Documents::Config) {
         Ok(document) => (document, None),
         Err(error) => (Config::default(), Some(error.into())),
     }
@@ -214,7 +200,6 @@ struct Main {
 
 struct Shell {
     app: adw::Application,
-    config_path: Option<PathBuf>,
     menu: gio::Menu,
     main: RefCell<Option<Rc<Main>>>,
     running: RefCell<Option<overlay::Running>>,
@@ -225,7 +210,7 @@ struct Shell {
 type Answer = Box<dyn FnOnce(Result<Option<String>>)>;
 
 impl Shell {
-    fn new(app: &adw::Application, config_path: Option<&Path>) -> Rc<Self> {
+    fn new(app: &adw::Application) -> Rc<Self> {
         let open = gio::Menu::new();
         open.append(Some(&gettext("_Open Image…")), Some("app.open"));
         let rest = gio::Menu::new();
@@ -237,7 +222,6 @@ impl Shell {
         menu.append_section(None, &rest);
         Rc::new(Self {
             app: app.clone(),
-            config_path: config_path.map(Path::to_path_buf),
             menu,
             main: RefCell::default(),
             running: RefCell::default(),
@@ -258,12 +242,7 @@ impl Shell {
             self.app.add_action(&entry);
         };
         action("open", |shell| {
-            shell.choose_image(
-                GuiArgs::default(),
-                shell.config_path.clone(),
-                Vec::new(),
-                None,
-            );
+            shell.choose_image(GuiArgs::default(), Vec::new(), None);
         });
         action("preferences", |shell| shell.preferences());
         action("shortcuts", |shell| shell.shortcuts());
@@ -286,7 +265,7 @@ impl Shell {
         let arguments = line.arguments();
         let json = arguments.iter().any(|arg| arg == "--json");
         let answer = self.answer(line, json, Rc::clone(&immediate));
-        match cli::parse_forwarded(arguments) {
+        match cli::parse(arguments) {
             Ok(parsed) if !crate::opens_app(parsed.command.as_ref()) => answer(Err(Usage(
                 "a subcommand never runs inside the app".to_owned(),
             )
@@ -297,13 +276,8 @@ impl Shell {
                     _ => parsed.gui,
                 };
                 let cwd = line.cwd();
-                let config = caller_config(
-                    parsed.config.config,
-                    line.getenv(CONFIG_VARIABLE).map(PathBuf::from),
-                    cwd.as_deref(),
-                );
                 let gui = anchored(gui, cwd.as_deref());
-                self.dispatch(&gui, config, line, answer);
+                self.dispatch(&gui, line, answer);
             }
             Err(error) => {
                 let mut rendered = Vec::new();
@@ -370,7 +344,6 @@ impl Shell {
     fn dispatch(
         self: &Rc<Self>,
         gui: &GuiArgs,
-        config_path: Option<PathBuf>,
         line: &gio::ApplicationCommandLine,
         answer: Answer,
     ) {
@@ -422,57 +395,44 @@ impl Shell {
                             return;
                         };
                         match text.and_then(|text| headless::parse_marks(&text)) {
-                            Ok(marks) => shell.launch(&gui, target, config_path, marks, answer),
+                            Ok(marks) => shell.launch(&gui, target, marks, answer),
                             Err(error) => answer(Err(error)),
                         }
                     }),
                 );
             }
             Some(path) => match headless::read_marks(path) {
-                Ok(marks) => self.launch(gui, target, config_path, marks, answer),
+                Ok(marks) => self.launch(gui, target, marks, answer),
                 Err(error) => answer(Err(error)),
             },
-            None => self.launch(gui, target, config_path, Vec::new(), answer),
+            None => self.launch(gui, target, Vec::new(), answer),
         }
     }
 
-    fn launch(
-        self: &Rc<Self>,
-        gui: &GuiArgs,
-        target: Target,
-        config_path: Option<PathBuf>,
-        marks: Vec<Mark>,
-        answer: Answer,
-    ) {
+    fn launch(self: &Rc<Self>, gui: &GuiArgs, target: Target, marks: Vec<Mark>, answer: Answer) {
         if self.running.borrow().is_some() {
             return answer(Err(Busy.into()));
         }
         if let Some(file) = &gui.file {
-            self.open_file(file, Some(answer), config_path.as_deref(), gui, &marks);
+            self.open_file(file, Some(answer), gui, &marks);
             return;
         }
         if gui.pick {
-            self.choose_image(gui.clone(), config_path, marks, Some(answer));
+            self.choose_image(gui.clone(), marks, Some(answer));
             return;
         }
-        match self.overlay_options(gui, target, config_path, marks) {
+        match self.overlay_options(gui, target, marks) {
             Ok(options) => self.start(options, answer),
             Err(error) => answer(Err(error)),
         }
     }
 
-    fn overlay_options(
-        &self,
-        gui: &GuiArgs,
-        target: Target,
-        config_path: Option<PathBuf>,
-        marks: Vec<Mark>,
-    ) -> Result<Options> {
-        let (document, unreadable) = load_config(config_path.as_deref());
+    fn overlay_options(&self, gui: &GuiArgs, target: Target, marks: Vec<Mark>) -> Result<Options> {
+        let (document, unreadable) = load_config();
         if let Some(error) = unreadable {
             tracing::warn!("running on defaults: {error:#}");
             if gui.portal.is_none() {
-                report_failure(&error, config_path.as_deref());
+                report_failure(&error);
             }
         }
         let snapshot = match compositor_snapshot() {
@@ -511,7 +471,6 @@ impl Shell {
                 gui.output.clone()
             },
             config,
-            config_path,
             snapshot,
             tool: gui.tool,
         })
@@ -577,7 +536,6 @@ impl Shell {
         self: &Rc<Self>,
         path: &Path,
         answer: Option<Answer>,
-        config_path: Option<&Path>,
         gui: &GuiArgs,
         marks: &[Mark],
     ) {
@@ -593,7 +551,7 @@ impl Shell {
             )
             .doc
         });
-        self.open_document(loaded, marks.is_empty(), answer, config_path, gui);
+        self.open_document(loaded, marks.is_empty(), answer, gui);
     }
 
     fn paste(self: &Rc<Self>) {
@@ -609,14 +567,7 @@ impl Shell {
                     Ok(Some(texture)) => result::pasted(&texture),
                     _ => Err(anyhow!(gettext("The clipboard holds no image"))),
                 };
-                let config_path = shell.config_path.clone();
-                shell.open_document(
-                    loaded,
-                    false,
-                    None,
-                    config_path.as_deref(),
-                    &GuiArgs::default(),
-                );
+                shell.open_document(loaded, false, None, &GuiArgs::default());
             });
     }
 
@@ -625,10 +576,9 @@ impl Shell {
         loaded: Result<Document>,
         saved: bool,
         answer: Option<Answer>,
-        config_path: Option<&Path>,
         gui: &GuiArgs,
     ) {
-        let (document, _) = load_config(config_path);
+        let (document, _) = load_config();
         match loaded {
             Ok(doc) => {
                 let style = Style {
@@ -640,7 +590,6 @@ impl Shell {
                     output: gui.output.clone(),
                     scale: ScaleMode::Buffer,
                     config: document.screenshot,
-                    config_path: config_path.map(Path::to_path_buf),
                     prompt: gui.prompt.clone(),
                     timeout: gui.timeout,
                 };
@@ -689,7 +638,7 @@ impl Shell {
         if let Some(main) = self.main.borrow().as_ref() {
             return Rc::clone(main);
         }
-        let (document, _) = load_config(self.config_path.as_deref());
+        let (document, _) = load_config();
         let config = document.screenshot;
         let page = ShotCapturePage::new();
         page.set_menu_model(Some(self.menu.upcast_ref()));
@@ -776,14 +725,7 @@ impl Shell {
             ) else {
                 return false;
             };
-            let config_path = shell.config_path.clone();
-            shell.open_file(
-                &path,
-                None,
-                config_path.as_deref(),
-                &GuiArgs::default(),
-                &[],
-            );
+            shell.open_file(&path, None, &GuiArgs::default(), &[]);
             true
         });
         main.toasts.add_controller(drop);
@@ -839,7 +781,7 @@ impl Shell {
                 name => Target::Screen(name.to_owned()),
             },
         };
-        let (document, _) = load_config(self.config_path.as_deref());
+        let (document, _) = load_config();
         let config = document.screenshot;
         let options = Options {
             target,
@@ -860,7 +802,6 @@ impl Shell {
             marks: Vec::new(),
             output: None,
             config,
-            config_path: self.config_path.clone(),
             snapshot,
             tool: None,
         };
@@ -914,13 +855,7 @@ impl Shell {
         }
     }
 
-    fn choose_image(
-        self: &Rc<Self>,
-        gui: GuiArgs,
-        config_path: Option<PathBuf>,
-        marks: Vec<Mark>,
-        answer: Option<Answer>,
-    ) {
+    fn choose_image(self: &Rc<Self>, gui: GuiArgs, marks: Vec<Mark>, answer: Option<Answer>) {
         let filter = gtk4::FileFilter::new();
         filter.set_name(Some(&gettext("Images")));
         for mime in gtk4::gdk_pixbuf::Pixbuf::formats()
@@ -953,7 +888,7 @@ impl Shell {
                             }
                             return;
                         }
-                        shell.open_file(&path, answer, config_path.as_deref(), &gui, &marks);
+                        shell.open_file(&path, answer, &gui, &marks);
                     }
                     None => {
                         if let Some(answer) = answer {
@@ -983,7 +918,7 @@ impl Shell {
             main.window.present();
             main.window.clone().upcast()
         });
-        prefs::present(&window, self.config_path.as_deref());
+        prefs::present(&window, glimpse_config::writable_file("config").as_deref());
     }
 
     fn shortcuts(self: &Rc<Self>) {
@@ -1083,7 +1018,6 @@ fn setup_of(options: &Options) -> Setup {
         output: options.output.clone(),
         scale: options.scale,
         config: options.config.clone(),
-        config_path: options.config_path.clone(),
         prompt: None,
         timeout: None,
     }
@@ -1116,18 +1050,6 @@ fn anchored(mut gui: GuiArgs, cwd: Option<&Path>) -> GuiArgs {
         *path = cwd.join(&*path);
     }
     gui
-}
-
-fn caller_config(
-    explicit: Option<PathBuf>,
-    environment: Option<PathBuf>,
-    cwd: Option<&Path>,
-) -> Option<PathBuf> {
-    let path = explicit.or(environment)?;
-    Some(match cwd {
-        Some(cwd) if path.is_relative() => cwd.join(path),
-        _ => path,
-    })
 }
 
 type Read = Box<dyn FnOnce(Result<String>)>;
@@ -1173,7 +1095,7 @@ fn portal_target_allowed(target: &Target) -> bool {
     matches!(target, Target::CurrentScreen | Target::Screen(_))
 }
 
-fn report_failure(error: &anyhow::Error, config: Option<&Path>) {
+fn report_failure(error: &anyhow::Error) {
     if std::io::stderr().is_terminal() {
         return;
     }
@@ -1187,10 +1109,7 @@ fn report_failure(error: &anyhow::Error, config: Option<&Path>) {
         image: None,
         actions: false,
     };
-    let holder = HoldClipboard {
-        config: config.map(Path::to_path_buf),
-    };
-    if let Err(error) = holder.notify(notice) {
+    if let Err(error) = HoldClipboard.notify(notice) {
         tracing::warn!("{error:#}");
     }
 }

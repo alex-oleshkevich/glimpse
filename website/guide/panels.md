@@ -1,6 +1,6 @@
 # Arrange your panels
 
-The bar is one or more `[[panels]]` tables in `~/.config/glimpse/config.toml`. Save the file and the
+The bar is one or more `[[panels]]` tables in `~/.config/glimpse/panel.toml`. Save the file and the
 change applies. The full setting list is in the [panels reference](/config/panels).
 
 ::: tip

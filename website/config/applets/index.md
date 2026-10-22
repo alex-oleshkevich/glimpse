@@ -1,7 +1,7 @@
 # Applets
 
 An applet is one item on a panel. You place applets by name in a panel's `left`, `center` and
-`right` lists, and change how one behaves in a table named after it:
+`right` lists, and change how one behaves in a table named after it. Both live in `panel.toml`:
 
 ```toml
 [applets.clock]

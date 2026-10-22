@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::Path,
     rc::Rc,
     time::Duration,
 };
@@ -10,8 +10,8 @@ use adw::prelude::*;
 use futures_util::StreamExt;
 use gettextrs::gettext;
 use glimpse_config::{
-    BlurSurface, Config, DARK_STYLESHEET, NotificationEdge, PANEL_STYLESHEET, stylesheet,
-    user_dark_stylesheet, user_stylesheet, watch_config_reporting, watch_theme,
+    BlurSurface, Config, Documents, NotificationEdge, PANEL_STYLESHEET, Reload, Theme,
+    watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_services::SessionStatus;
@@ -22,7 +22,7 @@ use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::blur;
 use glimpse_widgets::color_scheme;
 use glimpse_widgets::{
-    Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_icon,
+    Action, Body, Notification, NotificationCard, Styles, Urgency, notification_icon,
     notification_image,
 };
 use gtk4::{cairo, gdk, gio, glib};
@@ -36,7 +36,7 @@ use glimpse_dbus::notifications::DEFAULT_ACTION;
 
 pub struct Init {
     pub config: Config,
-    pub config_path: Option<PathBuf>,
+    pub theme: Theme,
     pub failure: Option<String>,
 }
 
@@ -49,7 +49,7 @@ pub enum Input {
     Session(Option<SessionStatus>),
     Config(Box<Config>),
     ConfigVerdict(Result<(), String>),
-    Theme,
+    Theme(Reload<Theme>),
     MonitorsChanged,
     Expire(u32),
     Pause(u32),
@@ -151,6 +151,7 @@ pub struct App {
     root: gtk4::Window,
     stack: gtk4::Box,
     config: Config,
+    theme: Theme,
     services: Option<NotificationServices>,
     services_start: JoinHandle<()>,
     state: PopupState,
@@ -204,13 +205,12 @@ impl SimpleComponent for App {
             crate::cli::build::PKG_VERSION,
             init.failure.clone().map_or(Ok(()), Err),
         );
-        watch_configuration(
-            init.config_path,
-            init.config.clone(),
-            init.failure,
+        watch_configuration(init.config.clone(), init.failure, sender.clone());
+        let theme_watch = watch_styles(
+            &init.config.appearance.theme,
+            init.theme.clone(),
             sender.clone(),
         );
-        let theme_watch = watch_styles(&init.config.appearance.theme, sender.clone());
         watch_monitors(sender.clone());
 
         let window = root.clone();
@@ -224,6 +224,7 @@ impl SimpleComponent for App {
             stack: widgets.stack.clone(),
             state: PopupState::new(init.config.notifications.clone()),
             config: init.config,
+            theme: init.theme,
             services: None,
             services_start,
             rows: HashMap::new(),
@@ -254,7 +255,14 @@ impl SimpleComponent for App {
             Input::Session(state) => self.session(state, &sender),
             Input::Config(config) => self.configure(*config, &sender),
             Input::ConfigVerdict(verdict) => self.actions.report(verdict),
-            Input::Theme => self.reload_styles(),
+            Input::Theme(Reload::Changed(theme)) => {
+                self.theme = theme;
+                self.reload_styles();
+            }
+            Input::Theme(Reload::Recovered) => tracing::info!("stylesheet recovered"),
+            Input::Theme(Reload::Rejected(reason)) => {
+                tracing::error!(%reason, "stylesheet rejected")
+            }
             Input::MonitorsChanged => self.place(),
             Input::Expire(id) => {
                 if !self
@@ -400,8 +408,11 @@ impl App {
         self.apply(delta, sender);
         if renamed {
             self.theme_watch.abort();
-            self.theme_watch = watch_styles(&self.config.appearance.theme, sender.clone());
-            self.reload_styles();
+            self.theme_watch = watch_styles(
+                &self.config.appearance.theme,
+                self.theme.clone(),
+                sender.clone(),
+            );
         }
         self.place();
     }
@@ -708,12 +719,7 @@ impl App {
 
     fn reload_styles(&self) {
         let appearance = &self.config.appearance;
-        self.styles.load(&Sheets {
-            theme: stylesheet(&appearance.theme, PANEL_STYLESHEET),
-            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
-            dropin: user_stylesheet(),
-            dropin_dark: user_dark_stylesheet(),
-        });
+        self.styles.load(&self.theme);
         self.styles.set_variant(&appearance.theme_variant);
         self.styles.set_animation_speed(appearance.animation_speed);
         self.update_input_region();
@@ -1040,30 +1046,29 @@ fn watch_monitors(sender: ComponentSender<App>) {
     });
 }
 
-fn watch_configuration(
-    path: Option<PathBuf>,
-    current: Config,
-    failure: Option<String>,
-    sender: ComponentSender<App>,
-) {
+fn watch_configuration(current: Config, failure: Option<String>, sender: ComponentSender<App>) {
     relm4::spawn(async move {
-        let mut configs = Box::pin(watch_config_reporting(path, current, failure));
-        while let Some(reloaded) = configs.next().await {
-            let verdict = reloaded.as_ref().map(|_| ()).map_err(Clone::clone);
-            if let Ok(Some(config)) = reloaded {
-                sender.input(Input::Config(Box::new(config)));
-            }
+        let mut configs = Box::pin(watch_config(Documents::Config, current, failure));
+        while let Some(reload) = configs.next().await {
+            let verdict = match reload {
+                Reload::Changed(config) => {
+                    sender.input(Input::Config(Box::new(config)));
+                    Ok(())
+                }
+                Reload::Recovered => Ok(()),
+                Reload::Rejected(reason) => Err(reason),
+            };
             sender.input(Input::ConfigVerdict(verdict));
         }
     });
 }
 
-fn watch_styles(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
-    let themes = watch_theme(theme);
+fn watch_styles(name: &str, current: Theme, sender: ComponentSender<App>) -> JoinHandle<()> {
+    let themes = watch_theme(name, PANEL_STYLESHEET, current);
     relm4::spawn(async move {
         let mut themes = Box::pin(themes);
-        while themes.next().await.is_some() {
-            sender.input(Input::Theme);
+        while let Some(reload) = themes.next().await {
+            sender.input(Input::Theme(reload));
         }
     })
 }

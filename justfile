@@ -62,17 +62,17 @@ fmt-check:
 fmt-blueprints *PATHS:
     scripts/fmt-blueprints.sh "$@"
 
-[doc("regenerate data/config.default.toml from Config::default()")]
-gen-config-default:
-    cargo run -q -p glimpse-config --example gen_config_default > data/config.default.toml
+[doc("regenerate data/DOC.default.toml (DOC is config or panel) from Config::default()")]
+gen-config-default DOC:
+    cargo run -q -p glimpse-config --example gen_config_default {{ DOC }} > data/{{ DOC }}.default.toml
 
-[doc("regenerate data/config.schema.json from the Config types")]
-gen-config-schema:
-    cargo run -q -p glimpse-config --example gen_config_schema > data/config.schema.json
+[doc("regenerate data/DOC.schema.json (DOC is config or panel) from the Config types")]
+gen-config-schema DOC:
+    cargo run -q -p glimpse-config --example gen_config_schema {{ DOC }} > data/{{ DOC }}.schema.json
 
-[doc("regenerate data/config.commented.toml, the seed installed into ~/.config/glimpse")]
-gen-config-commented:
-    cargo run -q -p glimpse-config --example gen_config_commented > data/config.commented.toml
+[doc("regenerate data/DOC.commented.toml (DOC is config or panel), the reference shipped beside the schema")]
+gen-config-commented DOC:
+    cargo run -q -p glimpse-config --example gen_config_commented {{ DOC }} > data/{{ DOC }}.commented.toml
 
 [doc("headless tests")]
 test:

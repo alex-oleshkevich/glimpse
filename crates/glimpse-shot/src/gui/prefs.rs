@@ -19,20 +19,20 @@ const NIRI_BINDS: &str = "Print       { spawn \"glimpse-shot\" \"--screen\"; }\n
 struct Prefs {
     dialog: ShotPreferences,
     fields: ShotPreferencesFields,
-    path: Option<PathBuf>,
+    path: PathBuf,
     pending: RefCell<toml_edit::Table>,
     timer: RefCell<Option<glib::SourceId>>,
     frozen: Cell<bool>,
 }
 
-pub fn present(parent: &impl IsA<gtk4::Widget>, config_path: Option<&Path>) {
-    build(config_path).present(Some(parent));
+pub fn present(parent: &impl IsA<gtk4::Widget>, target: Option<&Path>) {
+    build(target).present(Some(parent));
 }
 
-fn build(config_path: Option<&Path>) -> ShotPreferences {
-    let path = glimpse_config::screenshot_file(config_path);
-    let loaded = glimpse_config::load(config_path);
-    let unparsed = path.as_deref().is_some_and(|path| !parses(path));
+fn build(target: Option<&Path>) -> ShotPreferences {
+    let path = target.map(Path::to_path_buf).unwrap_or_default();
+    let loaded = glimpse_config::load(glimpse_config::Documents::Config);
+    let locked = target.is_none() || !parses(&path) || !writable(&path);
     let invalid = loaded.is_err();
     let config = loaded.map(|config| config.screenshot).unwrap_or_default();
 
@@ -47,7 +47,7 @@ fn build(config_path: Option<&Path>) -> ShotPreferences {
         frozen: Cell::new(false),
     });
     prefs.build(&config);
-    if unparsed || invalid {
+    if locked || invalid {
         prefs.read_only();
     }
     let kept = RefCell::new(Some(prefs));
@@ -62,6 +62,13 @@ fn build(config_path: Option<&Path>) -> ShotPreferences {
 fn parses(path: &Path) -> bool {
     match std::fs::read_to_string(path) {
         Ok(text) => text.parse::<toml_edit::DocumentMut>().is_ok(),
+        Err(error) => error.kind() == std::io::ErrorKind::NotFound,
+    }
+}
+
+fn writable(path: &Path) -> bool {
+    match std::fs::OpenOptions::new().append(true).open(path) {
+        Ok(_) => true,
         Err(error) => error.kind() == std::io::ErrorKind::NotFound,
     }
 }
@@ -227,14 +234,11 @@ impl Prefs {
         let path = self.path.clone();
         let dialog = self.dialog.clone();
         banner.connect_button_clicked(move |_| {
-            let Some(path) = &path else {
-                return;
-            };
             let root = dialog.root();
             let window = root
                 .as_ref()
                 .and_then(|root| root.downcast_ref::<gtk4::Window>());
-            gtk4::FileLauncher::new(Some(&gio::File::for_path(path))).launch(
+            gtk4::FileLauncher::new(Some(&gio::File::for_path(&path))).launch(
                 window,
                 None::<&gio::Cancellable>,
                 |opened| {
@@ -280,10 +284,7 @@ impl Prefs {
         if let Some(timer) = self.timer.take() {
             timer.remove();
         }
-        let Some(path) = &self.path else {
-            return;
-        };
-        match flush(path, &self.pending) {
+        match flush(&self.path, &self.pending) {
             Ok(()) => {}
             Err(error @ ConfigError::Parse { .. }) => {
                 tracing::warn!("{error}");

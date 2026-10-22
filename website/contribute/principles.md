@@ -4,15 +4,17 @@ A short list of rules decides most design questions in glimpse. They are stated 
 one exists, because a rule without its reason gets "improved" away by the next person who does not know
 what it was holding up.
 
-## One config file
+## One configuration
 
-All of glimpse reads one document, `config.toml`, with one top-level table per owner: one per service,
-plus the panel, wallpaper and lock tables. A binary acts on the tables it owns plus the shared `[appearance]` and
+All of glimpse reads one configuration, `config.toml`, with one top-level table per owner: one per
+service, plus the wallpaper and lock tables. The panel layout, `[[panels]]` and `[applets]`, is the
+one exception: it lives in `panel.toml` and `panel.d/`, and only the panel and `glimpsectl` read it, so a typo in the layout
+never sends a daemon back to its defaults. A binary acts on the tables it owns plus the shared `[appearance]` and
 `[regional]` tables. One cross-owner read exists: while the lock background names neither image, the
 locker inherits the wallpaper images, because a lock screen that differs from the desktop by default
 reads as a bug.
 
-One file means one place for a user to look, one merge and validation path, and no process acting as a
+One configuration means one place for a user to look, one merge and validation path, and no process acting as a
 configuration broker that every other process must ask. Stylesheets stay separate files beside it, since CSS is not configuration
 in the same sense, and commands that change state at runtime (forcing a night-light mode, for instance)
 never write back into the document: the file says what the user asked for, not what happened to be in

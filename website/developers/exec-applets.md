@@ -6,7 +6,7 @@ This page follows one applet from your config to the screen. The message format 
 
 ```mermaid
 sequenceDiagram
-    participant C as config.toml
+    participant C as panel.toml
     participant P as glimpse-panel
     participant S as systemd
     participant A as Applet

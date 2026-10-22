@@ -36,7 +36,7 @@ function usePersistentState<T>(key: string, initial: T): [T, (action: T | ((prev
 ```
 
 - `useState` and `useEffect` are React's.
-- `useOptions` returns the current options, which update without a restart. The type parameter is a cast, not validation.
+- `useOptions` returns the current options. The type parameter is a cast, not validation.
 - `usePlacement` returns `null` until the panel sends the placement.
 - `usePopover` tells whether the popover is open, and `close` closes it. `close` is the same function on every render.
 - `useAppletName` returns this configured instance's name.

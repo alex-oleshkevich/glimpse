@@ -4,8 +4,8 @@ A second clock is a new applet that extends the built-in one with its own timezo
 
 ## Add the second clock
 
-Define an applet under `[applets.<name>]` with `extends = "clock"` and the IANA zone it should read,
-then put its name in a zone:
+In `~/.config/glimpse/panel.toml`, define an applet under `[applets.<name>]` with `extends = "clock"`
+and the IANA zone it should read, then put its name in a zone:
 
 ```toml
 [applets.tokyo]

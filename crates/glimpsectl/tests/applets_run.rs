@@ -68,7 +68,7 @@ async fn restart_explicitly_restarts_the_systemd_unit() -> Result<()> {
     let output = tokio::time::timeout(
         Duration::from_secs(8),
         tokio::process::Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
-            .args(["applets", "restart", ID])
+            .args(["applet", "restart", ID])
             .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
             .output(),
     )
@@ -291,7 +291,7 @@ impl Harness {
         }
         let mut command = Command::new(env!("CARGO_BIN_EXE_glimpsectl"));
         command
-            .args(["applets", "run"])
+            .args(["applet", "run"])
             .arg(&applet)
             .args(setup.extra)
             .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
@@ -512,7 +512,7 @@ async fn attach_carries_the_selection_options_env_and_stderr() -> Result<()> {
     let mut h = Harness::start(Setup {
         config: Some("options = { one = 1 }\nenv = { A = \"1\", B = \"2\" }\n"),
         extra: &[
-            "--panel", "2", "--output", "DP-1", "--zone", "left", "--env", "B=3", "--env", "C=4",
+            "--bar", "2", "--output", "DP-1", "--zone", "left", "--env", "B=3", "--env", "C=4",
         ],
         ..Setup::default()
     })

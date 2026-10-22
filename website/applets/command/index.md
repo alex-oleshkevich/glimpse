@@ -4,7 +4,7 @@ Add a camera button to your panel, then use it to select a region for a screensh
 
 ## 1. Define the button
 
-Open your glimpse `config.toml` in an editor. Add this top-level applet table:
+Open your glimpse `panel.toml` in an editor. Add this top-level applet table:
 
 ```toml
 [applets.screenshot]

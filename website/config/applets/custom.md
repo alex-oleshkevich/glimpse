@@ -1,6 +1,6 @@
 # Command and exec applets
 
-These are the two kinds of applet you define yourself.
+These are the two kinds of applet you define yourself, in `panel.toml`.
 
 ## command
 

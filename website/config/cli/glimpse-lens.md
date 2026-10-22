@@ -11,6 +11,7 @@ Options:
       --tool <TOOL>          Pick a color or measure distances instead of magnifying only. [possible values: picker, ruler]
       --format <FORMAT>      Print the picked color in this notation instead of hex; requires --tool picker.
       --json                 Print the picked color as one JSON object; requires --tool picker.
+      --copy                 Copy the result to the clipboard through the panel; requires --tool.
       --radius <PIXELS>      The lens radius in logical pixels. [default: 180]
       --zoom <TIMES>         The initial magnification. [default: 3]
       --log-format <FORMAT>  Select the log output format (plain text or JSON). [default: plain] [possible values: plain, json]

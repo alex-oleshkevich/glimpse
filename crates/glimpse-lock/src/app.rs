@@ -1,6 +1,5 @@
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,8 +8,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use glimpse_config::{
-    Config, DARK_STYLESHEET, LOCK_STYLESHEET, Remember, stylesheet, user_dark_stylesheet,
-    user_stylesheet, watch_config_reporting, watch_theme,
+    Config, Documents, LOCK_STYLESHEET, Reload, Remember, Theme, watch_config, watch_theme,
 };
 use glimpse_dbus::Buses;
 use glimpse_dbus::accounts::{AccountsProxy, AccountsUserProxy};
@@ -25,11 +23,11 @@ use glimpse_services::{
     MprisPlayers, Network, NetworkDependencies, NetworkState, PlayerAction, Running,
 };
 use glimpse_widgets::SessionActionState;
+use glimpse_widgets::Styles;
 use glimpse_widgets::TransportAction;
 use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::color_scheme;
 use glimpse_widgets::raster::{self, Raster};
-use glimpse_widgets::{Sheets, Styles};
 use gtk4::prelude::{
     ApplicationExt, Cast, CastNone, DisplayExt, GskRendererExt, GtkWindowExt, ListModelExt,
     MonitorExt, TextureExt, WidgetExt,
@@ -57,7 +55,7 @@ const ACCOUNTS_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct AppInit {
     pub config: Config,
     pub pam_service: auth::Service,
-    pub config_path: Option<PathBuf>,
+    pub theme: Theme,
     pub standalone: bool,
     pub cant_verify: bool,
     pub user: Option<String>,
@@ -69,7 +67,7 @@ pub struct AppInit {
 pub enum AppInput {
     ConfigChanged(Config),
     ConfigVerdict(Result<(), String>),
-    ThemeChanged,
+    Theme(Reload<Theme>),
     Start {
         locked_hint: bool,
         sleep_wait: Duration,
@@ -106,7 +104,7 @@ impl std::fmt::Debug for AppInput {
         let name = match self {
             Self::ConfigChanged(_) => "ConfigChanged",
             Self::ConfigVerdict(_) => "ConfigVerdict",
-            Self::ThemeChanged => "ThemeChanged",
+            Self::Theme(_) => "Theme",
             Self::Start { .. } => "Start",
             Self::Lifecycle(_) => "Lifecycle",
             Self::FocusedOutput(_) => "FocusedOutput",
@@ -136,6 +134,7 @@ pub struct App {
     actions: ComponentActions,
     _name_owner: Option<gio::OwnerId>,
     config: Config,
+    theme: Theme,
     theme_watch: JoinHandle<()>,
     styles: Styles,
     machine: Lifecycle,
@@ -188,19 +187,18 @@ impl SimpleComponent for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
+        let theme_watch = spawn_theme_watch(
+            &init.config.appearance.theme,
+            init.theme.clone(),
+            sender.clone(),
+        );
         let actions = ComponentActions::install(
             &relm4::main_application(),
             crate::cli::build::PKG_VERSION,
             init.failure.clone().map_or(Ok(()), Err),
         );
         let name_owner = own_app_name();
-        spawn_config_watch(
-            init.config_path,
-            init.config.clone(),
-            init.failure,
-            sender.clone(),
-        );
+        spawn_config_watch(init.config.clone(), init.failure, sender.clone());
         spawn_display_name(sender.clone());
         watch_outputs(&sender);
         adw::StyleManager::default().connect_dark_notify({
@@ -258,6 +256,7 @@ impl SimpleComponent for App {
             actions,
             _name_owner: name_owner,
             config: init.config,
+            theme: init.theme,
             theme_watch,
             styles,
             machine,
@@ -342,12 +341,21 @@ impl SimpleComponent for App {
                 self.restage();
                 if renamed {
                     self.theme_watch.abort();
-                    self.theme_watch =
-                        spawn_theme_watch(&self.config.appearance.theme, sender.clone());
-                    self.reload_styles();
+                    self.theme_watch = spawn_theme_watch(
+                        &self.config.appearance.theme,
+                        self.theme.clone(),
+                        sender.clone(),
+                    );
                 }
             }
-            AppInput::ThemeChanged => self.reload_styles(),
+            AppInput::Theme(Reload::Changed(theme)) => {
+                self.theme = theme;
+                self.reload_styles();
+            }
+            AppInput::Theme(Reload::Recovered) => tracing::info!("theme recovered"),
+            AppInput::Theme(Reload::Rejected(reason)) => {
+                tracing::warn!(%reason, "theme rejected");
+            }
             AppInput::Start {
                 locked_hint,
                 sleep_wait,
@@ -745,12 +753,7 @@ impl App {
 
     fn reload_styles(&self) {
         let appearance = &self.config.appearance;
-        self.styles.load(&Sheets {
-            theme: stylesheet(&appearance.theme, LOCK_STYLESHEET),
-            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
-            dropin: user_stylesheet(),
-            dropin_dark: user_dark_stylesheet(),
-        });
+        self.styles.load(&self.theme);
         self.styles.set_variant(&appearance.theme_variant);
         self.styles.set_animation_speed(appearance.animation_speed);
     }
@@ -929,30 +932,28 @@ fn focused_output(state: &CompositorState) -> Option<Option<String>> {
     )
 }
 
-fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
-    let themes = watch_theme(theme);
+fn spawn_theme_watch(theme: &str, current: Theme, sender: ComponentSender<App>) -> JoinHandle<()> {
+    let themes = watch_theme(theme, LOCK_STYLESHEET, current);
     relm4::spawn(async move {
         let mut themes = Box::pin(themes);
-        while themes.next().await.is_some() {
-            sender.input(AppInput::ThemeChanged);
+        while let Some(reload) = themes.next().await {
+            sender.input(AppInput::Theme(reload));
         }
     })
 }
 
-fn spawn_config_watch(
-    path: Option<PathBuf>,
-    current: Config,
-    failure: Option<String>,
-    sender: ComponentSender<App>,
-) {
+fn spawn_config_watch(current: Config, failure: Option<String>, sender: ComponentSender<App>) {
     relm4::spawn(async move {
-        let mut configs = Box::pin(watch_config_reporting(path, current, failure));
-        while let Some(reloaded) = configs.next().await {
-            let verdict = reloaded.as_ref().map(|_| ()).map_err(Clone::clone);
-            if let Ok(Some(config)) = reloaded {
-                sender.input(AppInput::ConfigChanged(config));
+        let mut configs = Box::pin(watch_config(Documents::Config, current, failure));
+        while let Some(reload) = configs.next().await {
+            match reload {
+                Reload::Changed(config) => {
+                    sender.input(AppInput::ConfigChanged(config));
+                    sender.input(AppInput::ConfigVerdict(Ok(())));
+                }
+                Reload::Recovered => sender.input(AppInput::ConfigVerdict(Ok(()))),
+                Reload::Rejected(reason) => sender.input(AppInput::ConfigVerdict(Err(reason))),
             }
-            sender.input(AppInput::ConfigVerdict(verdict));
         }
     });
 }

@@ -123,8 +123,8 @@ def escape_text(value: str) -> str:
 
 
 def default_config_path() -> Path:
-    if config_path := os.environ.get("GLIMPSE_CONFIG_PATH"):
-        return Path(config_path).expanduser()
+    if config_dir := os.environ.get("GLIMPSE_CONFIG_DIR"):
+        return Path(config_dir).expanduser() / "config.toml"
 
     local_config = Path("config.toml")
     if local_config.exists():

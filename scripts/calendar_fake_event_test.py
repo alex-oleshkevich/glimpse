@@ -26,7 +26,7 @@ class CalendarFakeEventTest(unittest.TestCase):
             old_env = os.environ.copy()
             old_cwd = Path.cwd()
             try:
-                os.environ.pop("GLIMPSE_CONFIG_PATH", None)
+                os.environ.pop("GLIMPSE_CONFIG_DIR", None)
                 os.environ["HOME"] = home
                 os.environ["XDG_CONFIG_HOME"] = xdg
                 os.chdir(cwd)

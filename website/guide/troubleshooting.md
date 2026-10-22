@@ -61,9 +61,10 @@ glimpsectl config validate
 ```
 
 Validation reports the key that is wrong, plus the file and line for a syntax error.
-`glimpsectl config path` lists every file in the order they apply, whether it exists or not.
+`glimpsectl config path` lists the files in the order they apply: `config.toml` and `panel.toml` whether or not they exist, `panel.d` files only when they do.
 Unknown keys are refused, so a misspelled key fails
-validation instead of being silently ignored. If the file fails to load at startup, idle
+validation instead of being silently ignored. Only the panel reads `panel.toml`, so a mistake there
+leaves the other programs alone. If `config.toml` fails to load at startup, idle
 timers and the night light stay off until it is fixed and everything else uses its defaults. A broken
 save made while glimpse runs is not applied, and the previous configuration keeps running. Either way
 the panel posts one notification.

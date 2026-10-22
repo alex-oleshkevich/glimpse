@@ -38,18 +38,7 @@ pub fn layout_code(layout: &str) -> String {
 /// more than the one file open it saves.
 fn table() -> &'static Codes {
     static TABLE: OnceLock<Codes> = OnceLock::new();
-    TABLE.get_or_init(|| load(&search_paths()))
-}
-
-/// The user's copy wins over the installed one, so a layout this table names badly can be corrected
-/// without touching the package.
-fn search_paths() -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-    if let Some(dir) = glimpse_config::user_dir() {
-        paths.push(dir.join(FILE));
-    }
-    paths.push(Path::new(glimpse_config::DATA_DIR).join(FILE));
-    paths
+    TABLE.get_or_init(|| load(&Vec::from_iter(glimpse_config::find(Path::new(FILE)))))
 }
 
 fn load(paths: &[PathBuf]) -> Codes {

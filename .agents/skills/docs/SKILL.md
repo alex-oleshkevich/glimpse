@@ -87,7 +87,7 @@ after it is read in the source. If it cannot be confirmed, it is left out.
 
 | Fact | Source |
 | --- | --- |
-| Settings, defaults, ranges, descriptions | `data/config.schema.json`, `crates/glimpse-config/src/schema/` |
+| Settings, defaults, ranges, descriptions | `data/config.schema.json` (`config.toml`), `data/panel.schema.json` (`panel.toml`), `crates/glimpse-config/src/schema/` |
 | Commands and flags | `target/debug/<binary> --help`, the generated `website/config/cli/*.md` |
 | Installed files, units, bus names, portals, PAM, GeoClue | `scripts/install.sh`, `scripts/glimpse-paths.sh`, `data/`; every file there is on `/developers/files` |
 | Design rules | the crate `README.md` files |
@@ -95,8 +95,9 @@ after it is read in the source. If it cannot be confirmed, it is left out.
 | UI strings the reader will see | the `_("…")` strings in the UI crates |
 
 Validate every complete TOML sample:
-`env -u GLIMPSE_CONFIG_PATH target/debug/glimpsectl config validate <file>`. A fragment is validated
-assembled into the file it belongs to.
+`env -u GLIMPSE_CONFIG_DIR target/debug/glimpsectl config validate <file>`; a file is checked by
+name, so `panel.toml` owns `[[panels]]` and `[applets]` and `config.toml` owns every other table. A
+fragment is validated assembled into the file it belongs to.
 
 Never use `_old/` or `var/glimpse2` as a source.
 

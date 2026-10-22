@@ -477,9 +477,10 @@ def zone(names: list[str]) -> str:
     return "[" + ", ".join(f'"{name}"' for name in names) + "]"
 
 
-def glimpse_config(path: Path, scheme: str, work: Path, personal: Path, layout: dict,
+def glimpse_config(config_dir: Path, scheme: str, work: Path, personal: Path, layout: dict,
                    motion=False):
-    path.write_text(f"""#:schema none
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.toml").write_text(f"""#:schema none
 [appearance]
 color-scheme = "{scheme}"
 desktop-color-scheme = "external"
@@ -510,7 +511,8 @@ sources = [
     {{ id = "work", name = "Work", type = "directory", uri = "{work}", color = "#3584e4" }},
     {{ id = "personal", name = "Personal", type = "directory", uri = "{personal}", color = "#e66100" }},
 ]
-
+""")
+    (config_dir / "panel.toml").write_text(f"""#:schema none
 [[panels]]
 position = "{layout["position"]}"
 size = {PANEL_HEIGHT}
@@ -615,10 +617,10 @@ def open_each(env, ctl, base, bar, shots: Path, tag: str, applets: list[str]):
             yield applet, shot, box
 
 
-def panel_session(env, scheme: str, layout: dict, config: Path, scratch: Path, work, personal):
-    glimpse_config(config, scheme, work, personal, layout)
+def panel_session(env, scheme: str, layout: dict, config_dir: Path, scratch: Path, work, personal):
+    glimpse_config(config_dir, scheme, work, personal, layout)
     app_id = f"me.aresa.Glimpse.Docs{scheme.title()}{layout['position'].title()}"
-    panel = spawn([BIN / "glimpse-panel", "--config", config],
+    panel = spawn([BIN / "glimpse-panel", "--config-dir", config_dir],
                   dict(env, GLIMPSE_PANEL_APP_ID=app_id),
                   scratch / f"panel-{scheme}-{layout['position']}.log")
     time.sleep(7)
@@ -633,10 +635,10 @@ def panel_session(env, scheme: str, layout: dict, config: Path, scratch: Path, w
     return panel, base, bar, ctl, shots, tag
 
 
-def popovers(env, scheme, config, scratch, work, personal):
+def popovers(env, scheme, config_dir, scratch, work, personal):
     layout = {"position": "bottom", "left": [], "center": APPLETS, "right": [],
               "wallpaper": scratch / "sky.jpg"}
-    panel, base, bar, ctl, shots, tag = panel_session(env, scheme, layout, config, scratch,
+    panel, base, bar, ctl, shots, tag = panel_session(env, scheme, layout, config_dir, scratch,
                                                       work, personal)
     try:
         for applet, shot, box in open_each(env, ctl, base, bar, shots, tag, APPLETS):
@@ -651,10 +653,10 @@ def popovers(env, scheme, config, scratch, work, personal):
         panel.wait(10)
 
 
-def frames(env, scheme, config, scratch, work, personal, results: dict):
+def frames(env, scheme, config_dir, scratch, work, personal, results: dict):
     wanted = [name for names in COLLAGES.values() for name in names]
     layout = dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER)
-    panel, base, bar, ctl, shots, tag = panel_session(env, scheme, layout, config,
+    panel, base, bar, ctl, shots, tag = panel_session(env, scheme, layout, config_dir,
                                                       scratch, work, personal)
     try:
         results[f"base-{scheme}"] = base
@@ -715,14 +717,14 @@ def collage(results: dict, scheme: str, title: str, names: list[str]):
     print(f"  collage: {target.relative_to(REPO)} {canvas.width}x{canvas.height}")
 
 
-def video(env, config: Path, scratch: Path, work: Path, personal: Path):
-    glimpse_config(config, "desktop", work, personal, dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER),
+def video(env, config_dir: Path, scratch: Path, work: Path, personal: Path):
+    glimpse_config(config_dir, "desktop", work, personal, dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER),
                    motion=True)
     app_id = "me.aresa.Glimpse.DocsVideo"
     ctl = dict(env, GLIMPSE_PANEL_APP_ID=app_id)
 
     def glimpsectl(*argv):
-        subprocess.run([BIN / "glimpsectl", "--config", config, *argv], env=ctl,
+        subprocess.run([BIN / "glimpsectl", "--config-dir", config_dir, *argv], env=ctl,
                        capture_output=True)
 
     logical = [size / VIDEO_SCALE for size in VIDEO_WINDOW]
@@ -745,7 +747,7 @@ def video(env, config: Path, scratch: Path, work: Path, personal: Path):
         pointer[:] = [x, y]
 
     glimpsectl("settings", "mode", MODES[0])
-    panel = spawn([BIN / "glimpse-panel", "--config", config], ctl, scratch / "panel-video.log")
+    panel = spawn([BIN / "glimpse-panel", "--config-dir", config_dir], ctl, scratch / "panel-video.log")
     time.sleep(7)
     move(*pointer)
     rewind(env)
@@ -872,7 +874,7 @@ def overlay(env, argv, path: Path, log: Path, steps, crop=None, settle=2.5):
     return shot
 
 
-def ecosystem(env, config, scratch, work, personal):
+def ecosystem(env, config_dir, scratch, work, personal):
     (OUT / "ecosystem").mkdir(parents=True, exist_ok=True)
     shots = scratch / "shots"
     shots.mkdir(exist_ok=True)
@@ -896,10 +898,10 @@ def ecosystem(env, config, scratch, work, personal):
         print(f"  {target.relative_to(REPO)}")
     layout = dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER)
     for scheme in ["light", "dark"]:
-        glimpse_config(config, scheme, work, personal, layout)
+        glimpse_config(config_dir, scheme, work, personal, layout)
         app_id = f"me.aresa.Glimpse.DocsShot{scheme.title()}"
         ctl = dict(env, GLIMPSE_PANEL_APP_ID=app_id)
-        panel = spawn([BIN / "glimpse-panel", "--config", config], ctl,
+        panel = spawn([BIN / "glimpse-panel", "--config-dir", config_dir], ctl,
                       scratch / f"panel-shot-{scheme}.log")
         time.sleep(7)
         try:
@@ -909,7 +911,7 @@ def ecosystem(env, config, scratch, work, personal):
             ratio = capture(env, shots / f"shot-base-{scheme}.png").width / SCREENSHOT_WINDOW[0]
             marks = scratch / "marks.json"
             marks.write_text(json.dumps(scaled(SHOT_MARKS, ratio)))
-            shot = overlay(env, [BIN / "glimpse-shot", "--config", config, "--screen",
+            shot = overlay(env, [BIN / "glimpse-shot", "--config-dir", config_dir, "--screen",
                                  "--annotate", marks, "--no-flash", "--no-notify"],
                            shots / f"shot-{scheme}.png", scratch / f"shot-{scheme}.log", [],
                            settle=6)
@@ -1003,17 +1005,15 @@ def main():
             portal(env, scratch)
         print("desktop")
         config_dir = scratch / "config"
-        config_dir.mkdir()
-        config = config_dir / "config.toml"
         Image.open(WALLPAPER).transpose(Image.Transpose.FLIP_TOP_BOTTOM).save(scratch / "sky.jpg",
                                                                              quality=95)
-        glimpse_config(config, "light", work, personal, dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER))
-        spawn([BIN / "glimpse-wallpaper", "--config", config], env, scratch / "wallpaper.log")
-        spawn([BIN / "glimpse-notifications", "--config", config], env,
+        glimpse_config(config_dir, "light", work, personal, dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER))
+        spawn([BIN / "glimpse-wallpaper", "--config-dir", config_dir], env, scratch / "wallpaper.log")
+        spawn([BIN / "glimpse-notifications", "--config-dir", config_dir], env,
               scratch / "notifications.log")
-        spawn([BIN / "glimpse-weather", "--config", config], env, scratch / "weather.log")
-        spawn([BIN / "glimpse-idle", "--config", config], env, scratch / "idle.log")
-        spawn([BIN / "glimpse-settings-daemon", "--config", config], env,
+        spawn([BIN / "glimpse-weather", "--config-dir", config_dir], env, scratch / "weather.log")
+        spawn([BIN / "glimpse-idle", "--config-dir", config_dir], env, scratch / "idle.log")
+        spawn([BIN / "glimpse-settings-daemon", "--config-dir", config_dir], env,
               scratch / "settings.log")
         spawn(["uv", "run", "--script", SCRIPTS / "mpris-fake-players.py", "--plain-names"], env,
               scratch / "mpris.log")
@@ -1029,15 +1029,15 @@ def main():
         notifications(env)
         time.sleep(4)
         if recording:
-            video(env, config, scratch, work, personal)
+            video(env, config_dir, scratch, work, personal)
             return
         print("ecosystem")
-        ecosystem(env, config, scratch, work, personal)
+        ecosystem(env, config_dir, scratch, work, personal)
         results: dict = {}
         for scheme in ["light", "dark"]:
             print(scheme)
-            popovers(env, scheme, config, scratch, work, personal)
-            frames(env, scheme, config, scratch, work, personal, results)
+            popovers(env, scheme, config_dir, scratch, work, personal)
+            frames(env, scheme, config_dir, scratch, work, personal, results)
         for scheme in ["light", "dark"]:
             for title, names in COLLAGES.items():
                 collage(results, scheme, title, names)

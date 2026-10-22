@@ -92,7 +92,7 @@ typed enums. Handlers take a closure returning a message: `.on_toggle(Msg::Done)
 pub struct Ctx {
     pub name: String,                     // this instance's name in the config
     pub state_dir: String,                // a directory for your files, mode 0700
-    pub options: serde_json::Value,       // the config's options; updates without a restart
+    pub options: serde_json::Value,       // the config's options
     pub placement: Option<serde_json::Value>, // output, position, orientation, zone, size
     pub popover_open: bool,               // whether the popover is showing
     pub entry: Option<AppletEntry>,       // the desktop entry

@@ -47,7 +47,6 @@ pub struct Setup {
     pub output: Option<PathBuf>,
     pub scale: ScaleMode,
     pub config: ScreenshotConfig,
-    pub config_path: Option<PathBuf>,
     pub prompt: Option<String>,
     pub timeout: Option<u32>,
 }
@@ -111,9 +110,7 @@ pub fn open(
     let face = Rc::new(ResultFace {
         app: app.clone(),
         window,
-        clipboard: HoldClipboard {
-            config: setup.config_path.clone(),
-        },
+        clipboard: HoldClipboard,
         setup,
         page,
         picture,

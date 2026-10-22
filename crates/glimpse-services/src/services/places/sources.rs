@@ -160,7 +160,7 @@ async fn trash(trash_files: PathBuf) -> Event {
 }
 
 fn follow(dir: &Path, depth: usize) -> impl Stream<Item = Update> + Send + 'static {
-    glimpse_config::watch_all(
+    glimpse_config::watch_dirs(
         dir.ancestors()
             .take(depth)
             .map(Path::to_path_buf)
@@ -174,7 +174,7 @@ fn unwatched(reason: String) -> String {
 
 pub(crate) fn xdg_source(config_dir: PathBuf, home: PathBuf) -> BoxStream<'static, Event> {
     let leading = stream::once(xdg(config_dir.clone(), home.clone()));
-    let changes = glimpse_config::watch(config_dir.clone()).then(move |update| {
+    let changes = glimpse_config::watch_dirs([config_dir.clone()]).then(move |update| {
         let config_dir = config_dir.clone();
         let home = home.clone();
         async move {

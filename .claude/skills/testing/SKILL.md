@@ -70,19 +70,22 @@ rather than by starting its producer. A service's interface is its own `State`, 
 
 ## Never test against the live configuration
 
-`~/.config/glimpse/config.toml` is the user's own. Point every run at a scratch file:
+`~/.config/glimpse` is the user's own. Point every run at a scratch directory and a temporary
+`XDG_CONFIG_HOME`:
 
 ```bash
-glimpse-panel --config "$SCRATCH/config.toml"  # replaces the whole stack, drop-ins included
-HOME="$SCRATCH/home" glimpse-panel            # a fake home, when drop-ins are the thing under test
+XDG_CONFIG_HOME="$SCRATCH/home/.config" glimpse-panel --config-dir "$SCRATCH/cfg"
 ```
 
-`--config` watches that file's _parent directory_, so redirecting the daemon's log into it makes
-every line an event that triggers another read — a closed loop at `DEBOUNCE` that looks exactly like
-a watcher retrying. Send the log somewhere else.
+`--config-dir` stacks `config.toml` and `panel.toml` above the user's, and every write lands in it.
+The watch covers that directory, so redirecting the daemon's log into it makes every line an event
+and a reread. Send the log somewhere else.
 
-`GLIMPSE_THEMES_DIR` and `GLIMPSE_THEME` redirect themes separately, because stylesheet resolution
-runs through `user_dir()` rather than through the configuration stack.
+Unit tests never reach `roots()`: they load explicit paths through `load_files`. `/etc/glimpse`
+cannot be isolated by the environment, so an integration test may see it.
+
+`GLIMPSE_THEMES_DIR` and `GLIMPSE_THEME` redirect themes; otherwise themes resolve through the same
+roots as the configuration.
 
 ## The mutation check
 

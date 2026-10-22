@@ -5,7 +5,7 @@ with different settings. Every key is in the [exec settings reference](/config/a
 
 ## Place it on a bar
 
-Add the applet's desktop-file id to a zone of a panel:
+Add the applet's desktop-file id to a zone of a panel in `~/.config/glimpse/panel.toml`:
 
 ```toml
 [[panels]]
@@ -24,7 +24,7 @@ A table named by the same id holds the options. The applet receives them as a JS
 options = { title = "Groceries" }
 ```
 
-Changing `options` sends them to the running applet; it does not restart. The applet reads them with
+Changing `options` restarts the applet with the new values. The applet reads them with
 `useOptions()` in TypeScript, `ctx.options` in Python and Rust, and `ctx.Options` in Go.
 
 ## Set environment variables

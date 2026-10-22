@@ -42,8 +42,8 @@ reloads share one result type.
    bound and the exec service are untouched.
 2. **Each file owns its tables.** `[[panels]]`/`[applets]` in a `config.toml` stack file, or any
    other table in a `panel.toml`/`panel.d` file, fails the load with a schema error naming the
-   owning file. A `config.toml` still holding `[[panels]]` therefore fails to load in every
-   binary until the user moves those tables; `website/start/upgrade.md` says so.
+   owning file.
+   Spec correction: first release, so there is no upgrade page; website/start/upgrade.md was removed.
 3. **Root stack, highest first:** `--config-dir` / `GLIMPSE_CONFIG_DIR`, then
    `$XDG_CONFIG_HOME/glimpse`, then `/etc/glimpse`. Config merges every root lowest first. Themes,
    `styles.css`, `dark.css` and wallpaper images take the first hit, with `DATA_DIR` appended as the
@@ -224,7 +224,7 @@ AC-10 As a maintainer, I want no compatibility code left.
 - `docs/live-testing.md`, `docs/handbook.md`, `.claude/skills/testing`, `.claude/skills/live-testing`,
   the READMEs of `glimpse-settings-daemon`, `glimpse-shot`, `glimpse-utils`, `glimpse-weather`, and
   the scripts using `--config`: replace the flag.
-- `website/config/`: the file layout page; `website/start/upgrade.md`; every website page that puts
+- `website/config/`: the file layout page; every website page that puts
   `[[panels]]`/`[applets]` in `config.toml`; `website/guide/theming.md` (roots, relative `url()`).
 - Packaging, CI, install script, website schema loader and the translation template: glimpse-3opwd.14.
 

@@ -602,31 +602,38 @@ fn screenshot_binary_desktop_entry_and_service_reach_every_package() {
 }
 
 #[test]
-fn every_install_route_ships_the_commented_reference() {
+fn every_install_route_ships_the_six_config_references() {
     let root = workspace_root();
-    assert!(root.join("data/config.commented.toml").is_file());
+    let files: Vec<String> = ["config", "panel"]
+        .iter()
+        .flat_map(|doc| {
+            ["default.toml", "commented.toml", "schema.json"].map(|kind| format!("{doc}.{kind}"))
+        })
+        .collect();
 
-    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
-        let text = fs::read_to_string(root.join(script)).expect(script);
-        assert!(text.contains("data/config.commented.toml"), "{script}");
-        assert!(
-            text.contains("usr/share/glimpse/config.commented.toml")
-                || text.contains("$sharedir/config.commented.toml"),
-            "{script}"
-        );
-    }
-
-    let manifest = manifest(&root);
-    for kind in ["deb", "generate-rpm"] {
-        assert!(
-            assets(&manifest, kind)
-                .iter()
-                .any(
-                    |(source, destination)| source.ends_with("data/config.commented.toml")
-                        && destination.contains("usr/share/glimpse")
-                ),
-            "{kind}"
-        );
+    for file in &files {
+        assert!(root.join("data").join(file).is_file(), "{file}");
+        for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+            let text = fs::read_to_string(root.join(script)).expect(script);
+            assert!(text.contains(&format!("data/{file}")), "{script} {file}");
+            assert!(
+                text.contains(&format!("usr/share/glimpse/{file}"))
+                    || text.contains(&format!("$sharedir/{file}")),
+                "{script} {file}"
+            );
+        }
+        let manifest = manifest(&root);
+        for kind in ["deb", "generate-rpm"] {
+            assert!(
+                assets(&manifest, kind)
+                    .iter()
+                    .any(
+                        |(source, destination)| source.ends_with(&format!("data/{file}"))
+                            && destination.contains("usr/share/glimpse")
+                    ),
+                "{kind} {file}"
+            );
+        }
     }
 }
 
@@ -686,12 +693,13 @@ fn every_install_route_ships_the_applet_templates_and_nothing_else_of_the_sdk() 
 }
 
 #[test]
-fn the_seeded_user_config_is_the_commented_copy_and_not_the_defaults() {
+fn the_install_script_seeds_no_user_config() {
     let install = fs::read_to_string(workspace_root().join("scripts/install.sh"))
         .expect("the install script");
 
-    assert!(install.contains("install -m644 data/config.commented.toml \"$config\""));
-    assert!(!install.contains("install -m644 data/config.default.toml \"$config\""));
+    for needle in ["seed_user_config", "XDG_CONFIG_HOME", "SUDO_USER", "$HOME"] {
+        assert!(!install.contains(needle), "{needle}");
+    }
 }
 
 #[test]

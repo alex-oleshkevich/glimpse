@@ -1,7 +1,7 @@
 use clap::CommandFactory;
 use glimpsectl::cli::{
-    AppletCommand, AppletLanguage, AppletsCommand, Cli, Command, ConfigCommand, Mode,
-    SunsetCommand, duration, temperature,
+    AppletCommand, AppletLanguage, Cli, Command, ConfigCommand, Mode, NightLightCommand, duration,
+    temperature,
 };
 
 #[test]
@@ -17,25 +17,9 @@ fn a_missing_subcommand_is_a_usage_error() {
 
 #[test]
 fn json_is_accepted_after_the_subcommand() {
-    let cli = Cli::try_parse_from(["glimpsectl", "sunset", "status", "--json"])
+    let cli = Cli::try_parse_from(["glimpsectl", "night-light", "status", "--json"])
         .expect("a global flag follows its subcommand");
     assert!(cli.json);
-}
-
-#[test]
-fn settings_accepts_status_two_modes_and_resume() {
-    for args in [
-        vec!["status", "--json"],
-        vec!["mode", "light"],
-        vec!["mode", "dark"],
-        vec!["resume"],
-    ] {
-        let cli = Cli::try_parse_from(["glimpsectl", "settings"].into_iter().chain(args)).unwrap();
-        assert!(cli.command.needs_session_bus());
-    }
-    for mode in ["auto", "system", "schedule"] {
-        assert!(Cli::try_parse_from(["glimpsectl", "settings", "mode", mode]).is_err());
-    }
 }
 
 #[test]
@@ -46,11 +30,31 @@ fn every_mode_spells_itself_the_way_the_document_does() {
 }
 
 #[test]
-fn config_doctor_and_applets_run_without_a_bus() {
+fn config_doctor_and_installed_applets_run_without_a_bus() {
     assert!(!Command::Doctor.needs_session_bus());
     assert!(!Command::Config(ConfigCommand::Path).needs_session_bus());
-    assert!(!Command::Applets(AppletsCommand::List).needs_session_bus());
-    assert!(Command::Sunset(SunsetCommand::Status).needs_session_bus());
+    assert!(
+        !Command::Applet(AppletCommand::List {
+            watch: false,
+            installed: true
+        })
+        .needs_session_bus()
+    );
+    assert!(Command::NightLight(NightLightCommand::Pause).needs_session_bus());
+}
+
+#[test]
+fn deprecated_spellings_are_usage_errors() {
+    for args in [
+        vec!["sunset", "status"],
+        vec!["settings", "status"],
+        vec!["applets", "list"],
+        vec!["applets", "run", "--panel", "2", "foo"],
+        vec!["clipboard", "forget", "1"],
+    ] {
+        let error = Cli::try_parse_from(["glimpsectl"].into_iter().chain(args)).unwrap_err();
+        assert_eq!(error.exit_code(), 2);
+    }
 }
 
 #[test]
@@ -71,7 +75,7 @@ fn session_declare_still_parses() {
 }
 
 fn run(args: &[&str]) -> Result<Cli, clap::Error> {
-    Cli::try_parse_from(["glimpsectl", "applets", "run"].iter().chain(args))
+    Cli::try_parse_from(["glimpsectl", "applet", "run"].iter().chain(args))
 }
 
 #[test]
@@ -84,17 +88,12 @@ fn running_an_applet_needs_no_session_bus() {
 fn new_applets_default_to_typescript_and_accept_every_language() {
     fn language(cli: Cli) -> AppletLanguage {
         match cli.command {
-            Command::Applet(AppletCommand::New(args))
-            | Command::Applets(AppletsCommand::New(args)) => args.language,
+            Command::Applet(AppletCommand::New(args)) => args.language,
             _ => panic!("expected a new applet command"),
         }
     }
     assert_eq!(
         language(Cli::try_parse_from(["glimpsectl", "applet", "new", "--yes"]).unwrap()),
-        AppletLanguage::Ts
-    );
-    assert_eq!(
-        language(Cli::try_parse_from(["glimpsectl", "applets", "new", "--yes"]).unwrap()),
         AppletLanguage::Ts
     );
     for (value, expected) in [
@@ -112,11 +111,8 @@ fn new_applets_default_to_typescript_and_accept_every_language() {
         );
     }
     assert_eq!(
-        language(
-            Cli::try_parse_from(["glimpsectl", "applets", "new", "--language", "go", "--yes",])
-                .unwrap(),
-        ),
-        AppletLanguage::Go
+        language(Cli::try_parse_from(["glimpsectl", "applet", "new", "--yes"]).unwrap()),
+        AppletLanguage::Ts
     );
     let error = Cli::try_parse_from(["glimpsectl", "applet", "new", "--language", "rust", "--yes"])
         .expect_err("only the four template names are accepted");
@@ -160,8 +156,8 @@ fn a_duration_reads_bare_seconds_and_the_three_units() {
 }
 
 #[test]
-fn canonical_commands_and_legacy_adapters_have_distinct_semantics() {
-    use glimpsectl::cli::{AppearanceCommand, AppletCommand, ClipboardCommand, NightLightCommand};
+fn canonical_commands_parse_to_their_variants() {
+    use glimpsectl::cli::AppearanceCommand;
     assert!(matches!(
         Cli::try_parse_from(["glimpsectl", "applet", "list"])
             .unwrap()
@@ -170,12 +166,6 @@ fn canonical_commands_and_legacy_adapters_have_distinct_semantics() {
             installed: false,
             ..
         })
-    ));
-    let old = Cli::try_parse_from(["glimpsectl", "applets", "list"]).unwrap();
-    assert!(old.deprecation().is_some());
-    assert!(matches!(
-        old.command,
-        Command::Applets(AppletsCommand::List)
     ));
     assert!(matches!(
         Cli::try_parse_from(["glimpsectl", "appearance", "set", "dark"])
@@ -200,48 +190,11 @@ fn canonical_commands_and_legacy_adapters_have_distinct_semantics() {
         ])
         .is_err()
     );
-    let old = Cli::try_parse_from(["glimpsectl", "clipboard", "forget", "1"]).unwrap();
-    assert!(old.deprecation().is_some());
-    assert!(matches!(
-        old.command,
-        Command::Clipboard(ClipboardCommand::Forget(_))
-    ));
-    assert!(
-        Cli::try_parse_from(["glimpsectl", "clipboard", "remove", "1"])
-            .unwrap()
-            .deprecation()
-            .is_none()
-    );
+    assert!(Cli::try_parse_from(["glimpsectl", "clipboard", "remove", "1"]).is_ok());
 }
 
 #[test]
-fn global_panel_and_legacy_numeric_panel_do_not_conflict() {
-    for args in [
-        vec![
-            "--panel",
-            "me.test.Panel",
-            "applets",
-            "run",
-            ".",
-            "--panel",
-            "2",
-        ],
-        vec![
-            "applets",
-            "run",
-            ".",
-            "--panel=2",
-            "--panel",
-            "me.test.Panel",
-        ],
-        vec!["applets", "--panel", "me.test.Panel", "run", "--panel", "2"],
-    ] {
-        let cli = Cli::try_parse_from(["glimpsectl"].into_iter().chain(args)).unwrap();
-        assert_eq!(cli.panel_app_id, "me.test.Panel");
-        assert!(
-            matches!(cli.command, Command::Applets(AppletsCommand::Run(args)) if args.panel == 2)
-        );
-    }
+fn global_panel_and_bar_do_not_conflict() {
     let cli = Cli::try_parse_from([
         "glimpsectl",
         "applet",
@@ -253,45 +206,6 @@ fn global_panel_and_legacy_numeric_panel_do_not_conflict() {
     ])
     .unwrap();
     assert_eq!(cli.panel_app_id, "me.test.Panel");
-    assert!(
-        Cli::try_parse_from(["glimpsectl", "applets", "run", "--panel", "999999999999999"])
-            .is_err()
-    );
-}
-
-#[test]
-fn compatibility_normalization_respects_values_and_double_dash() {
-    let cli =
-        Cli::try_parse_from(["glimpsectl", "applets", "run", "--applet-config=--panel=2"]).unwrap();
-    assert!(
-        matches!(cli.command, Command::Applets(AppletsCommand::Run(args)) if args.applet_config == Some("--panel=2".into()) && args.panel == 0)
-    );
-    let cli = Cli::try_parse_from(["glimpsectl", "applets", "run", "--", "--panel=2"]).unwrap();
-    assert!(
-        matches!(cli.command, Command::Applets(AppletsCommand::Run(args)) if args.target == "--panel=2" && args.panel == 0)
-    );
-}
-
-#[test]
-fn all_retained_old_paths_parse_and_warn() {
-    for args in [
-        vec!["sunset", "mode", "automatic"],
-        vec!["sunset", "temperature", "clear"],
-        vec!["settings", "status"],
-        vec!["settings", "mode", "dark"],
-        vec!["settings", "resume"],
-        vec!["applets", "new", "--yes"],
-        vec!["applets", "inspect", "me.test.Applet"],
-        vec!["applets", "restart", "me.test.Applet"],
-        vec!["panel", "--app-id", "me.test.Panel", "applets"],
-        vec!["panel", "click", "DP-1", "clock"],
-        vec!["panel", "scroll", "DP-1", "clock", "down"],
-        vec!["panel", "popover", "open", "DP-1", "clock"],
-        vec!["panel", "popovers", "close"],
-    ] {
-        let cli = Cli::try_parse_from(["glimpsectl"].into_iter().chain(args)).unwrap();
-        assert!(cli.deprecation().is_some());
-    }
 }
 
 #[test]

@@ -15,10 +15,9 @@ flashes or notifies.
 
 <ConfigTable path="screenshot" />
 
-The preferences window saves only the keys you change to `shot.toml`, beside the configuration
-file in use, including one selected with `--config`. Only its `[screenshot]` table is read.
-Its keys override the main configuration one by one; omitted keys keep their configured values.
-Other tables are ignored and preserved when preferences are saved.
+The preferences window saves only the keys you change to the `[screenshot]` table of the top writable `config.toml`:
+the one in your `--config-dir` when you pass one, otherwise `~/.config/glimpse/config.toml`. It shows
+the effective values from every configuration directory and is read-only when that file is not writable. Other tables are preserved when preferences are saved.
 
 The preferences rows correspond to these keys:
 

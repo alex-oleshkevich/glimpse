@@ -14,7 +14,7 @@ Commands:
 
 Options:
       --standalone           Development mode: lock at once without logind, exit after a PAM-authenticated unlock
-  -c, --config <PATH>        Path to the configuration file. [env: GLIMPSE_CONFIG_PATH=]
+      --config-dir <DIR>     Directory stacked above the user configuration. [env: GLIMPSE_CONFIG_DIR=]
       --log-format <FORMAT>  Select the log output format (plain text or JSON). [default: plain] [possible values: plain, json]
       --log <LEVEL>          Set the logging filter (for example, info, debug, or trace). [env: RUST_LOG=] [default: info]
       --color <WHEN>         Controls when to use color [default: auto] [possible values: auto, always, never]

@@ -129,8 +129,8 @@ exit, never by a timeout.
 ## Configuration
 
 `[lock]` (`pam-service`, `prompt-output`), `[lock.background]`, `[lock.clock]`, `[lock.session]`,
-`[lock.media]`, `[lock.notifications]`, `[lock.status]` and `lock.css`; other binaries' tables are ignored, not validated. Reloaded
-through `glimpse_config::watch_config`, and nothing in a reload can unlock. **`pam-service` is read
+`[lock.media]`, `[lock.notifications]`, `[lock.status]` and `lock.css`; other binaries' tables are validated but not used. Reloaded
+from `config.toml` alone through `glimpse_config::watch_config`, and nothing in a reload can unlock. **`pam-service` is read
 once at start and a change to it is logged and ignored until restart** — a same-user process that
 could repoint it mid-lock could otherwise point PAM at a `pam_permit.so` stack and unlock the
 screen. A stylesheet that fails to parse keeps the previous one, which can leave the password entry

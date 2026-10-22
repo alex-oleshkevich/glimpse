@@ -577,14 +577,6 @@ fn joined(problems: Vec<String>) -> Result<(), String> {
 }
 
 pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, clap::Error> {
-    parse_in(args, true)
-}
-
-pub fn parse_forwarded(args: impl IntoIterator<Item = OsString>) -> Result<Cli, clap::Error> {
-    parse_in(args, false)
-}
-
-fn parse_in(args: impl IntoIterator<Item = OsString>, own_env: bool) -> Result<Cli, clap::Error> {
     let args = attach_negative_geometry(args);
     let mut command = Cli::command();
     let matches = match command.try_get_matches_from_mut(args.clone()) {
@@ -603,10 +595,7 @@ fn parse_in(args: impl IntoIterator<Item = OsString>, own_env: bool) -> Result<C
             return Err(editor_only_error(&mut command, &long, name, &args));
         }
     }
-    let mut cli = Cli::from_arg_matches(&matches)?;
-    if !own_env && matches.value_source("config") == Some(ValueSource::EnvVariable) {
-        cli.config.config = None;
-    }
+    let cli = Cli::from_arg_matches(&matches)?;
     if let Some(file) = &cli.gui.file
         && !file
             .extension()

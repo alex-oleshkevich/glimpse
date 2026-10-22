@@ -1,27 +1,15 @@
-use crate::load::DATA_DIR;
+use crate::load::{DATA_DIR, Documents};
 use crate::schema::{Applet, Config, Panel};
 
-pub fn commented_document() -> String {
+pub fn commented_document(documents: Documents) -> String {
+    let name = documents.name();
+    let panel = documents == Documents::ConfigAndPanel;
     let header = format!(
-        "#:schema {DATA_DIR}/config.schema.json\n\
-         # glimpse's configuration. Every setting that ships with a value is here at that value,\n\
-         # and all of them are commented out, so this file changes nothing until you uncomment a\n\
-         # line and edit it. Where the [table] header above a setting is commented out too,\n\
-         # uncomment both — a key on its own lands in whichever table precedes it. A setting with\n\
-         # no default is not listed; the schema named above has the complete set.\n\
-         #\n\
-         # With a TOML language server installed — taplo, or an editor extension built on it such\n\
-         # as \"Even Better TOML\" — the first line above gives you completion for every table and\n\
-         # key, the documentation for each setting on hover, and an error on a value the schema\n\
-         # refuses.\n\
-         #\n\
-         # {DATA_DIR}/config.default.toml is this same document with nothing commented\n\
-         # out, and it is the copy that stays current across upgrades. `[applets.<name>]` below\n\
-         # is every applet the default panel carries, each at its own kind's defaults — an entry\n\
-         # here is always commented, because any applet at all differs from the shipped panel's\n\
-         # own list of names.\n"
+        "#:schema {DATA_DIR}/{name}.schema.json\n\
+         # Every {name}.toml setting at its default, commented out. Uncomment a line, and its [table] line, to change it.\n\
+         # {DATA_DIR}/{name}.default.toml holds the same settings uncommented; the schema lists them all.\n"
     );
-    let body = toml::to_string_pretty(&Config::default()).expect("Config::default() serializes");
+    let body = crate::document_body(documents);
     let mut lines: Vec<(&str, bool)> = body
         .lines()
         .map(|line| (line, line.trim().is_empty()))
@@ -43,7 +31,9 @@ pub fn commented_document() -> String {
         is_the_shipped_defaults(&body),
         "the commented document has to load to Config::default()"
     );
-    body.push_str(&applet_defaults());
+    if panel {
+        body.push_str(&applet_defaults());
+    }
     format!("{header}\n{body}")
 }
 

@@ -68,7 +68,8 @@ type Hello = {
 
 ### `options`
 
-Sent when the instance's options change. The process is not restarted.
+Sent when `glimpsectl applet run` reloads the project's options. The process is not restarted; a
+change to the panel configuration restarts it instead.
 
 ```ts
 type Options = { t: "options"; options: object };

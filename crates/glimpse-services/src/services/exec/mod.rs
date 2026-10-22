@@ -968,7 +968,7 @@ impl Service for Exec {
                 {
                     tracing::debug!(%error, dir = %user_dir.display(), "could not create applications directory");
                 }
-                let updates = Box::pin(glimpse_config::watch_all(dirs));
+                let updates = Box::pin(glimpse_config::watch_dirs(dirs));
                 stream::unfold((updates, false), |(mut updates, mut warned)| async move {
                     let mut changed = false;
                     loop {
@@ -1661,23 +1661,12 @@ impl Service for Exec {
                             slot.options = applet.options.clone();
                             respawn.push(id);
                         }
-                        Some(applet) if applet.env != slot.env => {
+                        Some(applet)
+                            if applet.env != slot.env || applet.options != slot.options =>
+                        {
                             slot.env = applet.env.clone();
                             slot.options = applet.options.clone();
                             respawn.push(id);
-                        }
-                        Some(applet) if applet.options != slot.options => {
-                            slot.options = applet.options.clone();
-                            if matches!(slot.public.status, Status::Failed(_)) {
-                                respawn.push(id);
-                            } else if matches!(slot.public.status, Status::Running) {
-                                Self::send(
-                                    slot,
-                                    Outgoing::Options {
-                                        options: slot.options.clone(),
-                                    },
-                                );
-                            }
                         }
                         Some(_) if matches!(&slot.public.status, Status::Failed(reason) if reason == "not configured") =>
                         {

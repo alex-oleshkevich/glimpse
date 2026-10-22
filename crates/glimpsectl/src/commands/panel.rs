@@ -9,9 +9,7 @@ use zbus::proxy::CacheProperties;
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::{emit, safe, within, yes_no};
-use crate::cli::{
-    AppletCommand, AppletTarget, PanelCommand, PopoverCommand, PopoversCommand, Position,
-};
+use crate::cli::{AppletCommand, AppletTarget, PanelCommand, PopoversCommand, Position};
 use crate::errors::{Gone, Refused};
 use crate::render::{self, Table};
 
@@ -412,25 +410,6 @@ pub async fn panel(
                 .await?;
             }
             return Ok(());
-        }
-        PanelCommand::Popover(popover) => {
-            let (verb, connector, applet, position) = match popover {
-                PopoverCommand::Open(target) => {
-                    ("open", target.connector, target.applet, target.position)
-                }
-                PopoverCommand::Close(target) => {
-                    ("close", target.connector, target.applet, target.position)
-                }
-                PopoverCommand::Toggle(target) => {
-                    ("toggle", target.connector, target.applet, target.position)
-                }
-            };
-            let rows = rows(&within(actions.describe_all()).await?);
-            let row = target(&rows, &connector, &applet, position, false)?;
-            (
-                row.action.clone(),
-                vec![Value::from((verb, Value::from(0_u32)))],
-            )
         }
         PanelCommand::List { .. } | PanelCommand::Reload | PanelCommand::Applets { .. } => {
             unreachable!()

@@ -14,15 +14,39 @@ without a daemon is `just preview`, in `docs/preview.md`.
 
 ## Isolated stack
 
+Every run gets its own directory, private bus and nested niri. Only a live tester starts a
+nested niri, and only one; builders never open a window.
+
 ```bash
-S=$XDG_RUNTIME_DIR/glimpse-<feature>-live
-SOCK=$XDG_RUNTIME_DIR/glimpse-<feature>.sock   # SUN_LEN ~108; not a deep scratch path
-mkdir -p "$S/cfg" /tmp/glimpse-<feature>-logs
+S=$(mktemp -d -p "$XDG_RUNTIME_DIR" <feature>.XXXX)
+mkdir -p "$S/cfg" "$S/home" "$S/logs" "$S/services"
+sed 's#<standard_session_servicedirs */>#<servicedir>'"$S"'/services</servicedir>#' \
+  /usr/share/dbus-1/session.conf > "$S/bus.conf"
+dbus-daemon --config-file="$S/bus.conf" --print-address=1 --print-pid=2 --fork \
+  > "$S/bus.addr" 2> "$S/bus.pid"
+printf 'export DBUS_SESSION_BUS_ADDRESS=%q\n' "$(cat "$S/bus.addr")" > "$S/env"
+ls "$XDG_RUNTIME_DIR" > "$S/before"
+niri -c /usr/share/doc/niri/default-config.kdl > "$S/logs/niri.log" 2>&1 &
 ```
 
+Each tool call is a fresh shell, so append the nested `WAYLAND_DISPLAY` and `NIRI_SOCKET` to
+`$S/env` too and start every later command with `. "$S/env" &&`; a command without it reaches the
+user's bus and display.
+
+The nested window opens on the session; move it at once with the **session** `niri msg`:
+`niri msg --json windows` gives its id (app id `niri`), then `niri msg action move-window-to-monitor --id <id>
+eDP-1`. Never DP-2. Diff `$XDG_RUNTIME_DIR` against `$S/before` for the nested `wayland-N` and
+`niri.wayland-N.*.sock`; every glimpse command, `grim`, `wtype` and `just click` from here on runs
+with `WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock>` in the same command and
+`HYPRLAND_INSTANCE_SIGNATURE` unset. Without that prefix input lands in the user's terminal.
+
+The private bus has an empty `<servicedir>`, so nothing installed is activated onto the user's
+display; put a `.service` there only for a provider the test means to activate.
+
 Config is **one** `[[panels]]`, only the applet under test. `position = "bottom"` so it does not
-stack under the session top bar. Logs go **outside** `$S/cfg`'s parent: `--config` watches that
-parent, and a log written there reloads the document at `DEBOUNCE`.
+stack under the session top bar. Logs go **outside** `$S/cfg`: `--config-dir` watches that
+directory, and a log written there rereads the configuration on every line. The panel layout is the
+`panel.toml` in it.
 
 ```toml
 [[panels]]
@@ -37,9 +61,9 @@ A table that names only `left` still showed this repo's default center and right
 
 
 ```bash
-GLIMPSE_PANEL_APP_ID=me.aresa.GlimpsePanel.<Feature>Test \
-  ./target/debug/glimpse-panel --config "$S/cfg/config.toml" \
-  >/tmp/glimpse-<feature>-logs/panel.log 2>&1 &
+WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock> GLIMPSE_PANEL_APP_ID=me.aresa.GlimpsePanel.<Feature>Test \
+  XDG_CONFIG_HOME="$S/home" ./target/debug/glimpse-panel --config-dir "$S/cfg" \
+  > "$S/logs/panel.log" 2>&1 &
 ```
 
 Do not `cargo` two crates in parallel (file lock). Prefer already-built `target/debug/*`.
@@ -47,14 +71,14 @@ Do not `cargo` two crates in parallel (file lock). Prefer already-built `target/
 ## Second panel
 
 `glimpse-panel` is unique on the session bus (`me.aresa.GlimpsePanel`). A second process with that
-id **hands off and exits 0** — log shows `loading configuration` and nothing else. Set
+id **hands off and exits 0** — log shows `load config path=` and nothing else. Set
 `GLIMPSE_PANEL_APP_ID` to a distinct id. Do not kill the session `glimpse-panel` to make room.
 
 `glimpse-notifications` is the same, through `GLIMPSE_NOTIFICATIONS_APP_ID`. This matters when the
 thing under test is a *bus name* rather than a window: the GTK handoff fires before either name is
 requested, so two default-id processes prove nothing about name ownership. Give each a distinct app
 id and the second reaches the request, logs
-`notification provider unavailable error=name already taken on the bus`, and keeps running —
+`cannot serve notifications; exiting` (`name already taken on the bus`) and exits —
 `me.aresa.Glimpse.Notifications` and `org.freedesktop.Notifications` both stay with the first.
 
 ## Gamma control needs the session compositor
@@ -62,11 +86,11 @@ id and the second reaches the request, logs
 **A nested niri does not offer `zwlr_gamma_control_manager_v1`.** Measured: the winit backend owns no
 real outputs, so `glimpse-sunset` against a nested instance exits 4 — "the compositor does not offer
 zwlr_gamma_control_manager_v1". That makes a nested niri the cheapest way to test the *permanent*
-failure, and it means the applying path can only be exercised against the session compositor, which
-tints the whole display.
+failure, and it means the applying path needs a compositor with real outputs: the `var/vm` QEMU box,
+never the user's session.
 
-Run it there on a **private session bus** — `dbus-daemon --session --print-address=3 --fork` — so the
-well-known name and its state never reach the user's bus. Keep it short and stop it with `SIGTERM`:
+Run it there on the private bus above, so the well-known name and its state stay off any other
+bus. Keep it short and stop it with `SIGTERM`:
 a clean stop calls `Gamma::reset` and hands the outputs back, and a `SIGKILL` leaves the last ramp
 applied. Two private buses against one compositor is also how gamma *contention* is tested without
 installing `wlsunset` — the second provider finds every output `failed`, reports
@@ -88,14 +112,16 @@ not would lose the whole session to that command.
 
 - `glimpsectl` reads the three providers over their D-Bus names. On the session bus that is the
   user's own weather and notification daemons, so a test that drives a provider gives it a private
-  bus — see the gamma section below.
-- `grim -g "<x>,<y> <w>x<h>"` the **bottom** strip of the output you care about, then read the PNG.
-  Confirm the crop is the white/light test bar, not the session top bar.
-- A layout/volume/window command hits the **real compositor**. Snapshot before, restore after.
-- Pointer clicks use the standalone helper, not the daemon:
+  bus — see the gamma section above.
+- `WAYLAND_DISPLAY=<nested> grim "$S/shot.png"` captures the nested compositor only; crop the
+  bottom strip with `grim -g` and read the PNG. A tester that cannot read images says so and
+  checks pixels with `magick "$S/shot.png" txt:` or the log instead.
+- A layout/volume/window command hits the compositor it is pointed at. Point it at the nested one.
+- Pointer clicks use the standalone helper with the nested prefix; the nested niri's one output is
+  `winit` (`NIRI_SOCKET=<nested sock> niri msg outputs`):
 
   ```bash
-  just click output=DP-2 x=1200 y=540 button=left
+  WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock> just click output=winit x=600 y=380 button=left
   ```
 
   `x` and `y` are logical coordinates relative to the named niri output. Run the same command
@@ -105,10 +131,11 @@ not would lose the whole session to that command.
   explicit virtual-desktop coordinates when a test must move the pointer back:
 
   ```bash
-  just click output=DP-2 x=1200 y=540 button=left restore_x=640 restore_y=400
+  WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock> just click output=winit x=600 y=380 button=left restore_x=10 restore_y=10
   ```
 
 ## Stop
 
-Kill only the test pids (the ones whose cmdline has `$SOCK` or the test app id). Leave the session
-processes. Restore compositor state before saying the test is done.
+`SIGTERM` the test pids you recorded (glimpse binaries first, then niri), then the bus by the pid
+in `$S/bus.pid`, then `rm -rf "$S"`. `pgrep -af "$S"` and `pgrep -af <Feature>Test` show nothing;
+the session `glimpse-panel` pid is the one you saw at the start. Never `pkill -x glimpse-*`.

@@ -25,18 +25,23 @@ fn main() -> ExitCode {
 
 fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
-    glimpse_config::seed_user_config(cli.config.as_deref());
-    let (config, _) = glimpse_config::load_or_default(cli.config.as_deref());
+    glimpse_config::init(cli.config.config_dir.clone());
+    glimpse_config::seed_user_config();
+    let (config, _) = glimpse_config::load_or_default(glimpse_config::Documents::Config);
     init_translations(config.regional.language());
+    let theme = glimpse_config::load_theme(
+        &config.appearance.theme,
+        glimpse_config::WALLPAPER_STYLESHEET,
+    )
+    .unwrap_or_default();
 
     if RELM_THREADS.set(4).is_err() {
         tracing::warn!("RELM_THREADS already initialized");
     }
 
-    let portal_config = cli.config.config.clone();
     if let Err(error) = std::thread::Builder::new()
         .name("glimpse-wallpaper-portal".into())
-        .spawn(move || portal::run(portal_config))
+        .spawn(portal::run)
     {
         tracing::warn!(%error, "cannot start the wallpaper portal");
     }
@@ -44,9 +49,7 @@ fn run(cli: &Cli) -> Result<()> {
     let app_id =
         std::env::var("GLIMPSE_WALLPAPER_APP_ID").unwrap_or("me.aresa.GlimpseWallpaper".into());
     let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
-    app.with_args(vec![]).run::<app::App>(app::AppInit {
-        config,
-        config_path: cli.config.config.clone(),
-    });
+    app.with_args(vec![])
+        .run::<app::App>(app::AppInit { config, theme });
     Ok(())
 }

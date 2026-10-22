@@ -78,7 +78,7 @@ A theme is a directory of stylesheets. glimpse ships one, `adwaita`, and looks f
 
 The language, how glimpse writes times and units. `hour-format` changes the world clock, next-event
 rows, power charge and empty estimates, idle times and weather times. It does not change the bar
-clock, the display applet's paused-until time, the night-light schedule, `glimpsectl sunset` output
+clock, the display applet's paused-until time, the night-light schedule, `glimpsectl night-light status` output
 or the lock clock. The bar clock has its own `label-format`; set it to `%-I:%M %p` for a 12-hour
 clock. The lock clock uses `time-format` under `[lock]`.
 

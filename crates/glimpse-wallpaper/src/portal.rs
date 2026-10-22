@@ -101,24 +101,16 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 pub struct Settings {
-    config_path: Option<PathBuf>,
-    user_config: PathBuf,
-    user_dir: Option<PathBuf>,
+    config: PathBuf,
+    files: Vec<PathBuf>,
     copies: PathBuf,
 }
 
-fn settings(config_path: Option<PathBuf>) -> Option<Settings> {
-    let copies = glimpse_config::state_dir()?.join("wallpaper");
-    let user_dir = glimpse_config::user_dir();
-    let user_config = match &config_path {
-        Some(path) => path.clone(),
-        None => user_dir.as_ref()?.join("config.toml"),
-    };
+fn settings() -> Option<Settings> {
     Some(Settings {
-        config_path,
-        user_config,
-        user_dir,
-        copies,
+        config: glimpse_config::writable_file("config")?,
+        files: glimpse_config::config_files(glimpse_config::Documents::Config).ok()?,
+        copies: glimpse_config::state_dir()?.join("wallpaper"),
     })
 }
 
@@ -156,7 +148,7 @@ impl Inner {
         }
         let (values, remove) = restore_values(prev);
         if let Err(error) =
-            glimpse_config::write_table(&self.settings.user_config, TABLE, &values, &remove)
+            glimpse_config::write_table(&self.settings.config, TABLE, &values, &remove)
         {
             tracing::warn!(%error, "cannot restore the previous wallpaper");
             return;
@@ -172,8 +164,8 @@ impl Inner {
     }
 }
 
-pub fn run(config_path: Option<PathBuf>) {
-    let Some(settings) = settings(config_path) else {
+pub fn run() {
+    let Some(settings) = settings() else {
         tracing::warn!("no state or config directory; the wallpaper portal is off");
         return;
     };
@@ -276,28 +268,14 @@ impl WallpaperPortal {
         let inner = Arc::clone(&self.inner);
         let (prev, kept) = tokio::task::spawn_blocking(move || {
             let settings = &inner.settings;
-            if settings.config_path.is_none() {
-                for key in ["image", "image-dark"] {
-                    match glimpse_config::shadowing_dropin(settings.user_dir.as_deref(), TABLE, key)
-                    {
-                        Ok(Some(path)) => return Err(Some(notify::shadowed_body(&path))),
-                        Ok(None) => {}
-                        Err(error) => {
-                            tracing::warn!(%error, "cannot check the wallpaper drop-ins");
-                            return Err(Some(notify::failed_body()));
-                        }
-                    }
-                }
-            }
-            let prev = read_prev(&settings.user_config).map_err(|error| {
+            let prev = read_prev(&settings.config).map_err(|error| {
                 tracing::warn!(%error, "cannot read the wallpaper configuration");
                 Some(notify::failed_body())
             })?;
-            let config =
-                glimpse_config::load(settings.config_path.as_deref()).map_err(|error| {
-                    tracing::warn!(%error, "cannot load the wallpaper configuration");
-                    Some(notify::failed_body())
-                })?;
+            let config = glimpse_config::load_files(&settings.files).map_err(|error| {
+                tracing::warn!(%error, "cannot load the wallpaper configuration");
+                Some(notify::failed_body())
+            })?;
             Ok((prev, outputs_kept(&config)))
         })
         .await
@@ -317,9 +295,7 @@ impl WallpaperPortal {
             let mut values = toml_edit::Table::new();
             values.insert("image", toml_edit::value(copy_text.as_str()));
             values.insert("image-dark", toml_edit::value(copy_text.as_str()));
-            if let Err(error) =
-                glimpse_config::write_table(&settings.user_config, TABLE, &values, &[])
-            {
+            if let Err(error) = glimpse_config::write_table(&settings.config, TABLE, &values, &[]) {
                 tracing::warn!(%error, "cannot write the wallpaper configuration");
                 let _ = std::fs::remove_file(&copy);
                 return Err(Some(notify::failed_body()));

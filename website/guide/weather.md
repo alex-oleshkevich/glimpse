@@ -11,7 +11,7 @@ weather there. Nothing to write.
 
 ## Set your coordinates by hand
 
-To keep location services off, or when GeoClue cannot place you:
+To keep location services off, or when GeoClue cannot place you, set this in `config.toml`:
 
 ```toml
 [geolocation]
@@ -27,8 +27,8 @@ drives the night light and automatic dark mode.
 
 ## Pin the applet to one place
 
-The applet can watch a place that does not move with you. Name a city and its ISO 3166-1 alpha-2
-country code in capitals, and glimpse resolves it through Open-Meteo:
+The applet can watch a place that does not move with you. In `panel.toml`, name a city and its
+ISO 3166-1 alpha-2 country code in capitals, and glimpse resolves it through Open-Meteo:
 
 ```toml
 [applets.weather.place]

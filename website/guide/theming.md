@@ -18,7 +18,7 @@ Make a folder for it under `~/.config/glimpse/themes/` and put a `panel.css` in 
 }
 ```
 
-Then select it by the folder's name:
+Then select it by the folder's name in `config.toml`:
 
 ```toml
 [appearance]
@@ -26,17 +26,23 @@ theme = "midnight"
 ```
 
 The bar, popovers, notifications, lock screen and wallpaper reload when you save. They also pick up
-a theme folder you create after selecting its name. The screenshot app reads your CSS only when it
-starts, so close and reopen it after an edit.
+a theme folder you create after selecting its name. Folders in `/etc/glimpse/themes` are read when a
+program starts or receives `SIGHUP`. The screenshot app reads your CSS only when it starts, so close
+and reopen it after an edit.
 
-glimpse looks for the folder in `~/.config/glimpse/themes` first and in the installed themes under
-`/usr/share/glimpse/themes` second. When neither has it, or `theme` is empty, glimpse uses `adwaita`
+glimpse looks for the folder in the `themes` directory of your `--config-dir` when you pass one,
+then `~/.config/glimpse/themes`, then `/etc/glimpse/themes`, and last in the installed themes under
+`/usr/share/glimpse/themes`. When none has it, or `theme` is empty, glimpse uses `adwaita`
 without logging anything. `glimpsectl config validate` passes too, so a typo in `theme` looks like
-the default look. The fallback searches `~/.config/glimpse/themes/adwaita` before
-`/usr/share/glimpse/themes/adwaita`, so your own `adwaita` folder is used before the shipped one.
+the default look. The fallback searches the same places for `adwaita`, so your own `adwaita` folder
+is used before the shipped one.
+
+glimpse reads each stylesheet as text, so a relative `url()` or `@import` in your theme or in your
+`styles.css` does not resolve. Put the rules an `@import` would load into the file itself. The
+shipped themes use neither.
 
 Setting `GLIMPSE_THEME` in the environment overrides the configured `theme`. Setting
-`GLIMPSE_THEMES_DIR` replaces both lookup roots for loading and watching themes.
+`GLIMPSE_THEMES_DIR` replaces every one of those lookup roots for loading and watching themes.
 
 ## Which file styles what
 
@@ -82,8 +88,9 @@ under `[appearance]`; see
 
 ## Make small changes without a theme
 
-Two files in `~/.config/glimpse/` apply on top of whatever theme is selected, on the same surfaces:
-`styles.css` all the time, and `dark.css` only in dark. They suit a tweak you want to keep when you
+Two files in a configuration directory, `~/.config/glimpse/` for most people, apply on top of
+whatever theme is selected, on the same surfaces: `styles.css` all the time, and `dark.css` only in
+dark. glimpse uses the first of each it finds in your `--config-dir`, `~/.config/glimpse` or `/etc/glimpse`, in that order. They suit a tweak you want to keep when you
 switch themes:
 
 ```css
@@ -100,8 +107,8 @@ Later entries beat earlier ones:
 1. the built-in stylesheet
 2. the theme's file for that surface (`panel.css`, `lock.css` or `wallpaper.css`)
 3. the theme's `dark.css`, in dark only
-4. your `~/.config/glimpse/styles.css`
-5. your `~/.config/glimpse/dark.css`, in dark only
+4. your `styles.css` in a configuration directory
+5. your `dark.css` in a configuration directory, in dark only
 
 So your own files always have the last word, in both light and dark.
 
@@ -176,4 +183,4 @@ the bar looks wrong after an edit, check the token names first.
 ## Share a theme
 
 A theme is nothing more than its folder. Others copy it into their own `~/.config/glimpse/themes/`, or into
-`/usr/share/glimpse/themes/` to make it available to every user on the machine.
+`/etc/glimpse/themes/` to make it available to every user on the machine.

@@ -16,9 +16,9 @@ use super::{emit, safe, within};
 use crate::errors::Exit;
 use crate::render::{self, Section, Table, styled};
 
-pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
+pub async fn doctor(json: bool) -> Result<()> {
     let session = within(Connection::session()).await;
-    let configuration = configuration(config);
+    let configuration = configuration();
     let providers = providers(&session).await;
     let session_lock = session_lock(&detect_compositor())
         .await
@@ -110,6 +110,7 @@ impl SessionLock {
 pub struct Configuration {
     pub files: Vec<PathBuf>,
     pub loads: bool,
+    pub panels_only: bool,
     pub error: Option<String>,
     pub warnings: Vec<String>,
 }
@@ -122,12 +123,14 @@ pub struct Provider {
     reason: String,
 }
 
-fn configuration(config: Option<PathBuf>) -> Configuration {
-    let files = glimpse_config::resolved_files(config.as_deref());
-    let loaded = glimpse_config::load(config.as_deref());
+fn configuration() -> Configuration {
+    let files = glimpse_config::config_files(glimpse_config::Documents::ConfigAndPanel);
+    let loaded = glimpse_config::load(glimpse_config::Documents::ConfigAndPanel);
     Configuration {
         files: files.unwrap_or_default(),
         loads: loaded.is_ok(),
+        panels_only: loaded.is_err()
+            && glimpse_config::load(glimpse_config::Documents::Config).is_ok(),
         warnings: loaded
             .as_ref()
             .map(|config| {
@@ -157,10 +160,11 @@ impl Configuration {
 
         match &self.error {
             None => section.with_note("the stack loads"),
-            Some(error) => section.with(styled::bad(error)).with_note(
-                "no binary starts until this is fixed; they exit on it rather than falling back \
-                 to defaults",
-            ),
+            Some(error) => section.with(styled::bad(error)).with_note(if self.panels_only {
+                "the panel uses its default panels until this is fixed; the other binaries are unaffected"
+            } else {
+                "binaries start on the default configuration until this is fixed"
+            }),
         }
     }
 }

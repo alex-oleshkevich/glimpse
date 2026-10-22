@@ -27,7 +27,7 @@ just dev
 
 - `lib.rs` — the modules, public so `tests/` can reach them
 - `main.rs` — flag resolution, the session-bus connection, subcommand dispatch, exit codes
-- `cli.rs` — the canonical grammar, hidden legacy adapters and `needs_session_bus`
+- `cli.rs` — the grammar and `needs_session_bus`
 - `commands/` — typed provider calls, panel actions and applet development tools
 - `render.rs` — `Table`, `Section`, the `styled` colours, and the one `print` everything leaves through
 - `errors.rs` — the `Exit` table and the one D-Bus-error-name to exit-code mapping
@@ -66,8 +66,7 @@ reads once and exits gains nothing from a property cache and loses correctness t
 schedule off` followed by `night-light status` would print the mode it had just replaced. **`--json` is global and
 every data command honours it**. Existing JSON shapes stay unchanged; lists do not gain a common
 envelope. Pure mutations print nothing. `clipboard get` writes exact bytes normally and a JSON
-object containing the id, MIME type and byte array with `--json`. Legacy command spellings warn
-on stderr for one minor release; `applets new/run` remain for two.
+object containing the id, MIME type and byte array with `--json`.
 
 **`weather` has no `add` or `remove`.** A place is a lease renewed on a thirty-minute clock, so
 anything a CLI process watched ages out on its own once it exits; the places to keep live in the

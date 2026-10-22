@@ -23,6 +23,7 @@ use anyhow::{Result, bail};
 use clap::Parser;
 use cli::{Cli, Command};
 use errors::Exit;
+use glimpse_config::{Documents, LOCK_STYLESHEET};
 use glimpse_utils::{init_app_tracing, init_translations};
 use gtk4::gio;
 use gtk4::prelude::ApplicationExt;
@@ -43,10 +44,11 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
+    glimpse_config::init(cli.config.config_dir.clone());
     match cli.command {
         Some(Command::Lock) => runtime()?.block_on(commands::lock()),
         Some(Command::Check) => {
-            let config = glimpse_config::load(cli.config.as_deref())?;
+            let config = glimpse_config::load(Documents::Config)?;
             let pam_service = auth::Service::new(&config.lock.pam_service);
             runtime()?.block_on(commands::check(pam_service.name()))
         }
@@ -61,8 +63,10 @@ fn runtime() -> Result<tokio::runtime::Runtime> {
 }
 
 fn daemon(cli: Cli) -> Result<()> {
-    glimpse_config::seed_user_config(cli.config.as_deref());
-    let (config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
+    glimpse_config::seed_user_config();
+    let (config, failure) = glimpse_config::load_or_default(Documents::Config);
+    let theme =
+        glimpse_config::load_theme(&config.appearance.theme, LOCK_STYLESHEET).unwrap_or_default();
     init_translations(config.regional.language());
 
     let pam_service = auth::Service::new(&config.lock.pam_service);
@@ -91,7 +95,7 @@ fn daemon(cli: Cli) -> Result<()> {
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
         pam_service,
-        config_path: cli.config.config.clone(),
+        theme,
         failure: failure.map(|error| error.to_string()),
         standalone: cli.standalone,
         cant_verify: !cant_verify.is_empty(),

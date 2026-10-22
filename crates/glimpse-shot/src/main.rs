@@ -12,13 +12,13 @@ mod render;
 
 use std::cell::RefCell;
 use std::io::IsTerminal as _;
-use std::path::Path;
 use std::process::ExitCode;
 
 use anyhow::{Result, anyhow};
 use cli::{CaptureArgs, Cli, Command, GuiArgs, Terminal};
 use errors::{Exit, Usage};
 use glimpse_compositors::detect_compositor;
+use glimpse_config::Documents;
 use glimpse_shot::ports::Windows;
 use glimpse_shot::session::Target;
 use glimpse_utils::init_app_tracing;
@@ -52,19 +52,28 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(cli: Cli) -> Result<()> {
-    init_app_tracing(&cli.log.log, cli.log.log_format);
+fn run(
+    Cli {
+        config,
+        log,
+        gui,
+        command,
+        ..
+    }: Cli,
+) -> Result<()> {
+    glimpse_config::init(config.config_dir);
+    init_app_tracing(&log.log, log.log_format);
     let terminal = Terminal {
         stdin: std::io::stdin().is_terminal(),
         stdout: std::io::stdout().is_terminal(),
     };
-    match cli.command {
-        None => open_editor(&cli.gui, cli.config.as_deref(), terminal),
-        Some(Command::Capture(args)) => capture(&args, cli.config.as_deref(), terminal),
+    match command {
+        None => open_editor(&gui, terminal),
+        Some(Command::Capture(args)) => capture(&args, terminal),
         Some(Command::Annotate(args)) => {
             cli::validate_annotate(&args, terminal).map_err(Usage)?;
             if !args.headless {
-                return gui::app::run(&args.into_gui(), cli.config.as_deref());
+                return gui::app::run(&args.into_gui());
             }
             capture(
                 &CaptureArgs {
@@ -76,7 +85,6 @@ fn run(cli: Cli) -> Result<()> {
                     json: args.json,
                     ..Default::default()
                 },
-                cli.config.as_deref(),
                 terminal,
             )
         }
@@ -92,8 +100,8 @@ fn run(cli: Cli) -> Result<()> {
                 &mut std::io::stdout().lock(),
             )
         }
-        Some(Command::Hold) => hold::run(cli.config.as_deref()),
-        Some(Command::Portal) => portal::run(cli.config.as_deref()),
+        Some(Command::Hold) => hold::run(),
+        Some(Command::Portal) => portal::run(),
     }
 }
 
@@ -111,10 +119,10 @@ fn opens_app(command: Option<&Command>) -> bool {
     }
 }
 
-fn capture(args: &CaptureArgs, config_path: Option<&Path>, terminal: Terminal) -> Result<()> {
+fn capture(args: &CaptureArgs, terminal: Terminal) -> Result<()> {
     cli::validate_capture(args, terminal).map_err(Usage)?;
     let target = args.target.resolve(true).map_err(Usage)?;
-    let config = glimpse_config::load(config_path)?;
+    let config = glimpse_config::load(Documents::Config)?;
     let snapshot = match args
         .image
         .as_ref()
@@ -131,9 +139,7 @@ fn capture(args: &CaptureArgs, config_path: Option<&Path>, terminal: Terminal) -
         compositor: snapshot.is_some(),
         counted: RefCell::default(),
     };
-    let clipboard = HoldClipboard {
-        config: config_path.map(Path::to_path_buf),
-    };
+    let clipboard = HoldClipboard;
     let windows = snapshot.clone().map(|snapshot| CompositorWindows {
         compositor: detect_compositor(),
         snapshot: RefCell::new(snapshot),
@@ -159,9 +165,9 @@ fn capture(args: &CaptureArgs, config_path: Option<&Path>, terminal: Terminal) -
     )
 }
 
-fn open_editor(gui: &GuiArgs, config_path: Option<&Path>, terminal: Terminal) -> Result<()> {
+fn open_editor(gui: &GuiArgs, terminal: Terminal) -> Result<()> {
     cli::validate_gui(gui, terminal).map_err(Usage)?;
-    gui::app::run(gui, config_path)
+    gui::app::run(gui)
 }
 
 #[cfg(test)]

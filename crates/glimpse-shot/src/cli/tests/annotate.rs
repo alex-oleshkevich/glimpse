@@ -166,13 +166,13 @@ fn annotate_validates_modes_stdio_and_editor_options() {
 #[test]
 fn annotate_preserves_gui_fields_globals_and_original_forwarded_argv() {
     for args in [
-        &["--config", "/scratch/config.toml", "annotate", "image.dat"][..],
-        &["annotate", "image.dat", "--config", "/scratch/config.toml"][..],
+        &["--config-dir", "/scratch", "annotate", "image.dat"][..],
+        &["annotate", "image.dat", "--config-dir", "/scratch"][..],
     ] {
-        let cli = parse(args).expect("global config");
+        let parsed = parse(args).expect("global config");
         assert_eq!(
-            cli.config.as_deref(),
-            Some(Path::new("/scratch/config.toml"))
+            parsed.config.config_dir.as_deref(),
+            Some(Path::new("/scratch"))
         );
     }
     let args = [

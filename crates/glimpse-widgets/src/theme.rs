@@ -1,5 +1,4 @@
 use std::cell::{Cell, RefCell};
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use gtk4::{
@@ -52,18 +51,11 @@ fn speed_sheet(speed: f64) -> String {
     )
 }
 
-pub struct Sheets {
-    pub theme: Option<PathBuf>,
-    pub theme_dark: Option<PathBuf>,
-    pub dropin: Option<PathBuf>,
-    pub dropin_dark: Option<PathBuf>,
-}
-
 struct Dark {
     theme: CssProvider,
-    theme_path: RefCell<Option<PathBuf>>,
+    theme_css: RefCell<Option<String>>,
     dropin: CssProvider,
-    dropin_path: RefCell<Option<PathBuf>>,
+    dropin_css: RefCell<Option<String>>,
     applied: Cell<bool>,
 }
 
@@ -73,8 +65,8 @@ impl Dark {
             return;
         }
         self.applied.set(dark);
-        let theme = self.theme_path.borrow();
-        let dropin = self.dropin_path.borrow();
+        let theme = self.theme_css.borrow();
+        let dropin = self.dropin_css.borrow();
         let (theme, dropin) = if dark {
             (theme.as_deref(), dropin.as_deref())
         } else {
@@ -104,9 +96,9 @@ impl Styles {
         let dropin = CssProvider::new();
         let dark = Rc::new(Dark {
             theme: CssProvider::new(),
-            theme_path: RefCell::new(None),
+            theme_css: RefCell::new(None),
             dropin: CssProvider::new(),
-            dropin_path: RefCell::new(None),
+            dropin_css: RefCell::new(None),
             applied: Cell::new(false),
         });
         for provider in [&builtin, &speed, &theme, &dropin, &dark.theme, &dark.dropin] {
@@ -172,11 +164,11 @@ impl Styles {
         styles
     }
 
-    pub fn load(&self, sheets: &Sheets) {
-        load("theme", &self.theme, sheets.theme.as_deref());
-        load("drop-in", &self.dropin, sheets.dropin.as_deref());
-        self.dark.theme_path.replace(sheets.theme_dark.clone());
-        self.dark.dropin_path.replace(sheets.dropin_dark.clone());
+    pub fn load(&self, theme: &glimpse_config::Theme) {
+        load("theme", &self.theme, theme.sheet.as_deref());
+        load("drop-in", &self.dropin, theme.user.as_deref());
+        self.dark.theme_css.replace(theme.dark.clone());
+        self.dark.dropin_css.replace(theme.user_dark.clone());
         self.dark.sync(self.style_manager.is_dark(), true);
     }
 
@@ -275,11 +267,11 @@ fn set_provider_scheme(scheme: gtk4::InterfaceColorScheme, providers: [&CssProvi
     }
 }
 
-fn load(role: &str, provider: &CssProvider, path: Option<&Path>) {
-    match path {
-        Some(path) => {
-            tracing::debug!(role, path = %path.display(), "loading stylesheet");
-            provider.load_from_path(path);
+fn load(role: &str, provider: &CssProvider, css: Option<&str>) {
+    match css {
+        Some(css) => {
+            tracing::debug!(role, "loading stylesheet");
+            provider.load_from_string(css);
         }
         None => {
             tracing::debug!(role, "no stylesheet; clearing its provider");

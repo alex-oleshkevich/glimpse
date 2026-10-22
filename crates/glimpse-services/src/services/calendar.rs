@@ -742,7 +742,7 @@ fn watching(
     };
 
     let leading = stream::once(reread(client.clone(), id.clone(), uri.clone(), kind));
-    let changes = glimpse_config::watch_all(
+    let changes = glimpse_config::watch_dirs(
         root.ancestors()
             .take(2)
             .map(std::path::Path::to_path_buf)

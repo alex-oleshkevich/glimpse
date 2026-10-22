@@ -292,7 +292,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
                     edge: crate::cli::Position::Bottom,
                     applets: Vec::new(),
                 },
-                None,
+                false,
                 &bus,
             )
             .await?,

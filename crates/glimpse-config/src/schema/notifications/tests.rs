@@ -2,7 +2,7 @@ fn load(text: &str) -> Result<crate::Config, crate::ConfigError> {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join("config.toml");
     std::fs::write(&path, text).expect("writes");
-    crate::load(Some(&path))
+    crate::load_files(std::slice::from_ref(&path))
 }
 
 #[test]

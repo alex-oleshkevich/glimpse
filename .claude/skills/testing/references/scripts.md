@@ -41,7 +41,7 @@ header before running it; the notes here are the traps that header does not cove
 - **`calendar-fake-event.py [--in MIN] [--duration MIN] [--title T] [--location L] [--name F]
   [clear]`** — writes an `.ics` event for the `next_event` applet and prints the
   `[[calendar.sources]]` block to add. It defaults to `~/.config/glimpse/calendars`: always pass
-  `--dir "$SCRATCH/calendars" --config "$SCRATCH/config.toml"`. Its unit test is
+  `--dir "$SCRATCH/calendars" --config "$SCRATCH/cfg/config.toml"`. Its unit test is
   `python3 scripts/calendar_fake_event_test.py`.
 - **`removable-test.sh up [--parts N] [--size MB] [--optical] [--readonly] | down | status`** —
   attaches a RAM-backed `scsi_debug` drive with `Removable` set, the only way to make UDisks2 show
@@ -100,4 +100,4 @@ read from compositor casts, the camera from a `/proc` fd scan, the microphone fr
   `glimpse:niri` after any change under `data/portals/`.
 - **`blur-wire.sh [-v]`** — reads `WAYLAND_DEBUG=1` output on stdin and prints each surface's
   background-blur regions; a surface holding more than one blur object is `BAD` and fails the run.
-  `WAYLAND_DEBUG=1 glimpse-panel --config "$SCRATCH/config.toml" 2>&1 | scripts/blur-wire.sh`.
+  `WAYLAND_DEBUG=1 glimpse-panel --config-dir "$SCRATCH/cfg" 2>&1 | scripts/blur-wire.sh`.

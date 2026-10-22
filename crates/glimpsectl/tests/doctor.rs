@@ -58,13 +58,21 @@ fn a_configuration_that_does_not_load_says_binaries_will_not_start() {
     let broken = Configuration {
         files: vec![PathBuf::from("/etc/glimpse/config.toml")],
         loads: false,
+        panels_only: false,
         warnings: Vec::new(),
         error: Some("expected a table".to_owned()),
     };
     let rendered = broken.section().render();
     assert!(rendered.contains("expected a table"));
-    assert!(rendered.contains("no binary starts"));
-    assert!(!rendered.contains("falls back to defaults\n"));
+    assert!(rendered.contains("start on the default configuration"));
+    let panels = Configuration {
+        panels_only: true,
+        ..broken
+    };
+    let rendered = panels.section().render();
+    assert!(rendered.contains("the other binaries are unaffected"));
+    assert!(!rendered.contains("start on the default configuration"));
+    assert!(!rendered.contains("exit on it"));
 }
 
 use glimpse_dbus::{
@@ -187,9 +195,10 @@ impl Idle {
 async fn diagnose(bus: &PrivateBus, config: &std::path::Path, json: bool) -> std::process::Output {
     let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_glimpsectl"));
     command
-        .arg("--config")
-        .arg(config)
+        .arg("--config-dir")
+        .arg(config.parent().unwrap())
         .arg("doctor")
+        .env("XDG_CONFIG_HOME", config.parent().unwrap().join("home"))
         .env("DBUS_SESSION_BUS_ADDRESS", bus.address());
     if json {
         command.arg("--json");
@@ -308,7 +317,7 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
             assert!(
                 String::from_utf8(invalid.stdout)
                     .unwrap()
-                    .contains("no binary starts")
+                    .contains("start on the default configuration")
             );
         }
     }

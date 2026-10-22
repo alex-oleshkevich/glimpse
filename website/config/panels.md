@@ -6,8 +6,9 @@ per table. A setting you leave out of a table keeps its default, including the z
 sets only `left` still gets the default `center` and `right` applets. Set a zone to `[]` to empty it,
 and write `panels = []` to have no panel at all.
 
-Panels are the one thing that does not merge across files: the last file with any `[[panels]]`
-table defines all of your panels, so a drop-in cannot add a panel to the ones in `config.toml`.
+Panels live in `panel.toml`, with `[applets]`. They are the one thing that does not merge across
+files: the last file with any `[[panels]]` table defines all of your panels, so a drop-in in
+`panel.d/` cannot add a panel to the ones in `panel.toml`.
 
 A panel has three zones, `left`, `center` and `right`. Each lists applet names in the order they
 appear. On a side panel `left` is the top end and `right` the bottom end. A name is either a built-in applet such as `clock`, a name you defined under

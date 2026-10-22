@@ -29,7 +29,8 @@ fn both_keys_are_checked_not_only_the_first() {
 #[test]
 fn the_emitted_schema_constrains_both_times_rather_than_leaving_it_to_the_loader() {
     let document: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document()).expect("the emitted schema is JSON");
+        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config))
+            .expect("the emitted schema is JSON");
     let night_light = &document["$defs"]["NightLight"]["properties"];
 
     for key in ["start-time", "end-time"] {
@@ -85,7 +86,7 @@ fn temperature_bounds_match_the_emitted_schema() {
         assert_eq!(parsed.schedule, Schedule::Off);
     }
     let document: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document()).expect("JSON");
+        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config)).expect("JSON");
     let temperature = &document["$defs"]["NightLight"]["properties"]["temperature"];
     assert_eq!(temperature["minimum"], MIN_TEMPERATURE);
     assert_eq!(temperature["maximum"], MAX_TEMPERATURE);
@@ -109,7 +110,8 @@ fn a_temperature_the_range_cannot_hold_loads_clamped_and_is_reported_once() {
             ),
         )
         .expect("writes");
-        let config = crate::load(Some(&path)).expect("the rest of the document still loads");
+        let config = crate::load_files(std::slice::from_ref(&path))
+            .expect("the rest of the document still loads");
 
         assert_eq!(config.night_light.temperature, used, "{written}");
         assert_eq!(config.night_light.schedule, Schedule::Off, "{written}");
@@ -131,11 +133,12 @@ fn a_whole_temperature_in_range_is_not_reported_and_a_string_is_refused() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let path = directory.path().join("config.toml");
     std::fs::write(&path, "[night-light]\ntemperature = 4500\n").expect("writes");
-    let config = crate::load(Some(&path)).expect("loads");
+    let config = crate::load_files(std::slice::from_ref(&path)).expect("loads");
     assert_eq!(config.night_light.temperature, 4500);
     assert!(config.validate().is_empty());
 
     std::fs::write(&path, "[night-light]\ntemperature = \"4500\"\n").expect("writes");
-    let error = crate::load(Some(&path)).expect_err("a string is a type error");
+    let error =
+        crate::load_files(std::slice::from_ref(&path)).expect_err("a string is a type error");
     assert!(error.to_string().contains("kelvin"), "{error}");
 }

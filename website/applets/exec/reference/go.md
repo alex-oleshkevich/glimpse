@@ -74,7 +74,7 @@ list reorders.
 type Context struct {
 	Name        string         // this instance's name in the config
 	StateDir    string         // a directory for your files, mode 0700
-	Options     map[string]any // the config's options; updates without a restart
+	Options     map[string]any // the config's options
 	Placement   map[string]any // output, position, orientation, zone, size of the bar
 	PopoverOpen bool           // whether the popover is showing
 	Entry       *AppletEntry   // the desktop entry, or nil

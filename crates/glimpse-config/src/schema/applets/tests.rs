@@ -96,8 +96,10 @@ fn exec_env_parses_and_an_invalid_name_is_rejected() {
 
 #[test]
 fn desktop_id_schema_accepts_options_without_an_explicit_kind() {
-    let schema: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+    let schema: serde_json::Value = serde_json::from_str(&crate::json_schema_document(
+        crate::Documents::ConfigAndPanel,
+    ))
+    .expect("the schema is JSON");
     let patterns = schema["properties"]["applets"]["patternProperties"]
         .as_object()
         .expect("desktop ids have their own schema");
@@ -299,7 +301,10 @@ fn power_instances_load_with_defaults() {
 
 #[test]
 fn schema_only_accepts_canonical_applet_kinds() {
-    let document: serde_json::Value = serde_json::from_str(&crate::json_schema_document()).unwrap();
+    let document: serde_json::Value = serde_json::from_str(&crate::json_schema_document(
+        crate::Documents::ConfigAndPanel,
+    ))
+    .unwrap();
     let applets = &document["properties"]["applets"];
     let branches = applets["additionalProperties"]["oneOf"].as_array().unwrap();
     for (old, new) in [("battery", "power"), ("brightness", "display")] {
@@ -316,7 +321,7 @@ fn schema_only_accepts_canonical_applet_kinds() {
         assert!(applets["properties"].get(old).is_none());
     }
     let generated: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../../data/config.schema.json")).unwrap();
+        serde_json::from_str(include_str!("../../../../../data/panel.schema.json")).unwrap();
     assert_eq!(generated, document);
 }
 

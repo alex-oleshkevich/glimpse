@@ -1,0 +1,148 @@
+#:schema /usr/share/glimpse/panel.schema.json
+# Every panel.toml setting at its default, commented out. Uncomment a line, and its [table] line, to change it.
+# /usr/share/glimpse/panel.default.toml holds the same settings uncommented; the schema lists them all.
+
+# [[panels]]
+# size = 36
+# position = "top"
+# left = [
+#     "workspace-name",
+#     "pager",
+#     "places",
+#     "mpris",
+# ]
+# center = [
+#     "clock",
+#     "weather",
+#     "notifications",
+#     "privacy",
+# ]
+# right = [
+#     "next-event",
+#     "tray",
+#     "removable",
+#     "clipboard",
+#     "printing",
+#     "bluetooth",
+#     "network",
+#     "display",
+#     "audio",
+#     "idle",
+#     "power",
+#     "keyboard",
+#     "session",
+# ]
+
+# [panels.margin]
+# left = 0
+# right = 0
+# top = 0
+# bottom = 0
+
+[applets]
+
+# [applets.workspace-name]
+# extends = "workspace-name"
+
+# [applets.pager]
+# extends = "pager"
+# mode = "windows"
+# shape = "dots"
+# scope = "output"
+# label = "{index}"
+
+# [applets.places]
+# extends = "places"
+# bookmarks = 8
+
+# [applets.mpris]
+# extends = "mpris"
+# label-format = "{title} — {artist}"
+# max-length = 40
+
+# [applets.clock]
+# extends = "clock"
+# label-format = "%a, %-d %b, %H:%M"
+# week-numbers = true
+# timezones = []
+# hide-all-day = false
+
+# [applets.weather]
+# extends = "weather"
+# hours = 4
+# days = 6
+
+# [applets.weather.place]
+# at = "here"
+
+# [applets.notifications]
+# extends = "notifications"
+# indicator-style = "icon-dot"
+
+# [applets.privacy]
+# extends = "privacy"
+# show-camera = true
+# show-microphone = true
+# show-screencast = true
+# show-location = true
+
+# [applets.next-event]
+# extends = "next-event"
+# within = 60
+# countdown = 60
+# horizon = 720
+# all-day = false
+# upcoming = 5
+
+# [applets.tray]
+# extends = "tray"
+# hide = []
+# pin = []
+# max-visible = 0
+
+# [applets.removable]
+# extends = "removable"
+# volumes = 6
+
+# [applets.clipboard]
+# extends = "clipboard"
+# visible = 10
+# preview-chars = 72
+# show-when-empty = false
+
+# [applets.printing]
+# extends = "printing"
+# jobs = 8
+# show = "jobs"
+
+# [applets.bluetooth]
+# extends = "bluetooth"
+# devices = 6
+# nearby = 8
+
+# [applets.network]
+# extends = "network"
+# visible-networks = 8
+# vpn-chip = true
+
+# [applets.display]
+# extends = "display"
+# scroll-step = 5
+
+# [applets.audio]
+# extends = "audio"
+# scroll-step = 5
+
+# [applets.idle]
+# extends = "idle"
+
+# [applets.power]
+# extends = "power"
+# indicator-style = "icon-only"
+# label-format = "{percentage}"
+
+# [applets.keyboard]
+# extends = "keyboard"
+
+# [applets.session]
+# extends = "session"

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createMarkdownRenderer, defineLoader } from "vitepress";
 
 const schemaPath = fileURLToPath(new URL("../../data/config.schema.json", import.meta.url));
+const panelSchemaPath = fileURLToPath(new URL("../../data/panel.schema.json", import.meta.url));
 
 const hiddenApplets = new Set(["heartbeat", "widget-demo"]);
 
@@ -40,9 +41,11 @@ declare const data: Data;
 export { data };
 
 export default defineLoader({
-  watch: [schemaPath],
+  watch: [schemaPath, panelSchemaPath],
   async load(): Promise<Data> {
-    const schema: Json = JSON.parse(readFileSync(schemaPath, "utf8"));
+    const config: Json = JSON.parse(readFileSync(schemaPath, "utf8"));
+    const panel: Json = JSON.parse(readFileSync(panelSchemaPath, "utf8"));
+    const schema: Json = { ...config, properties: { ...config.properties, ...panel.properties } };
     const md = await createMarkdownRenderer(process.cwd());
     const defs: Json = schema.$defs;
     const tables: Record<string, Table> = {};
@@ -171,7 +174,7 @@ export default defineLoader({
     }
     if (missing.length > 0) {
       throw new Error(
-        `config.schema.json has settings with no description; add a doc comment in glimpse-config:\n  ${missing.join("\n  ")}`,
+        `the config schemas have settings with no description; add a doc comment in glimpse-config:\n  ${missing.join("\n  ")}`,
       );
     }
     return { tables, applets };

@@ -2,11 +2,11 @@
 
 ## Never test against the live configuration
 
-**`direnv` exports `GLIMPSE_CONFIG_PATH` in this repo, and it beats a scratch `HOME`.** `.envrc`
-sets `GLIMPSE_CONFIG_PATH=var/config/config.toml` along with `GLIMPSE_PANEL_APP_ID` and
-`GLIMPSE_WALLPAPER_APP_ID`, so a binary launched from inside the working tree silently loads the
-dev document even when `HOME` points at a scratch directory. Override it explicitly, and read the
-`load config path=` line in the log before believing anything on screen.
+**`direnv` exports `GLIMPSE_CONFIG_DIR` in this repo, and it stacks above the user directory
+instead of replacing it.** `.envrc` sets `GLIMPSE_CONFIG_DIR=var/config` along with
+`GLIMPSE_PANEL_APP_ID` and `GLIMPSE_WALLPAPER_APP_ID`, so a binary launched from inside the working
+tree loads the dev documents over `~/.config/glimpse`. Give it a temporary `XDG_CONFIG_HOME` too, and
+read the `load config path=` lines in the log before believing anything on screen.
 
 **Give every test panel its own `GLIMPSE_PANEL_APP_ID`, and never reuse one.** The application ID
 is a unique name on the session bus, so a second panel claiming an ID the previous run has not
@@ -19,24 +19,23 @@ own shell, but the session binary is also called `glimpse-panel`, so an exact-na
 user's bar down with the test's. Kill by the pid you started, and if the session panel does go,
 `systemctl --user start glimpse-panel.service` brings it back.
 
-`~/.config/glimpse/config.toml` is the user's own and a binary started without `--config` both reads
-and watches it.
+`~/.config/glimpse` is the user's own, and a binary started without `--config-dir` both reads and
+watches it.
 
 ```bash
-glimpse-panel --config "$SCRATCH/config.toml"     # replaces the whole stack, drop-ins included
-HOME="$SCRATCH/home" glimpse-panel                # a fake home, when drop-ins are under test
+XDG_CONFIG_HOME="$SCRATCH/home/.config" glimpse-panel --config-dir "$SCRATCH/cfg"
 ```
 
-- `--config` is the default choice and enough for anything that is one document. It cannot exercise
-  layering, because an explicit path replaces the stack rather than joining it. A test needing
-  `config.d/` sets `HOME` (or `XDG_CONFIG_HOME`); one needing the `/etc/glimpse` layer builds it
-  through `load_from`, which takes the system directory as an argument for exactly this reason.
-- Themes redirect separately, because stylesheet resolution runs through `user_dir()` rather than the
-  config stack: `GLIMPSE_THEMES_DIR` replaces both roots for loading and watching, `GLIMPSE_THEME`
-  overrides the selected name.
-- **Send the log somewhere else.** `--config` watches that file's parent directory, so redirecting
-  output into it makes every line an event that reloads the configuration — with a document that
-  will not parse, a closed loop running at exactly `DEBOUNCE` that looks like a retrying watcher.
+- `--config-dir` is the default choice: its `config.toml` and `panel.toml` stack above everything
+  else, and every write (the wallpaper portal, the shot preferences) lands in it. The temporary
+  `XDG_CONFIG_HOME` keeps the user's files out of the stack; it also hosts a stack under test, such
+  as a `panel.d/` drop-in. `/etc/glimpse` cannot be redirected this way; a test that must exclude it
+  loads explicit paths through `load_files`.
+- Themes resolve through the same roots, so a `themes/` directory in `--config-dir` is found first.
+  `GLIMPSE_THEMES_DIR` replaces every theme root for loading and watching, `GLIMPSE_THEME` overrides
+  the selected name.
+- **Send the log somewhere else.** The watch covers the `--config-dir` root, so redirecting output
+  into it makes every line an event and a reread of the configuration.
 
 ## Testing against a compositor
 

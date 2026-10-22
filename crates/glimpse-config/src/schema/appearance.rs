@@ -21,13 +21,6 @@ pub struct Appearance {
     #[serde(deserialize_with = "speed")]
     #[schemars(range(min = 0.0, max = 10.0))]
     pub animation_speed: f64,
-    #[serde(
-        rename = "auto-dark",
-        skip_serializing,
-        deserialize_with = "retired_auto_dark"
-    )]
-    #[schemars(skip)]
-    pub retired_auto_dark: Option<toml::Value>,
 }
 
 impl Default for Appearance {
@@ -39,7 +32,6 @@ impl Default for Appearance {
             desktop_color_scheme: DesktopColorScheme::Sun,
             blur: Vec::new(),
             animation_speed: 1.0,
-            retired_auto_dark: None,
         }
     }
 }
@@ -71,21 +63,9 @@ impl TryFrom<String> for ColorScheme {
             "desktop" => Ok(Self::Desktop),
             "light" => Ok(Self::Light),
             "dark" => Ok(Self::Dark),
-            "auto" => {
-                Err("use color-scheme = \"desktop\" instead of color-scheme = \"auto\"".into())
-            }
             _ => Err("color-scheme must be desktop, light or dark".into()),
         }
     }
-}
-
-fn retired_auto_dark<'de, D>(_: D) -> Result<Option<toml::Value>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Err(D::Error::custom(
-        "auto-dark is retired; use desktop-color-scheme = \"sun\" for sunset and sunrise, or desktop-color-scheme = \"external\" to follow another tool",
-    ))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

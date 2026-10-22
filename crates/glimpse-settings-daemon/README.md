@@ -8,8 +8,9 @@ acquiring location or writing desktop preferences. SIGTERM and SIGINT stop its s
 Solar calculation lives in `glimpse-services`; this binary supplies its configured location input
 and exports read-only `Solar`, `Geolocation` and `Mode` properties. Weather follows geolocation for `Here`.
 GeoClue retries, city accuracy, the last fix kept under `state_dir()` and transient client cleanup belong to the existing
-location service. `--config` selects a document, file changes and SIGHUP
-reload it, and a rejected reload keeps the last valid configuration. Sunset owns gamma control
+location service. It reads `config.toml` only, never `panel.toml`; `--config-dir` stacks a directory
+above the user's, file changes and SIGHUP reload it, and a rejected reload keeps the last valid
+configuration. Sunset owns gamma control
 and follows solar phase without calculating it or acquiring location itself.
 
 `appearance.desktop-color-scheme` selects `sun` (the default), fixed `light` or `dark`, or

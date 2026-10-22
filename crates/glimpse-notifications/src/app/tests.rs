@@ -157,6 +157,7 @@ fn late_artwork_rebuilds_the_input_region_after_the_card_settles() {
         stack,
         state: PopupState::new(config.notifications.clone()),
         config,
+        theme: Default::default(),
         services: None,
         services_start: relm4::spawn(std::future::pending()),
         rows: HashMap::from([(

@@ -96,9 +96,13 @@ impl ConfigError {
         }
     }
 
-    pub(crate) fn schema(error: config::ConfigError) -> Self {
+    pub(crate) fn schema(error: config::ConfigError, path: Option<&Path>) -> Self {
+        let message = schema_message(&error);
         Self::Schema {
-            message: schema_message(&error),
+            message: match path {
+                Some(path) => format!("{}: {message}", path.display()),
+                None => message,
+            },
         }
     }
 }

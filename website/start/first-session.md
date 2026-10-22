@@ -23,20 +23,22 @@ current device and a volume slider per app. Scroll on
 the speaker icon itself and notice that the volume changes without opening anything. Several applets
 work this way: a click opens the controls, a scroll adjusts the obvious thing.
 
-## Open the configuration file
+## Open the panel file
 
-The first time glimpse started, it wrote a configuration file for you. Open it in your editor:
+The first time glimpse started, it wrote `config.toml` and `panel.toml` for you. The clock belongs
+to the panel, so open `panel.toml` in your editor:
 
 ```sh
-$EDITOR ~/.config/glimpse/config.toml
+$EDITOR ~/.config/glimpse/panel.toml
 ```
 
-Every setting that has a default is in there, commented out and set to its default. A line that starts with `#` has no
-effect, so the file currently changes nothing.
+It holds a link to the documentation and nothing else, so the panel runs on its defaults. Every
+panel setting at its default is listed, commented out, in `/usr/share/glimpse/panel.commented.toml`.
+A line that starts with `#` has no effect.
 
 ## Change the clock
 
-Find the clock section. It looks like this:
+Find the clock section in `/usr/share/glimpse/panel.commented.toml`. It starts like this:
 
 ```toml
 # [applets.clock]
@@ -44,7 +46,8 @@ Find the clock section. It looks like this:
 # label-format = "%a, %-d %b, %H:%M"
 ```
 
-Remove the `#` from the first and third lines, and change the format to show only the time:
+Copy those lines into `panel.toml`, remove the `#` from the first and third lines, and change the
+format to show only the time:
 
 ```toml
 [applets.clock]
@@ -118,7 +121,7 @@ You can also lock from the session menu at the right end of the panel.
 
 ## What you learned
 
-You have used the panel's popovers and scroll shortcuts, edited `config.toml` and watched the change
+You have used the panel's popovers and scroll shortcuts, edited `panel.toml` and watched the change
 apply on save, checked the file with `glimpsectl config validate`, switched modes with
 `glimpsectl appearance`, and locked the screen.
 
@@ -127,4 +130,3 @@ From here:
 - [Use glimpse](/guide/) collects the guides, from [arranging the bar](/guide/panels) to
   [binding keys](/guide/keys).
 - [Troubleshooting](/guide/troubleshooting) helps when something does not work.
-- [Upgrade and uninstall](./upgrade) explains how to keep glimpse current.

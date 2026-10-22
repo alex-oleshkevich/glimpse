@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::Path;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -12,7 +11,6 @@ use zbus::zvariant::Value;
 pub const UNDO_KEY: &str = "glimpse-wallpaper-undo";
 const EXPIRE_MS: i32 = 8_000;
 const GRACE: Duration = Duration::from_secs(30);
-const NAME_CAP: usize = 200;
 
 pub fn changed_summary() -> String {
     gettext("Wallpaper changed")
@@ -36,11 +34,6 @@ pub fn changed_body(outputs_kept: usize) -> String {
 
 pub fn lockscreen_body() -> String {
     gettext("Only the background can be set.")
-}
-
-pub fn shadowed_body(path: &Path) -> String {
-    let name = glimpse_utils::text::clean(&path.display().to_string(), NAME_CAP);
-    gettext("{file} already sets the wallpaper image.").replace("{file}", &name)
 }
 
 pub fn failed_body() -> String {

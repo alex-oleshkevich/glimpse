@@ -20,11 +20,11 @@ fn no_subcommand_is_the_daemon_and_standalone_belongs_to_it() {
 }
 
 #[test]
-fn the_config_can_come_before_a_subcommand() {
-    let cli = parse(&["glimpse-lock", "--config", "/tmp/x.toml", "check"]).expect("parses");
+fn the_config_dir_can_come_before_a_subcommand() {
+    let cli = parse(&["glimpse-lock", "--config-dir", "/tmp/x", "check"]).expect("parses");
     assert!(matches!(cli.command, Some(Command::Check)));
     assert_eq!(
-        cli.config.config.as_deref(),
-        Some(std::path::Path::new("/tmp/x.toml"))
+        cli.config.config_dir.as_deref(),
+        Some(std::path::Path::new("/tmp/x"))
     );
 }

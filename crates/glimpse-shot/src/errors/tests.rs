@@ -36,7 +36,8 @@ fn a_configuration_error_maps_to_three() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join("config.toml");
     std::fs::write(&path, "[screenshot]\nfilename = \"no-extension\"\n").expect("writes");
-    let error = glimpse_config::load(Some(&path)).expect_err("an invalid template");
+    let error =
+        glimpse_config::load_files(std::slice::from_ref(&path)).expect_err("an invalid template");
 
     assert_eq!(
         exit(&anyhow::Error::new(error).context("loading")),

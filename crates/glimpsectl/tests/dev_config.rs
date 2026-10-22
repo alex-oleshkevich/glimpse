@@ -10,30 +10,34 @@ async fn dev_panel_ignores_ambient_config_but_preserves_explicit_config() -> Res
     std::fs::copy(env!("CARGO_BIN_EXE_glimpsectl"), &cli)?;
     let runtime = root.path().join("runtime");
     std::fs::create_dir(&runtime)?;
-    let ambient = root.path().join("ambient.toml");
-    std::fs::write(&ambient, "invalid = [")?;
-    let explicit = root.path().join("explicit.toml");
+    let ambient = root.path().join("ambient");
+    let explicit = root.path().join("explicit");
+    for dir in [&ambient, &explicit] {
+        std::fs::create_dir(dir)?;
+        std::fs::write(dir.join("config.toml"), "invalid = [")?;
+    }
     let explicit = explicit.to_str().unwrap();
     let bus = PrivateBus::start();
     for (args, expected, unexpected) in [
-        (vec!["dev", "panel"], "glimpse-panel", "ambient.toml"),
+        (vec!["dev", "panel"], "glimpse-panel", "ambient"),
         (
-            vec!["--config", explicit, "dev", "panel"],
-            "explicit.toml",
-            "ambient.toml",
+            vec!["--config-dir", explicit, "dev", "panel"],
+            "explicit",
+            "ambient",
         ),
         (
-            vec!["dev", "panel", "--config", explicit],
-            "explicit.toml",
-            "ambient.toml",
+            vec!["dev", "panel", "--config-dir", explicit],
+            "explicit",
+            "ambient",
         ),
-        (vec!["config", "validate"], "ambient.toml", "glimpse-panel"),
+        (vec!["config", "validate"], "ambient", "glimpse-panel"),
     ] {
         let output = tokio::time::timeout(
             Duration::from_secs(10),
             tokio::process::Command::new(&cli)
                 .args(args)
-                .env("GLIMPSE_CONFIG_PATH", &ambient)
+                .env("GLIMPSE_CONFIG_DIR", &ambient)
+                .env("XDG_CONFIG_HOME", root.path().join("home"))
                 .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
                 .env("XDG_RUNTIME_DIR", &runtime)
                 .kill_on_drop(true)

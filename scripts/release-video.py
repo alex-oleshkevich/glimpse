@@ -170,14 +170,14 @@ def watchdog(raw: Path, start: float):
     return stalled
 
 
-def record(ds, env, config: Path, scratch: Path, work: Path, personal: Path):
-    ds.glimpse_config(config, "auto", work, personal, dict(LAYOUT, wallpaper=ds.WALLPAPER),
+def record(ds, env, config_dir: Path, scratch: Path, work: Path, personal: Path):
+    ds.glimpse_config(config_dir, "desktop", work, personal, dict(LAYOUT, wallpaper=ds.WALLPAPER),
                       motion=True)
     app_id = "me.aresa.Glimpse.ReleaseVideo"
     ctl = dict(env, GLIMPSE_PANEL_APP_ID=app_id)
 
     def glimpsectl(*argv):
-        subprocess.run([ds.BIN / "glimpsectl", "--config", config, *argv], env=ctl,
+        subprocess.run([ds.BIN / "glimpsectl", "--config-dir", config_dir, *argv], env=ctl,
                        capture_output=True)
 
     def popover(applet: str | None):
@@ -219,7 +219,7 @@ def record(ds, env, config: Path, scratch: Path, work: Path, personal: Path):
 
     glimpsectl("appearance", "set", "light")
     headphones.Disconnect()
-    panel = ds.spawn([ds.BIN / "glimpse-panel", "--config", config], ctl, scratch / "panel.log")
+    panel = ds.spawn([ds.BIN / "glimpse-panel", "--config-dir", config_dir], ctl, scratch / "panel.log")
     time.sleep(8)
     ds.rewind(env)
     raw = scratch / "raw.mkv"
@@ -313,7 +313,7 @@ def record(ds, env, config: Path, scratch: Path, work: Path, personal: Path):
         ruler.wait(5)
         glimpsectl("applet", "open", "clock")
         time.sleep(0.4)
-        shot = ds.spawn([SHOT, "--config", config, "--region", geometry, "--annotate", marks,
+        shot = ds.spawn([SHOT, "--config-dir", config_dir, "--region", geometry, "--annotate", marks,
                          "--no-flash"], env, scratch / "shot.log")
         at(48.8)
         subprocess.run(["wtype", "-M", "ctrl", "-k", "s", "-m", "ctrl"], env=env, capture_output=True)
@@ -473,8 +473,8 @@ def main():
         ds = sandbox()
         captured = {}
 
-        def video(env, config, scratch, work_calendar, personal):
-            captured["raw"] = record(ds, env, config, scratch, work_calendar, personal)
+        def video(env, config_dir, scratch, work_calendar, personal):
+            captured["raw"] = record(ds, env, config_dir, scratch, work_calendar, personal)
 
         ds.video = video
         nested = ds.nested

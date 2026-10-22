@@ -1,17 +1,15 @@
 use adw::gdk;
 use futures_util::StreamExt;
 use glimpse_config::{
-    Config, DARK_STYLESHEET, WALLPAPER_STYLESHEET, stylesheet, user_dark_stylesheet,
-    user_stylesheet, watch_config, watch_theme,
+    Config, Documents, Reload, Theme, WALLPAPER_STYLESHEET, watch_config, watch_theme,
 };
+use glimpse_widgets::Styles;
 use glimpse_widgets::color_scheme;
-use glimpse_widgets::{Sheets, Styles};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::prelude::*,
 };
 use std::collections::HashMap;
-use std::path::PathBuf;
 use tokio::task::JoinHandle;
 
 use crate::resolve::{self, Key, MissingWarned, Role};
@@ -19,14 +17,14 @@ use crate::surface;
 
 pub struct AppInit {
     pub config: Config,
-    pub config_path: Option<PathBuf>,
+    pub theme: Theme,
 }
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum AppInput {
     ConfigChanged(Config),
-    ThemeChanged,
+    ThemeChanged(Theme),
     MonitorsChanged,
     DarkFlipped,
 }
@@ -38,6 +36,7 @@ struct SurfaceState {
 
 pub struct App {
     config: Config,
+    theme: Theme,
     theme_watch: JoinHandle<()>,
     styles: Styles,
     surfaces: Vec<SurfaceState>,
@@ -68,8 +67,12 @@ impl SimpleComponent for App {
     ) -> ComponentParts<Self> {
         watch_monitors(sender.clone());
         watch_scheme(sender.clone());
-        let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
-        spawn_config_watch(init.config_path, init.config.clone(), sender);
+        let theme_watch = spawn_theme_watch(
+            &init.config.appearance.theme,
+            init.theme.clone(),
+            sender.clone(),
+        );
+        spawn_config_watch(init.config.clone(), sender);
 
         let backdrop = glimpse_compositors::detect_compositor()
             .capabilities()
@@ -86,6 +89,7 @@ impl SimpleComponent for App {
         let dark = adw::StyleManager::default().is_dark();
         let mut model = App {
             config: init.config,
+            theme: init.theme,
             theme_watch,
             styles,
             surfaces: Vec::new(),
@@ -127,11 +131,17 @@ impl SimpleComponent for App {
                 self.dark = adw::StyleManager::default().is_dark();
                 if renamed {
                     self.theme_watch.abort();
-                    self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
-                    self.reload_styles();
+                    self.theme_watch = spawn_theme_watch(
+                        &self.config.appearance.theme,
+                        self.theme.clone(),
+                        sender,
+                    );
                 }
             }
-            AppInput::ThemeChanged => self.reload_styles(),
+            AppInput::ThemeChanged(theme) => {
+                self.theme = theme;
+                self.reload_styles();
+            }
             AppInput::MonitorsChanged => {}
             AppInput::DarkFlipped => {
                 self.dark = adw::StyleManager::default().is_dark();
@@ -154,32 +164,31 @@ impl SimpleComponent for App {
 impl App {
     fn reload_styles(&self) {
         let appearance = &self.config.appearance;
-        self.styles.load(&Sheets {
-            theme: stylesheet(&appearance.theme, WALLPAPER_STYLESHEET),
-            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
-            dropin: user_stylesheet(),
-            dropin_dark: user_dark_stylesheet(),
-        });
+        self.styles.load(&self.theme);
         self.styles.set_variant(&appearance.theme_variant);
         self.styles.set_animation_speed(appearance.animation_speed);
     }
 }
 
-fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
-    let themes = watch_theme(theme);
+fn spawn_theme_watch(name: &str, current: Theme, sender: ComponentSender<App>) -> JoinHandle<()> {
+    let themes = watch_theme(name, WALLPAPER_STYLESHEET, current);
     relm4::spawn(async move {
         let mut themes = Box::pin(themes);
-        while themes.next().await.is_some() {
-            sender.input(AppInput::ThemeChanged);
+        while let Some(reload) = themes.next().await {
+            if let Reload::Changed(theme) = reload {
+                sender.input(AppInput::ThemeChanged(theme));
+            }
         }
     })
 }
 
-fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
+fn spawn_config_watch(current: Config, sender: ComponentSender<App>) {
     relm4::spawn(async move {
-        let mut configs = Box::pin(watch_config(path, current));
-        while let Some(config) = configs.next().await {
-            sender.input(AppInput::ConfigChanged(config));
+        let mut configs = Box::pin(watch_config(Documents::Config, current, None));
+        while let Some(reload) = configs.next().await {
+            if let Reload::Changed(config) = reload {
+                sender.input(AppInput::ConfigChanged(config));
+            }
         }
     });
 }

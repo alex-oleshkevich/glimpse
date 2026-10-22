@@ -2,7 +2,8 @@
 
 Guides for the jobs you do once glimpse is installed and running: arranging the bar, binding keys,
 the lock screen, the night light, notifications and looks. Each one edits
-`~/.config/glimpse/config.toml` or runs a command, and a config save applies on its own.
+`~/.config/glimpse/config.toml` or `panel.toml`, or runs a command, and a config save applies on
+its own.
 
 - [Arrange your panels](/guide/panels)
 - [Show a world clock next to your clock](/guide/second-instance)

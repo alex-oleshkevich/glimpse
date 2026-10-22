@@ -27,34 +27,27 @@ fn desktop_color_scheme_defaults_to_sun_and_accepts_only_its_policies() {
 }
 
 #[test]
-fn retired_forms_name_their_replacements_and_stay_out_of_generated_config() {
-    for value in [
-        "\"auto\"",
-        "\"system\"",
-        "\"anything\"",
-        "false",
-        "42",
-        "[]",
-        "{}",
-    ] {
+fn removed_forms_are_plain_failures_and_stay_out_of_generated_config() {
+    for value in ["\"auto\"", "false", "[]"] {
         let error = toml::from_str::<Appearance>(&format!("auto-dark = {value}"))
             .unwrap_err()
             .to_string();
-        assert!(error.contains("desktop-color-scheme = \"sun\""), "{error}");
-        assert!(
-            error.contains("desktop-color-scheme = \"external\""),
-            "{error}"
-        );
+        assert!(error.contains("unknown field `auto-dark`"), "{error}");
     }
     let error = toml::from_str::<Appearance>("color-scheme = \"auto\"")
         .unwrap_err()
         .to_string();
-    assert!(error.contains("color-scheme = \"desktop\""), "{error}");
-    let schema = crate::json_schema_document();
-    assert!(!schema.contains("auto-dark"));
-    assert!(!crate::default_document().contains("auto-dark"));
-    assert!(!crate::commented_document().contains("auto-dark"));
-    let schema: serde_json::Value = serde_json::from_str(&schema).unwrap();
+    assert!(
+        error.contains("color-scheme must be desktop, light or dark"),
+        "{error}"
+    );
+    for documents in [crate::Documents::Config, crate::Documents::ConfigAndPanel] {
+        assert!(!crate::json_schema_document(documents).contains("auto-dark"));
+        assert!(!crate::default_document(documents).contains("auto-dark"));
+        assert!(!crate::commented_document(documents).contains("auto-dark"));
+    }
+    let schema: serde_json::Value =
+        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config)).unwrap();
     assert_eq!(
         schema["$defs"]["ColorScheme"]["enum"],
         serde_json::json!(["light", "dark", "desktop"])

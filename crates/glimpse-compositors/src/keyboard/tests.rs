@@ -75,13 +75,12 @@ fn the_user_copy_wins_over_the_installed_one() {
 }
 
 #[test]
-fn a_missing_file_falls_through_to_the_next_path() {
+fn a_missing_file_falls_back_to_the_built_in_table() {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    let installed = file(dir.path(), r#"{ "english": "SHIPPED" }"#);
 
-    let codes = load(&[dir.path().join("absent.json"), installed]);
+    let codes = load(&[dir.path().join("absent.json")]);
 
-    assert_eq!(codes.get("english").map(String::as_str), Some("SHIPPED"));
+    assert_eq!(codes.get("english").map(String::as_str), Some("EN"));
 }
 
 #[test]
@@ -103,17 +102,4 @@ fn keys_are_matched_regardless_of_the_case_they_were_written_in() {
 
     assert_eq!(codes.get("english").map(String::as_str), Some("EN"));
     assert_eq!(codes.get("russian").map(String::as_str), Some("RU"));
-}
-
-#[test]
-fn the_search_order_puts_the_config_directory_before_the_shared_one() {
-    let paths = search_paths();
-
-    assert!(
-        paths.last().expect("a shared path") == &Path::new(glimpse_config::DATA_DIR).join(FILE),
-        "the installed copy must be the last resort, got {paths:?}"
-    );
-    if let Some(dir) = glimpse_config::user_dir() {
-        assert_eq!(paths.first(), Some(&dir.join(FILE)));
-    }
 }

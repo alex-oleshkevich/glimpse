@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::Parser as _;
 use cli::Cli;
 use futures_util::StreamExt as _;
-use glimpse_config::watch_config;
+use glimpse_config::{Documents, Reload, watch_config};
 use glimpse_utils::{init_app_tracing, init_locale};
 use services::WeatherServices;
 use tokio::signal::unix::{SignalKind, signal};
@@ -30,16 +30,17 @@ async fn main() -> ExitCode {
 async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     init_locale();
-    let (config, _) = glimpse_config::load_or_default(cli.config.as_deref());
+    glimpse_config::init(cli.config.config_dir.clone());
+    let (config, _) = glimpse_config::load_or_default(Documents::Config);
     tracing::info!(
-        config_path = ?cli.config.config,
+        config_dir = ?cli.config.config_dir,
         weather_provider = ?config.weather.provider,
         poll_interval = config.weather.poll_interval,
         forecast_days = config.weather.forecast_days,
         "glimpse-weather starting"
     );
     let services = WeatherServices::start(&config).await?;
-    let mut configs = Box::pin(watch_config(cli.config.config.clone(), config));
+    let mut configs = Box::pin(watch_config(Documents::Config, config, None));
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut watching = true;
@@ -55,7 +56,8 @@ async fn run(cli: Cli) -> Result<()> {
                 break;
             }
             reloaded = configs.next(), if watching => match reloaded {
-                Some(reloaded) => services.reconfigure(&reloaded),
+                Some(Reload::Changed(reloaded)) => services.reconfigure(&reloaded),
+                Some(Reload::Recovered | Reload::Rejected(_)) => {}
                 None => {
                     tracing::error!("the configuration is no longer being watched");
                     watching = false;

@@ -1,20 +1,29 @@
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use futures_util::{Stream, StreamExt, stream};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use tokio::signal::unix::{SignalKind, signal};
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
-use crate::load::{load, watch_dirs};
+use crate::error::ConfigError;
+use crate::load::{
+    CONFIG_FILE, DATA_DIR, Documents, PANEL_DROPINS, PANEL_FILE, SYSTEM_DIR, load, push,
+    push_target_parent, roots,
+};
 use crate::schema::Config;
+use crate::theme::{THEMES_DIR, themes_dir_from_env};
 
 /// How long a watched directory has to go quiet before its events are reported. An editor saving a
 /// file produces a write, a rename over the target, and sometimes a delete and a create.
 const DEBOUNCE: Duration = Duration::from_millis(250);
 const EVENTS: usize = 256;
+const SIGNALS: usize = 16;
+
+static HUB: OnceLock<Hub> = OnceLock::new();
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Update {
@@ -25,14 +34,16 @@ pub enum Update {
     Unavailable(String),
 }
 
-/// Watches one directory, non-recursively, for as long as the stream lives.
-pub fn watch(dir: impl Into<PathBuf>) -> impl Stream<Item = Update> + Send + 'static {
-    watch_all([dir.into()])
+#[derive(Debug, PartialEq, Eq)]
+pub enum Reload<T> {
+    Changed(T),
+    Recovered,
+    Rejected(String),
 }
 
 /// One inotify instance for the whole set, however many directories it holds. Its reader blocks on
 /// the descriptor, so a session where nothing is edited costs nothing at all.
-pub fn watch_all(
+pub fn watch_dirs(
     dirs: impl IntoIterator<Item = PathBuf>,
 ) -> impl Stream<Item = Update> + Send + 'static {
     stream::unfold(
@@ -42,35 +53,112 @@ pub fn watch_all(
 }
 
 pub fn watch_config(
-    config_path: Option<PathBuf>,
-    current: Config,
-) -> impl Stream<Item = Config> + Send + 'static {
-    watch_config_reporting(config_path, current, None)
-        .filter_map(|reloaded| std::future::ready(reloaded.ok().flatten()))
-}
-
-pub fn watch_config_reporting(
-    config_path: Option<PathBuf>,
+    documents: Documents,
     current: Config,
     failure: Option<String>,
-) -> impl Stream<Item = Result<Option<Config>, String>> + Send + 'static {
-    let watch = Watch::new(watch_dirs(config_path.as_deref()));
-    let watched = stream::unfold(
-        (watch, config_path.clone()),
-        |(mut watch, path)| async move {
-            let update = watch.next().await?;
-            if matches!(update, Update::Changed(_) | Update::Rearmed) {
-                let dirs: Vec<PathBuf> = watch_dirs(path.as_deref())
-                    .into_iter()
-                    .map(absolute)
-                    .collect();
-                if dirs != watch.allowed {
-                    watch = Watch::new(dirs);
-                }
-            }
-            Some((update, (watch, path)))
-        },
+) -> impl Stream<Item = Reload<Config>> + Send + 'static {
+    reloads(
+        || shared().subscribe(),
+        Arc::new(move || load(documents)),
+        current,
+        failure,
+        false,
     )
+    .inspect(|reload| {
+        if let Reload::Changed(config) = reload {
+            for problem in config.validate() {
+                tracing::warn!(%problem, "configuration problem");
+            }
+        }
+    })
+}
+
+pub(crate) type Loader<T> = Arc<dyn Fn() -> Result<T, ConfigError> + Send + Sync>;
+
+pub(crate) fn shared() -> &'static Hub {
+    HUB.get_or_init(|| Hub::start(process_dirs))
+}
+
+fn process_dirs() -> Vec<PathBuf> {
+    hub_dirs(
+        &roots(),
+        Path::new(SYSTEM_DIR),
+        Path::new(DATA_DIR),
+        themes_dir_from_env(),
+    )
+}
+
+fn hub_dirs(
+    roots: &[PathBuf],
+    system: &Path,
+    data: &Path,
+    themes: Option<PathBuf>,
+) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    for root in roots.iter().filter(|root| root.as_path() != system) {
+        push(&mut dirs, root.clone());
+        push(&mut dirs, root.join(PANEL_DROPINS));
+        push_themes(&mut dirs, root.join(THEMES_DIR));
+        push_target_parent(&mut dirs, &root.join(CONFIG_FILE));
+        push_target_parent(&mut dirs, &root.join(PANEL_FILE));
+    }
+    push_themes(&mut dirs, data.join(THEMES_DIR));
+    if let Some(themes) = themes {
+        push_themes(&mut dirs, themes);
+    }
+    dirs
+}
+
+fn push_themes(dirs: &mut Vec<PathBuf>, themes: PathBuf) {
+    let mut children: Vec<PathBuf> = std::fs::read_dir(&themes)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    children.sort();
+    push(dirs, themes);
+    for child in children {
+        push(dirs, child);
+    }
+}
+
+pub(crate) struct Hub {
+    signals: broadcast::Sender<()>,
+}
+
+impl Hub {
+    pub(crate) fn start(dirs: impl Fn() -> Vec<PathBuf> + Send + 'static) -> Self {
+        let (signals, _) = broadcast::channel(SIGNALS);
+        let sender = signals.clone();
+        let mut changes = Box::pin(changes(dirs));
+        tokio::spawn(async move {
+            while changes.next().await.is_some() {
+                let _ = sender.send(());
+            }
+        });
+        Self { signals }
+    }
+
+    pub(crate) fn subscribe(&self) -> broadcast::Receiver<()> {
+        self.signals.subscribe()
+    }
+}
+
+fn changes(
+    dirs: impl Fn() -> Vec<PathBuf> + Send + 'static,
+) -> impl Stream<Item = ()> + Send + 'static {
+    let watched = stream::unfold((Watch::new(dirs()), dirs), |(mut watch, dirs)| async move {
+        let update = watch.next().await?;
+        if matches!(update, Update::Changed(_) | Update::Rearmed) {
+            let wanted: Vec<PathBuf> = dirs().into_iter().map(absolute).collect();
+            if wanted != watch.allowed {
+                watch = Watch::new(wanted);
+            }
+        }
+        Some((update, (watch, dirs)))
+    })
     .filter_map(|update| async move {
         match update {
             Update::Changed(_) | Update::Rearmed => Some(()),
@@ -83,17 +171,7 @@ pub fn watch_config_reporting(
             }
         }
     });
-
-    let reader = Reader {
-        triggers: Box::pin(stream::select(Box::pin(watched), Box::pin(hangups()))),
-        path: config_path,
-        current,
-        failure,
-    };
-
-    stream::unfold(reader, |mut reader| async move {
-        reader.next().await.map(|config| (config, reader))
-    })
+    stream::select(Box::pin(watched), Box::pin(hangups()))
 }
 
 pub(crate) fn hangups() -> impl Stream<Item = ()> + Send + 'static {
@@ -108,64 +186,87 @@ pub(crate) fn hangups() -> impl Stream<Item = ()> + Send + 'static {
     })
 }
 
-/// Loads the stack off the runtime threads: the new document if it parsed and differs, `None` if it
-/// parsed and did not, and the reason if it did not parse. The failure is returned rather than
-/// logged here, because the same one repeated is a document nobody has fixed yet and only the
-/// caller knows whether it has already said so.
-async fn reread(config_path: Option<&Path>, current: &Config) -> Result<Option<Config>, String> {
-    let path = config_path.map(Path::to_path_buf);
-
-    match tokio::task::spawn_blocking(move || load(path.as_deref())).await {
-        Ok(Ok(config)) => {
-            let same = Config {
-                screenshot: current.screenshot.clone(),
-                ..config.clone()
-            } == *current;
-            Ok((!same).then_some(config))
+fn triggers(receiver: broadcast::Receiver<()>) -> impl Stream<Item = ()> + Send + 'static {
+    stream::unfold(receiver, |mut receiver| async move {
+        match receiver.recv().await {
+            Err(broadcast::error::RecvError::Closed) => None,
+            _ => Some(((), receiver)),
         }
-        Ok(Err(error)) => Err(error.to_string()),
-        Err(error) => Err(format!("the configuration reader panicked: {error}")),
-    }
+    })
 }
 
-struct Reader {
+pub(crate) fn reloads<T>(
+    subscribe: impl FnOnce() -> broadcast::Receiver<()> + Send + 'static,
+    load: Loader<T>,
+    current: T,
+    failure: Option<String>,
+    leading: bool,
+) -> impl Stream<Item = Reload<T>> + Send + 'static
+where
+    T: Clone + PartialEq + Send + 'static,
+{
+    stream::once(async move {
+        let reader = Reader {
+            triggers: Box::pin(triggers(subscribe())),
+            load,
+            current,
+            failure,
+            leading,
+        };
+        stream::unfold(reader, |mut reader| async move {
+            reader.next().await.map(|reload| (reload, reader))
+        })
+    })
+    .flatten()
+}
+
+struct Reader<T> {
     triggers: Pin<Box<dyn Stream<Item = ()> + Send>>,
-    path: Option<PathBuf>,
-    current: Config,
+    load: Loader<T>,
+    current: T,
     /// The last failure reported. A watched directory goes on producing events while a document
     /// stays broken — an editor's swap and backup files land right beside it — and without this
     /// every one of them reproduces the same line.
     failure: Option<String>,
+    leading: bool,
 }
 
-impl Reader {
-    async fn next(&mut self) -> Option<Result<Option<Config>, String>> {
-        while self.triggers.next().await.is_some() {
-            match reread(self.path.as_deref(), &self.current).await {
+impl<T: Clone + PartialEq + Send + 'static> Reader<T> {
+    async fn next(&mut self) -> Option<Reload<T>> {
+        let mut read = std::mem::take(&mut self.leading);
+        loop {
+            if !read && self.triggers.next().await.is_none() {
+                return None;
+            }
+            read = false;
+            let load = Arc::clone(&self.load);
+            let loaded = match tokio::task::spawn_blocking(move || load()).await {
+                Ok(loaded) => loaded.map_err(|error| error.to_string()),
+                Err(error) => Err(format!("the configuration reader panicked: {error}")),
+            };
+            match loaded {
                 // A document that loads is one that is no longer broken, whether or not it moved,
                 // so the next failure is news again.
                 Ok(loaded) => {
                     let recovered = self.failure.take().is_some();
-                    match loaded {
-                        Some(config) => {
-                            for problem in config.validate() {
-                                tracing::warn!(%problem, "configuration problem");
-                            }
-                            self.current = config.clone();
-                            return Some(Ok(Some(config)));
-                        }
-                        None if recovered => return Some(Ok(None)),
-                        None => {}
+                    if recovered {
+                        tracing::info!("configuration recovered");
+                    }
+                    if loaded != self.current {
+                        self.current = loaded;
+                        return Some(Reload::Changed(self.current.clone()));
+                    }
+                    if recovered {
+                        return Some(Reload::Recovered);
                     }
                 }
                 Err(reason) => {
                     if self.report(&reason) {
-                        return Some(Err(reason));
+                        return Some(Reload::Rejected(reason));
                     }
                 }
             }
         }
-        None
     }
 
     /// The same failure again is one document nobody has fixed yet, not a second problem.
@@ -363,15 +464,6 @@ fn forward(
     }
 }
 
-/// The deepest existing directory at or above `dir`, never leaving `allowed`.
-///
-/// The walk stops at the set it was given rather than at a list of directories to avoid, so a
-/// missing `config.d/` still falls back onto the `glimpse/` beside it in the set, and a missing
-/// `glimpse/` falls back onto nothing. `/etc` and `$XDG_CONFIG_HOME` are written constantly by
-/// software with no connection to this session, and a watch on either wakes us for every one of
-/// those writes to report a file that did not change. What is given up is noticing the
-/// configuration directory being created while the session runs, which is the one time a restart
-/// is no imposition — there was nothing configured to reload.
 fn nearest_existing(dir: &Path, allowed: &[PathBuf]) -> Option<PathBuf> {
     let mut candidate = dir;
 

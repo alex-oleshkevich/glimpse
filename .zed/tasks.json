@@ -12,7 +12,8 @@
       "RUST_LOG": "debug",
       "GLIMPSE_THEMES_DIR": "data/themes",
       "GLIMPSE_PANEL_APP_ID": "me.aresa.GlimpsePanel.Dev",
-      "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
+      "GLIMPSE_CONFIG_DIR": "var/config",
+      "XDG_CONFIG_HOME": "$ZED_WORKTREE_ROOT/var/xdg-config",
     },
   },
   {
@@ -23,7 +24,8 @@
     "hide": "on_success",
     "env": {
       "GLIMPSE_WALLPAPER_APP_ID": "me.aresa.GlimpseWallpaper.Dev",
-      "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
+      "GLIMPSE_CONFIG_DIR": "var/config",
+      "XDG_CONFIG_HOME": "$ZED_WORKTREE_ROOT/var/xdg-config",
     },
   },
 ]

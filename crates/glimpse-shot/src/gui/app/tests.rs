@@ -12,10 +12,7 @@ fn a_file_timeout_without_json_keeps_the_reply_until_it_exits_seven() {
         .application_id("me.aresa.Glimpse.Shot.TimeoutTest")
         .build();
     app.register(gio::Cancellable::NONE).expect("register");
-    let scratch = tempfile::tempdir().expect("scratch");
-    let config = scratch.path().join("config.toml");
-    std::fs::write(&config, "").expect("config");
-    let shell = Shell::new(&app, Some(&config));
+    let shell = Shell::new(&app);
     let answered = Rc::new(RefCell::new(None));
     let answer = Rc::clone(&answered);
     shell.open_file(
@@ -23,7 +20,6 @@ fn a_file_timeout_without_json_keeps_the_reply_until_it_exits_seven() {
         Some(Box::new(move |result| {
             answer.replace(Some(reply(result, false)));
         })),
-        Some(&config),
         &GuiArgs {
             timeout: Some(0),
             ..Default::default()
@@ -175,30 +171,6 @@ fn portal_target_rejects_the_window_picker() {
     assert!(!portal_target_allowed(&Target::PickWindow));
     assert!(!portal_target_allowed(&Target::Window(7)));
     assert!(!portal_target_allowed(&Target::App));
-}
-
-#[test]
-fn a_forwarded_config_is_the_callers_and_anchored_at_the_callers_directory() {
-    let cwd = Some(Path::new("/home/me"));
-    let explicit = Some(PathBuf::from("dev.toml"));
-    let environment = Some(PathBuf::from("/etc/env.toml"));
-    assert_eq!(
-        caller_config(explicit.clone(), environment.clone(), cwd),
-        Some(PathBuf::from("/home/me/dev.toml"))
-    );
-    assert_eq!(
-        caller_config(None, environment, cwd),
-        Some(PathBuf::from("/etc/env.toml"))
-    );
-    assert_eq!(
-        caller_config(None, Some(PathBuf::from("var/c.toml")), cwd),
-        Some(PathBuf::from("/home/me/var/c.toml"))
-    );
-    assert_eq!(
-        caller_config(explicit, None, None),
-        Some(PathBuf::from("dev.toml"))
-    );
-    assert_eq!(caller_config(None, None, cwd), None);
 }
 
 #[test]

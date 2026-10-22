@@ -10,6 +10,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use futures_util::StreamExt;
+use glimpse_config::{Documents, Reload};
 use glimpse_utils::{init_app_tracing, init_locale};
 use services::SunsetServices;
 use tokio::signal::unix::{SignalKind, signal};
@@ -32,21 +33,22 @@ async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     init_locale();
 
-    let (mut config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
+    glimpse_config::init(cli.config.config_dir.clone());
+    let (mut config, failure) = glimpse_config::load_or_default(Documents::Config);
     let failure = failure.map(|error| error.to_string());
     if failure.is_some() {
         config.night_light.schedule = glimpse_config::Schedule::Off;
     }
     tracing::info!(
-        config_path = ?cli.config.config,
+        config_dir = ?cli.config.config_dir,
         schedule = ?config.night_light.schedule,
         temperature = config.night_light.temperature,
         "glimpse-sunset starting"
     );
 
     let services = SunsetServices::start(&config, failure.clone().map_or(Ok(()), Err)).await?;
-    let mut configs = Box::pin(glimpse_config::watch_config_reporting(
-        cli.config.config.clone(),
+    let mut configs = Box::pin(glimpse_config::watch_config(
+        Documents::Config,
         config,
         failure,
     ));
@@ -65,12 +67,12 @@ async fn run(cli: Cli) -> Result<()> {
                 break;
             }
             reloaded = configs.next(), if watching => match reloaded {
-                Some(Ok(Some(reloaded))) => {
+                Some(Reload::Changed(reloaded)) => {
                     services.reconfigure(&reloaded);
                     services.report(Ok(())).await;
                 }
-                Some(Ok(None)) => services.report(Ok(())).await,
-                Some(Err(reason)) => services.report(Err(reason)).await,
+                Some(Reload::Recovered) => services.report(Ok(())).await,
+                Some(Reload::Rejected(reason)) => services.report(Err(reason)).await,
                 None => {
                     tracing::error!("the configuration is no longer being watched");
                     watching = false;

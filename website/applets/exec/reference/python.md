@@ -82,7 +82,7 @@ reorders.
 class Context:
     name: str                      # this instance's name in the config
     state_dir: str                 # a directory for your files, mode 0700
-    options: dict[str, Any]        # the config's options; updates without a restart
+    options: dict[str, Any]        # the config's options
     placement: dict[str, Any] | None  # output, position, orientation, zone, size of the bar
     popover_open: bool             # whether the popover is showing
     entry: AppletEntry | None      # the desktop entry's id, name and icon

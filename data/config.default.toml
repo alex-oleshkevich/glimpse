@@ -1,5 +1,5 @@
 #:schema /usr/share/glimpse/config.schema.json
-# This is glimpse's default configuration — every setting, with the value it ships with.
+# This is glimpse's default config.toml — every setting, with the value it ships with.
 
 [appearance]
 theme = "adwaita"
@@ -164,42 +164,3 @@ network = true
 
 [removable]
 capacity-interval = 10
-
-[[panels]]
-size = 36
-position = "top"
-left = [
-    "workspace-name",
-    "pager",
-    "places",
-    "mpris",
-]
-center = [
-    "clock",
-    "weather",
-    "notifications",
-    "privacy",
-]
-right = [
-    "next-event",
-    "tray",
-    "removable",
-    "clipboard",
-    "printing",
-    "bluetooth",
-    "network",
-    "display",
-    "audio",
-    "idle",
-    "power",
-    "keyboard",
-    "session",
-]
-
-[panels.margin]
-left = 0
-right = 0
-top = 0
-bottom = 0
-
-[applets]

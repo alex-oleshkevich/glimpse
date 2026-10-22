@@ -1,7 +1,7 @@
 use super::{
     BUILTIN, BUILTIN_PRIORITY, DROPIN_DARK_PRIORITY, DROPIN_PRIORITY, DURATION_MS, SPEED_PRIORITY,
-    THEME_DARK_PRIORITY, THEME_PRIORITY, effective_scheme, provider_scheme, requested_scheme,
-    scaled, speed_sheet, usable_variant,
+    Styles, THEME_DARK_PRIORITY, THEME_PRIORITY, effective_scheme, provider_scheme,
+    requested_scheme, scaled, speed_sheet, usable_variant,
 };
 
 const OPEN: &str = ":root {";
@@ -247,4 +247,20 @@ fn inactive_rows_fade_each_element_once() {
         }
     }
     assert!(!rules.contains("listrow:disabled label {"));
+}
+
+#[test]
+#[ignore]
+fn a_theme_sheet_reaches_its_provider_and_an_absent_one_clears_it() {
+    adw::init().expect("a display");
+    let styles = Styles::install(adw::ColorScheme::Default);
+
+    styles.load(&glimpse_config::Theme {
+        sheet: Some("label { color: red; }".into()),
+        ..Default::default()
+    });
+    assert!(styles.theme.to_str().contains("label"));
+
+    styles.load(&glimpse_config::Theme::default());
+    assert!(styles.theme.to_str().is_empty());
 }

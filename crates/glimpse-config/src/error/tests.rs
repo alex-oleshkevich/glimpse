@@ -50,7 +50,7 @@ fn a_type_mismatch_names_the_key_without_quoting_the_value() {
         panic!("expected a type mismatch");
     };
 
-    let rendered = ConfigError::schema(error).to_string();
+    let rendered = ConfigError::schema(error, None).to_string();
 
     assert!(rendered.contains("count"), "{rendered}");
     assert!(!rendered.contains("ghp_thisisasecret"), "{rendered}");

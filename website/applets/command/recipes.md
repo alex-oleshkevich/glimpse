@@ -2,7 +2,7 @@
 
 Define each button as an `[applets.<name>]` table, then add its name to an existing panel zone. These recipes assume you've [added a command button](/applets/command/) before.
 
-The tables can go in `config.toml` or in a [drop-in](/config/#layers-and-drop-ins) of their own, such as `~/.config/glimpse/config.d/buttons.toml`. The zone list stays in the file that holds your `[[panels]]` tables, because the last file with any `[[panels]]` defines every panel.
+The tables can go in `panel.toml` or in a [drop-in](/config/#where-glimpse-looks) of their own, such as `~/.config/glimpse/panel.d/buttons.toml`. The zone list stays in the file that holds your `[[panels]]` tables, because the last file with any `[[panels]]` defines every panel.
 
 Each gesture is a list: the first string is the program and each remaining string is one argument. For pipes, variable expansion and shell operators, run the shell yourself with `["sh", "-c", "<command line>"]`.
 

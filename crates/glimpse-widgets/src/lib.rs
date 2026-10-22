@@ -195,7 +195,7 @@ pub use sparkline::{Sparkline, Tick};
 pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};
 pub(crate) use theme::animation_ms;
-pub use theme::{Sheets, Styles, color_scheme, duration_ms};
+pub use theme::{Styles, color_scheme, duration_ms};
 pub use toggle_row::{ToggleControl, ToggleRow};
 pub use track_card::{Track, TrackCard};
 pub use transport::{Repeat, Transport, TransportAction};

@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
-use glimpse_config::{Config, Panel, runtime_dir};
+use glimpse_config::{Config, Documents, PANEL_TABLES, Panel, runtime_dir};
 use glimpse_dbus::applet_host_name;
 use tokio::signal::unix::{SignalKind, signal};
 use zbus::export::futures_core::Stream;
@@ -51,16 +51,16 @@ pub(super) struct OwnedPanel {
 impl OwnedPanel {
     pub(super) async fn start(
         args: DevPanelArgs,
-        config: Option<&Path>,
+        explicit: bool,
         bus: &zbus::Connection,
     ) -> Result<Self> {
         let executable = std::env::current_exe()?.with_file_name("glimpse-panel");
-        Self::start_with(args, config, bus, &executable).await
+        Self::start_with(args, explicit, bus, &executable).await
     }
 
     async fn start_with(
         args: DevPanelArgs,
-        config: Option<&Path>,
+        explicit: bool,
         bus: &zbus::Connection,
         executable: &Path,
     ) -> Result<Self> {
@@ -82,19 +82,16 @@ impl OwnedPanel {
                 && !super::has_owner(bus, &applet_host_name(&app_id)).await?,
             "panel app id is already owned: {app_id}"
         );
-        let default_config = config.is_none();
+        let default_config = !explicit;
         let position = match args.edge {
             crate::cli::Position::Top => glimpse_config::Position::Top,
             crate::cli::Position::Bottom => glimpse_config::Position::Bottom,
             crate::cli::Position::Left => glimpse_config::Position::Left,
             crate::cli::Position::Right => glimpse_config::Position::Right,
         };
-        let mut config: Config = match config {
-            Some(path) => toml::from_str(
-                &fs::read_to_string(path)
-                    .with_context(|| format!("cannot read {}", path.display()))?,
-            )?,
-            None => Config::default(),
+        let mut config = match explicit {
+            true => glimpse_config::load(Documents::ConfigAndPanel)?,
+            false => Config::default(),
         };
         if default_config
             || config.panels.is_empty()
@@ -118,11 +115,25 @@ impl OwnedPanel {
             config.validate()
         );
         let mut scratch = Scratch::new("panels")?;
-        let path = scratch.path.join("config.toml");
-        fs::write(&path, toml::to_string_pretty(&config)?)?;
+        let mut config_table = toml::Table::try_from(&config)?;
+        let mut panel_table = toml::Table::new();
+        for key in PANEL_TABLES {
+            if let Some(value) = config_table.remove(key) {
+                panel_table.insert(key.to_owned(), value);
+            }
+        }
+        fs::write(
+            scratch.path.join("config.toml"),
+            toml::to_string_pretty(&config_table)?,
+        )?;
+        fs::write(
+            scratch.path.join("panel.toml"),
+            toml::to_string_pretty(&panel_table)?,
+        )?;
         let child = Command::new(executable)
-            .arg("--config")
-            .arg(&path)
+            .arg("--config-dir")
+            .arg(&scratch.path)
+            .env("XDG_CONFIG_HOME", scratch.path.join("home"))
             .env("GLIMPSE_PANEL_APP_ID", &app_id)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -274,12 +285,12 @@ impl Drop for OwnedPanel {
     }
 }
 
-pub async fn dev_panel(args: DevPanelArgs, config: Option<PathBuf>, json: bool) -> Result<()> {
+pub async fn dev_panel(args: DevPanelArgs, explicit: bool, json: bool) -> Result<()> {
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut terminate = signal(SignalKind::terminate())?;
     let mut hangup = signal(SignalKind::hangup())?;
     let bus = super::within(zbus::Connection::session()).await?;
-    let mut panel = OwnedPanel::start(args, config.as_deref(), &bus).await?;
+    let mut panel = OwnedPanel::start(args, explicit, &bus).await?;
     let result = async {
         let output = if json {
             serde_json::to_string_pretty(&serde_json::json!({"app_id": panel.app_id}))?

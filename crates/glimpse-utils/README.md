@@ -15,7 +15,7 @@ The argument structs and logging setup every binary repeats, written once.
 ## What it holds
 
 Two `clap::Args` structs, both `global = true` so they may follow a subcommand, each carrying the
-environment variable that is its default: `ConfigArg` (`-c`/`--config`, `GLIMPSE_CONFIG_PATH`),
+environment variable that is its default: `ConfigArg` (`--config-dir`, `GLIMPSE_CONFIG_DIR`, no short flag),
 `LogArgs` (`--log`/`--log-format`, `RUST_LOG`).
 The variable is declared on the flag rather than read separately, so it shows in `--help` and cannot
 acquire a second spelling elsewhere.

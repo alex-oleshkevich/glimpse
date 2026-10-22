@@ -32,8 +32,8 @@ Watch it in full quality: [light](website/public/video/demo.mp4), [dark](website
 - The night light follows sunset and sunrise where you are.
 - Exec applets put your own program on the panel, with its own indicator and popover. SDKs exist
   for TypeScript, Python, Go and Rust.
-- All settings live in one `config.toml`. Saving it applies the change, and a JSON schema gives your
-  editor completion.
+- Settings live in `config.toml` and the panel layout in `panel.toml`. Saving either applies the
+  change, and a JSON schema gives your editor completion.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/applets-dark.png">
@@ -105,8 +105,10 @@ exec-once = systemctl --user start glimpse-session.target
 exec-shutdown = systemctl --user stop glimpse-session.target
 ```
 
-The configuration lives in `~/.config/glimpse/config.toml`. Every setting and its default is listed,
-with comments, in [`data/config.commented.toml`](data/config.commented.toml).
+The configuration lives in `~/.config/glimpse/`: `config.toml` for settings and `panel.toml` for the
+panel layout. Every setting and its default is listed, with comments, in
+[`data/config.commented.toml`](data/config.commented.toml) and
+[`data/panel.commented.toml`](data/panel.commented.toml).
 
 ## Credits
 

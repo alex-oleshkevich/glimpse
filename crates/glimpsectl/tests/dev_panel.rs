@@ -26,7 +26,7 @@ fn setup(root: &Path, mode: &str) -> Result<std::path::PathBuf> {
     fs::write(
         &panel,
         format!(
-            "#!/usr/bin/python3\nimport dbus, json, os, sys, time\nfrom gi.repository import GLib\nroot = os.path.dirname(__file__)\nopen(os.path.join(root, 'panel.pid'), 'w').write(str(os.getpid()))\nopen(os.path.join(root, 'panel.config'), 'w').write(sys.argv[2])\nassert sys.argv[1] == '--config'\nif {mode:?} == 'fail': sys.exit(7)\nif {mode:?} == 'pending': time.sleep(30)\nbus = dbus.SessionBus()\nbus.request_name(os.environ['GLIMPSE_PANEL_APP_ID'] + '.AppletHost', 4)\nGLib.MainLoop().run()\n"
+            "#!/usr/bin/python3\nimport dbus, json, os, sys, time\nfrom gi.repository import GLib\nroot = os.path.dirname(__file__)\nopen(os.path.join(root, 'panel.pid'), 'w').write(str(os.getpid()))\nopen(os.path.join(root, 'panel.config'), 'w').write(sys.argv[2])\nassert sys.argv[1] == '--config-dir'\nopen(os.path.join(root, 'split.json'), 'w').write(json.dumps([open(os.path.join(sys.argv[2], 'config.toml')).read(), open(os.path.join(sys.argv[2], 'panel.toml')).read(), os.environ['XDG_CONFIG_HOME'], sys.argv[2]]))\nif {mode:?} == 'fail': sys.exit(7)\nif {mode:?} == 'pending': time.sleep(30)\nbus = dbus.SessionBus()\nbus.request_name(os.environ['GLIMPSE_PANEL_APP_ID'] + '.AppletHost', 4)\nGLib.MainLoop().run()\n"
         ),
     )?;
     fs::set_permissions(&panel, fs::Permissions::from_mode(0o755))?;
@@ -64,7 +64,7 @@ async fn test_panel_reports_fresh_id_and_removes_only_its_child_and_config() -> 
                 .args(["--json", "dev", "panel"])
                 .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
                 .env("GLIMPSE_PANEL_APP_ID", "org.example.UserPanel")
-                .env_remove("GLIMPSE_CONFIG_PATH")
+                .env_remove("GLIMPSE_CONFIG_DIR")
                 .env("XDG_RUNTIME_DIR", root.path().join("runtime"))
                 .env("XDG_CONFIG_HOME", root.path().join("user"))
                 .stdout(Stdio::piped())
@@ -103,8 +103,13 @@ async fn test_panel_reports_fresh_id_and_removes_only_its_child_and_config() -> 
             let app_id = value["app_id"].as_str().context("no app id")?;
             assert!(app_id.starts_with("me.aresa.GlimpsePanel.Dev."));
             assert_ne!(app_id, "org.example.UserPanel");
-            let config: glimpse_config::Config =
-                toml::from_str(&fs::read_to_string(&config_path)?)?;
+            let split: Vec<String> =
+                serde_json::from_str(&wait_file(&root.path().join("split.json")).await?)?;
+            assert_eq!(split[3], config_path);
+            assert_eq!(Path::new(&split[2]), Path::new(&config_path).join("home"));
+            let config_doc: toml::Table = toml::from_str(&split[0])?;
+            assert!(!config_doc.contains_key("panels"));
+            let config: glimpse_config::Config = toml::from_str(&split[1])?;
             assert!(
                 config.panels[0].left.is_empty()
                     && config.panels[0].center.is_empty()
@@ -188,7 +193,7 @@ GLib.MainLoop().run()
             .args(["applet", "run", "--isolated"])
             .arg(&source)
             .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
-            .env_remove("GLIMPSE_CONFIG_PATH")
+            .env_remove("GLIMPSE_CONFIG_DIR")
             .env("XDG_RUNTIME_DIR", root.path().join("runtime"))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -260,7 +265,7 @@ async fn closed_dev_panel_stdout_stops_normally_and_cleans_owned_child_and_confi
         let mut child = Process(
             command
                 .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
-                .env_remove("GLIMPSE_CONFIG_PATH")
+                .env_remove("GLIMPSE_CONFIG_DIR")
                 .env("XDG_RUNTIME_DIR", root.path().join("runtime"))
                 .stdin(Stdio::null())
                 .stdout(Stdio::from(writer))

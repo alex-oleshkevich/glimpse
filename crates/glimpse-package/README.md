@@ -50,14 +50,11 @@ symbols to split, so the debug package is nothing but `.build-id` links pacman n
 its parent.
 
 **Packages seed no user configuration** — an install runs as root with no home to write, so none
-carries a `postinst`. Each UI binary calls `glimpse_config::seed_user_config` before `load`, and
-whichever starts first writes `~/.config/glimpse/config.toml` with `File::create_new`, so
-simultaneous starts cannot race; `scripts/install.sh` seeds the same file for a source install, using
-`SUDO_USER`'s passwd entry for the real destination and owner (root's `$HOME` names the wrong
-person), and skips entirely under `DESTDIR`. **The seeded file is the fully commented copy, and every
-value in it is inert**, so an uncommented default still updates on the next release; its `#:schema`
-first line points at the installed `config.schema.json`, giving a TOML language server completion,
-hover docs and diagnostics.
+carries a `postinst`, and `scripts/install.sh` writes nothing outside `DESTDIR`/`PREFIX`. The panel,
+notifications, lock screen and wallpaper call `glimpse_config::seed_user_config` on their first start, which writes stub `config.toml`
+and `panel.toml` with `File::create_new`, so simultaneous starts cannot race. **Six reference files
+ship** — `config` and `panel`, each as `.default.toml`, `.commented.toml` and `.schema.json` — and the
+stubs' `#:schema` line points at the installed schema.
 
 **Theme directory structure is load-bearing** — `themes/<name>/panel.css` is found by name, so a
 flat glob into one destination would collapse every theme's sheets together; `install.sh` and

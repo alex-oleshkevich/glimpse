@@ -78,30 +78,90 @@ fn placed_kinds_follows_zone_placement_not_table_presence() {
 }
 
 #[test]
-fn the_reference_file_matches_the_compiled_in_defaults() {
-    let checked_in = include_str!("../../../../data/config.default.toml");
-
-    assert_eq!(checked_in, crate::default_document());
+fn the_reference_files_match_the_compiled_in_defaults() {
+    assert_eq!(
+        include_str!("../../../../data/config.default.toml"),
+        crate::default_document(crate::Documents::Config)
+    );
+    assert_eq!(
+        include_str!("../../../../data/panel.default.toml"),
+        crate::default_document(crate::Documents::ConfigAndPanel)
+    );
 }
 
 #[test]
-fn the_commented_reference_file_matches_the_compiled_in_renderer() {
-    let checked_in = include_str!("../../../../data/config.commented.toml");
-
-    assert_eq!(checked_in, crate::commented_document());
+fn the_commented_reference_files_match_the_compiled_in_renderer() {
+    assert_eq!(
+        include_str!("../../../../data/config.commented.toml"),
+        crate::commented_document(crate::Documents::Config)
+    );
+    assert_eq!(
+        include_str!("../../../../data/panel.commented.toml"),
+        crate::commented_document(crate::Documents::ConfigAndPanel)
+    );
 }
 
 #[test]
-fn the_json_schema_matches_the_compiled_in_types() {
-    let checked_in = include_str!("../../../../data/config.schema.json");
+fn the_json_schemas_match_the_compiled_in_types() {
+    assert_eq!(
+        include_str!("../../../../data/config.schema.json"),
+        crate::json_schema_document(crate::Documents::Config)
+    );
+    assert_eq!(
+        include_str!("../../../../data/panel.schema.json"),
+        crate::json_schema_document(crate::Documents::ConfigAndPanel)
+    );
+}
 
-    assert_eq!(checked_in, crate::json_schema_document());
+#[test]
+fn each_schema_offers_only_its_own_tables() {
+    for (documents, offered) in [
+        (crate::Documents::Config, false),
+        (crate::Documents::ConfigAndPanel, true),
+    ] {
+        let schema: serde_json::Value =
+            serde_json::from_str(&crate::json_schema_document(documents)).expect("JSON");
+        let properties = schema["properties"].as_object().expect("properties");
+        assert!(!properties.is_empty());
+        assert_eq!(schema["additionalProperties"], false);
+        for table in properties.keys() {
+            assert_eq!(
+                crate::PANEL_TABLES.contains(&table.as_str()),
+                offered,
+                "{table}"
+            );
+        }
+    }
+}
+
+#[test]
+fn each_default_document_holds_only_its_own_tables() {
+    let config: toml::Table = crate::default_document(crate::Documents::Config)
+        .parse()
+        .expect("TOML");
+    let panel: toml::Table = crate::default_document(crate::Documents::ConfigAndPanel)
+        .parse()
+        .expect("TOML");
+
+    assert!(
+        crate::PANEL_TABLES
+            .iter()
+            .all(|table| !config.contains_key(*table))
+    );
+    assert!(config.contains_key("lock"));
+    assert_eq!(panel.keys().collect::<Vec<_>>(), ["applets", "panels"]);
+    assert_eq!(
+        toml::from_str::<crate::Config>(&crate::default_document(crate::Documents::Config))
+            .expect("loads"),
+        crate::Config::default()
+    );
 }
 
 #[test]
 fn the_schema_accepts_both_fixed_coordinate_spellings() {
     let schema: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config))
+            .expect("the schema is JSON");
     let tags = schema["$defs"]["Place"]["oneOf"]
         .as_array()
         .expect("place variants")
@@ -120,7 +180,8 @@ fn the_schema_accepts_both_fixed_coordinate_spellings() {
 #[test]
 fn every_key_and_enum_value_is_kebab_case() {
     let schema: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config))
+            .expect("the schema is JSON");
     let mut offenders = Vec::new();
     collect_underscored(&schema, &mut offenders);
 
@@ -516,8 +577,10 @@ fn a_command_applet_refuses_a_key_it_does_not_have() {
 
 #[test]
 fn the_schema_offers_every_applet_by_its_table_name() {
-    let schema: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+    let schema: serde_json::Value = serde_json::from_str(&crate::json_schema_document(
+        crate::Documents::ConfigAndPanel,
+    ))
+    .expect("the schema is JSON");
     let applets = &schema["properties"]["applets"];
     let by_name = applets["properties"]
         .as_object()
@@ -631,13 +694,6 @@ fn a_setting_no_applet_declares_is_refused() {
         error.contains("applets.clock"),
         "it names the table: {error}"
     );
-}
-
-#[test]
-fn a_power_table_from_an_older_file_still_loads() {
-    let parsed: crate::Config = toml::from_str("[power]\nlock-on-request = false\n")
-        .expect("the locking settings are gone, but a file naming them still loads");
-    assert_eq!(parsed.panels, crate::Config::default().panels);
 }
 
 #[test]

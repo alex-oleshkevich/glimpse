@@ -34,7 +34,7 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 - **Write no comments.** Reasoning goes in the crate `README.md`: present-tense rules only — no
   history, measurements, dates, bead ids or current state.
 - US English. Never prefix a type with `Glimpse`. Never build a glimpse path by hand — use
-  `glimpse-config`'s `user_dir()` / `DATA_DIR`.
+  `glimpse-config`'s `find()` / `writable_file()`.
 - Dependencies are inherited from `[workspace.dependencies]`. **Propose a new crate, never add one
   silently**, with its current version looked up; check `Cargo.lock` first.
 - **No `unwrap`/`expect`/blocking call in a service handler.** A slow call moves its reply into
@@ -58,8 +58,8 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 - Tests live in a sibling `tests.rs` / `tests/*.rs` behind `#[cfg(test)] mod tests;`, never inline.
 - GTK tests are `#[ignore]`d and only prove anything run one per process: `just test-crate-compositor
   <crate>` or `just test-one <crate> tests::<name>`.
-- Never test against `~/.config/glimpse`: pass `--config`, give a test panel a fresh
-  `GLIMPSE_PANEL_APP_ID`, kill it by pid — never `pkill -x glimpse-panel`.
+- Never test against `~/.config/glimpse`: pass `--config-dir` and a temporary `XDG_CONFIG_HOME`,
+  give a test panel a fresh `GLIMPSE_PANEL_APP_ID`, kill it by pid — never `pkill -x glimpse-panel`.
 
 ## Finishing
 

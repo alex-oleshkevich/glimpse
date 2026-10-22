@@ -1,7 +1,6 @@
 use std::io::{self, Read, Write};
 use std::os::fd::{AsFd, AsRawFd as _};
 use std::os::unix::process::CommandExt as _;
-use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -17,9 +16,7 @@ const SNAPSHOT_BUDGET: Duration = Duration::from_secs(1);
 const REPLY_CAP: usize = 4096;
 
 #[derive(Clone)]
-pub struct HoldClipboard {
-    pub config: Option<PathBuf>,
-}
+pub struct HoldClipboard;
 
 impl Clipboard for HoldClipboard {
     fn copy(&self, entries: Vec<Entry>) -> Result<(), String> {
@@ -47,8 +44,8 @@ impl HoldClipboard {
         let (mut reader, writer) = io::pipe().context("cannot open the reply pipe")?;
         let reply = writer.as_raw_fd();
         let mut command = Command::new(std::env::current_exe()?);
-        if let Some(config) = &self.config {
-            command.arg("--config").arg(config);
+        if let Some(dir) = glimpse_config::config_dir() {
+            command.arg("--config-dir").arg(dir);
         }
         command
             .arg("hold")

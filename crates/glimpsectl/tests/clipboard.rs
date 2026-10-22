@@ -66,20 +66,13 @@ async fn clipboard_json_preserves_list_arrays_and_represents_exact_bytes() {
         serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap(),
         serde_json::json!({"id": 7, "mime": "application/octet-stream", "data": [0, 255, 10]})
     );
-    for verb in ["remove", "forget"] {
-        let output = run(&["clipboard", verb, "7", "--json"])
-            .output()
-            .await
-            .unwrap();
-        assert!(output.status.success(), "{output:?}");
-        assert!(output.stdout.is_empty());
-        assert_eq!(
-            String::from_utf8(output.stderr)
-                .unwrap()
-                .contains("deprecated"),
-            verb == "forget"
-        );
-    }
+    let output = run(&["clipboard", "remove", "7", "--json"])
+        .output()
+        .await
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
 }
 
 #[test]

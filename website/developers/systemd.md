@@ -8,7 +8,7 @@ host interface.
 `glimpse-session.target` is `WantedBy=graphical-session.target` and wants every unit below except
 weather and the screenshot portal, which start on their first D-Bus call. `systemctl --user reload
 glimpse-session.target` sends `SIGHUP` to each except the lock and desktop units, and each rereads
-its config; they also reread it on their own when the file changes.
+its config; they also reread it on their own when a file changes.
 
 | Unit | Service bus name | Restart |
 | --- | --- | --- |

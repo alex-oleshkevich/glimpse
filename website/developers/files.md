@@ -16,7 +16,7 @@ and never write into a home directory.
 | `/usr/share/applications/`, `/usr/share/metainfo/`, `/usr/share/icons/hicolor/` | [App launchers and icons](#launcher-and-icons) |
 | `/usr/share/glimpse/` | [Shared data](#shared-data) |
 | `/usr/share/locale/<lang>/LC_MESSAGES/glimpse.mo` | Translations, one catalog per language |
-| `~/.config/glimpse/config.toml` | [A starting configuration](#your-configuration) |
+| `~/.config/glimpse/config.toml`, `panel.toml` | [Starting configuration files](#your-configuration), written by the first start of a glimpse program |
 
 ## Applet files
 
@@ -85,9 +85,9 @@ glimpse-shot and glimpse-lens icons, each in a full color and a symbolic version
 
 | File | Read by |
 | --- | --- |
-| `config.default.toml` | You: every default, uncommented, always matching the installed version. glimpse itself does not read it; the defaults are built in. |
-| `config.commented.toml` | The install script, and the first start of the panel, notifications, lock screen or wallpaper, which seed your configuration from it when you have none. The same defaults, every line commented out. |
-| `config.schema.json` | Editors that validate TOML; reference it with `#:schema /usr/share/glimpse/config.schema.json`. |
+| `config.default.toml`, `panel.default.toml` | You: every default, uncommented, always matching the installed version. glimpse itself does not read them; the defaults are built in. |
+| `config.commented.toml`, `panel.commented.toml` | You: the same defaults, every line commented out, to copy from. glimpse itself does not read them. |
+| `config.schema.json`, `panel.schema.json` | Editors that validate TOML; reference one with `#:schema /usr/share/glimpse/config.schema.json`. |
 | `language-codes.json` | The keyboard applet, which shortens layout names to codes such as `US`. A copy in `~/.config/glimpse/` takes precedence. |
 | `themes/adwaita/` | The built-in theme: `panel.css`, `dark.css`, `wallpaper.css`, `lock.css` and the default wallpaper. |
 | `sdk/templates/` | `glimpsectl applet new`, which copies it to start an applet. |
@@ -96,8 +96,8 @@ glimpse-shot and glimpse-lens icons, each in a full color and a symbolic version
 
 ## Your configuration
 
-When run without `DESTDIR`, the install script writes `~/.config/glimpse/config.toml` from
-`config.commented.toml` if that file does not exist yet. Under `sudo` it uses the home directory of
-the user who ran `sudo` and gives them the file. It never replaces an existing file, and an upgrade
-never touches it.
-
+The first start of the panel, notifications, lock screen or wallpaper creates the `~/.config/glimpse`
+directory if it is missing and writes a `config.toml` and a `panel.toml` into it, each only when
+absent. Each holds a `#:schema` line and a link to the documentation, nothing else. Nothing is
+written when you start a program with `--config-dir`. The install script writes nothing into a home
+directory, and an upgrade never touches these files.
