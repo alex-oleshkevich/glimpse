@@ -317,3 +317,7 @@ install-aur: package-aur
 [doc("remove the installed Arch package (elevate with $GLIMPSE_SUDO, default sudo)")]
 uninstall-aur:
     scripts/uninstall-aur.sh
+
+[doc("install the agent skills listed in apm.yml into .claude/skills and .agents/skills")]
+install-skills:
+    uvx --from apm-cli==0.34.0 apm install --target claude,codex

@@ -33,3 +33,8 @@ website/public/assets/*.png
 website/.vitepress/cache/
 website/.vitepress/dist/
 .pi/
+
+# Agent skills; `just install-skills` installs them from apm.yml and apm.lock.yaml.
+/.claude/skills
+/.agents/skills
+apm_modules/

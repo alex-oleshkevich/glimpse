@@ -1,0 +1,2608 @@
+lockfile_version: '1'
+apm_version: 0.34.0
+dependencies:
+- repo_url: anson2251/relm4-app-skill
+  name: relm4-app
+  host: github.com
+  resolved_commit: d777918ff15b03c88ae29ba3bcc2690ba661b318
+  version: unknown
+  virtual_path: skills/relm4-app
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/relm4-app
+  - .agents/skills/relm4-app/SKILL.md
+  - .agents/skills/relm4-app/references/child-components.md
+  - .agents/skills/relm4-app/references/complete-examples.md
+  - .agents/skills/relm4-app/references/factories.md
+  - .agents/skills/relm4-app/references/gtk-integration.md
+  - .agents/skills/relm4-app/references/threads-and-async.md
+  - .agents/skills/relm4-app/references/tracker-and-efficiency.md
+  - .agents/skills/relm4-app/references/view-macro.md
+  - .agents/skills/relm4-app/references/widget-templates.md
+  - .claude/skills/relm4-app
+  - .claude/skills/relm4-app/SKILL.md
+  - .claude/skills/relm4-app/references/child-components.md
+  - .claude/skills/relm4-app/references/complete-examples.md
+  - .claude/skills/relm4-app/references/factories.md
+  - .claude/skills/relm4-app/references/gtk-integration.md
+  - .claude/skills/relm4-app/references/threads-and-async.md
+  - .claude/skills/relm4-app/references/tracker-and-efficiency.md
+  - .claude/skills/relm4-app/references/view-macro.md
+  - .claude/skills/relm4-app/references/widget-templates.md
+  deployed_file_hashes:
+    .agents/skills/relm4-app/SKILL.md: sha256:939f91358069d05ce5448b7d73bab851d91dbd2b1cc057fd57bb7c7824fe0568
+    .agents/skills/relm4-app/references/child-components.md: sha256:7768d27659e74c48acf31cba4b6d3cfc7b4b919c22489d5a12a00bb5ff332fd8
+    .agents/skills/relm4-app/references/complete-examples.md: sha256:b4dafe2ef54ac6b5e670fdf04fb45aedd7274f96debf8d8dfdf7a1df2febb264
+    .agents/skills/relm4-app/references/factories.md: sha256:fecbf020887c14f5645b7de16da2a7ad123bd71e90039ac3823a3728dd489115
+    .agents/skills/relm4-app/references/gtk-integration.md: sha256:6bc7e8c6d9c60d9d6a232a8a1d84f1f569ed8df80a083436217ffc7c89855d77
+    .agents/skills/relm4-app/references/threads-and-async.md: sha256:b12f3a2e5ef91f1f2dff5d928a21586c6413b9f5f1fa56ff47e0fd115743a58b
+    .agents/skills/relm4-app/references/tracker-and-efficiency.md: sha256:3fbf5961030f8cf75dffe50f9ecb65cc397e5a314b596d091d9ff96aea1f8321
+    .agents/skills/relm4-app/references/view-macro.md: sha256:193c455df22814d5a55c10d632cac4ade385d7ec996c79bd0c1c76117cbbe701
+    .agents/skills/relm4-app/references/widget-templates.md: sha256:72b61fcb066be2986e2fed298b5c9c18dcea36234d9a7a321d7afbd262d060f3
+    .claude/skills/relm4-app/SKILL.md: sha256:939f91358069d05ce5448b7d73bab851d91dbd2b1cc057fd57bb7c7824fe0568
+    .claude/skills/relm4-app/references/child-components.md: sha256:7768d27659e74c48acf31cba4b6d3cfc7b4b919c22489d5a12a00bb5ff332fd8
+    .claude/skills/relm4-app/references/complete-examples.md: sha256:b4dafe2ef54ac6b5e670fdf04fb45aedd7274f96debf8d8dfdf7a1df2febb264
+    .claude/skills/relm4-app/references/factories.md: sha256:fecbf020887c14f5645b7de16da2a7ad123bd71e90039ac3823a3728dd489115
+    .claude/skills/relm4-app/references/gtk-integration.md: sha256:6bc7e8c6d9c60d9d6a232a8a1d84f1f569ed8df80a083436217ffc7c89855d77
+    .claude/skills/relm4-app/references/threads-and-async.md: sha256:b12f3a2e5ef91f1f2dff5d928a21586c6413b9f5f1fa56ff47e0fd115743a58b
+    .claude/skills/relm4-app/references/tracker-and-efficiency.md: sha256:3fbf5961030f8cf75dffe50f9ecb65cc397e5a314b596d091d9ff96aea1f8321
+    .claude/skills/relm4-app/references/view-macro.md: sha256:193c455df22814d5a55c10d632cac4ade385d7ec996c79bd0c1c76117cbbe701
+    .claude/skills/relm4-app/references/widget-templates.md: sha256:72b61fcb066be2986e2fed298b5c9c18dcea36234d9a7a321d7afbd262d060f3
+  content_hash: sha256:8dcaed478480f019c42876416a38fe004c18e1ae95a54830ec483b9ffde6c6e5
+- repo_url: apollographql/skills
+  name: rust-best-practices
+  host: github.com
+  resolved_commit: f9843dce86b1a561e3bfbb024e65c28a6cbbe38c
+  version: unknown
+  virtual_path: skills/rust-best-practices
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-best-practices
+  - .agents/skills/rust-best-practices/SKILL.md
+  - .agents/skills/rust-best-practices/references/chapter_01.md
+  - .agents/skills/rust-best-practices/references/chapter_02.md
+  - .agents/skills/rust-best-practices/references/chapter_03.md
+  - .agents/skills/rust-best-practices/references/chapter_04.md
+  - .agents/skills/rust-best-practices/references/chapter_05.md
+  - .agents/skills/rust-best-practices/references/chapter_06.md
+  - .agents/skills/rust-best-practices/references/chapter_07.md
+  - .agents/skills/rust-best-practices/references/chapter_08.md
+  - .agents/skills/rust-best-practices/references/chapter_09.md
+  - .claude/skills/rust-best-practices
+  - .claude/skills/rust-best-practices/SKILL.md
+  - .claude/skills/rust-best-practices/references/chapter_01.md
+  - .claude/skills/rust-best-practices/references/chapter_02.md
+  - .claude/skills/rust-best-practices/references/chapter_03.md
+  - .claude/skills/rust-best-practices/references/chapter_04.md
+  - .claude/skills/rust-best-practices/references/chapter_05.md
+  - .claude/skills/rust-best-practices/references/chapter_06.md
+  - .claude/skills/rust-best-practices/references/chapter_07.md
+  - .claude/skills/rust-best-practices/references/chapter_08.md
+  - .claude/skills/rust-best-practices/references/chapter_09.md
+  deployed_file_hashes:
+    .agents/skills/rust-best-practices/SKILL.md: sha256:b1651a95a2c36a8350c033449f52d07eebfdbf08e3bd1d5b22c4b7f55f7aa17c
+    .agents/skills/rust-best-practices/references/chapter_01.md: sha256:def0d5dc6ad2c8e143aed03c888c3f55b7f2b8f245c563e970f8fa951f7d7b52
+    .agents/skills/rust-best-practices/references/chapter_02.md: sha256:3b5d4ad26ce444770a05d91f737cc48417cb5bac94b2ab1587fc8de536bdcbb9
+    .agents/skills/rust-best-practices/references/chapter_03.md: sha256:fd673405cc1b5094d44d59eac4634e35525d7103d34b43178ee37277f392e15f
+    .agents/skills/rust-best-practices/references/chapter_04.md: sha256:5189a1118c41c25426357a14ad4e651e931443f1aefc241ea79689cb694175bf
+    .agents/skills/rust-best-practices/references/chapter_05.md: sha256:fb753a7515e11c1bc84d853d8b6d3442dd810d607f2b153595248d57232b8d38
+    .agents/skills/rust-best-practices/references/chapter_06.md: sha256:cff0a6826a23a9c4337700757cc67f4741aa4be81cd56925601b110752d38534
+    .agents/skills/rust-best-practices/references/chapter_07.md: sha256:be71105ee9123fe2dff6673d85fc854eafd281fbfa6e8778216d3f3a8d0ffaad
+    .agents/skills/rust-best-practices/references/chapter_08.md: sha256:54c1548a28586ebb373fe508ce0d885d78bc83e579aabd89836d2a53f7129a8b
+    .agents/skills/rust-best-practices/references/chapter_09.md: sha256:bdd59af111d402e4385c77e26fa6d53fc113e40ef678a9cf7aaff221e5c21917
+    .claude/skills/rust-best-practices/SKILL.md: sha256:b1651a95a2c36a8350c033449f52d07eebfdbf08e3bd1d5b22c4b7f55f7aa17c
+    .claude/skills/rust-best-practices/references/chapter_01.md: sha256:def0d5dc6ad2c8e143aed03c888c3f55b7f2b8f245c563e970f8fa951f7d7b52
+    .claude/skills/rust-best-practices/references/chapter_02.md: sha256:3b5d4ad26ce444770a05d91f737cc48417cb5bac94b2ab1587fc8de536bdcbb9
+    .claude/skills/rust-best-practices/references/chapter_03.md: sha256:fd673405cc1b5094d44d59eac4634e35525d7103d34b43178ee37277f392e15f
+    .claude/skills/rust-best-practices/references/chapter_04.md: sha256:5189a1118c41c25426357a14ad4e651e931443f1aefc241ea79689cb694175bf
+    .claude/skills/rust-best-practices/references/chapter_05.md: sha256:fb753a7515e11c1bc84d853d8b6d3442dd810d607f2b153595248d57232b8d38
+    .claude/skills/rust-best-practices/references/chapter_06.md: sha256:cff0a6826a23a9c4337700757cc67f4741aa4be81cd56925601b110752d38534
+    .claude/skills/rust-best-practices/references/chapter_07.md: sha256:be71105ee9123fe2dff6673d85fc854eafd281fbfa6e8778216d3f3a8d0ffaad
+    .claude/skills/rust-best-practices/references/chapter_08.md: sha256:54c1548a28586ebb373fe508ce0d885d78bc83e579aabd89836d2a53f7129a8b
+    .claude/skills/rust-best-practices/references/chapter_09.md: sha256:bdd59af111d402e4385c77e26fa6d53fc113e40ef678a9cf7aaff221e5c21917
+  content_hash: sha256:4b73768ffeb249ba196961d2bf27c7d790b8180098e913e642d588bd31d34ffc
+- repo_url: geoffjay/claude-plugins
+  name: clap-patterns
+  host: github.com
+  resolved_commit: 0ab5ae1b22bf5b9f9c1a1c458304cb7b1bb1034a
+  version: unknown
+  virtual_path: plugins/rust-cli-developer/skills/clap-patterns
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/clap-patterns
+  - .agents/skills/clap-patterns/SKILL.md
+  - .claude/skills/clap-patterns
+  - .claude/skills/clap-patterns/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/clap-patterns/SKILL.md: sha256:288c65f5cced4a7d07c3d5ae5396169b41cf3a945a5433716d52ecb9eb69ac99
+    .claude/skills/clap-patterns/SKILL.md: sha256:288c65f5cced4a7d07c3d5ae5396169b41cf3a945a5433716d52ecb9eb69ac99
+  content_hash: sha256:2d6559fe4d65f8cbe9376ed8cc9115473d42faf6df8f81356db5ec1744d98355
+- repo_url: geoffjay/claude-plugins
+  name: cli-configuration
+  host: github.com
+  resolved_commit: 0ab5ae1b22bf5b9f9c1a1c458304cb7b1bb1034a
+  version: unknown
+  virtual_path: plugins/rust-cli-developer/skills/cli-configuration
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/cli-configuration
+  - .agents/skills/cli-configuration/SKILL.md
+  - .claude/skills/cli-configuration
+  - .claude/skills/cli-configuration/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/cli-configuration/SKILL.md: sha256:81d99bf3d5a2cf46e45d21ae7c1170f1af13cbdc44ec714c523652fbbc2dd8c8
+    .claude/skills/cli-configuration/SKILL.md: sha256:81d99bf3d5a2cf46e45d21ae7c1170f1af13cbdc44ec714c523652fbbc2dd8c8
+  content_hash: sha256:7d265cb5f6484a8dd271289008c5c66f2d0726840c1810210f05522676baf7c8
+- repo_url: geoffjay/claude-plugins
+  name: tokio-patterns
+  host: github.com
+  resolved_commit: 0ab5ae1b22bf5b9f9c1a1c458304cb7b1bb1034a
+  version: unknown
+  virtual_path: plugins/rust-tokio-expert/skills/tokio-patterns
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/tokio-patterns
+  - .agents/skills/tokio-patterns/SKILL.md
+  - .claude/skills/tokio-patterns
+  - .claude/skills/tokio-patterns/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/tokio-patterns/SKILL.md: sha256:13045f18ad616259f1912c0b0ec76854f5a8952286c899dade2b09e8c21d7866
+    .claude/skills/tokio-patterns/SKILL.md: sha256:13045f18ad616259f1912c0b0ec76854f5a8952286c899dade2b09e8c21d7866
+  content_hash: sha256:3d33732b5c7e9560556ed2470d526777dd6d92873aae327a536536aa2dbe767a
+- repo_url: geoffjay/claude-plugins
+  name: tokio-troubleshooting
+  host: github.com
+  resolved_commit: 0ab5ae1b22bf5b9f9c1a1c458304cb7b1bb1034a
+  version: unknown
+  virtual_path: plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/tokio-troubleshooting
+  - .agents/skills/tokio-troubleshooting/SKILL.md
+  - .claude/skills/tokio-troubleshooting
+  - .claude/skills/tokio-troubleshooting/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/tokio-troubleshooting/SKILL.md: sha256:a242b04e2b623be1f98b3adc4e81993d1fefe3a0df3b9c3234ad8e605d609ac2
+    .claude/skills/tokio-troubleshooting/SKILL.md: sha256:a242b04e2b623be1f98b3adc4e81993d1fefe3a0df3b9c3234ad8e605d609ac2
+  content_hash: sha256:28bc272baa7341124c21342b4aa2f921e24132fc4f3be0205192e8e597c7a889
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: gdb
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/debuggers/gdb
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/gdb
+  - .agents/skills/gdb/SKILL.md
+  - .agents/skills/gdb/references/cheatsheet.md
+  - .agents/skills/gdb/references/scripting.md
+  - .claude/skills/gdb
+  - .claude/skills/gdb/SKILL.md
+  - .claude/skills/gdb/references/cheatsheet.md
+  - .claude/skills/gdb/references/scripting.md
+  deployed_file_hashes:
+    .agents/skills/gdb/SKILL.md: sha256:3f0043a3b255a91bb93013e997ad662a353143f00bdc371627d2a5623fa89757
+    .agents/skills/gdb/references/cheatsheet.md: sha256:12b8c6ff1edf7ac4244a136ca05c20930311990bc512490d83d02aef69f31b6a
+    .agents/skills/gdb/references/scripting.md: sha256:d6d67811a2de79412b07d417a0623388a05cd3b654885ec11071f5f86c3e0ef6
+    .claude/skills/gdb/SKILL.md: sha256:3f0043a3b255a91bb93013e997ad662a353143f00bdc371627d2a5623fa89757
+    .claude/skills/gdb/references/cheatsheet.md: sha256:12b8c6ff1edf7ac4244a136ca05c20930311990bc512490d83d02aef69f31b6a
+    .claude/skills/gdb/references/scripting.md: sha256:d6d67811a2de79412b07d417a0623388a05cd3b654885ec11071f5f86c3e0ef6
+  content_hash: sha256:ece9765e1eb1ea39059b2eeb682dca9a9aa25bc65f8be1c550b0581420a86c17
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: flamegraphs
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/profilers/flamegraphs
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/flamegraphs
+  - .agents/skills/flamegraphs/SKILL.md
+  - .agents/skills/flamegraphs/references/tools.md
+  - .claude/skills/flamegraphs
+  - .claude/skills/flamegraphs/SKILL.md
+  - .claude/skills/flamegraphs/references/tools.md
+  deployed_file_hashes:
+    .agents/skills/flamegraphs/SKILL.md: sha256:5a002fa55eab552e45e50e29542b2e07a01dc13bd7c1d8e6513c8827501f9f4b
+    .agents/skills/flamegraphs/references/tools.md: sha256:4c97f5ea0e59f0e85cc33f5b057e80813bc639f10c44b43296db110c846af04b
+    .claude/skills/flamegraphs/SKILL.md: sha256:5a002fa55eab552e45e50e29542b2e07a01dc13bd7c1d8e6513c8827501f9f4b
+    .claude/skills/flamegraphs/references/tools.md: sha256:4c97f5ea0e59f0e85cc33f5b057e80813bc639f10c44b43296db110c846af04b
+  content_hash: sha256:e1e929fe5f104efc31622a620678ed268df114290696794798dd1ff0aa0f2b63
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: cargo-workflows
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/cargo-workflows
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/cargo-workflows
+  - .agents/skills/cargo-workflows/SKILL.md
+  - .agents/skills/cargo-workflows/references/workspace-patterns.md
+  - .claude/skills/cargo-workflows
+  - .claude/skills/cargo-workflows/SKILL.md
+  - .claude/skills/cargo-workflows/references/workspace-patterns.md
+  deployed_file_hashes:
+    .agents/skills/cargo-workflows/SKILL.md: sha256:2fafb659af696426e5e40f52cd9e578aa65058063300e79a4550f69a6b220d07
+    .agents/skills/cargo-workflows/references/workspace-patterns.md: sha256:a1c4c87d28d4a82887a15e5a04cd3c866ec01d35b0e1bcf66e9db7e55a6fd296
+    .claude/skills/cargo-workflows/SKILL.md: sha256:2fafb659af696426e5e40f52cd9e578aa65058063300e79a4550f69a6b220d07
+    .claude/skills/cargo-workflows/references/workspace-patterns.md: sha256:a1c4c87d28d4a82887a15e5a04cd3c866ec01d35b0e1bcf66e9db7e55a6fd296
+  content_hash: sha256:8178c79e9eb979dbc2a879af7d378f6eb62bf8976393e34da63953d00956fc6a
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: rust-build-times
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/rust-build-times
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-build-times
+  - .agents/skills/rust-build-times/SKILL.md
+  - .claude/skills/rust-build-times
+  - .claude/skills/rust-build-times/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/rust-build-times/SKILL.md: sha256:0c533dff7ae91efb24aee989488f479d3e4dfa3be0f197414887a71bd1dbc54a
+    .claude/skills/rust-build-times/SKILL.md: sha256:0c533dff7ae91efb24aee989488f479d3e4dfa3be0f197414887a71bd1dbc54a
+  content_hash: sha256:80825b76fc15facc5a1f609eb8356c957758fb75feef4248d913b61d897ccefd
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: rust-debugging
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/rust-debugging
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-debugging
+  - .agents/skills/rust-debugging/SKILL.md
+  - .agents/skills/rust-debugging/references/rust-gdb-pretty-printers.md
+  - .claude/skills/rust-debugging
+  - .claude/skills/rust-debugging/SKILL.md
+  - .claude/skills/rust-debugging/references/rust-gdb-pretty-printers.md
+  deployed_file_hashes:
+    .agents/skills/rust-debugging/SKILL.md: sha256:7feb0a2f40199903edfc756fce257c315797564837af924cf7b8c06761b5c6bc
+    .agents/skills/rust-debugging/references/rust-gdb-pretty-printers.md: sha256:f73b3ec5fc5fa6522ab23ccc3db3b1f0ebdc52ccef7c63a7d1aa016bfc408607
+    .claude/skills/rust-debugging/SKILL.md: sha256:7feb0a2f40199903edfc756fce257c315797564837af924cf7b8c06761b5c6bc
+    .claude/skills/rust-debugging/references/rust-gdb-pretty-printers.md: sha256:f73b3ec5fc5fa6522ab23ccc3db3b1f0ebdc52ccef7c63a7d1aa016bfc408607
+  content_hash: sha256:974694628a049fb80adf2e45c6437739df6c4ffa96984c6fa707b46a38f01024
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: rust-profiling
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/rust-profiling
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-profiling
+  - .agents/skills/rust-profiling/SKILL.md
+  - .agents/skills/rust-profiling/references/cargo-flamegraph-setup.md
+  - .claude/skills/rust-profiling
+  - .claude/skills/rust-profiling/SKILL.md
+  - .claude/skills/rust-profiling/references/cargo-flamegraph-setup.md
+  deployed_file_hashes:
+    .agents/skills/rust-profiling/SKILL.md: sha256:9d226fe69499fdc84b177f6ebfdd1c66aafe0e3f503ee9216db8997912f4d454
+    .agents/skills/rust-profiling/references/cargo-flamegraph-setup.md: sha256:da1b2a930b48bf9dafe214d8bb5937bb4a41d89b41b7bf1b166201556b7a74f4
+    .claude/skills/rust-profiling/SKILL.md: sha256:9d226fe69499fdc84b177f6ebfdd1c66aafe0e3f503ee9216db8997912f4d454
+    .claude/skills/rust-profiling/references/cargo-flamegraph-setup.md: sha256:da1b2a930b48bf9dafe214d8bb5937bb4a41d89b41b7bf1b166201556b7a74f4
+  content_hash: sha256:b188026c86edb013a33c830f46d35065c9db505817e509f516a69741a60148de
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: rust-security
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/rust-security
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-security
+  - .agents/skills/rust-security/SKILL.md
+  - .claude/skills/rust-security
+  - .claude/skills/rust-security/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/rust-security/SKILL.md: sha256:3ed8d041d867cfed9b9babc80206d97beb96ee726c022eb0bfd5cfb27dd582af
+    .claude/skills/rust-security/SKILL.md: sha256:3ed8d041d867cfed9b9babc80206d97beb96ee726c022eb0bfd5cfb27dd582af
+  content_hash: sha256:3c3763fbb2da225b1286304e42bae6d95201e1a1fdc15d7550eee5ab337394f6
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: rust-unsafe
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/rust-unsafe
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-unsafe
+  - .agents/skills/rust-unsafe/SKILL.md
+  - .agents/skills/rust-unsafe/references/unsafe-patterns.md
+  - .claude/skills/rust-unsafe
+  - .claude/skills/rust-unsafe/SKILL.md
+  - .claude/skills/rust-unsafe/references/unsafe-patterns.md
+  deployed_file_hashes:
+    .agents/skills/rust-unsafe/SKILL.md: sha256:23252db7d1c264f86d08b07dbb3e7503e73c3c6449983f5f976f4803822517e0
+    .agents/skills/rust-unsafe/references/unsafe-patterns.md: sha256:c0a5ae6f6583f4a3ec40073b8b6c5944606b7c69e8c39a05da05cc365486296f
+    .claude/skills/rust-unsafe/SKILL.md: sha256:23252db7d1c264f86d08b07dbb3e7503e73c3c6449983f5f976f4803822517e0
+    .claude/skills/rust-unsafe/references/unsafe-patterns.md: sha256:c0a5ae6f6583f4a3ec40073b8b6c5944606b7c69e8c39a05da05cc365486296f
+  content_hash: sha256:a0c8b58be062344ec21996da01ef740e38b01044243bc4408e475e691d9ddcf2
+- repo_url: mohitmishra786/low-level-dev-skills
+  name: rustc-basics
+  host: github.com
+  resolved_commit: bdc58472fa9f309ed1b3f7d985a0d8e9bd8f4608
+  version: unknown
+  virtual_path: skills/rust/rustc-basics
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rustc-basics
+  - .agents/skills/rustc-basics/SKILL.md
+  - .agents/skills/rustc-basics/references/rustflags-profiles.md
+  - .claude/skills/rustc-basics
+  - .claude/skills/rustc-basics/SKILL.md
+  - .claude/skills/rustc-basics/references/rustflags-profiles.md
+  deployed_file_hashes:
+    .agents/skills/rustc-basics/SKILL.md: sha256:1fa7517fa57153bb8ef3d386166ba56b0a2704668b4252b71665b32a246c5e91
+    .agents/skills/rustc-basics/references/rustflags-profiles.md: sha256:4136335cd68aad397b6f700bff53f7e0af4c9b54cb32b3c88537aef75b3dc1b9
+    .claude/skills/rustc-basics/SKILL.md: sha256:1fa7517fa57153bb8ef3d386166ba56b0a2704668b4252b71665b32a246c5e91
+    .claude/skills/rustc-basics/references/rustflags-profiles.md: sha256:4136335cd68aad397b6f700bff53f7e0af4c9b54cb32b3c88537aef75b3dc1b9
+  content_hash: sha256:79d791325b6e824cd500ccc5748983194cb0ccd762d8b3a01028d1b6814ff285
+- repo_url: wshobson/agents
+  name: rust-async-patterns
+  host: github.com
+  resolved_commit: 0874a27b17a22e2b7c2e2bcd725768e0803cad06
+  version: unknown
+  virtual_path: plugins/systems-programming/skills/rust-async-patterns
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/rust-async-patterns
+  - .agents/skills/rust-async-patterns/SKILL.md
+  - .agents/skills/rust-async-patterns/references/details.md
+  - .claude/skills/rust-async-patterns
+  - .claude/skills/rust-async-patterns/SKILL.md
+  - .claude/skills/rust-async-patterns/references/details.md
+  deployed_file_hashes:
+    .agents/skills/rust-async-patterns/SKILL.md: sha256:8e9a951c21bb1ee671dd2e7391b193e8e3d362b95ef29c470915837d73bf87df
+    .agents/skills/rust-async-patterns/references/details.md: sha256:cd8a987c59cf704b7a2145e0dea6891b10194e7304b894bd14a5692d9fdfa76d
+    .claude/skills/rust-async-patterns/SKILL.md: sha256:8e9a951c21bb1ee671dd2e7391b193e8e3d362b95ef29c470915837d73bf87df
+    .claude/skills/rust-async-patterns/references/details.md: sha256:cd8a987c59cf704b7a2145e0dea6891b10194e7304b894bd14a5692d9fdfa76d
+  content_hash: sha256:a5856315f26a03c047ca494a2135f0272d568910df6cc99f9e98b84cfae2dc7d
+deployments:
+- kind: project-relative
+  target: claude
+  value: .claude/skills/adversarial-review
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/adversarial-review/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:b8ce5e9dfeae719d148dfc8d1cb254ca1f991f8f3d9ff319a0e24a19ac37ce27
+- kind: project-relative
+  target: claude
+  value: .claude/skills/applet
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/applet/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:838498c76670453edec5a97fa2397495b1bd4c3258e91daaedd2ac18d6c7f9dd
+- kind: project-relative
+  target: claude
+  value: .claude/skills/applet/references/anatomy.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:96f6174b4631a232634a3a3d421af1586854b689c66718e5c5d435c364f12870
+- kind: project-relative
+  target: claude
+  value: .claude/skills/applet/references/pitfalls.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:05fcdf3d5d3c06dde9d87ca865e3e2ccc9762379d6f5d77c16005c579665021d
+- kind: project-relative
+  target: claude
+  value: .claude/skills/applet/references/popovers.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:5a8fe0e58ccb73f7a87ad1b0f2cb9dce122aafae9e496cd6541462c6a5cb9f16
+- kind: project-relative
+  target: claude
+  value: .claude/skills/beads
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/beads/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:1a621606cfa9a14cbacff84bf5c496b4c2c175c2df329e8d19d4e01fc989dedd
+- kind: project-relative
+  target: claude
+  value: .claude/skills/beads/agents/openai.yaml
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:c7ff618a9a6bcce71b25f722f67861b7685651d08fb72d8fff7d947aac403718
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cargo-workflows
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cargo-workflows/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  content_hash: sha256:2fafb659af696426e5e40f52cd9e578aa65058063300e79a4550f69a6b220d07
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cargo-workflows/references/workspace-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  content_hash: sha256:a1c4c87d28d4a82887a15e5a04cd3c866ec01d35b0e1bcf66e9db7e55a6fd296
+- kind: project-relative
+  target: claude
+  value: .claude/skills/clap-patterns
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/clap-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  content_hash: sha256:288c65f5cced4a7d07c3d5ae5396169b41cf3a945a5433716d52ecb9eb69ac99
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cli-configuration
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cli-configuration/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  content_hash: sha256:81d99bf3d5a2cf46e45d21ae7c1170f1af13cbdc44ec714c523652fbbc2dd8c8
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:061633d4e5262f10b87052f35adb42975b9f2f376869f08378b5cc2b8e1f6d5d
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gnome-shell-companion-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:10b0da2780851f5603348f38378750c7f8c600b95e8ebdf71e5847bcdd4493e1
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-dbus-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:4b90d7dd200e8a8de194f4fbd7b0240e321756495c1f62d312ccb8916a348a29
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-debugging-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7fb5edff71afd35bf5caaa9660cf749b840616d4316cfd9df74f6df5b660b7b4
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-gobject-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:3cfc212bd6b3e245f2231d524c94f8c0b928041c69963bf3338266dd1daf6a56
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-i18n-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:b21f2fd74794926c3f2d499e975bee5ed7046e6684903261b2e940bb779b9cb3
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-packaging-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:52f94aadaacae8ad7ab18a594383b10ebdd3370173a5515d3b67d1f8a3b6b3b5
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-patterns-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:5a0827e289859efbdffe687ded73f7947da510b07829ce0c46ea9f1ff801f73c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/gtk-testing-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:cbb1a84cb84ebde56180f3404729f197b3a93a0f9b5ccfe5d42dbfb3ddef954a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/python-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7b280daaf26bb99c63e4a5b7c851af5cde0e536354720df6f4367b0b69a7ebf2
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/rust-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9e3db21fdec70e18148a609cbaab9b101e822f0f2f59943e6cb5992c66ce34ff
+- kind: project-relative
+  target: claude
+  value: .claude/skills/developing-gtk-apps/vala-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:2f733df41bd7f380963cd4f6588bfa03d2e416bc294115b73941ea2b1feb854b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/docs
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/docs/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9c78fbd71908054f24772606786bfe30033e5beb173b4a40192da30463456bdd
+- kind: project-relative
+  target: claude
+  value: .claude/skills/epic-orchestrator
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/epic-orchestrator/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:ad864364d3701e6ee2b84ed671829b44012d2272c32d16173a00fa33e3fbfba1
+- kind: project-relative
+  target: claude
+  value: .claude/skills/flamegraphs
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  active_owner: mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/flamegraphs/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  active_owner: mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  content_hash: sha256:5a002fa55eab552e45e50e29542b2e07a01dc13bd7c1d8e6513c8827501f9f4b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/flamegraphs/references/tools.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  active_owner: mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  content_hash: sha256:4c97f5ea0e59f0e85cc33f5b057e80813bc639f10c44b43296db110c846af04b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gdb
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gdb/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: sha256:3f0043a3b255a91bb93013e997ad662a353143f00bdc371627d2a5623fa89757
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gdb/references/cheatsheet.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: sha256:12b8c6ff1edf7ac4244a136ca05c20930311990bc512490d83d02aef69f31b6a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/gdb/references/scripting.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: sha256:d6d67811a2de79412b07d417a0623388a05cd3b654885ec11071f5f86c3e0ef6
+- kind: project-relative
+  target: claude
+  value: .claude/skills/live-testing
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/live-testing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:391253d893ece2799de6e9ffd7733368d8e028f3663fb41e2e0e7b68b3ca0a86
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:939f91358069d05ce5448b7d73bab851d91dbd2b1cc057fd57bb7c7824fe0568
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/child-components.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:7768d27659e74c48acf31cba4b6d3cfc7b4b919c22489d5a12a00bb5ff332fd8
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/complete-examples.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:b4dafe2ef54ac6b5e670fdf04fb45aedd7274f96debf8d8dfdf7a1df2febb264
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/factories.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:fecbf020887c14f5645b7de16da2a7ad123bd71e90039ac3823a3728dd489115
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/gtk-integration.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:6bc7e8c6d9c60d9d6a232a8a1d84f1f569ed8df80a083436217ffc7c89855d77
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/threads-and-async.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:b12f3a2e5ef91f1f2dff5d928a21586c6413b9f5f1fa56ff47e0fd115743a58b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/tracker-and-efficiency.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:3fbf5961030f8cf75dffe50f9ecb65cc397e5a314b596d091d9ff96aea1f8321
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/view-macro.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:193c455df22814d5a55c10d632cac4ade385d7ec996c79bd0c1c76117cbbe701
+- kind: project-relative
+  target: claude
+  value: .claude/skills/relm4-app/references/widget-templates.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:72b61fcb066be2986e2fed298b5c9c18dcea36234d9a7a321d7afbd262d060f3
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-async-patterns
+  runtime: null
+  scope: project
+  owners:
+  - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  active_owner: wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-async-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  active_owner: wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  content_hash: sha256:8e9a951c21bb1ee671dd2e7391b193e8e3d362b95ef29c470915837d73bf87df
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-async-patterns/references/details.md
+  runtime: null
+  scope: project
+  owners:
+  - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  active_owner: wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  content_hash: sha256:cd8a987c59cf704b7a2145e0dea6891b10194e7304b894bd14a5692d9fdfa76d
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:b1651a95a2c36a8350c033449f52d07eebfdbf08e3bd1d5b22c4b7f55f7aa17c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_01.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:def0d5dc6ad2c8e143aed03c888c3f55b7f2b8f245c563e970f8fa951f7d7b52
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_02.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:3b5d4ad26ce444770a05d91f737cc48417cb5bac94b2ab1587fc8de536bdcbb9
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_03.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:fd673405cc1b5094d44d59eac4634e35525d7103d34b43178ee37277f392e15f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_04.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:5189a1118c41c25426357a14ad4e651e931443f1aefc241ea79689cb694175bf
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_05.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:fb753a7515e11c1bc84d853d8b6d3442dd810d607f2b153595248d57232b8d38
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_06.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:cff0a6826a23a9c4337700757cc67f4741aa4be81cd56925601b110752d38534
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_07.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:be71105ee9123fe2dff6673d85fc854eafd281fbfa6e8778216d3f3a8d0ffaad
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_08.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:54c1548a28586ebb373fe508ce0d885d78bc83e579aabd89836d2a53f7129a8b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-best-practices/references/chapter_09.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:bdd59af111d402e4385c77e26fa6d53fc113e40ef678a9cf7aaff221e5c21917
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-build-times
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-build-times/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  content_hash: sha256:0c533dff7ae91efb24aee989488f479d3e4dfa3be0f197414887a71bd1dbc54a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-cli
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-cli/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:c74b914bd3963eb33c41d5c8e0a712aad13d8277e53ca85c30b5815aebadd773
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-cli/references/skeleton.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:cd8ff0ee51050bef4554918b86e9003b7af07878646f60ad1f579d59910b133a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-debugging
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-debugging/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  content_hash: sha256:7feb0a2f40199903edfc756fce257c315797564837af924cf7b8c06761b5c6bc
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-debugging/references/rust-gdb-pretty-printers.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  content_hash: sha256:f73b3ec5fc5fa6522ab23ccc3db3b1f0ebdc52ccef7c63a7d1aa016bfc408607
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-profiling
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-profiling/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  content_hash: sha256:9d226fe69499fdc84b177f6ebfdd1c66aafe0e3f503ee9216db8997912f4d454
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-profiling/references/cargo-flamegraph-setup.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  content_hash: sha256:da1b2a930b48bf9dafe214d8bb5937bb4a41d89b41b7bf1b166201556b7a74f4
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-security
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-security/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  content_hash: sha256:3ed8d041d867cfed9b9babc80206d97beb96ee726c022eb0bfd5cfb27dd582af
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-unsafe
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-unsafe/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  content_hash: sha256:23252db7d1c264f86d08b07dbb3e7503e73c3c6449983f5f976f4803822517e0
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rust-unsafe/references/unsafe-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  content_hash: sha256:c0a5ae6f6583f4a3ec40073b8b6c5944606b7c69e8c39a05da05cc365486296f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rustc-basics
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rustc-basics/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  content_hash: sha256:1fa7517fa57153bb8ef3d386166ba56b0a2704668b4252b71665b32a246c5e91
+- kind: project-relative
+  target: claude
+  value: .claude/skills/rustc-basics/references/rustflags-profiles.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  content_hash: sha256:4136335cd68aad397b6f700bff53f7e0af4c9b54cb32b3c88537aef75b3dc1b9
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7badf50cb04c86703359291157dc8d6beec5c72c82489e4143c5e0f4f2b04131
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service/references/anatomy.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:933a27c202b598453c724ce63ab61ca81106c25a883de10112bffc37e0f3b55e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service/references/performance.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:025b0c4c17bbb851f6c8684d9f7addd27834541a215f9427a7ee5ed1d2599d52
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service/references/pitfalls.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7582eda22e929ff995cc3cebae2937151e8b2bbb729644682355ef8bbf426ca6
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service/references/subscriptions.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:4b1ea982b58f09a4d59144580389825ff4553a50c3bcc0011c735a6efaab12ad
+- kind: project-relative
+  target: claude
+  value: .claude/skills/service/references/testing.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:a035cd81c30664e0bb6946e1ede38d39195b57e0c6538a1268e83a2de76857fa
+- kind: project-relative
+  target: claude
+  value: .claude/skills/spec-precision
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/spec-precision/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:949a8960e17d760df6ec4c1a748eb0eb10626ead3e994b729bc709ab825fae3d
+- kind: project-relative
+  target: claude
+  value: .claude/skills/testing
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/testing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:bdb801e274145ff8d3ac460a1b26b1ebda8f23f6a6b2eed4ef2632754a1bc266
+- kind: project-relative
+  target: claude
+  value: .claude/skills/testing/references/scripts.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:e05a525f6c38e71197878a09ba5fba613c24dec002a19740599c3ca7ea37466b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/tokio-patterns
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/tokio-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  content_hash: sha256:13045f18ad616259f1912c0b0ec76854f5a8952286c899dade2b09e8c21d7866
+- kind: project-relative
+  target: claude
+  value: .claude/skills/tokio-troubleshooting
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/tokio-troubleshooting/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  content_hash: sha256:a242b04e2b623be1f98b3adc4e81993d1fefe3a0df3b9c3234ad8e605d609ac2
+- kind: project-relative
+  target: claude
+  value: .claude/skills/widget
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/widget/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:a81f2ccc3453335aa8515a7d5c83b9e9253ccfe2f4ebc86620b731acb3f25bdc
+- kind: project-relative
+  target: claude
+  value: .claude/skills/work-in-team
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/work-in-team/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9bc451d1008d40fda17d0f0e794be0a9b1c6c3d7041e836cb0567e0e2347c10a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/work-in-team/references/workers.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:f39ac6f177e317e78e8643e6d719266dc049b22c012d8d0166bc2509546a6956
+- kind: project-relative
+  target: claude
+  value: .claude/skills/zbus
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/zbus/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:54114161a90a47dba2406f767d51cc92e683772868f453c0641762cdd9e68128
+- kind: project-relative
+  target: claude
+  value: .claude/skills/zbus/references/compile-traps.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:81f75ce339bd8fda64963346f2315383c99c46990220cb0c5443dc05e6a286c6
+- kind: project-relative
+  target: claude
+  value: .claude/skills/zbus/references/interfaces.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:e50362d750777d9212cbc8096b1a844c673fe3d09657d5d1d101cda76dea3acd
+- kind: project-relative
+  target: claude
+  value: .claude/skills/zbus/references/proxies.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:a7dfc8921a53d9fc33de3ffa7a6324d6b6c62d6356663ffb2546bf5f3d087a63
+- kind: project-relative
+  target: claude
+  value: .claude/skills/zbus/references/services.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:eb7ae8ec0091b7bd0e5ca506af87faa1276ca393294740d644d89f0756875a1c
+- kind: project-relative
+  target: codex
+  value: .agents/skills/adversarial-review
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/adversarial-review/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:b8ce5e9dfeae719d148dfc8d1cb254ca1f991f8f3d9ff319a0e24a19ac37ce27
+- kind: project-relative
+  target: codex
+  value: .agents/skills/applet
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/applet/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:838498c76670453edec5a97fa2397495b1bd4c3258e91daaedd2ac18d6c7f9dd
+- kind: project-relative
+  target: codex
+  value: .agents/skills/applet/references/anatomy.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:96f6174b4631a232634a3a3d421af1586854b689c66718e5c5d435c364f12870
+- kind: project-relative
+  target: codex
+  value: .agents/skills/applet/references/pitfalls.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:05fcdf3d5d3c06dde9d87ca865e3e2ccc9762379d6f5d77c16005c579665021d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/applet/references/popovers.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:5a8fe0e58ccb73f7a87ad1b0f2cb9dce122aafae9e496cd6541462c6a5cb9f16
+- kind: project-relative
+  target: codex
+  value: .agents/skills/beads
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/beads/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:1a621606cfa9a14cbacff84bf5c496b4c2c175c2df329e8d19d4e01fc989dedd
+- kind: project-relative
+  target: codex
+  value: .agents/skills/beads/agents/openai.yaml
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:c7ff618a9a6bcce71b25f722f67861b7685651d08fb72d8fff7d947aac403718
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cargo-workflows
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cargo-workflows/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  content_hash: sha256:2fafb659af696426e5e40f52cd9e578aa65058063300e79a4550f69a6b220d07
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cargo-workflows/references/workspace-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+  content_hash: sha256:a1c4c87d28d4a82887a15e5a04cd3c866ec01d35b0e1bcf66e9db7e55a6fd296
+- kind: project-relative
+  target: codex
+  value: .agents/skills/clap-patterns
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/clap-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+  content_hash: sha256:288c65f5cced4a7d07c3d5ae5396169b41cf3a945a5433716d52ecb9eb69ac99
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cli-configuration
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cli-configuration/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  active_owner: geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+  content_hash: sha256:81d99bf3d5a2cf46e45d21ae7c1170f1af13cbdc44ec714c523652fbbc2dd8c8
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:061633d4e5262f10b87052f35adb42975b9f2f376869f08378b5cc2b8e1f6d5d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gnome-shell-companion-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:10b0da2780851f5603348f38378750c7f8c600b95e8ebdf71e5847bcdd4493e1
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-dbus-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:4b90d7dd200e8a8de194f4fbd7b0240e321756495c1f62d312ccb8916a348a29
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-debugging-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7fb5edff71afd35bf5caaa9660cf749b840616d4316cfd9df74f6df5b660b7b4
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-gobject-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:3cfc212bd6b3e245f2231d524c94f8c0b928041c69963bf3338266dd1daf6a56
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-i18n-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:b21f2fd74794926c3f2d499e975bee5ed7046e6684903261b2e940bb779b9cb3
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-packaging-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:52f94aadaacae8ad7ab18a594383b10ebdd3370173a5515d3b67d1f8a3b6b3b5
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-patterns-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:5a0827e289859efbdffe687ded73f7947da510b07829ce0c46ea9f1ff801f73c
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/gtk-testing-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:cbb1a84cb84ebde56180f3404729f197b3a93a0f9b5ccfe5d42dbfb3ddef954a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/python-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7b280daaf26bb99c63e4a5b7c851af5cde0e536354720df6f4367b0b69a7ebf2
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/rust-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9e3db21fdec70e18148a609cbaab9b101e822f0f2f59943e6cb5992c66ce34ff
+- kind: project-relative
+  target: codex
+  value: .agents/skills/developing-gtk-apps/vala-reference.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:2f733df41bd7f380963cd4f6588bfa03d2e416bc294115b73941ea2b1feb854b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/docs
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/docs/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9c78fbd71908054f24772606786bfe30033e5beb173b4a40192da30463456bdd
+- kind: project-relative
+  target: codex
+  value: .agents/skills/epic-orchestrator
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/epic-orchestrator/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:ad864364d3701e6ee2b84ed671829b44012d2272c32d16173a00fa33e3fbfba1
+- kind: project-relative
+  target: codex
+  value: .agents/skills/flamegraphs
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  active_owner: mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/flamegraphs/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  active_owner: mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  content_hash: sha256:5a002fa55eab552e45e50e29542b2e07a01dc13bd7c1d8e6513c8827501f9f4b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/flamegraphs/references/tools.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  active_owner: mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+  content_hash: sha256:4c97f5ea0e59f0e85cc33f5b057e80813bc639f10c44b43296db110c846af04b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/gdb
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/gdb/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: sha256:3f0043a3b255a91bb93013e997ad662a353143f00bdc371627d2a5623fa89757
+- kind: project-relative
+  target: codex
+  value: .agents/skills/gdb/references/cheatsheet.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: sha256:12b8c6ff1edf7ac4244a136ca05c20930311990bc512490d83d02aef69f31b6a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/gdb/references/scripting.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  active_owner: mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+  content_hash: sha256:d6d67811a2de79412b07d417a0623388a05cd3b654885ec11071f5f86c3e0ef6
+- kind: project-relative
+  target: codex
+  value: .agents/skills/live-testing
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/live-testing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:391253d893ece2799de6e9ffd7733368d8e028f3663fb41e2e0e7b68b3ca0a86
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:939f91358069d05ce5448b7d73bab851d91dbd2b1cc057fd57bb7c7824fe0568
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/child-components.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:7768d27659e74c48acf31cba4b6d3cfc7b4b919c22489d5a12a00bb5ff332fd8
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/complete-examples.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:b4dafe2ef54ac6b5e670fdf04fb45aedd7274f96debf8d8dfdf7a1df2febb264
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/factories.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:fecbf020887c14f5645b7de16da2a7ad123bd71e90039ac3823a3728dd489115
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/gtk-integration.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:6bc7e8c6d9c60d9d6a232a8a1d84f1f569ed8df80a083436217ffc7c89855d77
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/threads-and-async.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:b12f3a2e5ef91f1f2dff5d928a21586c6413b9f5f1fa56ff47e0fd115743a58b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/tracker-and-efficiency.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:3fbf5961030f8cf75dffe50f9ecb65cc397e5a314b596d091d9ff96aea1f8321
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/view-macro.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:193c455df22814d5a55c10d632cac4ade385d7ec996c79bd0c1c76117cbbe701
+- kind: project-relative
+  target: codex
+  value: .agents/skills/relm4-app/references/widget-templates.md
+  runtime: null
+  scope: project
+  owners:
+  - anson2251/relm4-app-skill/skills/relm4-app
+  active_owner: anson2251/relm4-app-skill/skills/relm4-app
+  content_hash: sha256:72b61fcb066be2986e2fed298b5c9c18dcea36234d9a7a321d7afbd262d060f3
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-async-patterns
+  runtime: null
+  scope: project
+  owners:
+  - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  active_owner: wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-async-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  active_owner: wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  content_hash: sha256:8e9a951c21bb1ee671dd2e7391b193e8e3d362b95ef29c470915837d73bf87df
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-async-patterns/references/details.md
+  runtime: null
+  scope: project
+  owners:
+  - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  active_owner: wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+  content_hash: sha256:cd8a987c59cf704b7a2145e0dea6891b10194e7304b894bd14a5692d9fdfa76d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:b1651a95a2c36a8350c033449f52d07eebfdbf08e3bd1d5b22c4b7f55f7aa17c
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_01.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:def0d5dc6ad2c8e143aed03c888c3f55b7f2b8f245c563e970f8fa951f7d7b52
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_02.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:3b5d4ad26ce444770a05d91f737cc48417cb5bac94b2ab1587fc8de536bdcbb9
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_03.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:fd673405cc1b5094d44d59eac4634e35525d7103d34b43178ee37277f392e15f
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_04.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:5189a1118c41c25426357a14ad4e651e931443f1aefc241ea79689cb694175bf
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_05.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:fb753a7515e11c1bc84d853d8b6d3442dd810d607f2b153595248d57232b8d38
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_06.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:cff0a6826a23a9c4337700757cc67f4741aa4be81cd56925601b110752d38534
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_07.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:be71105ee9123fe2dff6673d85fc854eafd281fbfa6e8778216d3f3a8d0ffaad
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_08.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:54c1548a28586ebb373fe508ce0d885d78bc83e579aabd89836d2a53f7129a8b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-best-practices/references/chapter_09.md
+  runtime: null
+  scope: project
+  owners:
+  - apollographql/skills/skills/rust-best-practices
+  active_owner: apollographql/skills/skills/rust-best-practices
+  content_hash: sha256:bdd59af111d402e4385c77e26fa6d53fc113e40ef678a9cf7aaff221e5c21917
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-build-times
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-build-times/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+  content_hash: sha256:0c533dff7ae91efb24aee989488f479d3e4dfa3be0f197414887a71bd1dbc54a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-cli
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-cli/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:c74b914bd3963eb33c41d5c8e0a712aad13d8277e53ca85c30b5815aebadd773
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-cli/references/skeleton.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:cd8ff0ee51050bef4554918b86e9003b7af07878646f60ad1f579d59910b133a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-debugging
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-debugging/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  content_hash: sha256:7feb0a2f40199903edfc756fce257c315797564837af924cf7b8c06761b5c6bc
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-debugging/references/rust-gdb-pretty-printers.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+  content_hash: sha256:f73b3ec5fc5fa6522ab23ccc3db3b1f0ebdc52ccef7c63a7d1aa016bfc408607
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-profiling
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-profiling/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  content_hash: sha256:9d226fe69499fdc84b177f6ebfdd1c66aafe0e3f503ee9216db8997912f4d454
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-profiling/references/cargo-flamegraph-setup.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+  content_hash: sha256:da1b2a930b48bf9dafe214d8bb5937bb4a41d89b41b7bf1b166201556b7a74f4
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-security
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-security/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+  content_hash: sha256:3ed8d041d867cfed9b9babc80206d97beb96ee726c022eb0bfd5cfb27dd582af
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-unsafe
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-unsafe/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  content_hash: sha256:23252db7d1c264f86d08b07dbb3e7503e73c3c6449983f5f976f4803822517e0
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rust-unsafe/references/unsafe-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+  content_hash: sha256:c0a5ae6f6583f4a3ec40073b8b6c5944606b7c69e8c39a05da05cc365486296f
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rustc-basics
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rustc-basics/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  content_hash: sha256:1fa7517fa57153bb8ef3d386166ba56b0a2704668b4252b71665b32a246c5e91
+- kind: project-relative
+  target: codex
+  value: .agents/skills/rustc-basics/references/rustflags-profiles.md
+  runtime: null
+  scope: project
+  owners:
+  - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  active_owner: mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+  content_hash: sha256:4136335cd68aad397b6f700bff53f7e0af4c9b54cb32b3c88537aef75b3dc1b9
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7badf50cb04c86703359291157dc8d6beec5c72c82489e4143c5e0f4f2b04131
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service/references/anatomy.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:933a27c202b598453c724ce63ab61ca81106c25a883de10112bffc37e0f3b55e
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service/references/performance.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:025b0c4c17bbb851f6c8684d9f7addd27834541a215f9427a7ee5ed1d2599d52
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service/references/pitfalls.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:7582eda22e929ff995cc3cebae2937151e8b2bbb729644682355ef8bbf426ca6
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service/references/subscriptions.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:4b1ea982b58f09a4d59144580389825ff4553a50c3bcc0011c735a6efaab12ad
+- kind: project-relative
+  target: codex
+  value: .agents/skills/service/references/testing.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:a035cd81c30664e0bb6946e1ede38d39195b57e0c6538a1268e83a2de76857fa
+- kind: project-relative
+  target: codex
+  value: .agents/skills/spec-precision
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/spec-precision/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:949a8960e17d760df6ec4c1a748eb0eb10626ead3e994b729bc709ab825fae3d
+- kind: project-relative
+  target: codex
+  value: .agents/skills/testing
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/testing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:bdb801e274145ff8d3ac460a1b26b1ebda8f23f6a6b2eed4ef2632754a1bc266
+- kind: project-relative
+  target: codex
+  value: .agents/skills/testing/references/scripts.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:e05a525f6c38e71197878a09ba5fba613c24dec002a19740599c3ca7ea37466b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/tokio-patterns
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/tokio-patterns/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+  content_hash: sha256:13045f18ad616259f1912c0b0ec76854f5a8952286c899dade2b09e8c21d7866
+- kind: project-relative
+  target: codex
+  value: .agents/skills/tokio-troubleshooting
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/tokio-troubleshooting/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  active_owner: geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+  content_hash: sha256:a242b04e2b623be1f98b3adc4e81993d1fefe3a0df3b9c3234ad8e605d609ac2
+- kind: project-relative
+  target: codex
+  value: .agents/skills/widget
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/widget/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:a81f2ccc3453335aa8515a7d5c83b9e9253ccfe2f4ebc86620b731acb3f25bdc
+- kind: project-relative
+  target: codex
+  value: .agents/skills/work-in-team
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/work-in-team/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:9bc451d1008d40fda17d0f0e794be0a9b1c6c3d7041e836cb0567e0e2347c10a
+- kind: project-relative
+  target: codex
+  value: .agents/skills/work-in-team/references/workers.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:f39ac6f177e317e78e8643e6d719266dc049b22c012d8d0166bc2509546a6956
+- kind: project-relative
+  target: codex
+  value: .agents/skills/zbus
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/zbus/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:54114161a90a47dba2406f767d51cc92e683772868f453c0641762cdd9e68128
+- kind: project-relative
+  target: codex
+  value: .agents/skills/zbus/references/compile-traps.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:81f75ce339bd8fda64963346f2315383c99c46990220cb0c5443dc05e6a286c6
+- kind: project-relative
+  target: codex
+  value: .agents/skills/zbus/references/interfaces.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:e50362d750777d9212cbc8096b1a844c673fe3d09657d5d1d101cda76dea3acd
+- kind: project-relative
+  target: codex
+  value: .agents/skills/zbus/references/proxies.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:a7dfc8921a53d9fc33de3ffa7a6324d6b6c62d6356663ffb2546bf5f3d087a63
+- kind: project-relative
+  target: codex
+  value: .agents/skills/zbus/references/services.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:eb7ae8ec0091b7bd0e5ca506af87faa1276ca393294740d644d89f0756875a1c
+local_deployed_files:
+- .agents/skills/adversarial-review
+- .agents/skills/adversarial-review/SKILL.md
+- .agents/skills/applet
+- .agents/skills/applet/SKILL.md
+- .agents/skills/applet/references/anatomy.md
+- .agents/skills/applet/references/pitfalls.md
+- .agents/skills/applet/references/popovers.md
+- .agents/skills/beads
+- .agents/skills/beads/SKILL.md
+- .agents/skills/beads/agents/openai.yaml
+- .agents/skills/developing-gtk-apps
+- .agents/skills/developing-gtk-apps/SKILL.md
+- .agents/skills/developing-gtk-apps/gnome-shell-companion-reference.md
+- .agents/skills/developing-gtk-apps/gtk-dbus-reference.md
+- .agents/skills/developing-gtk-apps/gtk-debugging-reference.md
+- .agents/skills/developing-gtk-apps/gtk-gobject-reference.md
+- .agents/skills/developing-gtk-apps/gtk-i18n-reference.md
+- .agents/skills/developing-gtk-apps/gtk-packaging-reference.md
+- .agents/skills/developing-gtk-apps/gtk-patterns-reference.md
+- .agents/skills/developing-gtk-apps/gtk-testing-reference.md
+- .agents/skills/developing-gtk-apps/python-reference.md
+- .agents/skills/developing-gtk-apps/rust-reference.md
+- .agents/skills/developing-gtk-apps/vala-reference.md
+- .agents/skills/docs
+- .agents/skills/docs/SKILL.md
+- .agents/skills/epic-orchestrator
+- .agents/skills/epic-orchestrator/SKILL.md
+- .agents/skills/live-testing
+- .agents/skills/live-testing/SKILL.md
+- .agents/skills/rust-cli
+- .agents/skills/rust-cli/SKILL.md
+- .agents/skills/rust-cli/references/skeleton.md
+- .agents/skills/service
+- .agents/skills/service/SKILL.md
+- .agents/skills/service/references/anatomy.md
+- .agents/skills/service/references/performance.md
+- .agents/skills/service/references/pitfalls.md
+- .agents/skills/service/references/subscriptions.md
+- .agents/skills/service/references/testing.md
+- .agents/skills/spec-precision
+- .agents/skills/spec-precision/SKILL.md
+- .agents/skills/testing
+- .agents/skills/testing/SKILL.md
+- .agents/skills/testing/references/scripts.md
+- .agents/skills/widget
+- .agents/skills/widget/SKILL.md
+- .agents/skills/work-in-team
+- .agents/skills/work-in-team/SKILL.md
+- .agents/skills/work-in-team/references/workers.md
+- .agents/skills/zbus
+- .agents/skills/zbus/SKILL.md
+- .agents/skills/zbus/references/compile-traps.md
+- .agents/skills/zbus/references/interfaces.md
+- .agents/skills/zbus/references/proxies.md
+- .agents/skills/zbus/references/services.md
+- .claude/skills/adversarial-review
+- .claude/skills/adversarial-review/SKILL.md
+- .claude/skills/applet
+- .claude/skills/applet/SKILL.md
+- .claude/skills/applet/references/anatomy.md
+- .claude/skills/applet/references/pitfalls.md
+- .claude/skills/applet/references/popovers.md
+- .claude/skills/beads
+- .claude/skills/beads/SKILL.md
+- .claude/skills/beads/agents/openai.yaml
+- .claude/skills/developing-gtk-apps
+- .claude/skills/developing-gtk-apps/SKILL.md
+- .claude/skills/developing-gtk-apps/gnome-shell-companion-reference.md
+- .claude/skills/developing-gtk-apps/gtk-dbus-reference.md
+- .claude/skills/developing-gtk-apps/gtk-debugging-reference.md
+- .claude/skills/developing-gtk-apps/gtk-gobject-reference.md
+- .claude/skills/developing-gtk-apps/gtk-i18n-reference.md
+- .claude/skills/developing-gtk-apps/gtk-packaging-reference.md
+- .claude/skills/developing-gtk-apps/gtk-patterns-reference.md
+- .claude/skills/developing-gtk-apps/gtk-testing-reference.md
+- .claude/skills/developing-gtk-apps/python-reference.md
+- .claude/skills/developing-gtk-apps/rust-reference.md
+- .claude/skills/developing-gtk-apps/vala-reference.md
+- .claude/skills/docs
+- .claude/skills/docs/SKILL.md
+- .claude/skills/epic-orchestrator
+- .claude/skills/epic-orchestrator/SKILL.md
+- .claude/skills/live-testing
+- .claude/skills/live-testing/SKILL.md
+- .claude/skills/rust-cli
+- .claude/skills/rust-cli/SKILL.md
+- .claude/skills/rust-cli/references/skeleton.md
+- .claude/skills/service
+- .claude/skills/service/SKILL.md
+- .claude/skills/service/references/anatomy.md
+- .claude/skills/service/references/performance.md
+- .claude/skills/service/references/pitfalls.md
+- .claude/skills/service/references/subscriptions.md
+- .claude/skills/service/references/testing.md
+- .claude/skills/spec-precision
+- .claude/skills/spec-precision/SKILL.md
+- .claude/skills/testing
+- .claude/skills/testing/SKILL.md
+- .claude/skills/testing/references/scripts.md
+- .claude/skills/widget
+- .claude/skills/widget/SKILL.md
+- .claude/skills/work-in-team
+- .claude/skills/work-in-team/SKILL.md
+- .claude/skills/work-in-team/references/workers.md
+- .claude/skills/zbus
+- .claude/skills/zbus/SKILL.md
+- .claude/skills/zbus/references/compile-traps.md
+- .claude/skills/zbus/references/interfaces.md
+- .claude/skills/zbus/references/proxies.md
+- .claude/skills/zbus/references/services.md
+local_deployed_file_hashes:
+  .agents/skills/adversarial-review/SKILL.md: sha256:b8ce5e9dfeae719d148dfc8d1cb254ca1f991f8f3d9ff319a0e24a19ac37ce27
+  .agents/skills/applet/SKILL.md: sha256:838498c76670453edec5a97fa2397495b1bd4c3258e91daaedd2ac18d6c7f9dd
+  .agents/skills/applet/references/anatomy.md: sha256:96f6174b4631a232634a3a3d421af1586854b689c66718e5c5d435c364f12870
+  .agents/skills/applet/references/pitfalls.md: sha256:05fcdf3d5d3c06dde9d87ca865e3e2ccc9762379d6f5d77c16005c579665021d
+  .agents/skills/applet/references/popovers.md: sha256:5a8fe0e58ccb73f7a87ad1b0f2cb9dce122aafae9e496cd6541462c6a5cb9f16
+  .agents/skills/beads/SKILL.md: sha256:1a621606cfa9a14cbacff84bf5c496b4c2c175c2df329e8d19d4e01fc989dedd
+  .agents/skills/beads/agents/openai.yaml: sha256:c7ff618a9a6bcce71b25f722f67861b7685651d08fb72d8fff7d947aac403718
+  .agents/skills/developing-gtk-apps/SKILL.md: sha256:061633d4e5262f10b87052f35adb42975b9f2f376869f08378b5cc2b8e1f6d5d
+  .agents/skills/developing-gtk-apps/gnome-shell-companion-reference.md: sha256:10b0da2780851f5603348f38378750c7f8c600b95e8ebdf71e5847bcdd4493e1
+  .agents/skills/developing-gtk-apps/gtk-dbus-reference.md: sha256:4b90d7dd200e8a8de194f4fbd7b0240e321756495c1f62d312ccb8916a348a29
+  .agents/skills/developing-gtk-apps/gtk-debugging-reference.md: sha256:7fb5edff71afd35bf5caaa9660cf749b840616d4316cfd9df74f6df5b660b7b4
+  .agents/skills/developing-gtk-apps/gtk-gobject-reference.md: sha256:3cfc212bd6b3e245f2231d524c94f8c0b928041c69963bf3338266dd1daf6a56
+  .agents/skills/developing-gtk-apps/gtk-i18n-reference.md: sha256:b21f2fd74794926c3f2d499e975bee5ed7046e6684903261b2e940bb779b9cb3
+  .agents/skills/developing-gtk-apps/gtk-packaging-reference.md: sha256:52f94aadaacae8ad7ab18a594383b10ebdd3370173a5515d3b67d1f8a3b6b3b5
+  .agents/skills/developing-gtk-apps/gtk-patterns-reference.md: sha256:5a0827e289859efbdffe687ded73f7947da510b07829ce0c46ea9f1ff801f73c
+  .agents/skills/developing-gtk-apps/gtk-testing-reference.md: sha256:cbb1a84cb84ebde56180f3404729f197b3a93a0f9b5ccfe5d42dbfb3ddef954a
+  .agents/skills/developing-gtk-apps/python-reference.md: sha256:7b280daaf26bb99c63e4a5b7c851af5cde0e536354720df6f4367b0b69a7ebf2
+  .agents/skills/developing-gtk-apps/rust-reference.md: sha256:9e3db21fdec70e18148a609cbaab9b101e822f0f2f59943e6cb5992c66ce34ff
+  .agents/skills/developing-gtk-apps/vala-reference.md: sha256:2f733df41bd7f380963cd4f6588bfa03d2e416bc294115b73941ea2b1feb854b
+  .agents/skills/docs/SKILL.md: sha256:9c78fbd71908054f24772606786bfe30033e5beb173b4a40192da30463456bdd
+  .agents/skills/epic-orchestrator/SKILL.md: sha256:ad864364d3701e6ee2b84ed671829b44012d2272c32d16173a00fa33e3fbfba1
+  .agents/skills/live-testing/SKILL.md: sha256:391253d893ece2799de6e9ffd7733368d8e028f3663fb41e2e0e7b68b3ca0a86
+  .agents/skills/rust-cli/SKILL.md: sha256:c74b914bd3963eb33c41d5c8e0a712aad13d8277e53ca85c30b5815aebadd773
+  .agents/skills/rust-cli/references/skeleton.md: sha256:cd8ff0ee51050bef4554918b86e9003b7af07878646f60ad1f579d59910b133a
+  .agents/skills/service/SKILL.md: sha256:7badf50cb04c86703359291157dc8d6beec5c72c82489e4143c5e0f4f2b04131
+  .agents/skills/service/references/anatomy.md: sha256:933a27c202b598453c724ce63ab61ca81106c25a883de10112bffc37e0f3b55e
+  .agents/skills/service/references/performance.md: sha256:025b0c4c17bbb851f6c8684d9f7addd27834541a215f9427a7ee5ed1d2599d52
+  .agents/skills/service/references/pitfalls.md: sha256:7582eda22e929ff995cc3cebae2937151e8b2bbb729644682355ef8bbf426ca6
+  .agents/skills/service/references/subscriptions.md: sha256:4b1ea982b58f09a4d59144580389825ff4553a50c3bcc0011c735a6efaab12ad
+  .agents/skills/service/references/testing.md: sha256:a035cd81c30664e0bb6946e1ede38d39195b57e0c6538a1268e83a2de76857fa
+  .agents/skills/spec-precision/SKILL.md: sha256:949a8960e17d760df6ec4c1a748eb0eb10626ead3e994b729bc709ab825fae3d
+  .agents/skills/testing/SKILL.md: sha256:bdb801e274145ff8d3ac460a1b26b1ebda8f23f6a6b2eed4ef2632754a1bc266
+  .agents/skills/testing/references/scripts.md: sha256:e05a525f6c38e71197878a09ba5fba613c24dec002a19740599c3ca7ea37466b
+  .agents/skills/widget/SKILL.md: sha256:a81f2ccc3453335aa8515a7d5c83b9e9253ccfe2f4ebc86620b731acb3f25bdc
+  .agents/skills/work-in-team/SKILL.md: sha256:9bc451d1008d40fda17d0f0e794be0a9b1c6c3d7041e836cb0567e0e2347c10a
+  .agents/skills/work-in-team/references/workers.md: sha256:f39ac6f177e317e78e8643e6d719266dc049b22c012d8d0166bc2509546a6956
+  .agents/skills/zbus/SKILL.md: sha256:54114161a90a47dba2406f767d51cc92e683772868f453c0641762cdd9e68128
+  .agents/skills/zbus/references/compile-traps.md: sha256:81f75ce339bd8fda64963346f2315383c99c46990220cb0c5443dc05e6a286c6
+  .agents/skills/zbus/references/interfaces.md: sha256:e50362d750777d9212cbc8096b1a844c673fe3d09657d5d1d101cda76dea3acd
+  .agents/skills/zbus/references/proxies.md: sha256:a7dfc8921a53d9fc33de3ffa7a6324d6b6c62d6356663ffb2546bf5f3d087a63
+  .agents/skills/zbus/references/services.md: sha256:eb7ae8ec0091b7bd0e5ca506af87faa1276ca393294740d644d89f0756875a1c
+  .claude/skills/adversarial-review/SKILL.md: sha256:b8ce5e9dfeae719d148dfc8d1cb254ca1f991f8f3d9ff319a0e24a19ac37ce27
+  .claude/skills/applet/SKILL.md: sha256:838498c76670453edec5a97fa2397495b1bd4c3258e91daaedd2ac18d6c7f9dd
+  .claude/skills/applet/references/anatomy.md: sha256:96f6174b4631a232634a3a3d421af1586854b689c66718e5c5d435c364f12870
+  .claude/skills/applet/references/pitfalls.md: sha256:05fcdf3d5d3c06dde9d87ca865e3e2ccc9762379d6f5d77c16005c579665021d
+  .claude/skills/applet/references/popovers.md: sha256:5a8fe0e58ccb73f7a87ad1b0f2cb9dce122aafae9e496cd6541462c6a5cb9f16
+  .claude/skills/beads/SKILL.md: sha256:1a621606cfa9a14cbacff84bf5c496b4c2c175c2df329e8d19d4e01fc989dedd
+  .claude/skills/beads/agents/openai.yaml: sha256:c7ff618a9a6bcce71b25f722f67861b7685651d08fb72d8fff7d947aac403718
+  .claude/skills/developing-gtk-apps/SKILL.md: sha256:061633d4e5262f10b87052f35adb42975b9f2f376869f08378b5cc2b8e1f6d5d
+  .claude/skills/developing-gtk-apps/gnome-shell-companion-reference.md: sha256:10b0da2780851f5603348f38378750c7f8c600b95e8ebdf71e5847bcdd4493e1
+  .claude/skills/developing-gtk-apps/gtk-dbus-reference.md: sha256:4b90d7dd200e8a8de194f4fbd7b0240e321756495c1f62d312ccb8916a348a29
+  .claude/skills/developing-gtk-apps/gtk-debugging-reference.md: sha256:7fb5edff71afd35bf5caaa9660cf749b840616d4316cfd9df74f6df5b660b7b4
+  .claude/skills/developing-gtk-apps/gtk-gobject-reference.md: sha256:3cfc212bd6b3e245f2231d524c94f8c0b928041c69963bf3338266dd1daf6a56
+  .claude/skills/developing-gtk-apps/gtk-i18n-reference.md: sha256:b21f2fd74794926c3f2d499e975bee5ed7046e6684903261b2e940bb779b9cb3
+  .claude/skills/developing-gtk-apps/gtk-packaging-reference.md: sha256:52f94aadaacae8ad7ab18a594383b10ebdd3370173a5515d3b67d1f8a3b6b3b5
+  .claude/skills/developing-gtk-apps/gtk-patterns-reference.md: sha256:5a0827e289859efbdffe687ded73f7947da510b07829ce0c46ea9f1ff801f73c
+  .claude/skills/developing-gtk-apps/gtk-testing-reference.md: sha256:cbb1a84cb84ebde56180f3404729f197b3a93a0f9b5ccfe5d42dbfb3ddef954a
+  .claude/skills/developing-gtk-apps/python-reference.md: sha256:7b280daaf26bb99c63e4a5b7c851af5cde0e536354720df6f4367b0b69a7ebf2
+  .claude/skills/developing-gtk-apps/rust-reference.md: sha256:9e3db21fdec70e18148a609cbaab9b101e822f0f2f59943e6cb5992c66ce34ff
+  .claude/skills/developing-gtk-apps/vala-reference.md: sha256:2f733df41bd7f380963cd4f6588bfa03d2e416bc294115b73941ea2b1feb854b
+  .claude/skills/docs/SKILL.md: sha256:9c78fbd71908054f24772606786bfe30033e5beb173b4a40192da30463456bdd
+  .claude/skills/epic-orchestrator/SKILL.md: sha256:ad864364d3701e6ee2b84ed671829b44012d2272c32d16173a00fa33e3fbfba1
+  .claude/skills/live-testing/SKILL.md: sha256:391253d893ece2799de6e9ffd7733368d8e028f3663fb41e2e0e7b68b3ca0a86
+  .claude/skills/rust-cli/SKILL.md: sha256:c74b914bd3963eb33c41d5c8e0a712aad13d8277e53ca85c30b5815aebadd773
+  .claude/skills/rust-cli/references/skeleton.md: sha256:cd8ff0ee51050bef4554918b86e9003b7af07878646f60ad1f579d59910b133a
+  .claude/skills/service/SKILL.md: sha256:7badf50cb04c86703359291157dc8d6beec5c72c82489e4143c5e0f4f2b04131
+  .claude/skills/service/references/anatomy.md: sha256:933a27c202b598453c724ce63ab61ca81106c25a883de10112bffc37e0f3b55e
+  .claude/skills/service/references/performance.md: sha256:025b0c4c17bbb851f6c8684d9f7addd27834541a215f9427a7ee5ed1d2599d52
+  .claude/skills/service/references/pitfalls.md: sha256:7582eda22e929ff995cc3cebae2937151e8b2bbb729644682355ef8bbf426ca6
+  .claude/skills/service/references/subscriptions.md: sha256:4b1ea982b58f09a4d59144580389825ff4553a50c3bcc0011c735a6efaab12ad
+  .claude/skills/service/references/testing.md: sha256:a035cd81c30664e0bb6946e1ede38d39195b57e0c6538a1268e83a2de76857fa
+  .claude/skills/spec-precision/SKILL.md: sha256:949a8960e17d760df6ec4c1a748eb0eb10626ead3e994b729bc709ab825fae3d
+  .claude/skills/testing/SKILL.md: sha256:bdb801e274145ff8d3ac460a1b26b1ebda8f23f6a6b2eed4ef2632754a1bc266
+  .claude/skills/testing/references/scripts.md: sha256:e05a525f6c38e71197878a09ba5fba613c24dec002a19740599c3ca7ea37466b
+  .claude/skills/widget/SKILL.md: sha256:a81f2ccc3453335aa8515a7d5c83b9e9253ccfe2f4ebc86620b731acb3f25bdc
+  .claude/skills/work-in-team/SKILL.md: sha256:9bc451d1008d40fda17d0f0e794be0a9b1c6c3d7041e836cb0567e0e2347c10a
+  .claude/skills/work-in-team/references/workers.md: sha256:f39ac6f177e317e78e8643e6d719266dc049b22c012d8d0166bc2509546a6956
+  .claude/skills/zbus/SKILL.md: sha256:54114161a90a47dba2406f767d51cc92e683772868f453c0641762cdd9e68128
+  .claude/skills/zbus/references/compile-traps.md: sha256:81f75ce339bd8fda64963346f2315383c99c46990220cb0c5443dc05e6a286c6
+  .claude/skills/zbus/references/interfaces.md: sha256:e50362d750777d9212cbc8096b1a844c673fe3d09657d5d1d101cda76dea3acd
+  .claude/skills/zbus/references/proxies.md: sha256:a7dfc8921a53d9fc33de3ffa7a6324d6b6c62d6356663ffb2546bf5f3d087a63
+  .claude/skills/zbus/references/services.md: sha256:eb7ae8ec0091b7bd0e5ca506af87faa1276ca393294740d644d89f0756875a1c

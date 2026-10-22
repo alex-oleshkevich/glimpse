@@ -1,0 +1,21 @@
+name: glimpse
+version: 0.1.0
+# Agent skills; `just install-skills` installs them into .claude/skills and .agents/skills at the commits in apm.lock.yaml.
+dependencies:
+  apm:
+    - mohitmishra786/low-level-dev-skills/skills/rust/cargo-workflows
+    - mohitmishra786/low-level-dev-skills/skills/rust/rust-build-times
+    - mohitmishra786/low-level-dev-skills/skills/rust/rust-debugging
+    - mohitmishra786/low-level-dev-skills/skills/rust/rust-profiling
+    - mohitmishra786/low-level-dev-skills/skills/rust/rust-security
+    - mohitmishra786/low-level-dev-skills/skills/rust/rust-unsafe
+    - mohitmishra786/low-level-dev-skills/skills/rust/rustc-basics
+    - mohitmishra786/low-level-dev-skills/skills/profilers/flamegraphs
+    - mohitmishra786/low-level-dev-skills/skills/debuggers/gdb
+    - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/clap-patterns
+    - geoffjay/claude-plugins/plugins/rust-cli-developer/skills/cli-configuration
+    - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-patterns
+    - geoffjay/claude-plugins/plugins/rust-tokio-expert/skills/tokio-troubleshooting
+    - anson2251/relm4-app-skill/skills/relm4-app
+    - wshobson/agents/plugins/systems-programming/skills/rust-async-patterns
+    - apollographql/skills/skills/rust-best-practices
