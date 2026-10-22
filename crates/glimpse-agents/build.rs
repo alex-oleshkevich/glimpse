@@ -24,6 +24,9 @@ fn compile_blueprint(src: &str, out: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
     if std::fs::read(out).ok().as_deref() != Some(output.stdout.as_slice()) {
+        if let Some(dir) = std::path::Path::new(out).parent() {
+            std::fs::create_dir_all(dir).unwrap();
+        }
         std::fs::write(out, &output.stdout).unwrap();
     }
 }
