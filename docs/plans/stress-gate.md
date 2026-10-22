@@ -180,9 +180,9 @@ characters. Every generator that sends text takes its strings from it.
 | `.4` S4 config storm | | `.1`, glimpse-3opwd |
 | `.5` S5 lock soak | | `.1` |
 | `.6` S6 output churn | | `.1` |
-| `.7` S7 provider churn | | `.1`, `.2`, glimpse-wq94q, glimpse-tz18r |
-| `.8` S8 pressure | | `.3`, `.6` |
-| `.9` S9 soak and gate sign-off | The final green pass of S1–S9 on both compositors at one commit; result noted on the epic. | `.3`–`.8` |
+| `.8` S7 provider churn | | `.1`, `.2`, glimpse-wq94q, glimpse-tz18r |
+| `.9` S8 pressure | | `.3`, `.6` |
+| `.7` S9 soak and gate sign-off | The final green pass of S1–S9 on both compositors at one commit; result noted on the epic. | `.3`–`.6`, `.8`, `.9` |
 
 The epic as a whole is blocked by glimpse-6umks, glimpse-3opwd, glimpse-8i49g, glimpse-wq94q and
 glimpse-tz18r.

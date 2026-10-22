@@ -1,0 +1,100 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.Clamp {
+  maximum-size: 760;
+  tightening-threshold: 760;
+  valign: center;
+
+  child: Gtk.Box {
+  styles [
+    "agent-dialog",
+  ]
+
+  Adw.StatusPage {
+    hexpand: true;
+    icon-name: "system-lock-screen-symbolic";
+    title: _("Authentication needed");
+    description: "Authentication is required to mount Data (/dev/nvme0n1p3)";
+
+    styles [
+      "compact",
+    ]
+
+    child: Gtk.Box {
+    orientation: vertical;
+    spacing: 18;
+
+    Gtk.ListBox {
+      selection-mode: none;
+
+      styles [
+        "boxed-list",
+      ]
+
+
+      Adw.PasswordEntryRow {
+        title: _("Password");
+      }
+
+      Adw.ExpanderRow {
+        title: _("Details");
+        expanded: false;
+
+        Adw.ActionRow {
+          title: _("Action");
+          subtitle: "org.freedesktop.fwupd.update-internal";
+          subtitle-selectable: true;
+
+          styles [
+            "property",
+          ]
+        }
+
+        Adw.ActionRow {
+          title: _("Vendor");
+          subtitle: "fwupd · fwupd.org";
+
+          styles [
+            "property",
+          ]
+        }
+      }
+    }
+
+    Gtk.Label {
+      label: "Place your finger on the fingerprint reader";
+      wrap: true;
+      justify: center;
+
+      styles [
+        "caption",
+      ]
+    }
+
+    Gtk.Box {
+      spacing: 12;
+      homogeneous: true;
+      margin-top: 12;
+
+      Gtk.Button {
+        label: _("Cancel");
+
+        styles [
+          "pill",
+        ]
+      }
+
+      Gtk.Button {
+        label: _("Authorize");
+
+        styles [
+          "pill",
+          "suggested-action",
+        ]
+      }
+    }
+  };
+  }
+  };
+}

@@ -1,0 +1,77 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.Clamp {
+  maximum-size: 760;
+  tightening-threshold: 760;
+  valign: center;
+
+  child: Gtk.Box {
+  styles [
+    "agent-dialog",
+  ]
+
+  Adw.StatusPage {
+    hexpand: true;
+    icon-name: "network-wireless-symbolic";
+    title: _("Join “Café Central”");
+    description: _("That password didn't work");
+
+    styles [
+      "compact",
+    ]
+
+    child: Gtk.Box {
+    orientation: vertical;
+    spacing: 18;
+
+    Gtk.ListBox {
+      selection-mode: none;
+
+      styles [
+        "boxed-list",
+      ]
+
+
+      Adw.PasswordEntryRow {
+        title: _("Password");
+
+        styles [
+          "error",
+        ]
+      }
+
+      Adw.SwitchRow {
+        title: _("Connect automatically");
+        active: true;
+      }
+
+    }
+
+    Gtk.Box {
+      spacing: 12;
+      homogeneous: true;
+      margin-top: 12;
+
+
+      Gtk.Button {
+        label: _("Cancel");
+
+        styles [
+          "pill",
+        ]
+      }
+
+      Gtk.Button {
+        label: _("Try again");
+
+        styles [
+          "pill",
+          "suggested-action",
+        ]
+      }
+    }
+  };
+  }
+  };
+}
