@@ -8,8 +8,6 @@ license.workspace = true
 [dependencies]
 dirs.workspace = true
 glimpse-config.workspace = true
-glimpse-dbus.workspace = true
-glimpse-utils.workspace = true
 futures-util.workspace = true
 rustix.workspace = true
 serde.workspace = true
@@ -17,8 +15,6 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-zbus.workspace = true
 
 [dev-dependencies]
-glimpse-dbus = { workspace = true, features = ["testing"] }
 tempfile.workspace = true

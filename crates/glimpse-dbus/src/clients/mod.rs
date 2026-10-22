@@ -123,9 +123,6 @@ pub mod bluez;
 pub mod clipboard;
 pub mod dbusmenu;
 mod follower;
-pub use follower::{
-    Changes, Follow, Provider, ProviderError, ProviderHandle, Snapshots, call, changes,
-};
 pub mod freedesktop_notifications;
 pub mod geoclue;
 pub mod gtk_actions;

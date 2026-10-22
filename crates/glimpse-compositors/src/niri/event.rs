@@ -3,10 +3,9 @@ use std::future::Future;
 
 use serde::{Deserialize, Deserializer};
 
-use crate::event::LineDecoder;
-use crate::legacy::event::{Event, Resync};
-use crate::legacy::keyboard::layout_code;
-use crate::legacy::model::{
+use crate::event::{Event, LineDecoder, Resync};
+use crate::keyboard::layout_code;
+use crate::model::{
     Cast, CastKind, CastTarget, KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId,
 };
 
@@ -108,8 +107,6 @@ impl EventState {
 }
 
 impl LineDecoder for EventState {
-    type Event = Event;
-
     fn decode(&mut self, line: &str) -> impl Future<Output = Vec<Event>> + Send {
         std::future::ready(self.decode(line))
     }

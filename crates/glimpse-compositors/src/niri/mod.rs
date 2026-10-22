@@ -16,10 +16,9 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use tokio::net::UnixStream;
 
-use crate::event::line_events;
-use crate::legacy::error::CompositorError;
-use crate::legacy::event::Event;
-use crate::legacy::model::{
+use crate::error::CompositorError;
+use crate::event::{Event, line_events};
+use crate::model::{
     KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget,
     Workspace, WorkspaceId, WorkspaceTarget, capped_edid_str, fill_window_outputs, is_built_in,
 };

@@ -8,22 +8,21 @@ use crate::model::{Cast, KeyboardLayouts, Window, WindowId, Workspace, Workspace
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
-    WorkspacesChanged {
-        workspaces: Vec<Workspace>,
-        focused: Option<WorkspaceId>,
-    },
+    WorkspacesChanged(Vec<Workspace>),
     WorkspaceActivated {
         id: WorkspaceId,
         focused: bool,
     },
-    WindowsChanged {
-        windows: Vec<Window>,
-        focused: Option<WindowId>,
+    WorkspaceActiveWindowChanged {
+        workspace: WorkspaceId,
+        window: Option<WindowId>,
     },
-    WindowOpenedOrChanged {
-        window: Window,
-        focused: bool,
+    WorkspaceUrgencyChanged {
+        id: WorkspaceId,
+        urgent: bool,
     },
+    WindowsChanged(Vec<Window>),
+    WindowOpenedOrChanged(Window),
     WindowClosed(WindowId),
     WindowFocusChanged(Option<WindowId>),
     WindowUrgencyChanged {
@@ -32,10 +31,14 @@ pub enum Event {
     },
     WindowLayoutsChanged(Vec<(WindowId, Option<u16>)>),
     KeyboardLayoutsChanged(KeyboardLayouts),
-    KeyboardLayoutSwitched(u32),
+    KeyboardLayoutSwitched(usize),
     CastsChanged(Vec<Cast>),
-    CastStartedOrChanged(Cast),
+    CastStartedOrChanged {
+        cast: Cast,
+    },
     CastStopped(u64),
+    /// The compositor said something changed without saying what. The caller re-fetches the named
+    /// part of the snapshot. Hyprland produces most of these; niri produces a handful.
     Resync(Resync),
 }
 
@@ -46,13 +49,11 @@ pub enum Resync {
     Outputs,
 }
 
-pub trait LineDecoder: Send + 'static {
-    type Event: Send + 'static;
-
-    fn decode(&mut self, line: &str) -> impl Future<Output = Vec<Self::Event>> + Send;
+pub(crate) trait LineDecoder: Send + 'static {
+    fn decode(&mut self, line: &str) -> impl Future<Output = Vec<Event>> + Send;
 }
 
-pub fn line_events<R, D>(reader: R, decoder: D) -> BoxStream<'static, D::Event>
+pub(crate) fn line_events<R, D>(reader: R, decoder: D) -> BoxStream<'static, Event>
 where
     R: AsyncBufRead + Unpin + Send + 'static,
     D: LineDecoder,

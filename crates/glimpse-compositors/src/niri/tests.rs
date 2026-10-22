@@ -5,8 +5,8 @@ use serde_json::json;
 
 use super::testing::FakeNiri;
 use super::*;
-use crate::legacy::event::Resync;
-use crate::legacy::model::{Cast, CastKind, CastTarget, WindowId};
+use crate::event::Resync;
+use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
 fn reply(name: &str, payload: Value) -> Vec<String> {
     vec![json!({ "Ok": { name: payload } }).to_string()]

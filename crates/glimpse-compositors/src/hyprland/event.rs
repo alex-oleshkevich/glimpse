@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::legacy::event::{Event, Resync};
-use crate::legacy::model::{Cast, CastKind, CastTarget, WindowId};
+use crate::event::{Event, Resync};
+use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
 #[derive(Debug, Default)]
 pub struct Shared {
