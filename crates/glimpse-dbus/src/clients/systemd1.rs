@@ -67,6 +67,10 @@ pub trait Systemd1Unit {
     fn id(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn active_state(&self) -> zbus::Result<String>;
+    #[zbus(property(emits_changed_signal = "const"))]
+    fn bound_by(&self) -> zbus::Result<Vec<String>>;
+    #[zbus(property(emits_changed_signal = "const"))]
+    fn before(&self) -> zbus::Result<Vec<String>>;
     #[zbus(property)]
     fn sub_state(&self) -> zbus::Result<String>;
     #[zbus(property)]

@@ -181,7 +181,10 @@ call goes to that unique name, which the bus cannot activate. **The daemon emits
 home trash only** — `files/`, `info/`, `expunged/` and `directorysizes`, leaving `.Trash-$UID` alone.
 
 **session actions** — logind capabilities and inhibitors on their own subscription, window count from
-the compositor.
+the compositor. **Log out stops `graphical-session.target` when an active service bound to it is
+ordered before it — the compositor unit of `niri-session` or uwsm — and terminates the logind session
+otherwise**: a session wrapper such as `niri-session` runs its own teardown after its compositor unit
+stops, and killing the session scope skips that teardown and leaves the next login refused.
 
 **privacy** — camera, microphone, screen capture and location as one state, reporting rather than
 enforcing. **The camera source is a `/proc` fd scan gated on the `uvcvideo` refcount, never
