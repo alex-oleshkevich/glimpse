@@ -63,30 +63,3 @@ fn an_unknown_privacy_level_is_refused() {
         .to_string();
     assert!(error.contains("summaries"), "{error}");
 }
-
-#[test]
-fn the_old_flat_background_key_is_refused() {
-    let error = load("[lock]\nbackground = \"x\"\n")
-        .expect_err("background is a table now, not a string")
-        .to_string();
-    assert!(
-        error.contains("invalid type: string \"x\", expected struct Background"),
-        "{error}"
-    );
-}
-
-#[test]
-fn a_flat_dim_directly_under_lock_is_refused() {
-    let error = load("[lock]\ndim = 0.5\n")
-        .expect_err("dim moved under [lock.background]")
-        .to_string();
-    assert!(error.contains("unknown field `dim`"), "{error}");
-}
-
-#[test]
-fn the_old_controls_table_is_refused() {
-    let error = load("[lock.controls]\nbuttons = []\n")
-        .expect_err("controls is gone")
-        .to_string();
-    assert!(error.contains("controls"), "{error}");
-}

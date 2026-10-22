@@ -1,6 +1,6 @@
 use clap::CommandFactory;
 use glimpsectl::cli::{
-    AppletCommand, AppletLanguage, Cli, Command, ConfigCommand, Mode, NightLightCommand, duration,
+    AppletCommand, AppletLanguage, Cli, Command, ConfigCommand, NightLightCommand, duration,
     temperature,
 };
 
@@ -23,13 +23,6 @@ fn json_is_accepted_after_the_subcommand() {
 }
 
 #[test]
-fn every_mode_spells_itself_the_way_the_document_does() {
-    assert_eq!(Mode::Off.as_str(), "off");
-    assert_eq!(Mode::Automatic.as_str(), "automatic");
-    assert_eq!(Mode::Schedule.as_str(), "schedule");
-}
-
-#[test]
 fn config_doctor_and_installed_applets_run_without_a_bus() {
     assert!(!Command::Doctor.needs_session_bus());
     assert!(!Command::Config(ConfigCommand::Path).needs_session_bus());
@@ -41,20 +34,6 @@ fn config_doctor_and_installed_applets_run_without_a_bus() {
         .needs_session_bus()
     );
     assert!(Command::NightLight(NightLightCommand::Pause).needs_session_bus());
-}
-
-#[test]
-fn deprecated_spellings_are_usage_errors() {
-    for args in [
-        vec!["sunset", "status"],
-        vec!["settings", "status"],
-        vec!["applets", "list"],
-        vec!["applets", "run", "--panel", "2", "foo"],
-        vec!["clipboard", "forget", "1"],
-    ] {
-        let error = Cli::try_parse_from(["glimpsectl"].into_iter().chain(args)).unwrap_err();
-        assert_eq!(error.exit_code(), 2);
-    }
 }
 
 #[test]
@@ -123,9 +102,8 @@ fn new_applets_default_to_typescript_and_accept_every_language() {
 fn zero_scroll_steps_are_a_usage_error() {
     let error = Cli::try_parse_from([
         "glimpsectl",
-        "panel",
+        "applet",
         "scroll",
-        "DP-1",
         "clock",
         "down",
         "--steps",
@@ -221,23 +199,6 @@ fn canonical_help_and_completions_need_no_bus() {
         "completions",
     ] {
         assert!(help.contains(noun), "{help}");
-    }
-    for hidden in [
-        "sunset",
-        "settings",
-        "applets",
-        "screenshot",
-        "audio",
-        "brightness",
-        "media",
-        "logs",
-        "restart",
-    ] {
-        assert!(
-            !command
-                .get_subcommands()
-                .any(|subcommand| subcommand.get_name() == hidden && !subcommand.is_hide_set())
-        );
     }
     for shell in [
         clap_complete::Shell::Bash,

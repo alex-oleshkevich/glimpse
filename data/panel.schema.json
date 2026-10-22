@@ -2878,32 +2878,6 @@
             "at",
             "name"
           ]
-        },
-        {
-          "description": "A fixed location.",
-          "type": "object",
-          "properties": {
-            "at": {
-              "type": "string",
-              "const": "coordinates"
-            },
-            "latitude": {
-              "description": "Degrees north of the equator, between -90 and 90.",
-              "type": "number",
-              "format": "double"
-            },
-            "longitude": {
-              "description": "Degrees east of Greenwich, between -180 and 180.",
-              "type": "number",
-              "format": "double"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "at",
-            "latitude",
-            "longitude"
-          ]
         }
       ]
     },

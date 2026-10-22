@@ -365,10 +365,16 @@ impl Launcher for UnitStates {
         self.process.reset_failed(name)
     }
     fn watch(&self, _name: &str) -> BoxStream<'static, UnitState> {
-        let states = self.states.lock().expect("states").take().expect("one watch");
-        Box::pin(futures_util::stream::unfold(states, |mut states| async move {
-            states.recv().await.map(|state| (state, states))
-        }))
+        let states = self
+            .states
+            .lock()
+            .expect("states")
+            .take()
+            .expect("one watch");
+        Box::pin(futures_util::stream::unfold(
+            states,
+            |mut states| async move { states.recv().await.map(|state| (state, states)) },
+        ))
     }
     fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
         self.process.sweep(prefix)
@@ -410,7 +416,11 @@ async fn stopped_unit_publishes_no_tree() {
         .expect("tree published");
         units.send(state).expect("unit state");
         let stopped = status(&handle, 1, |s| *s == expected).await;
-        assert_eq!(*stopped.tree, Tree::default(), "a stopped unit keeps no tree");
+        assert_eq!(
+            *stopped.tree,
+            Tree::default(),
+            "a stopped unit keeps no tree"
+        );
         handle.detach(1).await.expect("detach");
         cancel.cancel();
         let _ = task.await;

@@ -13,7 +13,7 @@ const MOST_THEME_PATHS: usize = 16;
 const SUFFIXES: [&str; 4] = [".png", ".svg", ".xpm", ".ico"];
 
 /// What an item's icon should be built from. Separated from building it so the ladder can be
-/// tested without a display: every branch below was a bug in the previous implementation, twice.
+/// tested without a display.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
     /// A literal file, either named absolutely or found under the item's own theme directory.

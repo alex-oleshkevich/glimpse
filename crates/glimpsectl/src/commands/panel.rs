@@ -127,64 +127,6 @@ fn rows(descriptions: &Descriptions) -> Vec<AppletRow> {
     rows
 }
 
-fn resolve<'a>(
-    rows: &'a [AppletRow],
-    connector: &str,
-    applet: &str,
-    position: Option<Position>,
-) -> Result<&'a AppletRow, Refused> {
-    let matching: Vec<_> = rows
-        .iter()
-        .filter(|row| {
-            row.connector == connector
-                && row.name == applet
-                && position.is_none_or(|position| row.position == position)
-        })
-        .collect();
-    if matching.is_empty() {
-        return Err(Refused(match position {
-            Some(position) => format!("{connector} has no applet `{applet}` at {position}"),
-            None => format!("{connector} has no applet `{applet}`"),
-        }));
-    }
-    let mut positions: Vec<_> = matching.iter().map(|row| row.position).collect();
-    positions.sort();
-    positions.dedup();
-    if positions.len() > 1 {
-        return Err(Refused(format!(
-            "{applet} is on {connector} {}; pass --position",
-            positions
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(" and ")
-        )));
-    }
-    if matching.len() > 1 {
-        return Err(Refused(format!(
-            "{applet} appears more than once on {connector} {}",
-            matching[0].position
-        )));
-    }
-    Ok(matching[0])
-}
-
-fn target<'a>(
-    rows: &'a [AppletRow],
-    connector: &str,
-    applet: &str,
-    position: Option<Position>,
-    item_input: bool,
-) -> Result<&'a AppletRow, Refused> {
-    let row = resolve(rows, connector, applet, position)?;
-    if item_input && row.own_view {
-        return Err(Refused(format!(
-            "{applet} takes clicks per item; use `panel popover` instead"
-        )));
-    }
-    Ok(row)
-}
-
 fn indicator_summary(row: &AppletRow) -> String {
     let value = if row.own_view {
         "(own view)".to_owned()
@@ -370,52 +312,13 @@ pub async fn panel(
     json: bool,
 ) -> Result<()> {
     match command {
-        PanelCommand::List { watch } => return panel_list(connection, watch, json).await,
-        PanelCommand::Reload => return panel_reload(connection, app_id).await,
-        PanelCommand::Applets { watch } => return applets(connection, app_id, watch, json).await,
-        _ => {}
+        PanelCommand::List { watch } => panel_list(connection, watch, json).await,
+        PanelCommand::Reload => panel_reload(connection, app_id).await,
+        PanelCommand::Popovers(PopoversCommand::Close) => {
+            let actions = proxy(connection, app_id).await?;
+            within(actions.activate("close-popovers", Vec::new(), HashMap::new())).await
+        }
     }
-    let actions = proxy(connection, app_id).await?;
-    let (action, parameters) = match command {
-        PanelCommand::Popovers(PopoversCommand::Close) => ("close-popovers".to_owned(), Vec::new()),
-        PanelCommand::Click {
-            connector,
-            applet,
-            button,
-            position,
-        } => {
-            let rows = rows(&within(actions.describe_all()).await?);
-            let row = target(&rows, &connector, &applet, position, true)?;
-            (
-                row.action.clone(),
-                vec![Value::from(("click", Value::from(button)))],
-            )
-        }
-        PanelCommand::Scroll {
-            connector,
-            applet,
-            direction,
-            steps,
-            position,
-        } => {
-            let rows = rows(&within(actions.describe_all()).await?);
-            let row = target(&rows, &connector, &applet, position, true)?;
-            let (dx, dy) = direction.delta();
-            for _ in 0..steps {
-                within(actions.activate(
-                    &row.action,
-                    vec![Value::from(("scroll", Value::from((dx, dy))))],
-                    HashMap::new(),
-                ))
-                .await?;
-            }
-            return Ok(());
-        }
-        PanelCommand::List { .. } | PanelCommand::Reload | PanelCommand::Applets { .. } => {
-            unreachable!()
-        }
-    };
-    within(actions.activate(&action, parameters, HashMap::new())).await
 }
 
 fn resolve_live<'a>(

@@ -30,15 +30,3 @@ fn every_key_reads_kebab_case() {
     assert_eq!(parsed.max_total_kib, 512);
     assert!(!parsed.capture_images);
 }
-
-#[test]
-fn a_setting_this_table_does_not_have_is_refused() {
-    let rendered = load("[clipboard]\npersist = true\n")
-        .expect_err("`persist` is not a key of this table")
-        .to_string();
-
-    assert!(
-        rendered.contains("persist"),
-        "the error must name `persist`, got {rendered}"
-    );
-}

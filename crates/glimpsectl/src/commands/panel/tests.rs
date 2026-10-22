@@ -22,48 +22,6 @@ fn row(connector: &str, position: Position, name: &str, own_view: bool) -> Apple
 }
 
 #[test]
-fn resolves_placements_and_rejects_own_view_item_input() {
-    let rows = [
-        row("DP-1", Position::Top, "clock", true),
-        row("DP-1", Position::Bottom, "clock", false),
-    ];
-    assert_eq!(
-        resolve(&rows, "DP-2", "clock", None).unwrap_err().0,
-        "DP-2 has no applet `clock`"
-    );
-    assert_eq!(
-        resolve(&rows, "DP-1", "clock", None).unwrap_err().0,
-        "clock is on DP-1 top and bottom; pass --position"
-    );
-    assert_eq!(
-        resolve(&rows, "DP-1", "clock", Some(Position::Bottom))
-            .unwrap()
-            .position,
-        Position::Bottom
-    );
-    assert_eq!(
-        target(&rows, "DP-1", "clock", Some(Position::Top), true)
-            .unwrap_err()
-            .0,
-        "clock takes clicks per item; use `panel popover` instead"
-    );
-    assert!(target(&rows, "DP-1", "clock", Some(Position::Top), false).is_ok());
-}
-
-#[test]
-fn rejects_duplicate_applet_in_one_position() {
-    let mut second = row("DP-1", Position::Top, "clock", false);
-    second.zone = "center".into();
-    let rows = [row("DP-1", Position::Top, "clock", false), second];
-    for position in [None, Some(Position::Top)] {
-        assert_eq!(
-            resolve(&rows, "DP-1", "clock", position).unwrap_err().0,
-            "clock appears more than once on DP-1 top"
-        );
-    }
-}
-
-#[test]
 fn removal_drops_the_applet_and_reports_its_serial() {
     let mut visible = vec![row("DP-1", Position::Top, "clock", false)];
     assert_eq!(
@@ -135,7 +93,7 @@ async fn missing_panel_is_unreachable() {
     let error = panel(
         &client,
         "me.aresa.GlimpsePanel",
-        PanelCommand::Applets { watch: false },
+        PanelCommand::Reload,
         false,
     )
     .await

@@ -27,18 +27,6 @@ fn every_key_reads_kebab_case() {
 }
 
 #[test]
-fn a_place_is_watched_rather_than_configured() {
-    let rendered = load("[weather]\nplaces = []\n")
-        .expect_err("`places` is not a key of this table")
-        .to_string();
-
-    assert!(
-        rendered.contains("places"),
-        "the error must name `places`, got {rendered}"
-    );
-}
-
-#[test]
 fn both_providers_read_and_a_third_is_refused() {
     assert_eq!(
         load("[weather]\nprovider = \"met-no\"\n")

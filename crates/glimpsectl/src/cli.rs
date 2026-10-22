@@ -562,8 +562,6 @@ impl Zone {
 
 #[derive(Debug, Args)]
 pub struct PanelArgs {
-    #[arg(long, global = true, hide = true, help = "Panel D-Bus application ID")]
-    pub app_id: Option<String>,
     #[command(subcommand)]
     pub command: PanelCommand,
 }
@@ -577,35 +575,6 @@ pub enum PanelCommand {
     },
     #[command(about = "Reload the selected panel")]
     Reload,
-    #[command(hide = true)]
-    Applets {
-        #[arg(long, help = "Print applet changes until the panel exits")]
-        watch: bool,
-    },
-    #[command(hide = true)]
-    Click {
-        #[arg(help = "Output connector")]
-        connector: String,
-        #[arg(help = "Applet name")]
-        applet: String,
-        #[arg(long, default_value = "left", value_parser = button, help = "Mouse button: left, middle, right, or a number")]
-        button: u32,
-        #[arg(long, help = "Panel edge")]
-        position: Option<Position>,
-    },
-    #[command(hide = true)]
-    Scroll {
-        #[arg(help = "Output connector")]
-        connector: String,
-        #[arg(help = "Applet name")]
-        applet: String,
-        #[arg(help = "Scroll direction")]
-        direction: Direction,
-        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..), help = "Number of scroll notches")]
-        steps: u32,
-        #[arg(long, help = "Panel edge")]
-        position: Option<Position>,
-    },
     #[command(subcommand, hide = true)]
     Popovers(PopoversCommand),
 }

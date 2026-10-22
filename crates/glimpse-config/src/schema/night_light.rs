@@ -125,7 +125,6 @@ impl Default for NightLight {
 pub enum Schedule {
     Off,
     Automatic,
-    #[serde(alias = "manual")]
     Schedule,
 }
 

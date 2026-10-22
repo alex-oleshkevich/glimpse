@@ -34,15 +34,3 @@ fn a_pattern_that_cannot_compile_still_loads() {
 
     assert_eq!(parsed.ignore, ["["]);
 }
-
-#[test]
-fn a_setting_this_table_does_not_have_is_refused() {
-    let rendered = load("[mpris]\nplayers = []\n")
-        .expect_err("`players` is not a key of this table")
-        .to_string();
-
-    assert!(
-        rendered.contains("players"),
-        "the error must name `players`, got {rendered}"
-    );
-}

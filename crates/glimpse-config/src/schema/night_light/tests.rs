@@ -60,13 +60,6 @@ fn absent_times_are_absent_rather_than_refused() {
 }
 
 #[test]
-fn the_document_only_alias_is_not_a_mode_a_caller_can_name() {
-    assert_eq!(Schedule::parse("manual"), None);
-    assert_eq!(Schedule::parse("Off"), None);
-    assert_eq!(Schedule::parse(""), None);
-}
-
-#[test]
 fn temperature_bounds_match_the_emitted_schema() {
     for value in [MIN_TEMPERATURE, MAX_TEMPERATURE] {
         let parsed: NightLight =

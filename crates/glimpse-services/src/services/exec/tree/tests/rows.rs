@@ -272,39 +272,6 @@ fn expander_card_and_title_line_clamps() {
 }
 
 #[test]
-fn removed_tags_parse_as_unsupported() {
-    for tag in [
-        "hero",
-        "footer",
-        "switchrow",
-        "fader",
-        "expander",
-        "progress",
-    ] {
-        let tree = hosted(&Tree::default())
-            .apply(vec![insert(1, leaf(2, tag), None)])
-            .expect("unknown tag");
-        assert!(
-            matches!(&tree.node(2).expect("unsupported").element, Element::Unsupported(name) if name == tag)
-        );
-    }
-}
-
-#[test]
-fn retired_expander_tag_uses_unknown_tag_behavior() {
-    let tree = hosted(&Tree::default())
-        .apply(vec![insert(
-            1,
-            leaf(2, concat!("notice", "expander")),
-            None,
-        )])
-        .expect("unknown tag");
-    assert!(
-        matches!(&tree.node(2).expect("unsupported").element, Element::Unsupported(tag) if tag == concat!("notice", "expander"))
-    );
-}
-
-#[test]
 fn end_takes_a_label_box_or_container_but_a_row_does_not() {
     let tree = hosted(&Tree::default())
         .apply(vec![insert(

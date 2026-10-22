@@ -381,7 +381,6 @@ pub struct Clock {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
     /// A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.
-    #[serde(alias = "format")]
     pub label_format: String,
     /// Your clock's time zone, such as `UTC` or `Asia/Tokyo`. Leave it unset to use your local
     /// time.
@@ -653,12 +652,11 @@ pub struct Weather {
 /// place reads the same in a document and on the wire.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "at", rename_all = "kebab-case", deny_unknown_fields)]
-#[schemars(transform = coordinate_alias)]
 pub enum Place {
     /// Your current location.
     Here {},
     /// A fixed location.
-    #[serde(rename = "latlon", alias = "coordinates")]
+    #[serde(rename = "latlon")]
     Coordinates {
         /// Degrees north of the equator, between -90 and 90.
         latitude: f64,
@@ -670,32 +668,6 @@ pub enum Place {
         /// Your city and two-letter uppercase country code, such as `Amsterdam, NL`.
         name: String,
     },
-}
-
-fn coordinate_alias(schema: &mut Schema) {
-    let Some(branches) = schema
-        .get_mut("oneOf")
-        .and_then(serde_json::Value::as_array_mut)
-    else {
-        return;
-    };
-    let Some(mut alias) = branches
-        .iter()
-        .find(|branch| {
-            branch
-                .pointer("/properties/at/const")
-                .and_then(serde_json::Value::as_str)
-                == Some("latlon")
-        })
-        .cloned()
-    else {
-        return;
-    };
-    let Some(tag) = alias.pointer_mut("/properties/at/const") else {
-        return;
-    };
-    *tag = serde_json::Value::String("coordinates".to_owned());
-    branches.push(alias);
 }
 
 /// Settings for the pager applet.
@@ -864,27 +836,6 @@ where
         .collect()
 }
 
-/// Applets that used to be built in and now ship as exec applets. Naming one of them in `extends`
-/// is the one legacy spelling this file still sees often enough to answer by hand, since the
-/// generated variant list says only what the kinds are called now.
-const EXTRACTED: [(&str, &str); 4] = [
-    ("system-monitor", "me.aresa.SystemMonitor"),
-    ("color-picker", "me.aresa.ColorPicker"),
-    ("ruler", "me.aresa.Ruler"),
-    ("kdeconnect", "me.aresa.Kdeconnect"),
-];
-
-fn extracted(name: &str, table: &toml::Table) -> Option<String> {
-    let extends = table.get("extends")?.as_str()?;
-    let applet = EXTRACTED
-        .into_iter()
-        .find(|(kind, _)| *kind == extends)
-        .map(|(_, applet)| applet)?;
-    Some(format!(
-        "{name} is an exec applet now: write extends = \"exec\" and applet = \"{applet}\""
-    ))
-}
-
 fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> {
     if !table.contains_key("extends") && is_desktop_id(name) {
         table.insert("extends".to_owned(), toml::Value::String("exec".to_owned()));
@@ -895,9 +846,6 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
         table
             .entry("extends")
             .or_insert_with(|| toml::Value::String(name.to_owned()));
-    }
-    if let Some(reason) = extracted(name, &table) {
-        return Err(toml::de::Error::custom(reason));
     }
     let mut kind = Kind::deserialize(table)?;
     if let Kind::Exec(exec) = &kind

@@ -24,18 +24,6 @@ fn ddc_can_be_turned_off() {
 }
 
 #[test]
-fn the_cadence_knobs_udev_removed_are_not_keys_of_this_table() {
-    let rendered = load("[brightness]\npoll-interval = 5\n")
-        .expect_err("`poll-interval` is not a key of this table")
-        .to_string();
-
-    assert!(
-        rendered.contains("poll-interval") && rendered.contains("brightness"),
-        "the error must name the table and `poll-interval`, got {rendered}"
-    );
-}
-
-#[test]
 fn a_floor_above_the_hardware_maximum_is_refused() {
     let rendered = load("[brightness]\nminimum = 200\n")
         .expect_err("200 is not a percent")

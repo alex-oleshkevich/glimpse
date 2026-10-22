@@ -10,7 +10,7 @@ async fn a_request_that_never_answers_is_given_up_on() {
         error
             .downcast_ref::<glimpsectl::errors::TimedOut>()
             .is_some(),
-        "a hung provider used to hang the command line instead: {error}"
+        "the deadline must win: {error}"
     );
     assert_eq!(
         glimpsectl::errors::exit(&error),

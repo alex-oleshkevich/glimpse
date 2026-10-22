@@ -187,13 +187,7 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Command::Status => commands::status(bus()?, cli.json).await,
         Command::Panel(args) => {
-            commands::panel(
-                bus()?,
-                args.app_id.as_deref().unwrap_or(&cli.panel_app_id),
-                args.command,
-                cli.json,
-            )
-            .await
+            commands::panel(bus()?, &cli.panel_app_id, args.command, cli.json).await
         }
         Command::Doctor => commands::doctor(cli.json).await,
         Command::Session(SessionCommand::Declare) => commands::session_declare(bus()?).await,

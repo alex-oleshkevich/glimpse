@@ -158,26 +158,6 @@ fn each_default_document_holds_only_its_own_tables() {
 }
 
 #[test]
-fn the_schema_accepts_both_fixed_coordinate_spellings() {
-    let schema: serde_json::Value =
-        serde_json::from_str(&crate::json_schema_document(crate::Documents::Config))
-            .expect("the schema is JSON");
-    let tags = schema["$defs"]["Place"]["oneOf"]
-        .as_array()
-        .expect("place variants")
-        .iter()
-        .filter_map(|branch| {
-            branch
-                .pointer("/properties/at/const")
-                .and_then(serde_json::Value::as_str)
-        })
-        .collect::<Vec<_>>();
-
-    assert!(tags.contains(&"latlon"));
-    assert!(tags.contains(&"coordinates"));
-}
-
-#[test]
 fn every_key_and_enum_value_is_kebab_case() {
     let schema: serde_json::Value =
         serde_json::from_str(&crate::json_schema_document(crate::Documents::Config))
@@ -217,14 +197,6 @@ fn collect_underscored(node: &serde_json::Value, offenders: &mut Vec<String>) {
         }
         _ => {}
     }
-}
-
-#[test]
-fn night_light_still_accepts_manual_for_schedule() {
-    let parsed: Config =
-        toml::from_str("[night-light]\nschedule = \"manual\"\n").expect("the alias parses");
-
-    assert_eq!(parsed.night_light.schedule, Schedule::Schedule);
 }
 
 #[test]
@@ -277,7 +249,7 @@ fn a_place_table_reads_both_shapes_and_refuses_a_third() {
     );
 
     let fixed: Config = toml::from_str(
-        "[applets.weather]\nlabel = \"Vilnius\"\ndays = 7\n\n             [applets.weather.place]\nat = \"coordinates\"\nlatitude = 54.6872\n             longitude = 25.2797\n",
+        "[applets.weather]\nlabel = \"Vilnius\"\ndays = 7\n\n             [applets.weather.place]\nat = \"latlon\"\nlatitude = 54.6872\n             longitude = 25.2797\n",
     )
     .expect("a fixed pair is a place");
     let AppletKind::Weather(weather) = &fixed.applets["weather"].kind else {
@@ -355,7 +327,7 @@ fn a_named_place_is_canonicalized_when_loaded() {
 fn coordinates_outside_their_ranges_are_refused_at_load() {
     let place = |latitude: &str, longitude: &str| {
         format!(
-            "[applets.weather.place]\nat = \"coordinates\"\nlatitude = {latitude}\n                 longitude = {longitude}\n"
+            "[applets.weather.place]\nat = \"latlon\"\nlatitude = {latitude}\n                 longitude = {longitude}\n"
         )
     };
 
@@ -409,17 +381,6 @@ fn an_unknown_setting_names_the_common_ones_too() {
         "the kind cannot list a setting it does not own, so the message has to name the one \
              the user meant: {error}"
     );
-}
-
-#[test]
-fn the_clock_still_reads_the_key_it_used_to_call_format() {
-    let parsed: Config =
-        toml::from_str("[applets.clock]\nformat = \"%H\"\n").expect("the alias parses");
-
-    let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
-        panic!("the table names the clock");
-    };
-    assert_eq!(clock.label_format, "%H");
 }
 
 #[test]
@@ -489,25 +450,6 @@ fn a_command_gesture_that_names_no_program_is_refused_by_key() {
         error.contains("[applets.shot]") && error.contains("on-scroll-up"),
         "the error names the table and the key: {error}"
     );
-}
-
-#[test]
-fn a_command_applet_refuses_the_removed_shell_key() {
-    let error =
-        toml::from_str::<Config>("[applets.volume-up]\nextends = \"command\"\nshell = true\n")
-            .expect_err("shell is not a key")
-            .to_string();
-    assert!(error.contains("unknown field `shell`"), "{error}");
-}
-
-#[test]
-fn a_command_applet_refuses_the_removed_right_click_key() {
-    let error = toml::from_str::<Config>(
-        "[applets.volume-up]\nextends = \"command\"\non-right-click = [\"x\"]\n",
-    )
-    .expect_err("on-right-click is not a key")
-    .to_string();
-    assert!(error.contains("unknown field `on-right-click`"), "{error}");
 }
 
 #[test]
@@ -654,20 +596,8 @@ fn the_pager_reads_its_settings_in_kebab_case() {
 fn the_pager_refuses_a_setting_it_does_not_have() {
     assert!(
         toml::from_str::<Config>("[applets.pager]\nappearance = \"dots\"\n").is_err(),
-        "`appearance` was the old name for `shape`; a silently ignored key is a setting that \
-             never took effect"
+        "a silently ignored key is a setting that never took effect"
     );
-}
-
-#[test]
-fn the_workspace_and_window_applets_are_gone_rather_than_unimplemented() {
-    for name in ["workspace", "window"] {
-        assert!(
-            toml::from_str::<Config>(&format!("[applets.{name}]\n")).is_err(),
-            "`{name}` folded into the pager as a mode and a scope; leaving the name resolvable \
-                 would leave a second way to ask for the same strip"
-        );
-    }
 }
 
 #[test]

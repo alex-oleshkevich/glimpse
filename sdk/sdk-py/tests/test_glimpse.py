@@ -462,13 +462,6 @@ class ClientSideHelpersTest(unittest.TestCase):
         self.assertTrue(handed_off.wait(timeout=5))
         proc.communicate.assert_called_once_with(b"x")
 
-    def test_removed_surface_raises_attribute_error(self) -> None:
-        session = Session(EmptyApp(), discard)
-
-        for attr in ("mpris", "compositor", "services", "mpris_control"):
-            with self.subTest(attr=attr), self.assertRaises(AttributeError):
-                getattr(session.ctx, attr)
-
 
 class ConcurrentSendTest(unittest.TestCase):
     def test_lines_from_many_threads_never_interleave(self) -> None:

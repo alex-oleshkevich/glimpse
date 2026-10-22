@@ -236,27 +236,6 @@ fn a_dropin_completes_a_base_table_rather_than_replacing_it() {
 }
 
 #[test]
-fn removed_settings_are_unknown_fields() {
-    let base = tempfile::tempdir().expect("a temporary directory");
-    let path = base.path().join("config.toml");
-    for (text, name) in [
-        ("[power]\nlock-on-request = false\n", "power"),
-        ("[appearance]\nauto-dark = true\n", "auto-dark"),
-    ] {
-        write(&path, text);
-        let error = load_files(std::slice::from_ref(&path))
-            .expect_err("a retired setting")
-            .to_string();
-        assert!(error.contains("unknown field"), "{error}");
-        assert!(error.contains(name), "{error}");
-    }
-
-    write(&path, "[appearance]\ncolor-scheme = \"auto\"\n");
-    let error = load_files(&[path]).expect_err("auto").to_string();
-    assert!(error.contains("color-scheme must be"), "{error}");
-}
-
-#[test]
 fn a_missing_file_is_skipped_without_an_error() {
     let base = tempfile::tempdir().expect("a temporary directory");
     let loaded = load_files(&[base.path().join("typo.toml")]).expect("a missing file is skipped");

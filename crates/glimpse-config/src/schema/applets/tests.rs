@@ -12,7 +12,7 @@ fn exec_sandbox_table_is_refused_by_name() {
     let error = toml::from_str::<crate::Config>(
         "[applets.x]\nextends = \"exec\"\napplet = \"me.x.A\"\n[applets.x.sandbox]\nnetwork = true\n",
     )
-    .expect_err("the sandbox table no longer exists")
+    .expect_err("sandbox")
     .to_string();
     assert!(error.contains("sandbox"), "{error}");
 }
@@ -245,29 +245,6 @@ fn power_defaults_to_icon_only_and_reads_every_style() {
         .expect_err("an undocumented spelling is refused");
     toml::from_str::<crate::Config>("[applets.power]\nunknown = 1\n")
         .expect_err("a struct variant refuses keys that are not its own");
-}
-
-#[test]
-fn legacy_applet_names_are_unknown() {
-    for name in ["battery", "brightness"] {
-        assert!(super::Applet::from_name(name).is_none(), "{name}");
-        assert!(super::resolve_applet(name, &std::collections::BTreeMap::new()).is_none());
-        for text in [
-            format!("[applets.{name}]\n"),
-            format!("[applets.custom]\nextends = \"{name}\"\n"),
-        ] {
-            toml::from_str::<crate::Config>(&text).expect_err("unknown applet kinds are refused");
-        }
-        let document: crate::Config =
-            toml::from_str(&format!("[[panels]]\nleft = [\"{name}\"]\n")).unwrap();
-        let unknown = crate::unknown_applets(&document);
-        assert!(
-            unknown
-                .iter()
-                .any(|message| message.contains(&format!("unknown applet `{name}`"))),
-            "{unknown:?}"
-        );
-    }
 }
 
 #[test]
