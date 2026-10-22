@@ -43,6 +43,12 @@ fn the_row_shows_its_subtitle() {
 }
 ```
 
+Run on broadway, never on a real display, so no window opens. Start the daemon in the same shell
+command as the test, long-lived (`timeout 1500 gtk4-broadwayd :<n> & BP=$!; trap 'kill $BP' EXIT`,
+never `timeout 20`), then `env -u NIRI_SOCKET -u HYPRLAND_INSTANCE_SIGNATURE -u WAYLAND_DISPLAY -u
+DBUS_SESSION_BUS_ADDRESS GDK_BACKEND=broadway BROADWAY_DISPLAY=:<n> just test-one <crate>
+tests::<name>`.
+
 `register_resources()` is not optional: a composite template resolves its resource at class-init, so
 constructing one without it fails at the first instantiation. Binaries get this from `main.rs`;
 tests do not.
@@ -89,8 +95,8 @@ roots as the configuration.
 
 ## The mutation check
 
-**An assertion nobody has broken is not known to test anything.** Before reporting a test as
-covering something, break the code it covers and watch it fail:
+**Mutation-check a security- or behaviour-critical decision**, not every guard or rename: break
+the code its test covers and watch the test fail:
 
 ```bash
 cp <file> "$SCRATCH/f.bak"
@@ -145,18 +151,21 @@ a lock rescue. The catalog, with usage and traps, is `references/scripts.md`.
 
 ## Live test every code change
 
-Every change to code that runs (not docs) is live-tested before it is called done, by a cheap
-capable model in a fresh session that did not write it: a sonnet subagent, or pi with DeepSeek
+Every change to code that runs (not docs) is live-tested before the epic closes (per bead, or in
+one epic-level acceptance task when the beads share a surface), by a cheap capable model in a fresh
+session that did not write it: a sonnet subagent, or pi with DeepSeek
 (`pi -p --no-session -ne --no-mcp -ns -np --model openrouter/deepseek/deepseek-v4-flash-latest`).
-It follows the `live-testing` skill and runs everything on the laptop screen eDP-1, never DP-2:
-the nested niri window and any test panel move there right after they start. Its brief names the
-acceptance criteria to drive, and its report says what it saw, not what it assumed.
+It follows the `live-testing` skill and runs ONE nested niri whose window moves to eDP-1
+immediately, never DP-2; it injects input only with the nested `WAYLAND_DISPLAY` set in the same
+command. Anything needing real outputs (gamma, multi-monitor) runs in the `var/vm` QEMU box. Its
+brief names the acceptance criteria to drive and whether it can read images (pixel analysis with
+`magick ... txt:` otherwise); its report says what it saw, not what it assumed.
 
 ## Definition of done
 
-- Every code change passed a live test on eDP-1 when it is available otherwise on any other secondary display. Use primary when it is the only one available display.
-- Every new decision has a test, and every such test has been checked against a deliberately broken
-  version of the code it covers.
+- Every code change passed a live test (see above).
+- Every new decision has a test, and every critical decision's test has been checked against a
+  deliberately broken version of the code it covers.
 - Anything that could only be asserted with a display has an `#[ignore]`d GTK test, or is stated
   as uncovered — never implied to be covered.
 - Every test sits in a `tests.rs` or `tests/*.rs`, none inline.

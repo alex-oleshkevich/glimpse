@@ -24,8 +24,9 @@ When a report says an instruction could not be followed, the first hypothesis is
 the instruction was wrong.
 
 <prerequisite>
-Three siblings hold rules this loop leans on and does not restate in full — load all
-three before round 1: **`plan-precision`** for whether the feature-level plan you are
+Three siblings hold rules this loop leans on and does not restate in full. Load
+`plan-precision`, `spec-precision` and `adversarial-review` before round 1 only when the plan
+or the child beads do not exist yet; otherwise load `spec-precision` only. **`plan-precision`** for whether the feature-level plan you are
 about to slice is actually complete (dependency citations, flows, AC as user stories,
 concrete types, a durable home) — an epic sliced from an incomplete plan ships the
 plan's gaps as inventions, one per issue; **`spec-precision`** for the brief, the
@@ -55,8 +56,8 @@ invalidates in-flight agents); a single hard problem (one focused session beats
 orchestration); anything where you cannot state acceptance criteria up front, which is
 a sign the task is not ready.
 
-**Settle the design before you spawn anything.** This loop finds what is *wrong*; only
-use finds what is *unclear*. An epic with a visible surface and an unapproved design
+**Settle the design before you spawn anything.** This loop finds what is _wrong_; only
+use finds what is _unclear_. An epic with a visible surface and an unapproved design
 ships a faithful implementation of a design nobody looked at — every review passes and
 the first human to open it finds the defects. Run `states-first` first.
 
@@ -85,12 +86,20 @@ reviewed once each.
 
 ## State lives in the tracker, not in your context
 
-Agent sessions do not survive a crash. The tracker and the worktree do. Write state as
-you go so a fresh orchestrator can resume without re-deriving anything:
+Agent sessions do not survive a crash. The tracker, the worktree and the repo path holding
+briefs and outputs do. Write state as you go so a fresh orchestrator can resume without re-deriving anything:
 
     <TRACKER> update <id> --acceptance "<the AC list>"     # once, before spawning
     <TRACKER> update <id> --append-notes "built: <files>; review r1: <findings>; fixed"
     <TRACKER> update <id> --append-notes "SPEC CORRECTION: <what was wrong, what is right>"
+
+Briefs, worker outputs, scripts and spend logs are state too: keep them in a repo path
+(`var/orchestration/<EPIC>/`), never the harness scratchpad or /tmp; the harness deletes its
+scratchpad on restart.
+
+The orchestrator claims each child at dispatch, with assignee = the worker's name, and
+records an `ORCHESTRATOR SESSION` note on the epic and a `WORKER` note per child (name, tool,
+session id, brief and output paths, how to resume, worktree path). Workers do not claim.
 
 Record, at minimum: the acceptance criteria (before the builder starts), every spec
 correction a review produces, and which tasks are code-complete but deliberately
@@ -113,7 +122,7 @@ replace polling entirely: a wave's builder and reviewer report through the track
 checking `bd ready --gated`, never staying resident to watch for one. See Traps below for
 what this is worth in measured cost.
 
-**For the wave itself**, cook/pour the `epic-wave` formula
+**For the wave itself**, unless a project rule or formula overrides it, cook/pour the `epic-wave` formula
 (`bd mol pour epic-wave --var task_id=... --var worktree=...`) instead of hand-typing the
 BUILDER/REVIEWER/LIVE-TESTER templates per task — it wires the five steps (build, review,
 live_test, merge_gate, merge), their dependencies, and the one real gate. Author only the
@@ -122,7 +131,7 @@ that is where the judgment belongs, and the formula does not try to hold it.
 
 ## Setup — one worktree per epic
 
-    git worktree add ../<repo>-<EPIC> -b <EPIC>
+    git worktree add .claude/worktrees/<EPIC> -b <EPIC>
 
 Every agent works in THAT path; pass it explicitly in every child prompt. Work stays
 UNCOMMITTED until approved, so never run — and never let an agent run — `git worktree
@@ -140,6 +149,9 @@ loss. Serialised builds are a cost to accept, not a problem to engineer around.
 
 ## Loop
 
+A project rule file (AGENTS.md, `.claude/rules`, a project work skill) overrides this skill
+on reviewer identity, worktree path (`.claude/worktrees/`), comments and builder tooling.
+
 1. List ready tasks. Spawn as many builders as there are **cleanly separable
    packages**, typically 2-4. Beyond that the shared build lock serialises compilation
    and your own context becomes the bottleneck. Prefer the longest dependency chain.
@@ -156,7 +168,9 @@ loss. Serialised builds are a cost to accept, not a problem to engineer around.
    the task in hand.
    Then SELF-CHECK THE SPEC before spawning, per `spec-precision`: for every type,
    function, module path and file your spec names, confirm it exists and is reachable
-   from where the builder will sit — one blast-radius query per symbol. Nearly every
+   from where the builder will sit — one blast-radius query per symbol. Run every grep acceptance pattern on the current tree
+   and on the expected result; a pattern that matches by accident (a prefix of a longer name,
+   a substring of an unrelated flag) is a spec defect. Nearly every
    expensive rework in practice is one of these: the spec named a contract that was not
    there.
 3. Spawn builders (BUILDER TEMPLATE).
@@ -221,22 +235,7 @@ role:
 - **Raise the builder's tier for genuine novelty** — a concurrency boundary, an
   unfamiliar C API, a protocol with real failure modes — not for mere length.
 
-**Tool surface below verified September 2026 — re-check it. Flags move faster than
-method, and a stale flag sends you to a worse lever.**
-
-**Claude Code** — `--model <alias|id>` (`fable`, `opus`, `sonnet`, `haiku`);
-`--effort low|medium|high|xhigh|max`, which is the dial, not a prompt keyword; `-p` for
-non-interactive; `--permission-mode plan` for reviewers, which enforces "fix nothing"
-mechanically rather than by instruction. Sub-agents take `model:`;
-`.claude/agents/<name>.md` frontmatter pins tier and effort per role; `--agents '<json>'`
-defines one inline.
-
-**Codex** — `codex exec -m <model> -c model_reasoning_effort="high" "<prompt>"`.
-`--sandbox read-only` for reviewers, same purpose as `--permission-mode plan` above.
-`--worktree` manages its own isolation. Persistent defaults live in
-`~/.codex/config.toml` (`model`, `model_reasoning_effort`, `plan_mode_reasoning_effort`).
-
-**Others** — map the same three tiers. Where there is no effort dial, substitute tier: a
+Map the same three tiers onto any tool. Where there is no effort dial, substitute tier: a
 model reviewing at default effort is reviewing at low effort. Where there is no small
 tier, use the mid model for mechanical work rather than pushing a large one down — the
 risk is an idle large model inventing scope, not cost. Context window matters most for
@@ -249,7 +248,7 @@ STOP. Do not commit, merge, remove the worktree, or end builder sessions — fee
 need their context.
 
     ═══ REVIEW READY — <EPIC> ═══
-    Worktree:  ../<repo>-<EPIC>   (branch <EPIC>)
+    Worktree:  .claude/worktrees/<EPIC>   (branch <EPIC>)
     Tasks:     <n> done — <ids>
     Files:     <n> changed, +<x>/-<y>
     Verify:    <literal final lines of the verification output>
@@ -259,7 +258,7 @@ need their context.
                surface and what was verified against the real artifact instead
     Not met:   <any unsatisfied criterion, and why it was accepted>
     Open:      <anything unverified; any decision that was the user's to make>
-    Diff:      git -C ../<repo>-<EPIC> diff HEAD
+    Diff:      git -C .claude/worktrees/<EPIC> diff HEAD
 
     Approve to merge, or send feedback.
 
@@ -285,7 +284,7 @@ lockfiles, snapshots.
 
 - **`git diff HEAD`, never bare `git diff`.** An agent may have staged files; a bare diff
   compares against the index and silently misreports what changed.
-- **Never substitute your own read for the reviewer.** You have seen the builder's
+- **Unless a project rule makes the orchestrator the reviewer, never substitute your own read for the reviewer.** You have seen the builder's
   report — its account of its own work — which is the same anchoring the fresh-reviewer
   rule exists to defeat. Skipping the review because you understand the change is how
   defects reach the tree.
@@ -340,7 +339,6 @@ lockfiles, snapshots.
 
     STEP 1 — read your spec in full, notes included; notes override the description:
         <TRACKER SHOW CMD> <id>
-        <TRACKER CLAIM CMD> <id>
 
     STEP 2 — read, in this order:
         <project convention/rules file(s)>
@@ -358,10 +356,9 @@ lockfiles, snapshots.
     change cannot produce. If you could delete half of what you wrote without losing
     a criterion, delete it.
 
-    No comments unless the spec asks for one or an existing file's convention is to
-    write them. Well-named code does not need a comment restating what it does; write
-    one only for a non-obvious WHY — a hidden constraint, a workaround, something that
-    would surprise a reader — and never reference this task or its ticket ID in it.
+    Comments follow the project rules; where they are forbidden, write none. Where they
+    are allowed, write one only for a non-obvious WHY and never reference this task or
+    its ticket ID in it.
 
     Inside every file you touch, touch only the lines your task requires. Do not
     reformat, rename, or "improve" adjacent code, and match existing style even
@@ -463,6 +460,8 @@ project has a screen:
 - **TUI or CLI** — run it in a virtui (suggest installation) or pty. Keyboard only; assume no mouse.
 - **Desktop (GTK, Qt, native)** — launch it and drive it through the accessibility layer
   where one exists. Screenshots last: they cost the most and need a human eye anyway.
+  State whether the tester can read images; if not, name the assertion method (pixel
+  analysis, accessibility tree, log lines).
 - **No surface yet** — a model, a migration, a library, a component with no caller. Say so
   and verify against the real artifact instead: the applied DDL on a real database, the
   generated schema, the built binary. Record it as unclicked rather than faking a pass.

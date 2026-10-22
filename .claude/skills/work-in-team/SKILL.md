@@ -1,6 +1,6 @@
 ---
 name: work-in-team
-description: Orchestrating glimpse work across worker agents — Claude plans, briefs, reviews and merges while cheaper workers (haiku/sonnet subagents, codex, grok, pi with DeepSeek, muse, kimi) write the code; beads claiming, worktrees, batching, live testing on eDP-1 and merge cleanup. Use whenever the user asks to work on beads or an epic with agents, to spawn or dispatch workers, to "orchestrate", or says "you are orchestrator", and whenever more than one task is in flight at once.
+description: Orchestrate glimpse work across worker agents: plan, brief, review, merge while cheaper workers code. Use whenever the user wants beads or an epic worked with agents, to spawn or dispatch workers, "orchestrate", or more than one task is in flight.
 ---
 
 # work-in-team
@@ -25,34 +25,27 @@ on typing code or grepping for facts.
 
 ## Workers
 
-Every worker brief starts by loading the `ponytail:ponytail` skill (Skill tool for a Claude
-subagent; the path `~/.claude/plugins/cache/ponytail/ponytail/<version>/skills/ponytail/SKILL.md`
-for a CLI) and applying it for the whole task.
-
 Live tests, shell fact-finding and unit-test runs go to sonnet, haiku, luna or pi with DeepSeek,
-never opus, and never Claude itself. When the live-test queue is long, spread it over up to five
+never opus, and never Claude itself. Subagents get Ashkenazi names (abram, rabi, ...). At most 6
+workers are live at once. When the live-test queue is long, spread it over up to five
 Hetzner servers (`hcloud`, 4 cores, 8 GB) and delete every one when the queue is done.
 
 Pick by complexity, cheapest that will get it right:
 
 - **haiku** (Agent tool, `model: haiku`) — mechanical edits, a one-line config change, a rename.
 - **sonnet** (Agent tool, `model: sonnet`) — normal feature and docs work, live tests.
-- **codex** — larger Rust work: `codex exec -m gpt-6.1-sol -C <worktree> --sandbox workspace-write
-"<brief>" < /dev/null`. Always close stdin.
-- **codex astra** — planning and review, read-only: `codex exec -m gpt-6-astra --sandbox read-only
--C <worktree> -o <out.md> - < <brief.md>`. Never a builder.
-- **grok**, **muse**, **kimi** — builders of the same level; spread parallel batches across them.
-  Run each from the worktree, stdin closed:
-  - `grok --cwd <worktree> --prompt-file <brief.md> --always-approve`
-  - `env -C <worktree> muse exec --prompt-file <brief.md>`
-  - `env -C <worktree> kimi -p "$(cat <brief.md>)"`. `-p` already edits and runs commands; it
-    rejects `-y` and `--auto`. Never add a large MCP server (such as rea) to `~/.kimi-code/mcp.json`:
-    its tools overflow Moonshot's schema limit (400 "schema exceeds maximum allowed size").
-- **pi with DeepSeek** — fact analysis: `pi -p --no-session --model
-"openrouter/~deepseek/deepseek-flash-latest" "<question>"`. Live tests: `pi -p --no-session -ne
---no-mcp -ns -np --model openrouter/deepseek/deepseek-v4-flash-latest "<brief>"`.
-- **muse** is an executor only: it builds, never plans or reviews. It is the first fallback when
-  another builder CLI is broken or out of credits.
+- **codex** — larger Rust work.
+- **codex astra** — planning and review, read-only. Never a builder.
+- **grok**, **muse**, **kimi** — builders of the same level; spread parallel batches across them. muse only builds.
+- **pi with DeepSeek** — builds, live tests and fact analysis. A 403 "Key limit exceeded" means pi is out until the monthly OpenRouter cap resets.
+- Launch a CLI worker (pi, gridr, codex, kimi) as one background tool call that runs the CLI in the
+  foreground of that call, or `setsid <cli ...> < /dev/null > <out> 2>&1 &` and confirm within 30 s
+  that the pid is alive or the output file is non-empty; never a nested `( ... ) &`.
+- Command lines and quirks per CLI: `${CLAUDE_SKILL_DIR}/references/workers.md` (codex, codex astra, gridr,
+  grok, muse, kimi, pi build form against live-test form).
+- Briefs, outputs, scripts and the spend log live in the main checkout's `var/orchestration/<epic>/`
+  (a worktree is removed at merge), never the harness
+  scratchpad (Claude Code deletes it). Log OpenRouter spend for pi DeepSeek per run.
 - When a planning or review CLI (codex astra) is unavailable, a Claude subagent takes that role.
   When any CLI is broken or out of credits, say so.
 - Workers economize too: they hand simple steps (running tests, reading or grepping files) to a
@@ -66,20 +59,46 @@ Pick by complexity, cheapest that will get it right:
 
 A worker has none of Claude's context and must not guess; it only codes. Before dispatch, make the
 bead self-contained: every decision settled, files and symbols named and checked, acceptance
-criteria written (including error paths). Size it by `spec-precision`'s tiers: a trivial bead
+criteria written (including error paths). Dry-run every grep/rg acceptance pattern against the
+base tree and the expected result before dispatch; a pattern that matches by accident is a spec
+defect. Size it by `spec-precision`'s tiers: a trivial bead
 needs only its file and verify command. The brief then carries:
 
 - The bead, pasted verbatim from `bd show <id>`. Criteria are never rewritten in the brief; a
   missing one goes onto the bead first.
-- First instruction: claim it with `env -C /home/alex/projects/glimpse bd update <id> --claim`.
-  Last: append notes with `bd update <id> --append-notes`.
+- The worker does not claim. Its last step is `bd update <id> --append-notes`.
 - The worktree path to work in and the branch it is on.
 - For normal and risky beads: the architecture, structs, interfaces and file:line links the work
   builds on, so the worker writes best-in-class code instead of rediscovering the tree.
 - The repo rules that bite: `just` not raw `cargo`, no comments, tests in a sibling `<module>/tests.rs`
   behind `#[cfg(test)] mod tests;` never inline, `timeout` around every command,
   `env -C` instead of `cd`, never touch `~/.config/glimpse` or the main checkout.
-- What to report back, and in what shape.
+- What to report back, and in what shape. A live-tester brief states whether the tester can read
+  images; if not, it asserts on pixels (`magick ... txt:`), the accessibility tree or log lines.
+
+Sample worker brief:
+
+```
+Bead glimpse-abc.3 (pasted verbatim below). The orchestrator already claimed this; do not claim.
+Worktree: /home/alex/projects/glimpse/.claude/worktrees/<epic>, branch <epic>. Work only there.
+Files: crates/glimpse-foo/src/bar.rs, crates/glimpse-foo/src/bar/tests.rs.
+Verify: `timeout 900 just check-crate glimpse-foo`, `timeout 900 just test-crate glimpse-foo`.
+Navigate with `codegraph explore "<symbols>"` from the worktree root; `codegraph sync` after edits.
+Never open a window: GTK tests run on broadway. Never touch ~/.config/glimpse or the main checkout.
+Write no comments. Tests go in the sibling tests.rs.
+Report: files changed, verify results, anything you could not follow.
+Last step: `bd update glimpse-abc.3 --append-notes "<what changed, verify results>"`.
+<bd show output>
+```
+
+Sample WORKER bead note:
+
+```
+WORKER: abram | pi, openrouter/deepseek/deepseek-v4-flash-latest | pid 48213
+brief: var/orchestration/<epic>/brief-abc3.md
+output: var/orchestration/<epic>/out-abc3.md
+resume: re-run the same command with the findings appended to the brief (fresh session under 300k tokens).
+```
 
 ## Batching and parallelism
 
@@ -88,21 +107,24 @@ needs only its file and verify command. The brief then carries:
   while it is under that; past it, spawn a fresh worker with the bead and the review findings.
 - Batch similar tasks into one worktree, one session per task, then build and test the batch once.
 - Run independent batches in parallel; never chain what could run side by side.
-- When several workers share a worktree, they only edit and run no builds (they share one cargo
-  lock). Claude integrates shared files, runs the checks once, and routes failures back.
+- When several workers share a worktree, each edits only its own crate's files and runs only
+  crate-scoped `just check/test/lint-crate`; a failure in a file it did not touch means a sibling is
+  mid-edit, so wait and retry.
 - Each worktree has its own `target/`; worktrees never share `CARGO_TARGET_DIR`.
 
 ## Beads
 
 - Put the current tasks under one epic and claim the epic.
-- Workers claim children; Claude closes a child only after its own review and a passing live test.
+- The orchestrator claims each child at dispatch with assignee = the worker's name (retry while bd
+  is locked) and appends a `WORKER:` note (name, tool and model, agentId or CLI session, brief and
+  output paths, how to resume); the epic gets one `ORCHESTRATOR SESSION` note. Claude closes a child only after its own review and a passing live test, which may be one epic-level live acceptance task when beads share a surface.
 - Fix everything found in the same pass. Never file a follow-up bead for a finding unless the user
   asks for one.
 - Put review findings into the bead so compacted session can get full context from it.
 
 ## Worktrees and merging
 
-- All work happens in worktrees under `.worktrees/<name>`, created from local `master`. The main
+- All work happens in worktrees under `.claude/worktrees/<name>`, created from local `master`. The main
   checkout stays on `master` and is never edited.
 - Commit only when the user asks for that. User want to review the code first.
 - Merge only when the user approves. Merge into `master` as one squashed commit (`git merge --squash
@@ -117,17 +139,20 @@ needs only its file and verify command. The brief then carries:
 
 ## Verification
 
-- Live-test finished work before reporting it done or asking to merge: nested niri and an isolated
-  test panel, per `docs/live-testing.md`. Unit tests and review are not enough.
-- All GUI testing goes on eDP-1, never DP-2. Move the nested niri window and test panels there right
-  after they start.
-- No keyboard or mouse injection on the user's session.
+- Live-test finished work before reporting it done or asking to merge, per `docs/live-testing.md`.
+  Unit tests and review are not enough.
+- Builders and GTK tests never open a window: GTK runs on broadway (`timeout 1500 gtk4-broadwayd
+  :<n> & BP=$!; trap 'kill $BP' EXIT` in the same shell command, long-lived, never `timeout 20`). A live tester may run one nested niri whose window is
+  moved to eDP-1 immediately, never DP-2. Anything needing real outputs (gamma, multi-monitor) runs
+  in the `var/vm` QEMU box.
+- Inject input only with the nested `WAYLAND_DISPLAY` set in the same command, never on the user's
+  session.
 - A test that writes the clipboard first backs up every offered mime type and restores the richest.
 
 ## Before reporting back
 
 - [ ] Every diff reviewed by Claude, every finding fixed, not deferred.
-- [ ] Each touched crate's checks pass in its worktree; live test passed on eDP-1.
-- [ ] Beads have notes; children Claude reviewed are closed.
+- [ ] Each touched crate's checks pass in its worktree; live test passed.
+- [ ] Beads have notes; children Claude reviewed and live-tested (or covered by the epic-level acceptance) are closed.
 - [ ] Nothing merged without approval; every merged worktree and branch removed
   (`git worktree list`, `git branch`).
