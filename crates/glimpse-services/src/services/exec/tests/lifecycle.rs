@@ -346,6 +346,77 @@ async fn removed_instance_stays_failed_without_respawning() {
     let _ = task.await;
 }
 
+struct UnitStates {
+    process: Arc<ProcessLauncher>,
+    states: Mutex<Option<tokio::sync::mpsc::UnboundedReceiver<UnitState>>>,
+}
+
+impl Launcher for UnitStates {
+    fn start(&self, spec: UnitSpec) -> BoxFuture<'static, Result<(), String>> {
+        self.process.start(spec)
+    }
+    fn stop(&self, name: &str) -> BoxFuture<'static, ()> {
+        self.process.stop(name)
+    }
+    fn kill(&self, name: &str) -> BoxFuture<'static, ()> {
+        self.process.kill(name)
+    }
+    fn reset_failed(&self, name: &str) -> BoxFuture<'static, ()> {
+        self.process.reset_failed(name)
+    }
+    fn watch(&self, _name: &str) -> BoxStream<'static, UnitState> {
+        let states = self.states.lock().expect("states").take().expect("one watch");
+        Box::pin(futures_util::stream::unfold(states, |mut states| async move {
+            states.recv().await.map(|state| (state, states))
+        }))
+    }
+    fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
+        self.process.sweep(prefix)
+    }
+}
+
+#[tokio::test]
+async fn stopped_unit_publishes_no_tree() {
+    for (state, expected) in [
+        (UnitState::Gone, Status::Ended),
+        (
+            UnitState::Failed {
+                result: "exit-code".to_owned(),
+            },
+            Status::Failed("exit-code".to_owned()),
+        ),
+    ] {
+        let (_dir, entry, _output) = script(
+            "import json\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend(json.dumps({'t': 'commit', 'ops': [{'op': 'insert', 'parent': 0, 'node': {'id': 1, 'type': 'indicator', 'props': {'text': 'alive'}}}]}))\nfor line in r:\n    pass\n",
+        );
+        let (units, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let launcher = Arc::new(UnitStates {
+            process: Arc::new(ProcessLauncher::new()),
+            states: Mutex::new(Some(receiver)),
+        });
+        let (handle, _sender, cancel, task, _process) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+            Some(launcher),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while handle.snapshot().slots[&1].tree.children(ROOT).is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("tree published");
+        units.send(state).expect("unit state");
+        let stopped = status(&handle, 1, |s| *s == expected).await;
+        assert_eq!(*stopped.tree, Tree::default(), "a stopped unit keeps no tree");
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+}
+
 #[tokio::test]
 async fn crash_reconnects_and_runs_again() {
     let (_dir, entry, output) = script(

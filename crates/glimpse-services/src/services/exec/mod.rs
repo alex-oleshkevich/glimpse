@@ -1492,11 +1492,13 @@ impl Service for Exec {
                             current.link = None;
                             current.running_since = None;
                             current.last_failed_reason = Some(result.clone());
+                            current.public.tree = Arc::new(Tree::default());
                             current.public.status = Status::Failed(result);
                         }
                         UnitState::Gone => {
                             current.link = None;
                             current.running_since = None;
+                            current.public.tree = Arc::new(Tree::default());
                             if matches!(
                                 current.public.status,
                                 Status::Starting | Status::Running | Status::Restarting { .. }
