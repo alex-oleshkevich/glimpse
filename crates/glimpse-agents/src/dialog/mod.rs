@@ -40,6 +40,8 @@ pub enum Icon {
     Wifi,
     Vpn,
     Bluetooth,
+    Reboot,
+    PowerOff,
 }
 
 impl Icon {
@@ -49,6 +51,8 @@ impl Icon {
             Self::Wifi => "network-wireless-symbolic",
             Self::Vpn => "network-vpn-symbolic",
             Self::Bluetooth => "bluetooth-active-symbolic",
+            Self::Reboot => "system-reboot-symbolic",
+            Self::PowerOff => "system-shutdown-symbolic",
         }
     }
 }

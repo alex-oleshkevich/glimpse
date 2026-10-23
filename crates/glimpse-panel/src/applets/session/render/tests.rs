@@ -37,6 +37,44 @@ fn a_blocked_action_stays_visible_and_names_who_blocks_it() {
     assert!(row.visible);
     assert!(!row.enabled);
     assert_eq!(row.subtitle.as_deref(), Some("Blocked by Steam"));
+    let delayed_first = SessionActionsState {
+        inhibitors: vec![
+            SessionInhibitor {
+                what: "sleep".into(),
+                who: "glimpse-lock".into(),
+                why: "locking".into(),
+                mode: "delay".into(),
+            },
+            state.inhibitors[1].clone(),
+        ],
+        ..Default::default()
+    };
+    assert_eq!(
+        action_state(
+            &delayed_first,
+            SessionAction::Suspend,
+            SessionCapability::Blocked
+        )
+        .subtitle
+        .as_deref(),
+        Some("Blocked by Steam"),
+        "a delay inhibitor is not the blocker"
+    );
+    let weak = SessionActionsState {
+        inhibitors: vec![SessionInhibitor {
+            what: "sleep".into(),
+            who: "Steam".into(),
+            why: "download".into(),
+            mode: "block-weak".into(),
+        }],
+        ..Default::default()
+    };
+    assert_eq!(
+        action_state(&weak, SessionAction::Suspend, SessionCapability::Blocked)
+            .subtitle
+            .as_deref(),
+        Some("Blocked by Steam")
+    );
     assert_eq!(
         action_state(
             &SessionActionsState::default(),
@@ -60,8 +98,17 @@ fn action_mapping_refuses_unknown_widget_signals() {
 }
 
 #[test]
-fn lock_does_not_confirm() {
-    assert!(confirm(&SessionActionsState::default(), SessionAction::Lock).is_none());
+fn lock_suspend_reboot_and_power_off_do_not_confirm_locally() {
+    let state = SessionActionsState::default();
+    assert!(confirm(&state, SessionAction::Lock).is_none());
+    assert!(confirm(&state, SessionAction::Suspend).is_none());
+    assert!(confirm(&state, SessionAction::Reboot).is_none());
+    assert!(confirm(&state, SessionAction::PowerOff).is_none());
+    let (title, _, accept) = confirm(&state, SessionAction::Hibernate).expect("hibernate");
+    assert_eq!(title, "Hibernate");
+    assert_eq!(accept, "Hibernate");
+    let (title, _, _) = confirm(&state, SessionAction::LogOut).expect("log out");
+    assert_eq!(title, "Log out");
 }
 
 #[test]
@@ -94,18 +141,27 @@ fn blockers_name_inhibitors_that_match_the_action() {
                 why: "install".into(),
                 mode: "block".into(),
             },
+            SessionInhibitor {
+                what: "shutdown".into(),
+                who: "Saver".into(),
+                why: "save".into(),
+                mode: "block-weak".into(),
+            },
         ],
         ..Default::default()
     };
 
-    assert_eq!(blockers(&state, SessionAction::Suspend), ["Player: video"]);
+    assert!(
+        blockers(&state, SessionAction::Suspend).is_empty(),
+        "a delay inhibitor is not listed as blocking sleep"
+    );
     assert_eq!(
         blockers(&state, SessionAction::PowerOff),
-        ["Updater: install"]
+        ["Updater: install", "Saver: save"]
     );
     assert_eq!(
         blockers(&state, SessionAction::LogOut),
-        ["Updater: install"],
+        ["Updater: install", "Saver: save"],
         "an app holding shutdown for unsaved work is named before logging out"
     );
 }

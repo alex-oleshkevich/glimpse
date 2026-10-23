@@ -50,8 +50,8 @@ becomes the dev slot in place. A name with no implementation still occupies a `S
 with `handle: None`, keeping the key sequences comparable. There is deliberately no staleness, no
 `degraded`, no timer, and a runtime's only outward channel is its `applet.<serial>` action.
 **Anything on the session bus can activate that action exactly as a pointer can**: a click runs a
-command applet and a middle click mutes audio; only the session actions still ask for a second click
-inside their popover.
+command applet and a middle click mutes audio; hibernate and log out confirm locally,
+reboot and power-off open the agents confirmation, and suspend and lock run on the first click.
 
 ## The tick
 
@@ -200,8 +200,9 @@ and the charge-limit switch come from the first present `BAT*` object, since the
 
 **command** — a user-defined chip running one argv per gesture with no shell, from the panel's
 environment plus its `env`, or from only the session variables and its `env` when `inherit-env` is
-off; a program that cannot start is throttled to one notification per interval. **session** — power
-actions confirm in a parentless dialog after the popover closes, with the action as the default response; lock runs immediately.
+off; a program that cannot start is throttled to one notification per interval. **session** —
+hibernate and log out confirm in a parentless dialog after the popover closes, with the action as
+the default response; reboot and power-off open the agents confirmation, while suspend and lock run immediately.
 
 **privacy** — a use with no application (location, a screencopy cast) is titled by the resource.
 **A `PipeWire` cast's card offers only *Stop sharing*** — nothing else opens, since a camera cannot

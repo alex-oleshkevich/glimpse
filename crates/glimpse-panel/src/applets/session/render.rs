@@ -19,7 +19,7 @@ pub fn action_state(
                 match state
                     .inhibitors
                     .iter()
-                    .find(|entry| matches_action(entry, &action))
+                    .find(|entry| action.inhibits().is_some_and(|what| entry.blocks(what)))
                 {
                     Some(entry) => gettext("Blocked by {who}")
                         .replace("{who}", &super::super::app_label(&entry.who)),
@@ -56,11 +56,6 @@ pub fn confirm(
     action: SessionAction,
 ) -> Option<(String, String, String)> {
     let (title, body, accept) = match action {
-        SessionAction::Suspend => (
-            gettext("Suspend"),
-            gettext("Suspend this session?"),
-            gettext("Suspend"),
-        ),
         SessionAction::Hibernate => (
             gettext("Hibernate"),
             gettext("Hibernate this session?"),
@@ -71,17 +66,10 @@ pub fn confirm(
             gettext("This closes the current session. Applications may not shut down gracefully."),
             gettext("Log out"),
         ),
-        SessionAction::Reboot => (
-            gettext("Restart"),
-            gettext("Restart this computer?"),
-            gettext("Restart"),
-        ),
-        SessionAction::PowerOff => (
-            gettext("Shut down"),
-            gettext("Shut down this computer?"),
-            gettext("Shut down"),
-        ),
-        SessionAction::Lock => return None,
+        SessionAction::Lock
+        | SessionAction::Suspend
+        | SessionAction::Reboot
+        | SessionAction::PowerOff => return None,
     };
     let blockers = blockers(state, action);
     let body = match blockers.is_empty() {

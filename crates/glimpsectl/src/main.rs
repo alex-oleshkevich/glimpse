@@ -191,5 +191,17 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Command::Doctor => commands::doctor(cli.json).await,
         Command::Session(SessionCommand::Declare) => commands::session_declare(bus()?).await,
+        Command::Session(SessionCommand::Reboot) => {
+            commands::session_action(bus()?, "reboot").await
+        }
+        Command::Session(SessionCommand::PowerOff) => {
+            commands::session_action(bus()?, "power-off").await
+        }
+        Command::Session(SessionCommand::Suspend) => {
+            let system = commands::within(zbus::Connection::system())
+                .await
+                .context("cannot reach the system bus")?;
+            commands::session_suspend(&system).await
+        }
     }
 }

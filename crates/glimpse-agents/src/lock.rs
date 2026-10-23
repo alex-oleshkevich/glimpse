@@ -18,33 +18,22 @@ enum Control {
 }
 
 pub async fn follow(system: zbus::Connection, input: Sender<Input>) {
-    let mut session = match open(&system).await {
-        Ok(session) => session,
-        Err(error) => {
-            tracing::warn!("logind is unreachable; the session counts as unlocked: {error:#}");
-            return;
-        }
-    };
     let mut delay = RETRY_MIN;
     loop {
-        match watch(&session, &input).await {
-            Control::Stop => return,
-            Control::Retry => {}
-        }
-        loop {
-            tokio::time::sleep(delay).await;
-            delay = (delay * 2).min(RETRY_MAX);
-            match open(&system).await {
-                Ok(next) => {
-                    session = next;
-                    delay = RETRY_MIN;
-                    break;
-                }
-                Err(error) => {
-                    tracing::warn!("logind session lost; retrying: {error:#}");
+        match open(&system).await {
+            Ok(session) => {
+                delay = RETRY_MIN;
+                if matches!(watch(&session, &input).await, Control::Stop) {
+                    return;
                 }
             }
+            Err(error) => tracing::warn!("logind session unavailable; retrying: {error:#}"),
         }
+        if input.send(Input::LockUnknown).is_err() {
+            return;
+        }
+        tokio::time::sleep(delay).await;
+        delay = (delay * 2).min(RETRY_MAX);
     }
 }
 
@@ -81,8 +70,8 @@ async fn watch(session: &Login1SessionProxy<'static>, input: &Sender<Input>) -> 
     };
     let mut deliveries = glimpse_dbus::events(changes.map(|_| ()));
     let mut locked = None;
-    if publish(session, input, &mut locked).await {
-        return Control::Stop;
+    if let Some(control) = publish(session, input, &mut locked).await {
+        return control;
     }
     loop {
         tokio::select! {
@@ -90,8 +79,8 @@ async fn watch(session: &Login1SessionProxy<'static>, input: &Sender<Input>) -> 
                 match delivery {
                     None => return Control::Retry,
                     Some(Delivery::Item(()) | Delivery::Missed) => {
-                        if publish(session, input, &mut locked).await {
-                            return Control::Stop;
+                        if let Some(control) = publish(session, input, &mut locked).await {
+                            return control;
                         }
                     }
                 }
@@ -110,15 +99,15 @@ async fn publish(
     session: &Login1SessionProxy<'static>,
     input: &Sender<Input>,
     locked: &mut Option<bool>,
-) -> bool {
+) -> Option<Control> {
     let Some(hint) = read_hint(session).await else {
-        return false;
+        return Some(Control::Retry);
     };
     if *locked == Some(hint) {
-        return false;
+        return None;
     }
     *locked = Some(hint);
-    input.send(Input::Locked(hint)).is_err()
+    input.send(Input::Locked(hint)).err().map(|_| Control::Stop)
 }
 
 async fn read_hint(session: &Login1SessionProxy<'static>) -> Option<bool> {

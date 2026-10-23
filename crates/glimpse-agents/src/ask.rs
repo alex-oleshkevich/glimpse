@@ -43,6 +43,22 @@ pub enum Input {
         line: crate::polkit::helper::Line,
     },
     Locked(bool),
+    LockUnknown,
+    SessionRequest(crate::session::Request),
+    SessionReady {
+        id: u64,
+        view: Result<crate::dialog::View, String>,
+    },
+    SessionResponse {
+        id: u64,
+        response: crate::dialog::Response,
+    },
+    SessionFocus {
+        id: u64,
+        active: bool,
+    },
+    SessionFocusTimeout(u64),
+    SessionDone(Result<(), String>),
     Dialog {
         source: Source,
         key: String,
@@ -61,6 +77,13 @@ impl fmt::Debug for Input {
                 .finish(),
             Self::Line { .. } => f.write_str("Line"),
             Self::Locked(locked) => f.debug_tuple("Locked").field(locked).finish(),
+            Self::LockUnknown => f.write_str("LockUnknown"),
+            Self::SessionRequest(_) => f.write_str("SessionRequest"),
+            Self::SessionReady { .. } => f.write_str("SessionReady"),
+            Self::SessionResponse { .. } => f.write_str("SessionResponse"),
+            Self::SessionFocus { .. } => f.write_str("SessionFocus"),
+            Self::SessionFocusTimeout(_) => f.write_str("SessionFocusTimeout"),
+            Self::SessionDone(_) => f.write_str("SessionDone"),
             Self::Dialog {
                 response: crate::dialog::Response::Confirm { .. },
                 ..

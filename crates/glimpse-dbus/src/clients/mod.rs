@@ -136,6 +136,7 @@ pub mod night_light;
 pub mod notifications;
 pub mod polkit;
 pub mod power_profiles;
+pub mod session;
 pub mod settings;
 pub mod status_notifier_item;
 pub mod status_notifier_watcher;

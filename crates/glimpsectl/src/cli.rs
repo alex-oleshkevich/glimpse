@@ -97,14 +97,20 @@ pub enum Command {
     #[command(about = "Check the configuration and every provider")]
     Doctor,
 
-    #[command(subcommand, hide = true)]
+    #[command(subcommand, about = "Restart, power off or suspend the system")]
     Session(SessionCommand),
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
 pub enum SessionCommand {
     #[command(hide = true, about = "Declare glimpse:niri as the current desktop")]
     Declare,
+    #[command(about = "Restart the system after confirmation")]
+    Reboot,
+    #[command(name = "power-off", about = "Power off the system after confirmation")]
+    PowerOff,
+    #[command(about = "Suspend the system immediately")]
+    Suspend,
 }
 
 #[derive(Debug, Subcommand)]
@@ -787,6 +793,7 @@ impl Command {
             Self::Config(_)
                 | Self::Doctor
                 | Self::Completions { .. }
+                | Self::Session(SessionCommand::Suspend)
                 | Self::Dev(DevCommand::Panel(_))
                 | Self::Applet(
                     AppletCommand::New(_)

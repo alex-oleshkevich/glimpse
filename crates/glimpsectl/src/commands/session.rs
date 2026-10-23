@@ -1,13 +1,29 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use glimpse_dbus::systemd1::Systemd1ManagerProxy;
+use glimpse_dbus::{
+    login1::Login1ManagerProxy, session::SessionProxy, systemd1::Systemd1ManagerProxy,
+};
 use zbus::Connection;
 use zbus::fdo::DBusProxy;
 
 use super::{proxy, within};
 
 const DECLARED: &str = "glimpse:niri";
+
+pub async fn session_action(connection: &Connection, action: &str) -> Result<()> {
+    let session = proxy::<SessionProxy>(connection).await?;
+    within(session.request_action(action))
+        .await
+        .context("agents did not admit the session action")
+}
+
+pub async fn session_suspend(connection: &Connection) -> Result<()> {
+    let manager = proxy::<Login1ManagerProxy>(connection).await?;
+    within(manager.suspend(true))
+        .await
+        .context("cannot suspend the system")
+}
 
 pub async fn session_declare(connection: &Connection) -> Result<()> {
     let current = std::env::var("XDG_CURRENT_DESKTOP").ok();

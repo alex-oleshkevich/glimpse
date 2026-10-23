@@ -1,7 +1,7 @@
 use clap::CommandFactory;
 use glimpsectl::cli::{
-    AppletCommand, AppletLanguage, Cli, Command, ConfigCommand, NightLightCommand, duration,
-    temperature,
+    AppletCommand, AppletLanguage, Cli, Command, ConfigCommand, NightLightCommand, SessionCommand,
+    duration, temperature,
 };
 
 #[test]
@@ -37,13 +37,25 @@ fn config_doctor_and_installed_applets_run_without_a_bus() {
 }
 
 #[test]
-fn the_session_command_is_hidden_from_the_top_level_help() {
+fn session_actions_are_visible_but_declare_remains_hidden() {
     let command = Cli::command();
     let session = command
         .get_subcommands()
         .find(|subcommand| subcommand.get_name() == "session")
         .expect("the session subcommand still exists for parsing");
-    assert!(session.is_hide_set());
+    assert!(!session.is_hide_set());
+    assert!(
+        session
+            .get_subcommands()
+            .any(|command| { command.get_name() == "declare" && command.is_hide_set() })
+    );
+    for action in ["reboot", "power-off", "suspend"] {
+        assert!(
+            session
+                .get_subcommands()
+                .any(|command| command.get_name() == action && !command.is_hide_set())
+        );
+    }
 }
 
 #[test]
@@ -51,6 +63,31 @@ fn session_declare_still_parses() {
     let error = Cli::try_parse_from(["glimpsectl", "session", "declare", "--help"])
         .expect_err("--help exits through the error path");
     assert_eq!(error.exit_code(), 0);
+}
+
+#[test]
+fn session_actions_parse_and_choose_the_right_bus() {
+    for (args, action) in [
+        (
+            &["glimpsectl", "session", "reboot"][..],
+            SessionCommand::Reboot,
+        ),
+        (
+            &["glimpsectl", "session", "power-off"][..],
+            SessionCommand::PowerOff,
+        ),
+        (
+            &["glimpsectl", "session", "suspend"][..],
+            SessionCommand::Suspend,
+        ),
+    ] {
+        let command = Cli::try_parse_from(args).unwrap().command;
+        assert!(matches!(&command, Command::Session(parsed) if *parsed == action));
+        assert_eq!(
+            command.needs_session_bus(),
+            action != SessionCommand::Suspend
+        );
+    }
 }
 
 fn run(args: &[&str]) -> Result<Cli, clap::Error> {
@@ -196,6 +233,7 @@ fn canonical_help_and_completions_need_no_bus() {
         "geolocation",
         "applet",
         "dev",
+        "session",
         "completions",
     ] {
         assert!(help.contains(noun), "{help}");
@@ -223,7 +261,8 @@ fn canonical_help_and_completions_need_no_bus() {
             .unwrap();
         assert!(generated.status.success(), "{:?}", generated);
         let generated = String::from_utf8(generated.stdout).unwrap();
-        for hidden in ["sunset", "session"] {
+        assert!(generated.contains("session"), "{shell}: session");
+        for hidden in ["sunset", "declare"] {
             assert!(!generated.contains(hidden), "{shell}: {hidden}");
         }
     }

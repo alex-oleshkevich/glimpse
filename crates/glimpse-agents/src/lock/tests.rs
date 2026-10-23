@@ -108,23 +108,21 @@ async fn next_locked(receiver: &mut relm4::Receiver<Input>) -> bool {
         .expect("no lock signal")
         .expect("sender dropped")
     {
+        Input::LockUnknown => Box::pin(next_locked(receiver)).await,
         Input::Locked(locked) => locked,
         other => panic!("expected a lock signal, got {other:?}"),
     }
 }
 
 #[tokio::test]
-async fn a_failed_hint_read_publishes_nothing() {
+async fn a_failed_hint_read_publishes_unknown() {
     let bus = glimpse_dbus::testing::PrivateBus::start();
     let server = bus.connection().await;
     export(&server, false, true).await;
     let (sender, receiver) = relm4::channel();
     let following = tokio::spawn(follow(bus.connection().await, sender));
     let message = tokio::time::timeout(Duration::from_millis(400), receiver.recv()).await;
-    assert!(
-        message.is_err(),
-        "a failed hint read published a lock signal"
-    );
+    assert!(matches!(message, Ok(Some(Input::LockUnknown))));
     following.abort();
 }
 
@@ -149,19 +147,20 @@ async fn a_lost_session_is_read_again() {
 }
 
 #[tokio::test]
-async fn logind_out_of_reach_stays_unlocked() {
+async fn logind_out_of_reach_publishes_unknown_and_keeps_retrying() {
     let bus = glimpse_dbus::testing::PrivateBus::start();
     let (sender, receiver) = relm4::channel();
-    tokio::time::timeout(
-        Duration::from_secs(2),
-        follow(bus.connection().await, sender),
-    )
-    .await
-    .expect("an unreachable logind did not give up");
-    assert!(
-        receiver.recv().await.is_none(),
-        "an unreachable logind published a lock signal"
-    );
+    let following = tokio::spawn(follow(bus.connection().await, sender));
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(2), receiver.recv()).await,
+        Ok(Some(Input::LockUnknown))
+    ));
+    assert!(!following.is_finished());
+    let server = bus.connection().await;
+    export(&server, false, false).await;
+    let mut receiver = receiver;
+    assert!(!next_locked(&mut receiver).await);
+    following.abort();
 }
 
 #[tokio::test]
@@ -176,13 +175,13 @@ async fn a_hung_logind_answers_within_the_deadline() {
     glimpse_dbus::own_name(&server, LOGIN)
         .await
         .expect("login1 name");
-    let (sender, _receiver) = relm4::channel();
-    tokio::time::timeout(
-        Duration::from_secs(7),
-        follow(bus.connection().await, sender),
-    )
-    .await
-    .expect("logind was given longer than its deadline");
+    let (sender, receiver) = relm4::channel();
+    let following = tokio::spawn(follow(bus.connection().await, sender));
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(7), receiver.recv()).await,
+        Ok(Some(Input::LockUnknown))
+    ));
+    following.abort();
 }
 
 #[tokio::test]

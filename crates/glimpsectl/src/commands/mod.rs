@@ -30,7 +30,7 @@ pub use notifications::{
 };
 pub use panel::panel;
 pub use run::applets_run;
-pub use session::session_declare;
+pub use session::{session_action, session_declare, session_suspend};
 pub use settings::{settings_mode, settings_resume, settings_status};
 pub use status::status;
 pub use sunset::{sunset_mode, sunset_pause, sunset_resume, sunset_status, sunset_temperature};

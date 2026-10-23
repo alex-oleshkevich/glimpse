@@ -47,9 +47,9 @@ fn daemon() -> Result<()> {
     init_translations(config.regional.language());
 
     let runtime = tokio::runtime::Runtime::new()?;
-    let (session, system) = runtime.block_on(connect())?;
-    let cancelled = Arc::new(Mutex::new(HashSet::new()));
     let (input, inbox) = relm4::channel();
+    let (session, system) = runtime.block_on(connect(input.clone()))?;
+    let cancelled = Arc::new(Mutex::new(HashSet::new()));
     runtime.spawn(glimpse_agents::agents::spawn_agents(
         system.clone(),
         input,
@@ -100,10 +100,20 @@ async fn watch_shutdown() -> Result<()> {
     Ok(())
 }
 
-async fn connect() -> Result<(zbus::Connection, zbus::Connection)> {
+async fn connect(
+    input: relm4::Sender<glimpse_agents::ask::Input>,
+) -> Result<(zbus::Connection, zbus::Connection)> {
     let session = zbus::Connection::session()
         .await
         .context("connect to the session bus")?;
+    session
+        .object_server()
+        .at(
+            glimpse_dbus::session::SESSION_PATH,
+            glimpse_agents::session::Server::new(input),
+        )
+        .await
+        .context("export the session interface")?;
     glimpse_dbus::own_name(&session, NAME)
         .await
         .with_context(|| format!("cannot own {NAME}; another glimpse-agents is running"))?;

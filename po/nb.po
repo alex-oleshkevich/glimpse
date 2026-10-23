@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-20 18:27+0200\n"
+"POT-Creation-Date: 2026-10-23 15:51+0200\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -15,6 +15,358 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:39
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:37
+#, fuzzy
+#| msgid "{count}m"
+msgid "Account"
+msgstr "{count} min"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:47
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:36
+msgid "Username"
+msgstr ""
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:63
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
+#: crates/glimpse-panel/src/applets/network/render.rs:278
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:41
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:45
+msgid "Connect automatically"
+msgstr "Koble til automatisk"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:69
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:41
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:41
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:54
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:47
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:41
+msgid "Details"
+msgstr "Detaljer"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:102
+#: crates/glimpse-agents/src/app/view.rs:40
+#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
+#: crates/glimpse-shot/src/gui/result.rs:962
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
+#: crates/glimpse-widgets/blueprints/network_popover.blp:160
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
+#: docs/plans/glimpse-agents/agents_bt_1.blp:45
+#: docs/plans/glimpse-agents/agents_bt_2.blp:50
+#: docs/plans/glimpse-agents/agents_bt_3.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:71
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:71
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:84
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:77
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:85
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:81
+#: docs/plans/glimpse-agents/agents_session_1.blp:35
+#: docs/plans/glimpse-agents/agents_session_2.blp:35
+#: docs/plans/glimpse-agents/agents_session_3.blp:35
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:54
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:58
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:53
+msgid "Cancel"
+msgstr "Avbryt"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:110
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:117
+msgid "Confirm"
+msgstr "Bekreft"
+
+#: crates/glimpse-agents/src/app/view.rs:57
+#: crates/glimpse-agents/src/app/view.rs:86
+#: crates/glimpse-agents/src/app/view.rs:106
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:50
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:37
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:37
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:37
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:41
+msgid "Password"
+msgstr "Passord"
+
+#: crates/glimpse-agents/src/app/view.rs:61
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:58
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:51
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:49
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:45
+#, fuzzy
+#| msgid "Location"
+msgid "Action"
+msgstr "Sted"
+
+#: crates/glimpse-agents/src/app/view.rs:75
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:79
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:79
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:92
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:85
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:93
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:89
+msgid "Authorize"
+msgstr ""
+
+#: crates/glimpse-agents/src/app/view.rs:78
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:17
+#, fuzzy
+#| msgid "Authentication failed"
+msgid "Authentication needed"
+msgstr "Autentisering mislyktes"
+
+#: crates/glimpse-agents/src/app/view.rs:90
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:18
+#, fuzzy
+#| msgid "That password did not work"
+msgid "That password didn't work"
+msgstr "Passordet fungerte ikke"
+
+#: crates/glimpse-agents/src/app/view.rs:92
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:66
+msgid "Try again"
+msgstr "Prøv igjen"
+
+#: crates/glimpse-agents/src/app/view.rs:93
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:62
+#, fuzzy
+#| msgid "Join Zoom"
+msgid "Join"
+msgstr "Bli med i Zoom"
+
+#: crates/glimpse-agents/src/app/view.rs:97
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Join “{name}”"
+msgstr "Lagret «{name}»"
+
+#: crates/glimpse-agents/src/app/view.rs:98
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:18
+#, fuzzy
+#| msgid "That network needs a password."
+msgid "The network needs a password"
+msgstr "Det nettverket krever et passord."
+
+#: crates/glimpse-agents/src/app/view.rs:107
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:248
+#: crates/glimpse-panel/src/applets/network/indicator.rs:192
+#: crates/glimpse-panel/src/applets/network/render.rs:250
+#: crates/glimpse-widgets/blueprints/network_popover.blp:164
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:61
+msgid "Connect"
+msgstr "Koble til"
+
+#: crates/glimpse-agents/src/app/view.rs:110
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Sign in to “{name}”"
+msgstr "Lagret «{name}»"
+
+#: crates/glimpse-agents/src/app/view.rs:118
+msgid "this device"
+msgstr "denne enheten"
+
+#: crates/glimpse-agents/src/app/view.rs:121
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Pair with “{name}”"
+msgstr "Lagret «{name}»"
+
+#: crates/glimpse-agents/src/app/view.rs:126
+#: crates/glimpse-agents/src/app/view.rs:134
+#: crates/glimpse-agents/src/app/view.rs:142
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:250
+#: docs/plans/glimpse-agents/agents_bt_1.blp:53
+#: docs/plans/glimpse-agents/agents_bt_2.blp:58
+msgid "Pair"
+msgstr "Par"
+
+#: crates/glimpse-agents/src/app/view.rs:128
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Pair with “{name}”?"
+msgstr "Lagret «{name}»"
+
+#: crates/glimpse-agents/src/app/view.rs:129
+msgid "Check that the device shows the same code"
+msgstr ""
+
+#: crates/glimpse-agents/src/app/view.rs:133
+#: docs/plans/glimpse-agents/agents_bt_2.blp:37
+#, fuzzy
+#| msgid "VPN"
+msgid "PIN"
+msgstr "VPN"
+
+#: crates/glimpse-agents/src/app/view.rs:137
+#: docs/plans/glimpse-agents/agents_bt_2.blp:18
+msgid "Enter the PIN from the device's manual — often 0000"
+msgstr ""
+
+#: crates/glimpse-agents/src/app/view.rs:141
+#, fuzzy
+#| msgid "Codec"
+msgid "Code"
+msgstr "Kodek"
+
+#: crates/glimpse-agents/src/app/view.rs:143
+#, fuzzy
+#| msgid ""
+#| "Is this the code shown on {device}?\n"
+#| "\n"
+#| "{code}"
+msgid "Enter the code shown on the device"
+msgstr ""
+"Er dette koden som vises på {device}?\n"
+"\n"
+"{code}"
+
+#: crates/glimpse-agents/src/app/view.rs:149
+#: crates/glimpse-agents/src/app/view.rs:156
+#, fuzzy
+#| msgid "Type the PIN shown on {device}, then press OK."
+msgid "Type this code on the device, then press Enter"
+msgstr "Skriv inn PIN-koden som vises på {device}, og trykk deretter OK."
+
+#: crates/glimpse-agents/src/app/view.rs:160
+#: docs/plans/glimpse-agents/agents_bt_4.blp:43
+msgid "Allow"
+msgstr "Tillat"
+
+#: crates/glimpse-agents/src/app/view.rs:161
+#: docs/plans/glimpse-agents/agents_bt_4.blp:35
+msgid "Deny"
+msgstr "Avslå"
+
+#: crates/glimpse-agents/src/app/view.rs:163
+#, fuzzy
+#| msgid "{name} wants to pair"
+msgid "“{name}” wants to connect"
+msgstr "{name} vil pares"
+
+#: crates/glimpse-agents/src/app/view.rs:164
+#: docs/plans/glimpse-agents/agents_bt_4.blp:18
+#, fuzzy
+#| msgid "{device} wants to pair with this computer."
+msgid "It has never been paired with this computer"
+msgstr "{device} vil pares med denne datamaskinen."
+
+#: crates/glimpse-agents/src/polkit/agent.rs:158
+msgid ""
+"Another authentication agent is running; glimpse can't ask for admin "
+"passwords"
+msgstr ""
+
+#: crates/glimpse-agents/src/polkit/mod.rs:132
+#: crates/glimpse-panel/src/applets/command.rs:87
+msgid "Command"
+msgstr "Kommando"
+
+#: crates/glimpse-agents/src/polkit/mod.rs:227
+#: crates/glimpse-lock/src/auth.rs:27
+msgid "Wrong password"
+msgstr "Feil passord"
+
+#: crates/glimpse-agents/src/polkit/mod.rs:238
+#: crates/glimpse-agents/src/polkit/mod.rs:239
+#: crates/glimpse-agents/src/polkit/mod.rs:400
+#, fuzzy
+#| msgid "Can't verify passwords. Run glimpse-lock check."
+msgid "Can't verify passwords"
+msgstr "Kan ikke bekrefte passord. Kjør glimpse-lock check."
+
+#: crates/glimpse-agents/src/session.rs:46
+msgid "The requested power action is unavailable or inhibited"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:53
+#: crates/glimpse-panel/src/applets/exec/mod.rs:391
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+#: docs/plans/glimpse-agents/agents_session_2.blp:43
+msgid "Restart"
+msgstr "Start på nytt"
+
+#: crates/glimpse-agents/src/session.rs:53
+#: docs/plans/glimpse-agents/agents_session_2.blp:17
+#, fuzzy
+#| msgid "Restart"
+msgid "Restart?"
+msgstr "Start på nytt"
+
+#: crates/glimpse-agents/src/session.rs:54
+#: docs/plans/glimpse-agents/agents_session_1.blp:43
+#, fuzzy
+#| msgid "Power Off"
+msgid "Power off"
+msgstr "Slå av"
+
+#: crates/glimpse-agents/src/session.rs:54
+#: docs/plans/glimpse-agents/agents_session_1.blp:17
+#, fuzzy
+#| msgid "Power Off"
+msgid "Power off?"
+msgstr "Slå av"
+
+#: crates/glimpse-agents/src/session.rs:59
+#: docs/plans/glimpse-agents/agents_session_1.blp:18
+#: docs/plans/glimpse-agents/agents_session_2.blp:18
+#: docs/plans/glimpse-agents/agents_session_3.blp:18
+msgid "Unsaved work in open apps may be lost"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:177
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
+msgid "Delay"
+msgstr "Forsinkelse"
+
+#: crates/glimpse-agents/src/session.rs:178
+#, fuzzy
+#| msgid "Blocked"
+msgid "Block"
+msgstr "Blokkert"
+
+#: crates/glimpse-agents/src/session.rs:182
+#, fuzzy
+#| msgid "An application"
+msgid "{kind}: {application}"
+msgstr "Et program"
+
+#: crates/glimpse-agents/src/session.rs:206
+#: crates/glimpse-agents/src/session.rs:228
+#: crates/glimpse-agents/src/session.rs:237
+#, fuzzy
+#| msgid "The drive did not respond in time."
+msgid "The power service did not answer in time"
+msgstr "Stasjonen svarte ikke i tide."
+
+#: crates/glimpse-agents/src/session.rs:223
+msgid "The session is locked"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:241
+#, fuzzy
+#| msgid "External applet action failed."
+msgid "The power action failed"
+msgstr "Handlingen i den eksterne appleten mislyktes."
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -25,10 +377,6 @@ msgstr[1] "totalt {length}px, {count} segmenter"
 #: crates/glimpse-lens/src/session.rs:252
 msgid "segment {length}px · {angle}°"
 msgstr "segment {length}px · {angle}°"
-
-#: crates/glimpse-lock/src/auth.rs:27
-msgid "Wrong password"
-msgstr "Feil passord"
 
 #: crates/glimpse-lock/src/auth.rs:29
 msgid "Too many attempts"
@@ -127,78 +475,23 @@ msgstr "Kunne ikke slå av systemet"
 msgid "Blocked by {who}: {why}"
 msgstr "Blokkert av {who}: {why}"
 
-#: crates/glimpse-notifications/src/app.rs:467
+#: crates/glimpse-notifications/src/app.rs:501
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "nå"
 
-#: crates/glimpse-panel/src/app.rs:382
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:271
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:296
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
-msgid "Bluetooth"
-msgstr "Bluetooth"
-
-#: crates/glimpse-panel/src/app.rs:383
-msgid "The pairing answer was not delivered."
-msgstr "Svaret på paringen ble ikke levert."
-
-#: crates/glimpse-panel/src/app.rs:387
-msgid "Bluetooth pairing"
-msgstr "Bluetooth-paring"
-
-#: crates/glimpse-panel/src/app.rs:433
-#: crates/glimpse-panel/src/applets/network/indicator.rs:99
-#: crates/glimpse-widgets/blueprints/places_popover.blp:51
-msgid "Network"
-msgstr "Nettverk"
-
-#: crates/glimpse-panel/src/app.rs:434
-msgid "The password was not delivered."
-msgstr "Passordet ble ikke levert."
-
-#: crates/glimpse-panel/src/app.rs:438
-msgid "Network password"
-msgstr "Nettverkspassord"
-
-#: crates/glimpse-panel/src/app.rs:450
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:122
-#: crates/glimpse-shot/src/gui/result.rs:973
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
-#: crates/glimpse-widgets/blueprints/network_popover.blp:164
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:103
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:144
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:145
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:147
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
-msgid "Cancel"
-msgstr "Avbryt"
-
-#: crates/glimpse-panel/src/app.rs:513
+#: crates/glimpse-panel/src/app.rs:379
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "Økt"
 
-#: crates/glimpse-panel/src/app.rs:515
+#: crates/glimpse-panel/src/app.rs:381
 msgid "Could not complete the session action"
 msgstr "Kunne ikke fullføre økthandlingen"
 
-#: crates/glimpse-panel/src/app.rs:517
+#: crates/glimpse-panel/src/app.rs:383
 msgid "The session manager refused that action."
 msgstr "Øktbehandleren avviste handlingen."
-
-#: crates/glimpse-panel/src/app.rs:527
-msgid "Could not answer the request"
-msgstr "Kunne ikke svare på forespørselen"
-
-#: crates/glimpse-panel/src/app.rs:600
-msgid "this device"
-msgstr "denne enheten"
 
 #: crates/glimpse-panel/src/applet/mod.rs:163
 msgid "That change was refused."
@@ -348,7 +641,7 @@ msgstr "Kunne ikke endre volumet"
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:489
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:156
 #: crates/glimpse-panel/src/applets/display/indicator.rs:379
-#: crates/glimpse-panel/src/applets/network/indicator.rs:424
+#: crates/glimpse-panel/src/applets/network/indicator.rs:372
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:105
 msgid "Could not change that setting"
 msgstr "Kunne ikke endre innstillingen"
@@ -394,7 +687,7 @@ msgid "Input"
 msgstr "Inngang"
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:338
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:219
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:191
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
 #: crates/glimpse-panel/src/applets/places/render.rs:49
 msgid "Show fewer"
@@ -414,7 +707,7 @@ msgstr "Dempet"
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:359
+#: crates/glimpse-widgets/src/lib.rs:381
 msgid "{percent}%"
 msgstr "{percent} %"
 
@@ -428,11 +721,10 @@ msgid "Could not switch Bluetooth"
 msgstr "Kunne ikke slå Bluetooth av eller på"
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:99
-#: crates/glimpse-panel/src/applets/network/indicator.rs:346
-#: crates/glimpse-panel/src/applets/network/indicator.rs:354
-#: crates/glimpse-panel/src/applets/network/indicator.rs:362
-#: crates/glimpse-panel/src/applets/network/indicator.rs:466
-#: crates/glimpse-panel/src/applets/network/indicator.rs:477
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
+#: crates/glimpse-panel/src/applets/network/indicator.rs:302
+#: crates/glimpse-panel/src/applets/network/indicator.rs:310
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
 msgid "Could not connect"
 msgstr "Kunne ikke koble til"
 
@@ -441,7 +733,7 @@ msgid "Could not pair"
 msgstr "Kunne ikke pare"
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:123
-#: crates/glimpse-panel/src/applets/network/indicator.rs:385
+#: crates/glimpse-panel/src/applets/network/indicator.rs:333
 msgid "Could not disconnect"
 msgstr "Kunne ikke koble fra"
 
@@ -449,6 +741,13 @@ msgstr "Kunne ikke koble fra"
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:177
 msgid "Could not remove the device"
 msgstr "Kunne ikke fjerne enheten"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:271
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:296
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "Bluetooth"
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
 msgid "Bluetooth is blocked"
@@ -480,15 +779,11 @@ msgid_plural "{count} devices connected"
 msgstr[0] "{count} enhet tilkoblet"
 msgstr[1] "{count} enheter tilkoblet"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:84
-msgid "{entered} of 6 entered"
-msgstr "{entered} av 6 skrevet inn"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:104
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:81
 msgid "Bluetooth is waiting for an answer"
 msgstr "Bluetooth venter på svar"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:114
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:91
 msgid ""
 "It will be disconnected, and this computer will stop connecting to it. To "
 "use it again you will have to pair it, with the device in pairing mode."
@@ -496,7 +791,7 @@ msgstr ""
 "Den blir koblet fra, og denne datamaskinen slutter å koble til den. For å "
 "bruke den igjen må du pare den med enheten i paringsmodus."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:117
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:94
 msgid ""
 "This computer will stop connecting to it, and it will not connect on its "
 "own. To use it again you will have to pair it, with the device in pairing "
@@ -505,137 +800,109 @@ msgstr ""
 "Denne datamaskinen slutter å koble til den, og den kobler ikke til av seg "
 "selv. For å bruke den igjen må du pare den med enheten i paringsmodus."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:120
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:97
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:290
 msgid "Forget"
 msgstr "Glem"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:131
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:108
 msgid "Unknown device"
 msgstr "Ukjent enhet"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:198
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:220
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
 msgid "{count} more device"
 msgid_plural "{count} more devices"
 msgstr[0] "{count} enhet til"
 msgstr[1] "{count} enheter til"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:239
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:211
 msgid "{level}%"
 msgstr "{level} %"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:246
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:218
 msgid "Blocked"
 msgstr "Blokkert"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:249
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:221
 msgid "Pairing lost"
 msgstr "Paringen er tapt"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:252
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:224
 msgid "Pairing will not survive a restart"
 msgstr "Paringen forsvinner ved omstart"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:259
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:231
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
 #: crates/glimpse-panel/src/applets/network/render.rs:323
 msgid "Type"
 msgstr "Type"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:260
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:232
 #: crates/glimpse-panel/src/applets/power/render.rs:111
 #: crates/glimpse-widgets/blueprints/power_popover.blp:41
 msgid "Battery"
 msgstr "Batteri"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:234
 msgid "Codec"
 msgstr "Kodek"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:274
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:246
 #: crates/glimpse-panel/src/applets/network/render.rs:242
 msgid "Disconnect"
 msgstr "Koble fra"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:276
-#: crates/glimpse-panel/src/applets/network/indicator.rs:228
-#: crates/glimpse-panel/src/applets/network/indicator.rs:237
-#: crates/glimpse-panel/src/applets/network/render.rs:250
-#: crates/glimpse-widgets/blueprints/network_popover.blp:168
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
-msgid "Connect"
-msgstr "Koble til"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:278
-msgid "Pair"
-msgstr "Par"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:290
-#: crates/glimpse-panel/src/applets/network/render.rs:278
-#: crates/glimpse-widgets/blueprints/network_row.blp:25
-msgid "Connect automatically"
-msgstr "Koble til automatisk"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:298
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:270
 msgid "Forget this device"
 msgstr "Glem denne enheten"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:314
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
 msgid "The device is switched off or out of range."
 msgstr "Enheten er slått av eller utenfor rekkevidde."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:287
 msgid "The device refused the connection."
 msgstr "Enheten avviste tilkoblingen."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:316
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:288
 msgid "The device offers nothing this computer can connect to."
 msgstr "Enheten tilbyr ingenting denne datamaskinen kan koble til."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:317
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:289
 msgid "The PIN or passkey did not match."
 msgstr "PIN-koden eller tilgangsnøkkelen stemte ikke."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:291
 msgid "The device rejected the pairing. Put it in pairing mode and try again."
 msgstr "Enheten avviste paringen. Sett den i paringsmodus og prøv igjen."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:321
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:293
 msgid "The pairing timed out."
 msgstr "Paringen tok for lang tid."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:322
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:294
 msgid "The pairing was cancelled."
 msgstr "Paringen ble avbrutt."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:324
-msgid ""
-"This panel could not register a pairing agent, so it cannot pair. Devices "
-"that are already paired still connect."
-msgstr ""
-"Panelet kunne ikke registrere en paringsagent og kan derfor ikke pare. "
-"Enheter som allerede er paret, kobler fortsatt til."
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:295
 msgid "The device is busy, possibly connected to another device."
 msgstr "Enheten er opptatt, kanskje koblet til en annen enhet."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:327
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:296
 msgid "Bluetooth is switched off."
 msgstr "Bluetooth er slått av."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:297
 msgid "The device disconnected."
 msgstr "Enheten koblet fra."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:298
 msgid "The pairing with this device is no longer valid."
 msgstr "Paringen med denne enheten er ikke lenger gyldig."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:300
 msgid ""
 "This computer could not open a connection to the device. Try again, or "
 "switch Bluetooth off and on."
@@ -643,23 +910,23 @@ msgstr ""
 "Denne datamaskinen kunne ikke åpne en tilkobling til enheten. Prøv igjen, "
 "eller slå Bluetooth av og på."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:333
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:302
 msgid "Bluetooth could not complete that."
 msgstr "Bluetooth kunne ikke fullføre det."
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
 msgid "Headset"
 msgstr "Hodesett"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:357
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
 msgid "Headphones"
 msgstr "Hodetelefoner"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:358
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:327
 msgid "Speaker"
 msgstr "Høyttaler"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:359
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
 #: crates/glimpse-panel/src/applets/display/render.rs:78
 #: crates/glimpse-panel/src/applets/display/render/tests.rs:195
 #: crates/glimpse-panel/src/applets/keyboard/indicator.rs:101
@@ -667,41 +934,41 @@ msgstr "Høyttaler"
 msgid "Keyboard"
 msgstr "Tastatur"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:360
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:329
 msgid "Mouse"
 msgstr "Mus"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:361
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:330
 msgid "Gamepad"
 msgstr "Spillkontroller"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:362
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
 msgid "Tablet"
 msgstr "Nettbrett"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:363
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:332
 msgid "Phone"
 msgstr "Telefon"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:333
 msgid "Computer"
 msgstr "Datamaskin"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:365
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:334
 #: crates/glimpse-widgets/blueprints/display_popover.blp:12
 msgid "Display"
 msgstr "Skjerm"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:366
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:335
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:154
 msgid "Printer"
 msgstr "Skriver"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:367
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:336
 msgid "Device"
 msgstr "Enhet"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:351
 msgid "Vendor codec"
 msgstr "Leverandørkodek"
 
@@ -858,10 +1125,6 @@ msgstr "I morgen"
 msgid "Yesterday"
 msgstr "I går"
 
-#: crates/glimpse-panel/src/applets/command.rs:87
-msgid "Command"
-msgstr "Kommando"
-
 #: crates/glimpse-panel/src/applets/command.rs:89
 msgid "Could not run a command"
 msgstr "Kunne ikke kjøre en kommando"
@@ -926,12 +1189,12 @@ msgstr "Det tok for lang tid."
 msgid "{name}: {percent}%"
 msgstr "{name}: {percent} %"
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1257
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:406
 msgid "Unsupported: {name}"
 msgstr "Støttes ikke: {name}"
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1262
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:411
 msgid "This applet asked for an element glimpse does not render"
 msgstr "Denne appleten ba om et element som glimpse ikke viser"
@@ -960,14 +1223,6 @@ msgstr "Den eksterne appleten kjører ikke."
 #: crates/glimpse-panel/src/applets/exec/mod.rs:385
 msgid "Not running"
 msgstr "Kjører ikke"
-
-#: crates/glimpse-panel/src/applets/exec/mod.rs:391
-#: crates/glimpse-panel/src/applets/session/render.rs:75
-#: crates/glimpse-panel/src/applets/session/render.rs:77
-#: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
-msgid "Restart"
-msgstr "Start på nytt"
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
@@ -1072,7 +1327,7 @@ msgid "Preventing idle"
 msgstr "Hindrer inaktivitet"
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:202
-#: crates/glimpse-panel/src/config_alert.rs:110
+#: crates/glimpse-panel/src/config_alert.rs:123
 msgid "Glimpse"
 msgstr "Glimpse"
 
@@ -1111,66 +1366,68 @@ msgstr "Pauset"
 msgid "Stopped"
 msgstr "Stoppet"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:40
+#: crates/glimpse-panel/src/applets/network/indicator.rs:39
 msgid "None"
 msgstr "Ingen"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:41
+#: crates/glimpse-panel/src/applets/network/indicator.rs:40
 msgid "WEP"
 msgstr "WEP"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:42
+#: crates/glimpse-panel/src/applets/network/indicator.rs:41
 msgid "WPA & WPA2 Personal"
 msgstr "WPA og WPA2 Personal"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:43
+#: crates/glimpse-panel/src/applets/network/indicator.rs:42
 msgid "WPA3 Personal"
 msgstr "WPA3 Personal"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:171
+#: crates/glimpse-panel/src/applets/network/indicator.rs:79
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+msgid "Network"
+msgstr "Nettverk"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:151
 #: crates/glimpse-widgets/blueprints/network_popover.blp:16
 #: crates/glimpse-widgets/blueprints/network_popover.blp:54
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:216
+#: crates/glimpse-panel/src/applets/network/indicator.rs:183
 msgid "Hidden network"
 msgstr "Skjult nettverk"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:217
+#: crates/glimpse-panel/src/applets/network/indicator.rs:184
 msgid "Type the name the network broadcasts nothing about."
 msgstr "Nettverket sender ikke ut navnet sitt, så skriv det inn."
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:219
+#: crates/glimpse-panel/src/applets/network/indicator.rs:185
 msgid "Continue"
 msgstr "Fortsett"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:226
-msgid "Choose how the network is secured, then type its password."
+#: crates/glimpse-panel/src/applets/network/indicator.rs:191
+#, fuzzy
+#| msgid "Choose how the network is secured, then type its password."
+msgid "Choose how the network is secured."
 msgstr "Velg hvordan nettverket er sikret, og skriv deretter inn passordet."
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:235
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
-msgid "The network needs a password before this computer can join it."
-msgstr "Nettverket krever et passord før denne datamaskinen kan koble til."
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:259
+#: crates/glimpse-panel/src/applets/network/indicator.rs:213
 msgid "VPN is connected"
 msgstr "VPN er tilkoblet"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:308
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
 msgid "Could not switch Wi-Fi"
 msgstr "Kunne ikke slå Wi-Fi av eller på"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:338
+#: crates/glimpse-panel/src/applets/network/indicator.rs:286
 msgid "Could not connect the VPN"
 msgstr "Kunne ikke koble til VPN"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:393
+#: crates/glimpse-panel/src/applets/network/indicator.rs:341
 msgid "Could not forget that network"
 msgstr "Kunne ikke glemme nettverket"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/indicator.rs:349
 msgid "Could not disconnect the VPN"
 msgstr "Kunne ikke koble fra VPN"
 
@@ -1373,7 +1630,7 @@ msgstr "Lenke"
 msgid "Conflicts"
 msgstr "Konflikter"
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:214
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:219
 msgid "Clear all"
 msgstr "Fjern alle"
 
@@ -1442,10 +1699,10 @@ msgstr "Noen elementer kunne ikke slettes."
 msgid "Home"
 msgstr "Hjem"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:224
-#: crates/glimpse-panel/src/applets/power/mod.rs:246
-#: crates/glimpse-panel/src/applets/power/mod.rs:299
-#: crates/glimpse-panel/src/applets/power/mod.rs:327
+#: crates/glimpse-panel/src/applets/power/mod.rs:214
+#: crates/glimpse-panel/src/applets/power/mod.rs:236
+#: crates/glimpse-panel/src/applets/power/mod.rs:289
+#: crates/glimpse-panel/src/applets/power/mod.rs:317
 #: crates/glimpse-panel/src/applets/power/render.rs:27
 #: crates/glimpse-widgets/blueprints/power_popover.blp:12
 #: crates/glimpse-widgets/blueprints/status_island.blp:34
@@ -1453,16 +1710,16 @@ msgstr "Hjem"
 msgid "Power"
 msgstr "Strøm"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:301
+#: crates/glimpse-panel/src/applets/power/mod.rs:291
 msgid "Could not change the power mode"
 msgstr "Kunne ikke endre strømmodus"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:306
-#: crates/glimpse-panel/src/applets/power/mod.rs:334
+#: crates/glimpse-panel/src/applets/power/mod.rs:296
+#: crates/glimpse-panel/src/applets/power/mod.rs:324
 msgid "The battery service is unavailable."
 msgstr "Batteritjenesten er utilgjengelig."
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:329
+#: crates/glimpse-panel/src/applets/power/mod.rs:319
 msgid "Could not change the charge limit"
 msgstr "Kunne ikke endre ladegrensen"
 
@@ -1818,63 +2075,38 @@ msgstr "Blokkert av en aktiv sperre."
 
 #: crates/glimpse-panel/src/applets/session/render.rs:60
 #: crates/glimpse-panel/src/applets/session/render.rs:62
-#: crates/glimpse-widgets/blueprints/session_popover.blp:17
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
-msgid "Suspend"
-msgstr "Hvilemodus"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:61
-msgid "Suspend this session?"
-msgstr "Sette denne økten i hvilemodus?"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:65
-#: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:22
 msgid "Hibernate"
 msgstr "Dvalemodus"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:66
+#: crates/glimpse-panel/src/applets/session/render.rs:61
 msgid "Hibernate this session?"
 msgstr "Sette denne økten i dvalemodus?"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:70
-#: crates/glimpse-panel/src/applets/session/render.rs:72
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:33
+#: docs/plans/glimpse-agents/agents_session_3.blp:43
 msgid "Log out"
 msgstr "Logg ut"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:71
+#: crates/glimpse-panel/src/applets/session/render.rs:66
 msgid ""
 "This closes the current session. Applications may not shut down gracefully."
 msgstr ""
 "Dette avslutter økten. Programmer får kanskje ikke avsluttet ordentlig."
 
-#: crates/glimpse-panel/src/applets/session/render.rs:76
-msgid "Restart this computer?"
-msgstr "Starte denne datamaskinen på nytt?"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:80
-#: crates/glimpse-panel/src/applets/session/render.rs:82
-#: crates/glimpse-widgets/blueprints/session_popover.blp:43
-msgid "Shut down"
-msgstr "Slå av"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:81
-msgid "Shut down this computer?"
-msgstr "Slå av denne datamaskinen?"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:106
+#: crates/glimpse-panel/src/applets/session/render.rs:94
 msgid "{windows} open window is still running."
 msgid_plural "{windows} open windows are still running."
 msgstr[0] "{windows} åpent vindu kjører fortsatt."
 msgstr[1] "{windows} åpne vinduer kjører fortsatt."
 
-#: crates/glimpse-panel/src/applets/session/render.rs:129
+#: crates/glimpse-panel/src/applets/session/render.rs:117
 msgid "Signed in today"
 msgstr "Logget inn i dag"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:131
+#: crates/glimpse-panel/src/applets/session/render.rs:119
 msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] "Logget inn i {days} dag"
@@ -2123,7 +2355,19 @@ msgstr "Arbeidsområde {number}"
 msgid "Already the name of {workspace}"
 msgstr "Navnet brukes allerede av {workspace}"
 
-#: crates/glimpse-panel/src/config_alert.rs:32
+#: crates/glimpse-panel/src/config_alert.rs:36
+#, fuzzy
+#| msgid ""
+#| "Idle and night light are off until it is fixed; everything else uses its "
+#| "defaults."
+msgid ""
+"The panels use their defaults until it is fixed; everything else is as "
+"configured."
+msgstr ""
+"Inaktivitet og nattlys er av til dette er rettet; alt annet bruker "
+"standardverdier."
+
+#: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
 "Idle and night light are off until it is fixed; everything else uses its "
 "defaults."
@@ -2131,14 +2375,18 @@ msgstr ""
 "Inaktivitet og nattlys er av til dette er rettet; alt annet bruker "
 "standardverdier."
 
-#: crates/glimpse-panel/src/config_alert.rs:38
+#: crates/glimpse-panel/src/config_alert.rs:46
 msgid ""
 "The last change was not applied; the previous configuration is still running."
 msgstr ""
 "Den siste endringen ble ikke tatt i bruk; den forrige konfigurasjonen er "
 "fortsatt i bruk."
 
-#: crates/glimpse-panel/src/config_alert.rs:113
+#: crates/glimpse-panel/src/config_alert.rs:51
+msgid "A stylesheet could not be read: {reason}"
+msgstr ""
+
+#: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
 msgstr "Glimpse-konfigurasjonen har feil"
 
@@ -2146,200 +2394,202 @@ msgstr "Glimpse-konfigurasjonen har feil"
 msgid "a screenshot is already being taken"
 msgstr "et skjermbilde tas allerede"
 
-#: crates/glimpse-shot/src/gui/app.rs:222
+#: crates/glimpse-shot/src/gui/app.rs:215
 msgid "_Open Image…"
 msgstr "_Åpne bilde …"
 
-#: crates/glimpse-shot/src/gui/app.rs:224
+#: crates/glimpse-shot/src/gui/app.rs:217
 msgid "_Preferences"
 msgstr "_Innstillinger"
 
-#: crates/glimpse-shot/src/gui/app.rs:225
+#: crates/glimpse-shot/src/gui/app.rs:218
 msgid "_Keyboard Shortcuts"
 msgstr "_Tastatursnarveier"
 
-#: crates/glimpse-shot/src/gui/app.rs:226
+#: crates/glimpse-shot/src/gui/app.rs:219
 msgid "_About Screenshot"
 msgstr "_Om Skjermbilde"
 
-#: crates/glimpse-shot/src/gui/app.rs:376
+#: crates/glimpse-shot/src/gui/app.rs:368
 msgid "--portal needs a screen target"
 msgstr "--portal trenger en skjerm som mål"
 
-#: crates/glimpse-shot/src/gui/app.rs:536
-#: crates/glimpse-shot/src/gui/app.rs:644
-#: crates/glimpse-shot/src/gui/app.rs:896 crates/glimpse-shot/src/notify.rs:284
+#: crates/glimpse-shot/src/gui/app.rs:521
+#: crates/glimpse-shot/src/gui/app.rs:651
+#: crates/glimpse-shot/src/gui/app.rs:935 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr "Skjermbilde"
 
-#: crates/glimpse-shot/src/gui/app.rs:571
+#: crates/glimpse-shot/src/gui/app.rs:568
 msgid "The clipboard holds no image"
 msgstr "Utklippstavlen inneholder ikke noe bilde"
 
-#: crates/glimpse-shot/src/gui/app.rs:768
+#: crates/glimpse-shot/src/gui/app.rs:774
 msgid "There is no window to capture"
 msgstr "Det finnes ikke noe vindu å ta bilde av"
 
-#: crates/glimpse-shot/src/gui/app.rs:838
+#: crates/glimpse-shot/src/gui/app.rs:843
 msgid "That window has closed"
 msgstr "Det vinduet er lukket"
 
-#: crates/glimpse-shot/src/gui/app.rs:855
-msgid "PNG Images"
+#: crates/glimpse-shot/src/gui/app.rs:860
+#, fuzzy
+#| msgid "PNG Images"
+msgid "Images"
 msgstr "PNG-bilder"
 
-#: crates/glimpse-shot/src/gui/app.rs:860
+#: crates/glimpse-shot/src/gui/app.rs:870
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr "Åpne bilde"
 
-#: crates/glimpse-shot/src/gui/app.rs:972
+#: crates/glimpse-shot/src/gui/app.rs:895
+msgid "The image must be a local file"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/app.rs:1011
 msgid "Untitled window"
 msgstr "Vindu uten navn"
 
-#: crates/glimpse-shot/src/gui/app.rs:1073
+#: crates/glimpse-shot/src/gui/app.rs:1103
 msgid "Screenshot failed"
 msgstr "Kunne ikke ta skjermbilde"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:383
+#: crates/glimpse-shot/src/gui/overlay.rs:380
 msgid "Waiting to take a screenshot"
 msgstr "Venter på å ta et skjermbilde"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1081
-#: crates/glimpse-shot/src/gui/result.rs:936
+#: crates/glimpse-shot/src/gui/overlay.rs:1078
+#: crates/glimpse-shot/src/gui/result.rs:925
 msgid "Save Screenshot"
 msgstr "Lagre skjermbilde"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1639
+#: crates/glimpse-shot/src/gui/overlay.rs:1636
 msgid "{size} · scaled {percent}%"
 msgstr "{size} · skalert {percent} %"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1801
+#: crates/glimpse-shot/src/gui/overlay.rs:1798
 msgid "Saved"
 msgstr "Lagret"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1802
+#: crates/glimpse-shot/src/gui/overlay.rs:1799
 msgid "Copied"
 msgstr "Kopiert"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:90
+#: crates/glimpse-shot/src/gui/prefs.rs:97
 msgid "Pictures/Screenshots"
 msgstr "Bilder/Skjermbilder"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:108
-#: crates/glimpse-shot/src/gui/prefs.rs:127
+#: crates/glimpse-shot/src/gui/prefs.rs:115
+#: crates/glimpse-shot/src/gui/prefs.rs:134
 msgid "Saved as “{name}”"
 msgstr "Lagret som «{name}»"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:219
-#: crates/glimpse-shot/src/gui/result.rs:1088
+#: crates/glimpse-shot/src/gui/prefs.rs:226
+#: crates/glimpse-shot/src/gui/result.rs:1077
 msgid "Copied to clipboard"
 msgstr "Kopiert til utklippstavlen"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-shot/src/gui/prefs.rs:302
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
 msgid "Choose Folder"
 msgstr "Velg mappe"
 
-#: crates/glimpse-shot/src/gui/result.rs:734
+#: crates/glimpse-shot/src/gui/result.rs:723
 msgid "A screenshot has unsaved changes"
 msgstr "Et skjermbilde har endringer som ikke er lagret"
 
-#: crates/glimpse-shot/src/gui/result.rs:878
+#: crates/glimpse-shot/src/gui/result.rs:867
 msgid "A file name cannot be empty or contain “/”"
 msgstr "Et filnavn kan ikke være tomt eller inneholde «/»"
 
-#: crates/glimpse-shot/src/gui/result.rs:883
+#: crates/glimpse-shot/src/gui/result.rs:872
 msgid ""
 "There is no Pictures folder to save into; choose a folder in Preferences"
 msgstr "Det finnes ingen Bilder-mappe å lagre i; velg en mappe i Innstillinger"
 
-#: crates/glimpse-shot/src/gui/result.rs:969
+#: crates/glimpse-shot/src/gui/result.rs:958
 msgid "Discard this screenshot?"
 msgstr "Forkaste dette skjermbildet?"
 
-#: crates/glimpse-shot/src/gui/result.rs:970
+#: crates/glimpse-shot/src/gui/result.rs:959
 msgid "It has not been saved or copied."
 msgstr "Det er verken lagret eller kopiert."
 
-#: crates/glimpse-shot/src/gui/result.rs:974
+#: crates/glimpse-shot/src/gui/result.rs:963
 msgid "Discard"
 msgstr "Forkast"
 
-#: crates/glimpse-shot/src/gui/result.rs:975
+#: crates/glimpse-shot/src/gui/result.rs:964
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
 msgid "Save"
 msgstr "Lagre"
 
-#: crates/glimpse-shot/src/gui/result.rs:1137
+#: crates/glimpse-shot/src/gui/result.rs:1126
 msgid "Saved “{name}”"
 msgstr "Lagret «{name}»"
 
-#: crates/glimpse-shot/src/gui/result.rs:1145
-#: crates/glimpse-shot/src/notify.rs:411
+#: crates/glimpse-shot/src/gui/result.rs:1134
+#: crates/glimpse-shot/src/notify.rs:415
 #: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
 msgstr "Vis i mappe"
 
-#: crates/glimpse-shot/src/notify.rs:397
+#: crates/glimpse-shot/src/notify.rs:401
 #: crates/glimpse-shot/src/notify/tests.rs:307
 msgid "Screenshot saved"
 msgstr "Skjermbilde lagret"
 
-#: crates/glimpse-shot/src/notify.rs:398
+#: crates/glimpse-shot/src/notify.rs:402
 #: crates/glimpse-shot/src/notify/tests.rs:340
 msgid "Screenshot copied"
 msgstr "Skjermbilde kopiert"
 
-#: crates/glimpse-shot/src/notify.rs:409
+#: crates/glimpse-shot/src/notify.rs:413
 #: crates/glimpse-shot/src/notify/tests.rs:319
 msgctxt "notification action"
 msgid "Open"
 msgstr "Åpne"
 
-#: crates/glimpse-shot/src/portal.rs:126
+#: crates/glimpse-shot/src/portal.rs:117
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:605
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Et program"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:18
+#: crates/glimpse-wallpaper/src/portal/notify.rs:16
 msgid "Wallpaper changed"
 msgstr "Bakgrunnen ble endret"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:22
+#: crates/glimpse-wallpaper/src/portal/notify.rs:20
 msgid "Wallpaper not changed"
 msgstr "Bakgrunnen ble ikke endret"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:29
+#: crates/glimpse-wallpaper/src/portal/notify.rs:27
 msgid "{count} output keeps its own image."
 msgid_plural "{count} outputs keep their own image."
 msgstr[0] "{count} utgang beholder sitt eget bilde."
 msgstr[1] "{count} utganger beholder sitt eget bilde."
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:38
+#: crates/glimpse-wallpaper/src/portal/notify.rs:36
 msgid "Only the background can be set."
 msgstr "Bare bakgrunnen kan angis."
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:43
-msgid "{file} already sets the wallpaper image."
-msgstr "{file} angir allerede bakgrunnsbildet."
-
-#: crates/glimpse-wallpaper/src/portal/notify.rs:47
+#: crates/glimpse-wallpaper/src/portal/notify.rs:40
 msgid "The wallpaper could not be saved."
 msgstr "Bakgrunnen kunne ikke lagres."
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:81
+#: crates/glimpse-wallpaper/src/portal/notify.rs:74
 msgid "Wallpaper"
 msgstr "Bakgrunn"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:151
+#: crates/glimpse-wallpaper/src/portal/notify.rs:145
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
 msgid "Undo"
 msgstr "Angre"
@@ -2371,11 +2621,6 @@ msgstr "Programmer"
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
 msgid "Nearby devices"
 msgstr "Enheter i nærheten"
-
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:117
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:145
-msgid "Confirm"
-msgstr "Bekreft"
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
 msgid "Show the whole year"
@@ -2495,11 +2740,6 @@ msgstr "Leter etter nettverk …"
 msgid "Connect to a hidden network…"
 msgstr "Koble til et skjult nettverk …"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
-msgid "Details"
-msgstr "Detaljer"
-
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
 msgid "Coming up"
 msgstr "Kommende"
@@ -2520,10 +2760,6 @@ msgstr "Ingenting nytt"
 #: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
 msgid "You are all caught up."
 msgstr "Du har sett alt."
-
-#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
-msgid "Password"
-msgstr "Passord"
 
 #: crates/glimpse-widgets/blueprints/password_prompt.blp:61
 msgid "Caps Lock is on"
@@ -2550,7 +2786,7 @@ msgstr "Tøm papirkurven"
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:301
+#: crates/glimpse-widgets/src/lib.rs:323
 msgid "Play"
 msgstr "Spill av"
 
@@ -2593,6 +2829,16 @@ msgstr "Spol"
 #: crates/glimpse-widgets/blueprints/session_popover.blp:12
 msgid "Lock"
 msgstr "Lås"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+msgid "Suspend"
+msgstr "Hvilemodus"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Shut down"
+msgstr "Slå av"
 
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:34
 msgid "Suspend…"
@@ -2666,10 +2912,6 @@ msgstr "Område"
 msgid "Capture a Region (R)"
 msgstr "Ta bilde av et område (R)"
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
-msgid "Delay"
-msgstr "Forsinkelse"
-
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
 msgid "Show Pointer"
@@ -2693,7 +2935,9 @@ msgid "Preferences"
 msgstr "Innstillinger"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-msgid "config.toml cannot be read, so nothing here can be saved"
+#, fuzzy
+#| msgid "config.toml cannot be read, so nothing here can be saved"
+msgid "config.toml is invalid or read-only, so nothing here can be saved"
 msgstr "config.toml kan ikke leses, så ingenting her kan lagres"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
@@ -2858,25 +3102,25 @@ msgstr "Kopier til utklippstavlen (Ctrl+C)"
 msgid "Save or Open"
 msgstr "Lagre eller åpne"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:161
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
 msgid "Undo (Ctrl+Z)"
 msgstr "Angre (Ctrl+Z)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:171
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr "Gjør om (Ctrl+Shift+Z)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:195
 msgid "Pan (hold Space)"
 msgstr "Panorer (hold Mellomrom)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:213
 msgid "Best Fit (Ctrl+0)"
 msgstr "Tilpass til vindu (Ctrl+0)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:219
 msgid "Actual Size (Ctrl+1)"
 msgstr "Faktisk størrelse (Ctrl+1)"
 
@@ -3203,93 +3447,6 @@ msgstr "Gi dette arbeidsområdet et navn"
 msgid "Unmute"
 msgstr "Slå på lyd"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:105
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:144
-msgid "OK"
-msgstr "OK"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:146
-msgid "Allow"
-msgstr "Tillat"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:146
-msgid "Deny"
-msgstr "Avslå"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
-msgid "Enter the PIN"
-msgstr "Skriv inn PIN-koden"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:44
-msgid "Type the PIN shown on {device}, then press OK."
-msgstr "Skriv inn PIN-koden som vises på {device}, og trykk deretter OK."
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
-msgid "Enter the passkey"
-msgstr "Skriv inn tilgangsnøkkelen"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:49
-msgid "Type the passkey shown on {device}."
-msgstr "Skriv inn tilgangsnøkkelen som vises på {device}."
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:52
-msgid "Confirm the code"
-msgstr "Bekreft koden"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:53
-msgid ""
-"Is this the code shown on {device}?\n"
-"\n"
-"{code}"
-msgstr ""
-"Er dette koden som vises på {device}?\n"
-"\n"
-"{code}"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
-msgid "Allow pairing"
-msgstr "Tillat paring"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
-msgid "{device} wants to pair with this computer."
-msgstr "{device} vil pares med denne datamaskinen."
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:63
-msgid "Type this PIN"
-msgstr "Skriv inn denne PIN-koden"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:64
-msgid ""
-"Type this PIN on {device}. It will not ask again.\n"
-"\n"
-"{code}"
-msgstr ""
-"Skriv inn denne PIN-koden på {device}. Det spørres ikke igjen.\n"
-"\n"
-"{code}"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:69
-msgid "Type this passkey"
-msgstr "Skriv inn denne tilgangsnøkkelen"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:70
-msgid ""
-"Type this passkey on {device}.\n"
-"\n"
-"{code}"
-msgstr ""
-"Skriv inn denne tilgangsnøkkelen på {device}.\n"
-"\n"
-"{code}"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:82
-msgid "1 to 16 letters or digits"
-msgstr "1 til 16 bokstaver eller sifre"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:83
-msgid "Up to 999999"
-msgstr "Opptil 999999"
-
 #: crates/glimpse-widgets/src/display_list/mod.rs:136
 msgid "The last enabled display can't be turned off"
 msgstr "Den siste aktiverte skjermen kan ikke slås av"
@@ -3391,26 +3548,10 @@ msgstr "Hvilemodusknapp"
 msgid "Hibernate key"
 msgstr "Dvalemodusknapp"
 
-#: crates/glimpse-widgets/src/lib.rs:300
+#: crates/glimpse-widgets/src/lib.rs:322
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr "Pause"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
-msgid "That password did not work"
-msgstr "Passordet fungerte ikke"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
-msgid "{network} refused it. Check it and try again."
-msgstr "{network} avviste det. Sjekk det og prøv igjen."
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
-msgid "Enter the password for {network}"
-msgstr "Skriv inn passordet for {network}"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
-msgid "Try again"
-msgstr "Prøv igjen"
 
 #: crates/glimpse-widgets/src/notification_card/imp.rs:155
 msgid "Unread"
@@ -3482,7 +3623,7 @@ msgstr "Gjeldende skjerm"
 msgid "Capturing in {n}"
 msgstr "Tar bilde om {n}"
 
-#: crates/glimpse-widgets/src/shot_window_list/mod.rs:139
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:140
 msgid "captured when picked"
 msgstr "tas når valgt"
 
@@ -3530,6 +3671,20 @@ msgstr "Forstørr en del av skjermen"
 msgid "magnifier;zoom;lens;enlarge;"
 msgstr "forstørrelsesglass;zoom;forstørre;magnifier;"
 
+#: data/me.aresa.Glimpse.Shot.Annotate.desktop:3
+#, fuzzy
+#| msgid "Annotate In"
+msgid "Annotate Image"
+msgstr "Merk opp i"
+
+#: data/me.aresa.Glimpse.Shot.Annotate.desktop:4
+msgid "Open an image and mark it up"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Shot.Annotate.desktop:12
+msgid "image;annotate;annotation;PNG;draw;markup;"
+msgstr ""
+
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"
 msgstr "Ta et skjermbilde, merk det opp, lagre eller kopier det"
@@ -3538,6 +3693,150 @@ msgstr "Ta et skjermbilde, merk det opp, lagre eller kopier det"
 msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "skjermbilde;opptak;merk opp;print screen;klipp;ta bilde;screenshot;capture;"
+
+#: docs/plans/glimpse-agents/agents_bt_1.blp:17
+msgid "Pair with “Pixel 9”?"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_1.blp:18
+msgid "Check that the phone shows the same code"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_2.blp:17
+msgid "Pair with “Old Headset”"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_3.blp:17
+msgid "Pair with “MX Keys”"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_3.blp:18
+msgid "Type this code on the keyboard, then press Enter"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_4.blp:17
+msgid "“JBL Flip” wants to connect"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:55
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:55
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:68
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:61
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:59
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:55
+#, fuzzy
+#| msgid "Vendor codec"
+msgid "Vendor"
+msgstr "Leverandørkodek"
+
+#: docs/plans/glimpse-agents/agents_session_3.blp:17
+#, fuzzy
+#| msgid "Log out"
+msgid "Log out?"
+msgstr "Logg ut"
+
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:17
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:17
+msgid "Join “Café Central”"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:17
+msgid "Sign in to “Work VPN”"
+msgstr ""
+
+#~ msgid "The pairing answer was not delivered."
+#~ msgstr "Svaret på paringen ble ikke levert."
+
+#~ msgid "Bluetooth pairing"
+#~ msgstr "Bluetooth-paring"
+
+#~ msgid "The password was not delivered."
+#~ msgstr "Passordet ble ikke levert."
+
+#~ msgid "Network password"
+#~ msgstr "Nettverkspassord"
+
+#~ msgid "Could not answer the request"
+#~ msgstr "Kunne ikke svare på forespørselen"
+
+#~ msgid "{entered} of 6 entered"
+#~ msgstr "{entered} av 6 skrevet inn"
+
+#~ msgid ""
+#~ "This panel could not register a pairing agent, so it cannot pair. Devices "
+#~ "that are already paired still connect."
+#~ msgstr ""
+#~ "Panelet kunne ikke registrere en paringsagent og kan derfor ikke pare. "
+#~ "Enheter som allerede er paret, kobler fortsatt til."
+
+#~ msgid "The network needs a password before this computer can join it."
+#~ msgstr "Nettverket krever et passord før denne datamaskinen kan koble til."
+
+#~ msgid "Suspend this session?"
+#~ msgstr "Sette denne økten i hvilemodus?"
+
+#~ msgid "Restart this computer?"
+#~ msgstr "Starte denne datamaskinen på nytt?"
+
+#~ msgid "Shut down this computer?"
+#~ msgstr "Slå av denne datamaskinen?"
+
+#~ msgid "{file} already sets the wallpaper image."
+#~ msgstr "{file} angir allerede bakgrunnsbildet."
+
+#~ msgid "OK"
+#~ msgstr "OK"
+
+#~ msgid "Enter the PIN"
+#~ msgstr "Skriv inn PIN-koden"
+
+#~ msgid "Enter the passkey"
+#~ msgstr "Skriv inn tilgangsnøkkelen"
+
+#~ msgid "Type the passkey shown on {device}."
+#~ msgstr "Skriv inn tilgangsnøkkelen som vises på {device}."
+
+#~ msgid "Confirm the code"
+#~ msgstr "Bekreft koden"
+
+#~ msgid "Allow pairing"
+#~ msgstr "Tillat paring"
+
+#~ msgid "Type this PIN"
+#~ msgstr "Skriv inn denne PIN-koden"
+
+#~ msgid ""
+#~ "Type this PIN on {device}. It will not ask again.\n"
+#~ "\n"
+#~ "{code}"
+#~ msgstr ""
+#~ "Skriv inn denne PIN-koden på {device}. Det spørres ikke igjen.\n"
+#~ "\n"
+#~ "{code}"
+
+#~ msgid "Type this passkey"
+#~ msgstr "Skriv inn denne tilgangsnøkkelen"
+
+#~ msgid ""
+#~ "Type this passkey on {device}.\n"
+#~ "\n"
+#~ "{code}"
+#~ msgstr ""
+#~ "Skriv inn denne tilgangsnøkkelen på {device}.\n"
+#~ "\n"
+#~ "{code}"
+
+#~ msgid "1 to 16 letters or digits"
+#~ msgstr "1 til 16 bokstaver eller sifre"
+
+#~ msgid "Up to 999999"
+#~ msgstr "Opptil 999999"
+
+#~ msgid "{network} refused it. Check it and try again."
+#~ msgstr "{network} avviste det. Sjekk det og prøv igjen."
+
+#~ msgid "Enter the password for {network}"
+#~ msgstr "Skriv inn passordet for {network}"
 
 #~ msgid "{network} refused that password. Check it and try again."
 #~ msgstr "{network} avviste passordet. Sjekk det og prøv igjen."
@@ -3577,9 +3876,6 @@ msgstr ""
 
 #~ msgid "Connected"
 #~ msgstr "Tilkoblet"
-
-#~ msgid "{name} wants to pair"
-#~ msgstr "{name} vil pares"
 
 #~ msgid "{name} · {state}"
 #~ msgstr "{name} · {state}"

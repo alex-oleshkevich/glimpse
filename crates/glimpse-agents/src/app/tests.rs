@@ -392,6 +392,224 @@ fn network_ask(key: &str) -> (Ask, oneshot::Receiver<network::Answer>) {
     )
 }
 
+fn session_request(
+    action: crate::session::Action,
+) -> (Input, oneshot::Receiver<zbus::fdo::Result<()>>) {
+    let (reply, answer) = oneshot::channel();
+    (
+        Input::SessionRequest(crate::session::Request { action, reply }),
+        answer,
+    )
+}
+
+#[tokio::test]
+async fn session_confirmation_cancellation_auth_precedence_and_stale_responses_never_execute() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let server = bus.connection().await;
+    let backend = crate::session::tests::backend(&server).await;
+    let (sender, _receiver) = relm4::channel();
+    let mut app = super::App::headless(
+        tokio::runtime::Handle::current(),
+        sender.clone(),
+        bus.connection().await,
+        None,
+    );
+    for cancellation in 0..5 {
+        app.drive(Input::Locked(false), &sender);
+        let (request, mut answer) = session_request(crate::session::Action::Reboot);
+        app.drive(request, &sender);
+        assert!(answer.try_recv().expect("admission").is_ok());
+        let id = app.session.pending.as_ref().expect("pending").id;
+        app.drive(
+            Input::SessionReady {
+                id,
+                view: Ok(super::view_for(&Prompt::Secret(wifi(false)), None)),
+            },
+            &sender,
+        );
+        match cancellation {
+            0 => app.drive(
+                Input::SessionResponse {
+                    id,
+                    response: Response::Cancel,
+                },
+                &sender,
+            ),
+            1 => app.drive(Input::Locked(true), &sender),
+            2 => app.drive(Input::LockUnknown, &sender),
+            3 => {
+                app.drive(Input::SessionFocus { id, active: true }, &sender);
+                app.drive(Input::SessionFocus { id, active: false }, &sender);
+            }
+            _ => app.drive(Input::SessionFocusTimeout(id), &sender),
+        }
+        assert!(app.session.pending.is_none());
+        app.drive(
+            Input::SessionResponse {
+                id,
+                response: confirm(""),
+            },
+            &sender,
+        );
+        assert!(!app.session.executing);
+    }
+    app.drive(Input::Locked(false), &sender);
+    let (request, mut answer) = session_request(crate::session::Action::PowerOff);
+    app.drive(request, &sender);
+    assert!(answer.try_recv().expect("admission").is_ok());
+    let id = app.session.pending.as_ref().expect("pending").id;
+    let (ask, _answer) = network_ask("authentication");
+    app.drive(Input::Ask(ask), &sender);
+    assert!(app.session.pending.is_none());
+    assert!(app.showing());
+    let (request, mut answer) = session_request(crate::session::Action::PowerOff);
+    app.drive(request, &sender);
+    assert!(matches!(
+        answer.try_recv(),
+        Ok(Err(zbus::fdo::Error::LimitsExceeded(_)))
+    ));
+    app.drive(
+        Input::SessionResponse {
+            id,
+            response: confirm(""),
+        },
+        &sender,
+    );
+    app.drive(
+        Input::SessionReady {
+            id,
+            view: Ok(super::view_for(&Prompt::Secret(wifi(false)), None)),
+        },
+        &sender,
+    );
+    app.drive(
+        Input::Dialog {
+            source: Source::Network,
+            key: "authentication".into(),
+            response: Response::Cancel,
+        },
+        &sender,
+    );
+    assert!(app.session.pending.is_none());
+    assert!(!app.session.executing);
+    assert!(backend.calls.lock().expect("calls").is_empty());
+}
+
+#[tokio::test]
+async fn session_confirm_consumes_the_slot_and_executes_once_until_completion() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let server = bus.connection().await;
+    let backend = crate::session::tests::backend(&server).await;
+    let (sender, receiver) = relm4::channel();
+    let mut app = super::App::headless(
+        tokio::runtime::Handle::current(),
+        sender.clone(),
+        bus.connection().await,
+        None,
+    );
+    app.drive(Input::Locked(false), &sender);
+    let (request, mut answer) = session_request(crate::session::Action::PowerOff);
+    app.drive(request, &sender);
+    assert!(answer.try_recv().expect("admission").is_ok());
+    let id = app.session.pending.as_ref().expect("pending").id;
+    let ready = tokio::time::timeout(std::time::Duration::from_secs(3), receiver.recv())
+        .await
+        .expect("prepare deadline")
+        .expect("ready");
+    app.drive(ready, &sender);
+    assert!(
+        app.session
+            .pending
+            .as_ref()
+            .expect("pending")
+            .view
+            .is_some()
+    );
+    assert!(backend.calls.lock().expect("calls").is_empty());
+    app.drive(
+        Input::SessionResponse {
+            id,
+            response: confirm(""),
+        },
+        &sender,
+    );
+    assert!(app.session.pending.is_none());
+    assert!(app.session_surface.is_none());
+    assert!(app.session.executing);
+    app.drive(
+        Input::SessionResponse {
+            id,
+            response: confirm(""),
+        },
+        &sender,
+    );
+    let (request, mut answer) = session_request(crate::session::Action::Reboot);
+    app.drive(request, &sender);
+    assert!(matches!(
+        answer.try_recv(),
+        Ok(Err(zbus::fdo::Error::LimitsExceeded(_)))
+    ));
+    let done = tokio::time::timeout(std::time::Duration::from_secs(3), receiver.recv())
+        .await
+        .expect("execution deadline")
+        .expect("done");
+    app.drive(done, &sender);
+    assert!(!app.session.executing);
+    assert_eq!(
+        *backend.calls.lock().expect("calls"),
+        [("power-off".into(), true)]
+    );
+    app.drive(Input::SessionDone(Err("failure".into())), &sender);
+    assert!(!app.session.executing);
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn session_overlay_is_destroyed_before_a_confirmed_action() {
+    use adw::prelude::*;
+    gtk4::init().expect("display");
+    adw::init().expect("libadwaita");
+    crate::dialog::register_resources().expect("resources");
+    let runtime = tokio::runtime::Runtime::new().expect("runtime");
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let (sender, receiver) = relm4::channel();
+    let mut app = super::App::headless(
+        runtime.handle().clone(),
+        sender.clone(),
+        runtime.block_on(bus.connection()),
+        None,
+    );
+    app.drive(Input::Locked(false), &sender);
+    let (request, mut answer) = session_request(crate::session::Action::Reboot);
+    app.drive(request, &sender);
+    assert!(answer.try_recv().expect("admission").is_ok());
+    let id = app.session.pending.as_ref().expect("pending").id;
+    app.drive(
+        Input::SessionReady {
+            id,
+            view: Ok(super::view_for(&Prompt::Secret(wifi(false)), None)),
+        },
+        &sender,
+    );
+    let window = gtk4::Window::new();
+    let dialog = crate::dialog::AgentDialog::new();
+    window.present();
+    app.session_surface = Some(super::Surface::new(window.clone(), dialog.clone()));
+    app.drive(
+        Input::SessionResponse {
+            id,
+            response: confirm(""),
+        },
+        &sender,
+    );
+    assert!(app.session.executing);
+    assert!(app.session_surface.is_none());
+    assert!(!window.is_visible());
+    assert!(!dialog.is_sensitive());
+    assert!(app.session.pending.is_none());
+    drop(receiver);
+}
+
 #[tokio::test]
 async fn headless_dismissal_answers_without_a_glib_timer() {
     let bus = glimpse_dbus::testing::PrivateBus::start();

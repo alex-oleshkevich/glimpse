@@ -4,10 +4,12 @@ use futures_util::{Stream, StreamExt, stream};
 use glimpse_dbus::login1::{
     Login1InhibitorEntry, Login1ManagerProxy, Login1SessionProxy, session_path,
 };
+use glimpse_dbus::session::SessionProxy;
 use glimpse_dbus::systemd1::{Systemd1ManagerProxy, Systemd1UnitProxy};
-use glimpse_dbus::wake;
+use glimpse_dbus::{DEADLINE, wake};
 use glimpse_utils::clean;
 use tokio::sync::oneshot;
+use zbus::proxy::CacheProperties;
 
 use crate::{
     CommandError, CompositorHandle, Ctx, Input, NoConfig, Publisher, Service, ServiceEndpoint, Sub,
@@ -56,7 +58,8 @@ pub struct Inhibitor {
 
 impl Inhibitor {
     pub fn blocks(&self, what: &str) -> bool {
-        self.what.split(':').any(|held| held == what)
+        matches!(self.mode.as_str(), "block" | "block-weak")
+            && self.what.split(':').any(|held| held == what)
     }
 }
 
@@ -97,7 +100,10 @@ pub enum Action {
 
 impl Action {
     pub fn confirm(&self) -> bool {
-        !matches!(self, Self::Lock)
+        matches!(
+            self,
+            Self::Hibernate | Self::LogOut | Self::Reboot | Self::PowerOff
+        )
     }
 
     pub fn inhibits(&self) -> Option<&'static str> {
@@ -214,6 +220,36 @@ impl Service for SessionActions {
 
 impl SessionActions {
     fn run(
+        &self,
+        ctx: &Ctx<Self>,
+        action: Action,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    ) {
+        match action {
+            Action::Reboot => self.admit(ctx, "reboot", reply),
+            Action::PowerOff => self.admit(ctx, "power-off", reply),
+            action => self.invoke_locally(ctx, action, reply),
+        }
+    }
+
+    fn admit(
+        &self,
+        ctx: &Ctx<Self>,
+        action: &'static str,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    ) {
+        let Ok(bus) = ctx.session_bus().cloned() else {
+            let _ = reply.send(Err(CommandError::Unavailable(
+                "no session bus for session actions".to_owned(),
+            )));
+            return;
+        };
+        ctx.spawn_detached(move |_ctx| async move {
+            let _ = reply.send(admit(&bus, action).await);
+        });
+    }
+
+    fn invoke_locally(
         &self,
         ctx: &Ctx<Self>,
         action: Action,
@@ -417,8 +453,11 @@ async fn invoke(bus: &zbus::Connection, action: Action) -> Result<(), CommandErr
                 .terminate_session(&current_session_id(bus, &manager).await?)
                 .await
         }
-        Action::Reboot => manager.reboot(true).await,
-        Action::PowerOff => manager.power_off(true).await,
+        Action::Reboot | Action::PowerOff => {
+            return Err(CommandError::Unavailable(
+                "reboot and power-off are admitted by agents".to_owned(),
+            ));
+        }
     }
     .map_err(|error| CommandError::Internal(error.to_string()))
 }
@@ -446,7 +485,7 @@ async fn current_session_id(
 fn inhibitors(entries: Vec<Login1InhibitorEntry>) -> Vec<Inhibitor> {
     entries
         .into_iter()
-        .filter(|(_, _, _, mode, _, _)| mode == "block" || mode == "delay")
+        .filter(|(_, _, _, mode, _, _)| matches!(mode.as_str(), "block" | "block-weak" | "delay"))
         .take(INHIBITOR_MAX)
         .map(|(what, who, why, mode, _, _)| Inhibitor {
             what: clean(&what, TEXT_MAX),
@@ -455,6 +494,39 @@ fn inhibitors(entries: Vec<Login1InhibitorEntry>) -> Vec<Inhibitor> {
             mode: clean(&mode, TEXT_MAX),
         })
         .collect()
+}
+
+async fn admit(bus: &zbus::Connection, action: &str) -> Result<(), CommandError> {
+    let admitted = async {
+        let proxy = SessionProxy::builder(bus)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        proxy.request_action(action).await
+    };
+    match tokio::time::timeout(DEADLINE, admitted).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(error)) => Err(admission_error(error)),
+        Err(_) => Err(CommandError::Unavailable(
+            "agents did not admit the session action".to_owned(),
+        )),
+    }
+}
+
+fn admission_error(error: zbus::Error) -> CommandError {
+    let zbus::Error::MethodError(name, detail, _) = error else {
+        return CommandError::Unavailable(error.to_string());
+    };
+    let message = detail.unwrap_or_else(|| name.to_string());
+    match name.as_str() {
+        "org.freedesktop.DBus.Error.InvalidArgs" => CommandError::InvalidArgument(message),
+        "org.freedesktop.DBus.Error.LimitsExceeded" => CommandError::LimitExceeded(message),
+        "org.freedesktop.DBus.Error.AccessDenied"
+        | "org.freedesktop.DBus.Error.ServiceUnknown"
+        | "org.freedesktop.DBus.Error.NameHasNoOwner"
+        | "org.freedesktop.DBus.Error.Failed" => CommandError::Unavailable(message),
+        _ => CommandError::Internal(message),
+    }
 }
 
 fn signed_in(timestamp: u64) -> Option<u64> {

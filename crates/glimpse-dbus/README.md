@@ -30,6 +30,7 @@ connections they run on.
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
 | `night_light`             | session | the Glimpse night light provider         |
+| `session`                 | session | agents admission of reboot and power-off |
 
 ## Rules
 

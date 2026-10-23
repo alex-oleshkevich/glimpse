@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-20 18:27+0200\n"
+"POT-Creation-Date: 2026-10-23 15:51+0200\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,6 +16,358 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:39
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:37
+#, fuzzy
+#| msgid "{count}m"
+msgid "Account"
+msgstr "{count} 分钟"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:47
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:36
+msgid "Username"
+msgstr ""
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:63
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
+#: crates/glimpse-panel/src/applets/network/render.rs:278
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:41
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:45
+msgid "Connect automatically"
+msgstr "自动连接"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:69
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:41
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:41
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:54
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:47
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:41
+msgid "Details"
+msgstr "详细信息"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:102
+#: crates/glimpse-agents/src/app/view.rs:40
+#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
+#: crates/glimpse-shot/src/gui/result.rs:962
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
+#: crates/glimpse-widgets/blueprints/network_popover.blp:160
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
+#: docs/plans/glimpse-agents/agents_bt_1.blp:45
+#: docs/plans/glimpse-agents/agents_bt_2.blp:50
+#: docs/plans/glimpse-agents/agents_bt_3.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:71
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:71
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:84
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:77
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:85
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:81
+#: docs/plans/glimpse-agents/agents_session_1.blp:35
+#: docs/plans/glimpse-agents/agents_session_2.blp:35
+#: docs/plans/glimpse-agents/agents_session_3.blp:35
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:54
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:58
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:53
+msgid "Cancel"
+msgstr "取消"
+
+#: crates/glimpse-agents/blueprints/agent_dialog.blp:110
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:117
+msgid "Confirm"
+msgstr "确认"
+
+#: crates/glimpse-agents/src/app/view.rs:57
+#: crates/glimpse-agents/src/app/view.rs:86
+#: crates/glimpse-agents/src/app/view.rs:106
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:50
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:37
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:37
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:37
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:37
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:41
+msgid "Password"
+msgstr "密码"
+
+#: crates/glimpse-agents/src/app/view.rs:61
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:45
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:58
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:51
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:49
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:45
+#, fuzzy
+#| msgid "Location"
+msgid "Action"
+msgstr "地点"
+
+#: crates/glimpse-agents/src/app/view.rs:75
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:79
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:79
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:92
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:85
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:93
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:89
+msgid "Authorize"
+msgstr ""
+
+#: crates/glimpse-agents/src/app/view.rs:78
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:17
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:17
+#, fuzzy
+#| msgid "Authentication failed"
+msgid "Authentication needed"
+msgstr "认证失败"
+
+#: crates/glimpse-agents/src/app/view.rs:90
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:18
+#, fuzzy
+#| msgid "That password did not work"
+msgid "That password didn't work"
+msgstr "密码不正确"
+
+#: crates/glimpse-agents/src/app/view.rs:92
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:66
+msgid "Try again"
+msgstr "重试"
+
+#: crates/glimpse-agents/src/app/view.rs:93
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:62
+#, fuzzy
+#| msgid "Join Zoom"
+msgid "Join"
+msgstr "加入 Zoom"
+
+#: crates/glimpse-agents/src/app/view.rs:97
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Join “{name}”"
+msgstr "已保存“{name}”"
+
+#: crates/glimpse-agents/src/app/view.rs:98
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:18
+#, fuzzy
+#| msgid "That network needs a password."
+msgid "The network needs a password"
+msgstr "该网络需要密码。"
+
+#: crates/glimpse-agents/src/app/view.rs:107
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:248
+#: crates/glimpse-panel/src/applets/network/indicator.rs:192
+#: crates/glimpse-panel/src/applets/network/render.rs:250
+#: crates/glimpse-widgets/blueprints/network_popover.blp:164
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:61
+msgid "Connect"
+msgstr "连接"
+
+#: crates/glimpse-agents/src/app/view.rs:110
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Sign in to “{name}”"
+msgstr "已保存“{name}”"
+
+#: crates/glimpse-agents/src/app/view.rs:118
+msgid "this device"
+msgstr "此设备"
+
+#: crates/glimpse-agents/src/app/view.rs:121
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Pair with “{name}”"
+msgstr "已保存“{name}”"
+
+#: crates/glimpse-agents/src/app/view.rs:126
+#: crates/glimpse-agents/src/app/view.rs:134
+#: crates/glimpse-agents/src/app/view.rs:142
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:250
+#: docs/plans/glimpse-agents/agents_bt_1.blp:53
+#: docs/plans/glimpse-agents/agents_bt_2.blp:58
+msgid "Pair"
+msgstr "配对"
+
+#: crates/glimpse-agents/src/app/view.rs:128
+#, fuzzy
+#| msgid "Saved “{name}”"
+msgid "Pair with “{name}”?"
+msgstr "已保存“{name}”"
+
+#: crates/glimpse-agents/src/app/view.rs:129
+msgid "Check that the device shows the same code"
+msgstr ""
+
+#: crates/glimpse-agents/src/app/view.rs:133
+#: docs/plans/glimpse-agents/agents_bt_2.blp:37
+#, fuzzy
+#| msgid "VPN"
+msgid "PIN"
+msgstr "VPN"
+
+#: crates/glimpse-agents/src/app/view.rs:137
+#: docs/plans/glimpse-agents/agents_bt_2.blp:18
+msgid "Enter the PIN from the device's manual — often 0000"
+msgstr ""
+
+#: crates/glimpse-agents/src/app/view.rs:141
+#, fuzzy
+#| msgid "Codec"
+msgid "Code"
+msgstr "编解码器"
+
+#: crates/glimpse-agents/src/app/view.rs:143
+#, fuzzy
+#| msgid ""
+#| "Is this the code shown on {device}?\n"
+#| "\n"
+#| "{code}"
+msgid "Enter the code shown on the device"
+msgstr ""
+"这是 {device} 上显示的代码吗?\n"
+"\n"
+"{code}"
+
+#: crates/glimpse-agents/src/app/view.rs:149
+#: crates/glimpse-agents/src/app/view.rs:156
+#, fuzzy
+#| msgid "Type the PIN shown on {device}, then press OK."
+msgid "Type this code on the device, then press Enter"
+msgstr "请输入 {device} 上显示的 PIN 码，然后按“确定”。"
+
+#: crates/glimpse-agents/src/app/view.rs:160
+#: docs/plans/glimpse-agents/agents_bt_4.blp:43
+msgid "Allow"
+msgstr "允许"
+
+#: crates/glimpse-agents/src/app/view.rs:161
+#: docs/plans/glimpse-agents/agents_bt_4.blp:35
+msgid "Deny"
+msgstr "拒绝"
+
+#: crates/glimpse-agents/src/app/view.rs:163
+#, fuzzy
+#| msgid "{name} wants to pair"
+msgid "“{name}” wants to connect"
+msgstr "{name} 请求配对"
+
+#: crates/glimpse-agents/src/app/view.rs:164
+#: docs/plans/glimpse-agents/agents_bt_4.blp:18
+#, fuzzy
+#| msgid "{device} wants to pair with this computer."
+msgid "It has never been paired with this computer"
+msgstr "{device} 想与这台计算机配对。"
+
+#: crates/glimpse-agents/src/polkit/agent.rs:158
+msgid ""
+"Another authentication agent is running; glimpse can't ask for admin "
+"passwords"
+msgstr ""
+
+#: crates/glimpse-agents/src/polkit/mod.rs:132
+#: crates/glimpse-panel/src/applets/command.rs:87
+msgid "Command"
+msgstr "命令"
+
+#: crates/glimpse-agents/src/polkit/mod.rs:227
+#: crates/glimpse-lock/src/auth.rs:27
+msgid "Wrong password"
+msgstr "密码错误"
+
+#: crates/glimpse-agents/src/polkit/mod.rs:238
+#: crates/glimpse-agents/src/polkit/mod.rs:239
+#: crates/glimpse-agents/src/polkit/mod.rs:400
+#, fuzzy
+#| msgid "Can't verify passwords. Run glimpse-lock check."
+msgid "Can't verify passwords"
+msgstr "无法验证密码。请运行 glimpse-lock check。"
+
+#: crates/glimpse-agents/src/session.rs:46
+msgid "The requested power action is unavailable or inhibited"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:53
+#: crates/glimpse-panel/src/applets/exec/mod.rs:391
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+#: docs/plans/glimpse-agents/agents_session_2.blp:43
+msgid "Restart"
+msgstr "重启"
+
+#: crates/glimpse-agents/src/session.rs:53
+#: docs/plans/glimpse-agents/agents_session_2.blp:17
+#, fuzzy
+#| msgid "Restart"
+msgid "Restart?"
+msgstr "重启"
+
+#: crates/glimpse-agents/src/session.rs:54
+#: docs/plans/glimpse-agents/agents_session_1.blp:43
+#, fuzzy
+#| msgid "Power Off"
+msgid "Power off"
+msgstr "关机"
+
+#: crates/glimpse-agents/src/session.rs:54
+#: docs/plans/glimpse-agents/agents_session_1.blp:17
+#, fuzzy
+#| msgid "Power Off"
+msgid "Power off?"
+msgstr "关机"
+
+#: crates/glimpse-agents/src/session.rs:59
+#: docs/plans/glimpse-agents/agents_session_1.blp:18
+#: docs/plans/glimpse-agents/agents_session_2.blp:18
+#: docs/plans/glimpse-agents/agents_session_3.blp:18
+msgid "Unsaved work in open apps may be lost"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:177
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
+msgid "Delay"
+msgstr "延迟"
+
+#: crates/glimpse-agents/src/session.rs:178
+#, fuzzy
+#| msgid "Blocked"
+msgid "Block"
+msgstr "已禁用"
+
+#: crates/glimpse-agents/src/session.rs:182
+#, fuzzy
+#| msgid "An application"
+msgid "{kind}: {application}"
+msgstr "某个应用"
+
+#: crates/glimpse-agents/src/session.rs:206
+#: crates/glimpse-agents/src/session.rs:228
+#: crates/glimpse-agents/src/session.rs:237
+#, fuzzy
+#| msgid "The drive did not respond in time."
+msgid "The power service did not answer in time"
+msgstr "驱动器未及时响应。"
+
+#: crates/glimpse-agents/src/session.rs:223
+msgid "The session is locked"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:241
+#, fuzzy
+#| msgid "External applet action failed."
+msgid "The power action failed"
+msgstr "外部小程序操作失败。"
+
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"
@@ -24,10 +376,6 @@ msgstr[0] "总长 {length}px，{count} 段"
 #: crates/glimpse-lens/src/session.rs:252
 msgid "segment {length}px · {angle}°"
 msgstr "线段 {length}px · {angle}°"
-
-#: crates/glimpse-lock/src/auth.rs:27
-msgid "Wrong password"
-msgstr "密码错误"
 
 #: crates/glimpse-lock/src/auth.rs:29
 msgid "Too many attempts"
@@ -124,78 +472,23 @@ msgstr "无法关机"
 msgid "Blocked by {who}: {why}"
 msgstr "已被 {who} 阻止：{why}"
 
-#: crates/glimpse-notifications/src/app.rs:467
+#: crates/glimpse-notifications/src/app.rs:501
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "刚刚"
 
-#: crates/glimpse-panel/src/app.rs:382
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:271
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:296
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
-msgid "Bluetooth"
-msgstr "蓝牙"
-
-#: crates/glimpse-panel/src/app.rs:383
-msgid "The pairing answer was not delivered."
-msgstr "配对的回应未送达。"
-
-#: crates/glimpse-panel/src/app.rs:387
-msgid "Bluetooth pairing"
-msgstr "蓝牙配对"
-
-#: crates/glimpse-panel/src/app.rs:433
-#: crates/glimpse-panel/src/applets/network/indicator.rs:99
-#: crates/glimpse-widgets/blueprints/places_popover.blp:51
-msgid "Network"
-msgstr "网络"
-
-#: crates/glimpse-panel/src/app.rs:434
-msgid "The password was not delivered."
-msgstr "密码未送达。"
-
-#: crates/glimpse-panel/src/app.rs:438
-msgid "Network password"
-msgstr "网络密码"
-
-#: crates/glimpse-panel/src/app.rs:450
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:122
-#: crates/glimpse-shot/src/gui/result.rs:973
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
-#: crates/glimpse-widgets/blueprints/network_popover.blp:164
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:103
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:144
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:145
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:147
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
-msgid "Cancel"
-msgstr "取消"
-
-#: crates/glimpse-panel/src/app.rs:513
+#: crates/glimpse-panel/src/app.rs:379
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "会话"
 
-#: crates/glimpse-panel/src/app.rs:515
+#: crates/glimpse-panel/src/app.rs:381
 msgid "Could not complete the session action"
 msgstr "无法完成会话操作"
 
-#: crates/glimpse-panel/src/app.rs:517
+#: crates/glimpse-panel/src/app.rs:383
 msgid "The session manager refused that action."
 msgstr "会话管理器拒绝了该操作。"
-
-#: crates/glimpse-panel/src/app.rs:527
-msgid "Could not answer the request"
-msgstr "无法回应该请求"
-
-#: crates/glimpse-panel/src/app.rs:600
-msgid "this device"
-msgstr "此设备"
 
 #: crates/glimpse-panel/src/applet/mod.rs:163
 msgid "That change was refused."
@@ -345,7 +638,7 @@ msgstr "无法更改音量"
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:489
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:156
 #: crates/glimpse-panel/src/applets/display/indicator.rs:379
-#: crates/glimpse-panel/src/applets/network/indicator.rs:424
+#: crates/glimpse-panel/src/applets/network/indicator.rs:372
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:105
 msgid "Could not change that setting"
 msgstr "无法更改该设置"
@@ -391,7 +684,7 @@ msgid "Input"
 msgstr "输入"
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:338
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:219
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:191
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
 #: crates/glimpse-panel/src/applets/places/render.rs:49
 msgid "Show fewer"
@@ -410,7 +703,7 @@ msgstr "已静音"
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:359
+#: crates/glimpse-widgets/src/lib.rs:381
 msgid "{percent}%"
 msgstr "{percent}%"
 
@@ -424,11 +717,10 @@ msgid "Could not switch Bluetooth"
 msgstr "无法切换蓝牙"
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:99
-#: crates/glimpse-panel/src/applets/network/indicator.rs:346
-#: crates/glimpse-panel/src/applets/network/indicator.rs:354
-#: crates/glimpse-panel/src/applets/network/indicator.rs:362
-#: crates/glimpse-panel/src/applets/network/indicator.rs:466
-#: crates/glimpse-panel/src/applets/network/indicator.rs:477
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
+#: crates/glimpse-panel/src/applets/network/indicator.rs:302
+#: crates/glimpse-panel/src/applets/network/indicator.rs:310
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
 msgid "Could not connect"
 msgstr "无法连接"
 
@@ -437,7 +729,7 @@ msgid "Could not pair"
 msgstr "无法配对"
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:123
-#: crates/glimpse-panel/src/applets/network/indicator.rs:385
+#: crates/glimpse-panel/src/applets/network/indicator.rs:333
 msgid "Could not disconnect"
 msgstr "无法断开连接"
 
@@ -445,6 +737,13 @@ msgstr "无法断开连接"
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:177
 msgid "Could not remove the device"
 msgstr "无法移除设备"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:271
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:296
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "蓝牙"
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
 msgid "Bluetooth is blocked"
@@ -475,15 +774,11 @@ msgid "{count} device connected"
 msgid_plural "{count} devices connected"
 msgstr[0] "已连接 {count} 个设备"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:84
-msgid "{entered} of 6 entered"
-msgstr "已输入 {entered}/6"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:104
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:81
 msgid "Bluetooth is waiting for an answer"
 msgstr "蓝牙正在等待响应"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:114
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:91
 msgid ""
 "It will be disconnected, and this computer will stop connecting to it. To "
 "use it again you will have to pair it, with the device in pairing mode."
@@ -491,7 +786,7 @@ msgstr ""
 "设备将断开连接，此计算机也不会再连接它。如需再次使用，请将设备置于配对模式并"
 "重新配对。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:117
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:94
 msgid ""
 "This computer will stop connecting to it, and it will not connect on its "
 "own. To use it again you will have to pair it, with the device in pairing "
@@ -500,156 +795,130 @@ msgstr ""
 "此计算机将不再连接它，它也不会自动连接。如需再次使用，请将设备置于配对模式并"
 "重新配对。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:120
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:97
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:290
 msgid "Forget"
 msgstr "忘记"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:131
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:108
 msgid "Unknown device"
 msgstr "未知设备"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:198
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:220
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
 msgid "{count} more device"
 msgid_plural "{count} more devices"
 msgstr[0] "还有 {count} 个设备"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:239
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:211
 msgid "{level}%"
 msgstr "{level}%"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:246
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:218
 msgid "Blocked"
 msgstr "已禁用"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:249
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:221
 msgid "Pairing lost"
 msgstr "配对已失效"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:252
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:224
 msgid "Pairing will not survive a restart"
 msgstr "重启后配对将失效"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:259
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:231
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
 #: crates/glimpse-panel/src/applets/network/render.rs:323
 msgid "Type"
 msgstr "类型"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:260
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:232
 #: crates/glimpse-panel/src/applets/power/render.rs:111
 #: crates/glimpse-widgets/blueprints/power_popover.blp:41
 msgid "Battery"
 msgstr "电池"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:234
 msgid "Codec"
 msgstr "编解码器"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:274
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:246
 #: crates/glimpse-panel/src/applets/network/render.rs:242
 msgid "Disconnect"
 msgstr "断开连接"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:276
-#: crates/glimpse-panel/src/applets/network/indicator.rs:228
-#: crates/glimpse-panel/src/applets/network/indicator.rs:237
-#: crates/glimpse-panel/src/applets/network/render.rs:250
-#: crates/glimpse-widgets/blueprints/network_popover.blp:168
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
-msgid "Connect"
-msgstr "连接"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:278
-msgid "Pair"
-msgstr "配对"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:290
-#: crates/glimpse-panel/src/applets/network/render.rs:278
-#: crates/glimpse-widgets/blueprints/network_row.blp:25
-msgid "Connect automatically"
-msgstr "自动连接"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:298
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:270
 msgid "Forget this device"
 msgstr "忘记此设备"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:314
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
 msgid "The device is switched off or out of range."
 msgstr "设备已关闭或不在范围内。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:287
 msgid "The device refused the connection."
 msgstr "设备拒绝了连接。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:316
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:288
 msgid "The device offers nothing this computer can connect to."
 msgstr "该设备没有此计算机可连接的服务。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:317
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:289
 msgid "The PIN or passkey did not match."
 msgstr "PIN 码或配对码不匹配。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:291
 msgid "The device rejected the pairing. Put it in pairing mode and try again."
 msgstr "设备拒绝了配对。请让设备进入配对模式后重试。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:321
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:293
 msgid "The pairing timed out."
 msgstr "配对超时。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:322
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:294
 msgid "The pairing was cancelled."
 msgstr "配对已取消。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:324
-msgid ""
-"This panel could not register a pairing agent, so it cannot pair. Devices "
-"that are already paired still connect."
-msgstr "此面板无法注册配对代理，因此无法配对。已配对的设备仍可连接。"
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:295
 msgid "The device is busy, possibly connected to another device."
 msgstr "设备正忙，可能已连接到其他设备。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:327
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:296
 msgid "Bluetooth is switched off."
 msgstr "蓝牙已关闭。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:297
 msgid "The device disconnected."
 msgstr "设备已断开连接。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:298
 msgid "The pairing with this device is no longer valid."
 msgstr "与此设备的配对已失效。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:300
 msgid ""
 "This computer could not open a connection to the device. Try again, or "
 "switch Bluetooth off and on."
 msgstr "此计算机无法与该设备建立连接。请重试，或将蓝牙关闭后再打开。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:333
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:302
 msgid "Bluetooth could not complete that."
 msgstr "蓝牙无法完成该操作。"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
 msgid "Headset"
 msgstr "耳麦"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:357
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
 msgid "Headphones"
 msgstr "耳机"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:358
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:327
 msgid "Speaker"
 msgstr "扬声器"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:359
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
 #: crates/glimpse-panel/src/applets/display/render.rs:78
 #: crates/glimpse-panel/src/applets/display/render/tests.rs:195
 #: crates/glimpse-panel/src/applets/keyboard/indicator.rs:101
@@ -657,41 +926,41 @@ msgstr "扬声器"
 msgid "Keyboard"
 msgstr "键盘"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:360
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:329
 msgid "Mouse"
 msgstr "鼠标"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:361
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:330
 msgid "Gamepad"
 msgstr "游戏手柄"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:362
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
 msgid "Tablet"
 msgstr "平板"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:363
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:332
 msgid "Phone"
 msgstr "手机"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:333
 msgid "Computer"
 msgstr "计算机"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:365
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:334
 #: crates/glimpse-widgets/blueprints/display_popover.blp:12
 msgid "Display"
 msgstr "显示器"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:366
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:335
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:154
 msgid "Printer"
 msgstr "打印机"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:367
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:336
 msgid "Device"
 msgstr "设备"
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:351
 msgid "Vendor codec"
 msgstr "厂商编解码器"
 
@@ -847,10 +1116,6 @@ msgstr "明天"
 msgid "Yesterday"
 msgstr "昨天"
 
-#: crates/glimpse-panel/src/applets/command.rs:87
-msgid "Command"
-msgstr "命令"
-
 #: crates/glimpse-panel/src/applets/command.rs:89
 msgid "Could not run a command"
 msgstr "无法运行命令"
@@ -915,12 +1180,12 @@ msgstr "操作超时。"
 msgid "{name}: {percent}%"
 msgstr "{name}：{percent}%"
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1257
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:406
 msgid "Unsupported: {name}"
 msgstr "不支持：{name}"
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1262
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:411
 msgid "This applet asked for an element glimpse does not render"
 msgstr "此小程序请求了 glimpse 无法渲染的元素"
@@ -949,14 +1214,6 @@ msgstr "外部小程序未运行。"
 #: crates/glimpse-panel/src/applets/exec/mod.rs:385
 msgid "Not running"
 msgstr "未运行"
-
-#: crates/glimpse-panel/src/applets/exec/mod.rs:391
-#: crates/glimpse-panel/src/applets/session/render.rs:75
-#: crates/glimpse-panel/src/applets/session/render.rs:77
-#: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
-msgid "Restart"
-msgstr "重启"
 
 #: crates/glimpse-panel/src/applets/exec/render.rs:19
 #: crates/glimpse-panel/src/applets/exec/render/tests.rs:110
@@ -1056,7 +1313,7 @@ msgid "Preventing idle"
 msgstr "正在阻止空闲"
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:202
-#: crates/glimpse-panel/src/config_alert.rs:110
+#: crates/glimpse-panel/src/config_alert.rs:123
 msgid "Glimpse"
 msgstr "Glimpse"
 
@@ -1095,66 +1352,68 @@ msgstr "已暂停"
 msgid "Stopped"
 msgstr "已停止"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:40
+#: crates/glimpse-panel/src/applets/network/indicator.rs:39
 msgid "None"
 msgstr "无"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:41
+#: crates/glimpse-panel/src/applets/network/indicator.rs:40
 msgid "WEP"
 msgstr "WEP"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:42
+#: crates/glimpse-panel/src/applets/network/indicator.rs:41
 msgid "WPA & WPA2 Personal"
 msgstr "WPA 及 WPA2 个人版"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:43
+#: crates/glimpse-panel/src/applets/network/indicator.rs:42
 msgid "WPA3 Personal"
 msgstr "WPA3 个人版"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:171
+#: crates/glimpse-panel/src/applets/network/indicator.rs:79
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+msgid "Network"
+msgstr "网络"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:151
 #: crates/glimpse-widgets/blueprints/network_popover.blp:16
 #: crates/glimpse-widgets/blueprints/network_popover.blp:54
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:216
+#: crates/glimpse-panel/src/applets/network/indicator.rs:183
 msgid "Hidden network"
 msgstr "隐藏网络"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:217
+#: crates/glimpse-panel/src/applets/network/indicator.rs:184
 msgid "Type the name the network broadcasts nothing about."
 msgstr "该网络不广播名称，请手动输入。"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:219
+#: crates/glimpse-panel/src/applets/network/indicator.rs:185
 msgid "Continue"
 msgstr "继续"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:226
-msgid "Choose how the network is secured, then type its password."
+#: crates/glimpse-panel/src/applets/network/indicator.rs:191
+#, fuzzy
+#| msgid "Choose how the network is secured, then type its password."
+msgid "Choose how the network is secured."
 msgstr "选择网络的安全类型，然后输入密码。"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:235
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
-msgid "The network needs a password before this computer can join it."
-msgstr "需要输入密码才能加入该网络。"
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:259
+#: crates/glimpse-panel/src/applets/network/indicator.rs:213
 msgid "VPN is connected"
 msgstr "VPN 已连接"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:308
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
 msgid "Could not switch Wi-Fi"
 msgstr "无法切换 Wi-Fi"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:338
+#: crates/glimpse-panel/src/applets/network/indicator.rs:286
 msgid "Could not connect the VPN"
 msgstr "无法连接 VPN"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:393
+#: crates/glimpse-panel/src/applets/network/indicator.rs:341
 msgid "Could not forget that network"
 msgstr "无法忘记该网络"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/indicator.rs:349
 msgid "Could not disconnect the VPN"
 msgstr "无法断开 VPN"
 
@@ -1356,7 +1615,7 @@ msgstr "链接"
 msgid "Conflicts"
 msgstr "冲突"
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:214
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:219
 msgid "Clear all"
 msgstr "全部清除"
 
@@ -1422,10 +1681,10 @@ msgstr "部分项目无法删除。"
 msgid "Home"
 msgstr "主文件夹"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:224
-#: crates/glimpse-panel/src/applets/power/mod.rs:246
-#: crates/glimpse-panel/src/applets/power/mod.rs:299
-#: crates/glimpse-panel/src/applets/power/mod.rs:327
+#: crates/glimpse-panel/src/applets/power/mod.rs:214
+#: crates/glimpse-panel/src/applets/power/mod.rs:236
+#: crates/glimpse-panel/src/applets/power/mod.rs:289
+#: crates/glimpse-panel/src/applets/power/mod.rs:317
 #: crates/glimpse-panel/src/applets/power/render.rs:27
 #: crates/glimpse-widgets/blueprints/power_popover.blp:12
 #: crates/glimpse-widgets/blueprints/status_island.blp:34
@@ -1433,16 +1692,16 @@ msgstr "主文件夹"
 msgid "Power"
 msgstr "电源"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:301
+#: crates/glimpse-panel/src/applets/power/mod.rs:291
 msgid "Could not change the power mode"
 msgstr "无法更改电源模式"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:306
-#: crates/glimpse-panel/src/applets/power/mod.rs:334
+#: crates/glimpse-panel/src/applets/power/mod.rs:296
+#: crates/glimpse-panel/src/applets/power/mod.rs:324
 msgid "The battery service is unavailable."
 msgstr "电池服务不可用。"
 
-#: crates/glimpse-panel/src/applets/power/mod.rs:329
+#: crates/glimpse-panel/src/applets/power/mod.rs:319
 msgid "Could not change the charge limit"
 msgstr "无法更改充电上限"
 
@@ -1798,61 +2057,36 @@ msgstr "已被某个程序阻止。"
 
 #: crates/glimpse-panel/src/applets/session/render.rs:60
 #: crates/glimpse-panel/src/applets/session/render.rs:62
-#: crates/glimpse-widgets/blueprints/session_popover.blp:17
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
-msgid "Suspend"
-msgstr "挂起"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:61
-msgid "Suspend this session?"
-msgstr "挂起此会话？"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:65
-#: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:22
 msgid "Hibernate"
 msgstr "休眠"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:66
+#: crates/glimpse-panel/src/applets/session/render.rs:61
 msgid "Hibernate this session?"
 msgstr "休眠此会话？"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:70
-#: crates/glimpse-panel/src/applets/session/render.rs:72
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:33
+#: docs/plans/glimpse-agents/agents_session_3.blp:43
 msgid "Log out"
 msgstr "注销"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:71
+#: crates/glimpse-panel/src/applets/session/render.rs:66
 msgid ""
 "This closes the current session. Applications may not shut down gracefully."
 msgstr "这将关闭当前会话，应用可能无法正常退出。"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:76
-msgid "Restart this computer?"
-msgstr "重启此计算机？"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:80
-#: crates/glimpse-panel/src/applets/session/render.rs:82
-#: crates/glimpse-widgets/blueprints/session_popover.blp:43
-msgid "Shut down"
-msgstr "关机"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:81
-msgid "Shut down this computer?"
-msgstr "关闭此计算机？"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:106
+#: crates/glimpse-panel/src/applets/session/render.rs:94
 msgid "{windows} open window is still running."
 msgid_plural "{windows} open windows are still running."
 msgstr[0] "仍有 {windows} 个窗口未关闭。"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:129
+#: crates/glimpse-panel/src/applets/session/render.rs:117
 msgid "Signed in today"
 msgstr "今天已登录"
 
-#: crates/glimpse-panel/src/applets/session/render.rs:131
+#: crates/glimpse-panel/src/applets/session/render.rs:119
 msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] "已登录 {days} 天"
@@ -2097,18 +2331,32 @@ msgstr "工作区 {number}"
 msgid "Already the name of {workspace}"
 msgstr "{workspace} 已使用此名称"
 
-#: crates/glimpse-panel/src/config_alert.rs:32
+#: crates/glimpse-panel/src/config_alert.rs:36
+#, fuzzy
+#| msgid ""
+#| "Idle and night light are off until it is fixed; everything else uses its "
+#| "defaults."
+msgid ""
+"The panels use their defaults until it is fixed; everything else is as "
+"configured."
+msgstr "修复之前，空闲和夜灯功能保持关闭，其他功能均使用默认设置。"
+
+#: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
 "Idle and night light are off until it is fixed; everything else uses its "
 "defaults."
 msgstr "修复之前，空闲和夜灯功能保持关闭，其他功能均使用默认设置。"
 
-#: crates/glimpse-panel/src/config_alert.rs:38
+#: crates/glimpse-panel/src/config_alert.rs:46
 msgid ""
 "The last change was not applied; the previous configuration is still running."
 msgstr "上次更改未生效，仍在使用之前的配置。"
 
-#: crates/glimpse-panel/src/config_alert.rs:113
+#: crates/glimpse-panel/src/config_alert.rs:51
+msgid "A stylesheet could not be read: {reason}"
+msgstr ""
+
+#: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
 msgstr "Glimpse 配置有错误"
 
@@ -2116,199 +2364,201 @@ msgstr "Glimpse 配置有错误"
 msgid "a screenshot is already being taken"
 msgstr "已在截图"
 
-#: crates/glimpse-shot/src/gui/app.rs:222
+#: crates/glimpse-shot/src/gui/app.rs:215
 msgid "_Open Image…"
 msgstr "打开图像(_O)…"
 
-#: crates/glimpse-shot/src/gui/app.rs:224
+#: crates/glimpse-shot/src/gui/app.rs:217
 msgid "_Preferences"
 msgstr "首选项(_P)"
 
-#: crates/glimpse-shot/src/gui/app.rs:225
+#: crates/glimpse-shot/src/gui/app.rs:218
 msgid "_Keyboard Shortcuts"
 msgstr "键盘快捷键(_K)"
 
-#: crates/glimpse-shot/src/gui/app.rs:226
+#: crates/glimpse-shot/src/gui/app.rs:219
 msgid "_About Screenshot"
 msgstr "关于截图(_A)"
 
-#: crates/glimpse-shot/src/gui/app.rs:376
+#: crates/glimpse-shot/src/gui/app.rs:368
 msgid "--portal needs a screen target"
 msgstr "--portal 需要一个屏幕目标"
 
-#: crates/glimpse-shot/src/gui/app.rs:536
-#: crates/glimpse-shot/src/gui/app.rs:644
-#: crates/glimpse-shot/src/gui/app.rs:896 crates/glimpse-shot/src/notify.rs:284
+#: crates/glimpse-shot/src/gui/app.rs:521
+#: crates/glimpse-shot/src/gui/app.rs:651
+#: crates/glimpse-shot/src/gui/app.rs:935 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr "截图"
 
-#: crates/glimpse-shot/src/gui/app.rs:571
+#: crates/glimpse-shot/src/gui/app.rs:568
 msgid "The clipboard holds no image"
 msgstr "剪贴板中没有图像"
 
-#: crates/glimpse-shot/src/gui/app.rs:768
+#: crates/glimpse-shot/src/gui/app.rs:774
 msgid "There is no window to capture"
 msgstr "没有可截取的窗口"
 
-#: crates/glimpse-shot/src/gui/app.rs:838
+#: crates/glimpse-shot/src/gui/app.rs:843
 msgid "That window has closed"
 msgstr "该窗口已关闭"
 
-#: crates/glimpse-shot/src/gui/app.rs:855
-msgid "PNG Images"
+#: crates/glimpse-shot/src/gui/app.rs:860
+#, fuzzy
+#| msgid "PNG Images"
+msgid "Images"
 msgstr "PNG 图像"
 
-#: crates/glimpse-shot/src/gui/app.rs:860
+#: crates/glimpse-shot/src/gui/app.rs:870
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr "打开图像"
 
-#: crates/glimpse-shot/src/gui/app.rs:972
+#: crates/glimpse-shot/src/gui/app.rs:895
+msgid "The image must be a local file"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/app.rs:1011
 msgid "Untitled window"
 msgstr "无标题窗口"
 
-#: crates/glimpse-shot/src/gui/app.rs:1073
+#: crates/glimpse-shot/src/gui/app.rs:1103
 msgid "Screenshot failed"
 msgstr "截图失败"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:383
+#: crates/glimpse-shot/src/gui/overlay.rs:380
 msgid "Waiting to take a screenshot"
 msgstr "正在等待截图"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1081
-#: crates/glimpse-shot/src/gui/result.rs:936
+#: crates/glimpse-shot/src/gui/overlay.rs:1078
+#: crates/glimpse-shot/src/gui/result.rs:925
 msgid "Save Screenshot"
 msgstr "保存截图"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1639
+#: crates/glimpse-shot/src/gui/overlay.rs:1636
 msgid "{size} · scaled {percent}%"
 msgstr "{size} · 缩放 {percent}%"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1801
+#: crates/glimpse-shot/src/gui/overlay.rs:1798
 msgid "Saved"
 msgstr "已保存"
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1802
+#: crates/glimpse-shot/src/gui/overlay.rs:1799
 msgid "Copied"
 msgstr "已复制"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:90
+#: crates/glimpse-shot/src/gui/prefs.rs:97
 msgid "Pictures/Screenshots"
 msgstr "图片/截图"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:108
-#: crates/glimpse-shot/src/gui/prefs.rs:127
+#: crates/glimpse-shot/src/gui/prefs.rs:115
+#: crates/glimpse-shot/src/gui/prefs.rs:134
 msgid "Saved as “{name}”"
 msgstr "已保存为“{name}”"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:219
-#: crates/glimpse-shot/src/gui/result.rs:1088
+#: crates/glimpse-shot/src/gui/prefs.rs:226
+#: crates/glimpse-shot/src/gui/result.rs:1077
 msgid "Copied to clipboard"
 msgstr "已复制到剪贴板"
 
-#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-shot/src/gui/prefs.rs:302
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
 msgid "Choose Folder"
 msgstr "选择文件夹"
 
-#: crates/glimpse-shot/src/gui/result.rs:734
+#: crates/glimpse-shot/src/gui/result.rs:723
 msgid "A screenshot has unsaved changes"
 msgstr "截图有未保存的更改"
 
-#: crates/glimpse-shot/src/gui/result.rs:878
+#: crates/glimpse-shot/src/gui/result.rs:867
 msgid "A file name cannot be empty or contain “/”"
 msgstr "文件名不能为空或包含“/”"
 
-#: crates/glimpse-shot/src/gui/result.rs:883
+#: crates/glimpse-shot/src/gui/result.rs:872
 msgid ""
 "There is no Pictures folder to save into; choose a folder in Preferences"
 msgstr "没有可用的图片文件夹；请在首选项中选择保存位置"
 
-#: crates/glimpse-shot/src/gui/result.rs:969
+#: crates/glimpse-shot/src/gui/result.rs:958
 msgid "Discard this screenshot?"
 msgstr "丢弃此截图？"
 
-#: crates/glimpse-shot/src/gui/result.rs:970
+#: crates/glimpse-shot/src/gui/result.rs:959
 msgid "It has not been saved or copied."
 msgstr "截图尚未保存或复制。"
 
-#: crates/glimpse-shot/src/gui/result.rs:974
+#: crates/glimpse-shot/src/gui/result.rs:963
 msgid "Discard"
 msgstr "丢弃"
 
-#: crates/glimpse-shot/src/gui/result.rs:975
+#: crates/glimpse-shot/src/gui/result.rs:964
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
 msgid "Save"
 msgstr "保存"
 
-#: crates/glimpse-shot/src/gui/result.rs:1137
+#: crates/glimpse-shot/src/gui/result.rs:1126
 msgid "Saved “{name}”"
 msgstr "已保存“{name}”"
 
-#: crates/glimpse-shot/src/gui/result.rs:1145
-#: crates/glimpse-shot/src/notify.rs:411
+#: crates/glimpse-shot/src/gui/result.rs:1134
+#: crates/glimpse-shot/src/notify.rs:415
 #: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
 msgstr "在文件夹中显示"
 
-#: crates/glimpse-shot/src/notify.rs:397
+#: crates/glimpse-shot/src/notify.rs:401
 #: crates/glimpse-shot/src/notify/tests.rs:307
 msgid "Screenshot saved"
 msgstr "截图已保存"
 
-#: crates/glimpse-shot/src/notify.rs:398
+#: crates/glimpse-shot/src/notify.rs:402
 #: crates/glimpse-shot/src/notify/tests.rs:340
 msgid "Screenshot copied"
 msgstr "截图已复制"
 
-#: crates/glimpse-shot/src/notify.rs:409
+#: crates/glimpse-shot/src/notify.rs:413
 #: crates/glimpse-shot/src/notify/tests.rs:319
 msgctxt "notification action"
 msgid "Open"
 msgstr "打开"
 
-#: crates/glimpse-shot/src/portal.rs:126
+#: crates/glimpse-shot/src/portal.rs:117
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:605
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "某个应用"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:18
+#: crates/glimpse-wallpaper/src/portal/notify.rs:16
 msgid "Wallpaper changed"
 msgstr "壁纸已更改"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:22
+#: crates/glimpse-wallpaper/src/portal/notify.rs:20
 msgid "Wallpaper not changed"
 msgstr "壁纸未更改"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:29
+#: crates/glimpse-wallpaper/src/portal/notify.rs:27
 msgid "{count} output keeps its own image."
 msgid_plural "{count} outputs keep their own image."
 msgstr[0] "{count} 个输出保留各自的图片。"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:38
+#: crates/glimpse-wallpaper/src/portal/notify.rs:36
 msgid "Only the background can be set."
 msgstr "只能设置背景。"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:43
-msgid "{file} already sets the wallpaper image."
-msgstr "{file} 已设置了壁纸图片。"
-
-#: crates/glimpse-wallpaper/src/portal/notify.rs:47
+#: crates/glimpse-wallpaper/src/portal/notify.rs:40
 msgid "The wallpaper could not be saved."
 msgstr "无法保存壁纸。"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:81
+#: crates/glimpse-wallpaper/src/portal/notify.rs:74
 msgid "Wallpaper"
 msgstr "壁纸"
 
-#: crates/glimpse-wallpaper/src/portal/notify.rs:151
+#: crates/glimpse-wallpaper/src/portal/notify.rs:145
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
 msgid "Undo"
 msgstr "撤销"
@@ -2340,11 +2590,6 @@ msgstr "应用"
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
 msgid "Nearby devices"
 msgstr "附近的设备"
-
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:117
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:145
-msgid "Confirm"
-msgstr "确认"
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
 msgid "Show the whole year"
@@ -2464,11 +2709,6 @@ msgstr "正在搜索网络…"
 msgid "Connect to a hidden network…"
 msgstr "连接到隐藏网络…"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
-msgid "Details"
-msgstr "详细信息"
-
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
 msgid "Coming up"
 msgstr "即将开始"
@@ -2489,10 +2729,6 @@ msgstr "没有新内容"
 #: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
 msgid "You are all caught up."
 msgstr "已全部查看。"
-
-#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
-msgid "Password"
-msgstr "密码"
 
 #: crates/glimpse-widgets/blueprints/password_prompt.blp:61
 msgid "Caps Lock is on"
@@ -2519,7 +2755,7 @@ msgstr "清空回收站"
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:301
+#: crates/glimpse-widgets/src/lib.rs:323
 msgid "Play"
 msgstr "播放"
 
@@ -2562,6 +2798,16 @@ msgstr "播放进度"
 #: crates/glimpse-widgets/blueprints/session_popover.blp:12
 msgid "Lock"
 msgstr "锁定"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+msgid "Suspend"
+msgstr "挂起"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Shut down"
+msgstr "关机"
 
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:34
 msgid "Suspend…"
@@ -2635,10 +2881,6 @@ msgstr "区域"
 msgid "Capture a Region (R)"
 msgstr "截取区域 (R)"
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
-msgid "Delay"
-msgstr "延迟"
-
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
 msgid "Show Pointer"
@@ -2662,7 +2904,9 @@ msgid "Preferences"
 msgstr "首选项"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-msgid "config.toml cannot be read, so nothing here can be saved"
+#, fuzzy
+#| msgid "config.toml cannot be read, so nothing here can be saved"
+msgid "config.toml is invalid or read-only, so nothing here can be saved"
 msgstr "无法读取 config.toml，因此此处的设置均无法保存"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
@@ -2826,25 +3070,25 @@ msgstr "复制到剪贴板 (Ctrl+C)"
 msgid "Save or Open"
 msgstr "保存或打开"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:161
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
 msgid "Undo (Ctrl+Z)"
 msgstr "撤销 (Ctrl+Z)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:171
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr "重做 (Ctrl+Shift+Z)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:195
 msgid "Pan (hold Space)"
 msgstr "平移（按住空格）"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:213
 msgid "Best Fit (Ctrl+0)"
 msgstr "适应窗口 (Ctrl+0)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:219
 msgid "Actual Size (Ctrl+1)"
 msgstr "实际大小 (Ctrl+1)"
 
@@ -3170,93 +3414,6 @@ msgstr "为此工作区命名"
 msgid "Unmute"
 msgstr "取消静音"
 
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:105
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:144
-msgid "OK"
-msgstr "确定"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:146
-msgid "Allow"
-msgstr "允许"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:146
-msgid "Deny"
-msgstr "拒绝"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
-msgid "Enter the PIN"
-msgstr "输入 PIN 码"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:44
-msgid "Type the PIN shown on {device}, then press OK."
-msgstr "请输入 {device} 上显示的 PIN 码，然后按“确定”。"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
-msgid "Enter the passkey"
-msgstr "输入配对码"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:49
-msgid "Type the passkey shown on {device}."
-msgstr "请输入 {device} 上显示的配对码。"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:52
-msgid "Confirm the code"
-msgstr "确认代码"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:53
-msgid ""
-"Is this the code shown on {device}?\n"
-"\n"
-"{code}"
-msgstr ""
-"这是 {device} 上显示的代码吗?\n"
-"\n"
-"{code}"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
-msgid "Allow pairing"
-msgstr "允许配对"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
-msgid "{device} wants to pair with this computer."
-msgstr "{device} 想与这台计算机配对。"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:63
-msgid "Type this PIN"
-msgstr "输入此 PIN"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:64
-msgid ""
-"Type this PIN on {device}. It will not ask again.\n"
-"\n"
-"{code}"
-msgstr ""
-"在 {device} 上输入此 PIN。不会再次询问。\n"
-"\n"
-"{code}"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:69
-msgid "Type this passkey"
-msgstr "输入此通行密钥"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:70
-msgid ""
-"Type this passkey on {device}.\n"
-"\n"
-"{code}"
-msgstr ""
-"在 {device} 上输入此通行密钥。\n"
-"\n"
-"{code}"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:82
-msgid "1 to 16 letters or digits"
-msgstr "1 到 16 个字母或数字"
-
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:83
-msgid "Up to 999999"
-msgstr "最大 999999"
-
 #: crates/glimpse-widgets/src/display_list/mod.rs:136
 msgid "The last enabled display can't be turned off"
 msgstr "无法关闭最后一个已启用的显示器"
@@ -3358,26 +3515,10 @@ msgstr "挂起键"
 msgid "Hibernate key"
 msgstr "休眠键"
 
-#: crates/glimpse-widgets/src/lib.rs:300
+#: crates/glimpse-widgets/src/lib.rs:322
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr "暂停"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
-msgid "That password did not work"
-msgstr "密码不正确"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
-msgid "{network} refused it. Check it and try again."
-msgstr "{network} 拒绝了该密码。请检查后重试。"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
-msgid "Enter the password for {network}"
-msgstr "输入 {network} 的密码"
-
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
-msgid "Try again"
-msgstr "重试"
 
 #: crates/glimpse-widgets/src/notification_card/imp.rs:155
 msgid "Unread"
@@ -3446,7 +3587,7 @@ msgstr "当前屏幕"
 msgid "Capturing in {n}"
 msgstr "{n} 秒后截图"
 
-#: crates/glimpse-widgets/src/shot_window_list/mod.rs:139
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:140
 msgid "captured when picked"
 msgstr "选择时截取"
 
@@ -3494,6 +3635,20 @@ msgstr "放大屏幕的一部分"
 msgid "magnifier;zoom;lens;enlarge;"
 msgstr "放大镜;缩放;放大;magnifier;"
 
+#: data/me.aresa.Glimpse.Shot.Annotate.desktop:3
+#, fuzzy
+#| msgid "Annotate In"
+msgid "Annotate Image"
+msgstr "标注位置"
+
+#: data/me.aresa.Glimpse.Shot.Annotate.desktop:4
+msgid "Open an image and mark it up"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Shot.Annotate.desktop:12
+msgid "image;annotate;annotation;PNG;draw;markup;"
+msgstr ""
+
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"
 msgstr "截图，标注后保存或复制"
@@ -3503,6 +3658,148 @@ msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "screenshot;capture;annotate;print screen;snip;grab;截图;截屏;屏幕截图;标注;抓"
 "图;"
+
+#: docs/plans/glimpse-agents/agents_bt_1.blp:17
+msgid "Pair with “Pixel 9”?"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_1.blp:18
+msgid "Check that the phone shows the same code"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_2.blp:17
+msgid "Pair with “Old Headset”"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_3.blp:17
+msgid "Pair with “MX Keys”"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_3.blp:18
+msgid "Type this code on the keyboard, then press Enter"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_bt_4.blp:17
+msgid "“JBL Flip” wants to connect"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_polkit_1.blp:55
+#: docs/plans/glimpse-agents/agents_polkit_2.blp:55
+#: docs/plans/glimpse-agents/agents_polkit_3.blp:68
+#: docs/plans/glimpse-agents/agents_polkit_4.blp:61
+#: docs/plans/glimpse-agents/agents_polkit_5.blp:59
+#: docs/plans/glimpse-agents/agents_polkit_6.blp:55
+#, fuzzy
+#| msgid "Vendor codec"
+msgid "Vendor"
+msgstr "厂商编解码器"
+
+#: docs/plans/glimpse-agents/agents_session_3.blp:17
+#, fuzzy
+#| msgid "Log out"
+msgid "Log out?"
+msgstr "注销"
+
+#: docs/plans/glimpse-agents/agents_wifi_1.blp:17
+#: docs/plans/glimpse-agents/agents_wifi_2.blp:17
+msgid "Join “Café Central”"
+msgstr ""
+
+#: docs/plans/glimpse-agents/agents_wifi_3.blp:17
+msgid "Sign in to “Work VPN”"
+msgstr ""
+
+#~ msgid "The pairing answer was not delivered."
+#~ msgstr "配对的回应未送达。"
+
+#~ msgid "Bluetooth pairing"
+#~ msgstr "蓝牙配对"
+
+#~ msgid "The password was not delivered."
+#~ msgstr "密码未送达。"
+
+#~ msgid "Network password"
+#~ msgstr "网络密码"
+
+#~ msgid "Could not answer the request"
+#~ msgstr "无法回应该请求"
+
+#~ msgid "{entered} of 6 entered"
+#~ msgstr "已输入 {entered}/6"
+
+#~ msgid ""
+#~ "This panel could not register a pairing agent, so it cannot pair. Devices "
+#~ "that are already paired still connect."
+#~ msgstr "此面板无法注册配对代理，因此无法配对。已配对的设备仍可连接。"
+
+#~ msgid "The network needs a password before this computer can join it."
+#~ msgstr "需要输入密码才能加入该网络。"
+
+#~ msgid "Suspend this session?"
+#~ msgstr "挂起此会话？"
+
+#~ msgid "Restart this computer?"
+#~ msgstr "重启此计算机？"
+
+#~ msgid "Shut down this computer?"
+#~ msgstr "关闭此计算机？"
+
+#~ msgid "{file} already sets the wallpaper image."
+#~ msgstr "{file} 已设置了壁纸图片。"
+
+#~ msgid "OK"
+#~ msgstr "确定"
+
+#~ msgid "Enter the PIN"
+#~ msgstr "输入 PIN 码"
+
+#~ msgid "Enter the passkey"
+#~ msgstr "输入配对码"
+
+#~ msgid "Type the passkey shown on {device}."
+#~ msgstr "请输入 {device} 上显示的配对码。"
+
+#~ msgid "Confirm the code"
+#~ msgstr "确认代码"
+
+#~ msgid "Allow pairing"
+#~ msgstr "允许配对"
+
+#~ msgid "Type this PIN"
+#~ msgstr "输入此 PIN"
+
+#~ msgid ""
+#~ "Type this PIN on {device}. It will not ask again.\n"
+#~ "\n"
+#~ "{code}"
+#~ msgstr ""
+#~ "在 {device} 上输入此 PIN。不会再次询问。\n"
+#~ "\n"
+#~ "{code}"
+
+#~ msgid "Type this passkey"
+#~ msgstr "输入此通行密钥"
+
+#~ msgid ""
+#~ "Type this passkey on {device}.\n"
+#~ "\n"
+#~ "{code}"
+#~ msgstr ""
+#~ "在 {device} 上输入此通行密钥。\n"
+#~ "\n"
+#~ "{code}"
+
+#~ msgid "1 to 16 letters or digits"
+#~ msgstr "1 到 16 个字母或数字"
+
+#~ msgid "Up to 999999"
+#~ msgstr "最大 999999"
+
+#~ msgid "{network} refused it. Check it and try again."
+#~ msgstr "{network} 拒绝了该密码。请检查后重试。"
+
+#~ msgid "Enter the password for {network}"
+#~ msgstr "输入 {network} 的密码"
 
 #~ msgid "{network} refused that password. Check it and try again."
 #~ msgstr "{network} 拒绝了该密码。请检查后重试。"
@@ -3540,9 +3837,6 @@ msgstr ""
 
 #~ msgid "Connected"
 #~ msgstr "已连接"
-
-#~ msgid "{name} wants to pair"
-#~ msgstr "{name} 请求配对"
 
 #~ msgid "{name} · {state}"
 #~ msgstr "{name} · {state}"

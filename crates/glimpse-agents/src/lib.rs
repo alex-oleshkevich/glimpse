@@ -7,3 +7,4 @@ pub mod lock;
 pub mod network;
 pub mod polkit;
 pub mod queue;
+pub mod session;

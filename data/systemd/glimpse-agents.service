@@ -1,5 +1,5 @@
 [Unit]
-Description=Glimpse polkit, NetworkManager and BlueZ agents
+Description=Glimpse authentication agents and session confirmations
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
 Requisite=glimpse-session.target

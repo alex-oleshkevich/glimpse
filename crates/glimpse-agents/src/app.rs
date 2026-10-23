@@ -34,6 +34,10 @@ pub struct Init {
 
 pub struct App {
     queue: Queue,
+    session: crate::session::State,
+    session_surface: Option<Surface>,
+    session_focus: bool,
+    session_focus_timer: Option<JoinHandle<()>>,
     surface: Option<Surface>,
     closing: Option<(gtk4::Window, glib::JoinHandle<()>)>,
     shown: Option<Head>,
@@ -126,6 +130,10 @@ impl SimpleComponent for App {
 
         let model = Self {
             queue: Queue::default(),
+            session: crate::session::State::default(),
+            session_surface: None,
+            session_focus: false,
+            session_focus_timer: None,
             surface: None,
             closing: None,
             shown: None,
@@ -144,7 +152,7 @@ impl SimpleComponent for App {
     }
 
     fn update(&mut self, input: Input, sender: ComponentSender<Self>) {
-        self.ingest(input);
+        self.ingest(input, sender.input_sender());
         self.render_with(sender.input_sender());
     }
 }
@@ -165,6 +173,10 @@ impl App {
         };
         Self {
             queue: Queue::default(),
+            session: crate::session::State::default(),
+            session_surface: None,
+            session_focus: false,
+            session_focus_timer: None,
             surface: None,
             closing: None,
             shown: None,
@@ -183,7 +195,7 @@ impl App {
 
     #[cfg(test)]
     pub(crate) fn drive(&mut self, input: Input, sender: &Sender<Input>) {
-        self.ingest(input);
+        self.ingest(input, sender);
         self.render_with(sender);
     }
 
@@ -207,11 +219,113 @@ impl App {
         self.polkit.conversation.as_ref()
     }
 
-    fn ingest(&mut self, input: Input) {
+    fn ingest(&mut self, input: Input, sender: &Sender<Input>) {
         match input {
-            Input::Ask(ask) => self.queue.push(ask),
+            Input::Ask(ask) => {
+                self.cancel_session();
+                self.queue.push(ask);
+            }
             Input::Withdraw { source, key } => self.queue.withdraw(source, key.as_deref()),
-            Input::Locked(locked) => self.queue.lock(locked),
+            Input::Locked(locked) => {
+                self.session.locked = Some(locked);
+                if locked {
+                    self.cancel_session();
+                }
+                self.queue.lock(locked);
+            }
+            Input::LockUnknown => {
+                self.session.locked = None;
+                self.cancel_session();
+            }
+            Input::SessionRequest(request) => {
+                if let Some((id, action)) = self.session.admit(request, self.queue.head().is_some())
+                {
+                    let system = self.system.clone();
+                    let sender = sender.clone();
+                    self.runtime.spawn(async move {
+                        let view = crate::session::prepare(&system, action).await;
+                        sender.emit(Input::SessionReady { id, view });
+                    });
+                }
+            }
+            Input::SessionReady { id, view } => {
+                if self
+                    .session
+                    .pending
+                    .as_ref()
+                    .is_some_and(|pending| pending.id == id)
+                {
+                    match view {
+                        Ok(view) => {
+                            if let Some(pending) = self.session.pending.as_mut() {
+                                pending.view = Some(view);
+                            }
+                        }
+                        Err(reason) => {
+                            self.cancel_session();
+                            self.notify_session(reason);
+                        }
+                    }
+                }
+            }
+            Input::SessionResponse { id, response } => {
+                let confirm = matches!(response, Response::Confirm { .. });
+                let ready = self
+                    .session
+                    .pending
+                    .as_ref()
+                    .is_some_and(|pending| pending.id == id && pending.view.is_some());
+                if ready && let Some(pending) = self.session.take(id) {
+                    let allowed = self.session.locked == Some(false)
+                        && self.queue.head().is_none()
+                        && (self.headless || self.session_focus);
+                    self.release_session_surface();
+                    if confirm && allowed {
+                        self.session.executing = true;
+                        let system = self.system.clone();
+                        let sender = sender.clone();
+                        self.runtime.spawn(async move {
+                            sender.emit(Input::SessionDone(
+                                crate::session::execute(&system, pending.action).await,
+                            ));
+                        });
+                    }
+                }
+            }
+            Input::SessionFocus { id, active } => {
+                if self
+                    .session
+                    .pending
+                    .as_ref()
+                    .is_some_and(|pending| pending.id == id)
+                {
+                    if active {
+                        self.session_focus = true;
+                        if let Some(timer) = self.session_focus_timer.take() {
+                            timer.abort();
+                        }
+                    } else if self.session_focus {
+                        self.cancel_session();
+                    }
+                }
+            }
+            Input::SessionFocusTimeout(id) => {
+                if !self.session_focus
+                    && self
+                        .session
+                        .pending
+                        .as_ref()
+                        .is_some_and(|pending| pending.id == id)
+                {
+                    self.cancel_session();
+                }
+            }
+            Input::SessionDone(result) => {
+                self.session.executing = false;
+                if let Err(reason) = result {
+                    self.notify_session(reason);
+                }
+            }
             Input::Line { key, line } => self.polkit.on_line(&mut self.queue, &key, line),
             Input::Dialog {
                 source,
@@ -222,6 +336,10 @@ impl App {
     }
 
     fn render_with(&mut self, sender: &Sender<Input>) {
+        if self.session.pending.is_some() {
+            self.render_session(sender);
+            return;
+        }
         let Some(ask) = self.queue.shown() else {
             self.close();
             return;
@@ -285,6 +403,80 @@ impl App {
         };
         surface.window.present();
         self.surface = Some(surface);
+    }
+
+    fn render_session(&mut self, sender: &Sender<Input>) {
+        if self.headless || self.session_surface.is_some() {
+            return;
+        }
+        let Some(pending) = self.session.pending.as_ref() else {
+            return;
+        };
+        let Some(view) = pending.view.as_ref() else {
+            return;
+        };
+        let id = pending.id;
+        if let Some((window, animation)) = self.closing.take() {
+            animation.abort();
+            window.destroy();
+        }
+        let dialog = AgentDialog::new();
+        dialog.set_halign(gtk4::Align::Center);
+        dialog.set_valign(gtk4::Align::Center);
+        dialog.set_vexpand(true);
+        dialog.show(view);
+        dialog.connect_response({
+            let sender = sender.clone();
+            move |dialog, response| {
+                if dialog.is_sensitive() {
+                    sender.emit(Input::SessionResponse { id, response });
+                }
+            }
+        });
+        let surface = Surface::new(surface(self.blur), dialog);
+        surface.window.connect_is_active_notify({
+            let sender = sender.clone();
+            move |window| {
+                sender.emit(Input::SessionFocus {
+                    id,
+                    active: window.is_active(),
+                })
+            }
+        });
+        self.session_focus = false;
+        let timeout = sender.clone();
+        self.session_focus_timer = Some(self.runtime.spawn(async move {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            timeout.emit(Input::SessionFocusTimeout(id));
+        }));
+        surface.window.present();
+        self.session_surface = Some(surface);
+    }
+
+    fn cancel_session(&mut self) {
+        self.session.pending = None;
+        self.release_session_surface();
+    }
+
+    fn release_session_surface(&mut self) {
+        if let Some(timer) = self.session_focus_timer.take() {
+            timer.abort();
+        }
+        self.session_focus = false;
+        if let Some(surface) = self.session_surface.take() {
+            surface.dialog.set_sensitive(false);
+            if surface.window.is_layer_window() {
+                surface.window.set_keyboard_mode(KeyboardMode::None);
+            }
+            surface.window.destroy();
+        }
+    }
+
+    fn notify_session(&self, reason: String) {
+        let session = self._session.clone();
+        self.runtime.spawn(async move {
+            crate::session::notify(&session, &reason).await;
+        });
     }
 
     fn close(&mut self) {

@@ -3,13 +3,16 @@
 The one process that answers system prompts for the session: the polkit authentication agent, the
 NetworkManager secret agent and the BlueZ pairing agent, all drawing into one dialog.
 
-**The bus name comes first.** `me.aresa.Glimpse.Agents` is requested with `DoNotQueue` on the session
-bus before any agent is registered or any window exists. The three agents are spawned on the tokio
-runtime as soon as that name is owned, before GTK is initialized. A request that arrives while GTK
-is starting waits on that channel; the app drains it once the windowing runtime is up. A second
-instance cannot take the name, logs one line and exits 1, so two queues never fight over
-registrations. Nothing is exported on that name; the agents are served on the system bus, where
-polkitd, NetworkManager and bluetoothd call them.
+**The session interface is exported before the bus name is owned.** `me.aresa.Glimpse.Agents` is
+requested with `DoNotQueue` before agents register or windows exist. The system-bus agents start
+before GTK; requests wait on the app channel during startup. A second instance cannot take the name.
+`me.aresa.Glimpse.Session.RequestAction` accepts only `reboot` and `power-off` and acknowledges
+admission within 5 s. One independent confirmation slot rejects requests while authentication or
+another power action is active. Authentication, lock uncertainty, locking, Cancel and focus loss
+cancel that slot; it never enters the authentication FIFO or reopens automatically. Initial focus
+must arrive within 5 s. Confirmation destroys its exclusive overlay before interactive logind
+execution, which rechecks lock state and capability and has a 120 s authorization deadline.
+Failures after admission are notifications; logind owns inhibitor enforcement.
 
 **One process owns every prompt, and one dialog shows at a time.** Agents never touch GTK: each
 turns its D-Bus call into an `Ask` sent to the app and awaits a oneshot reply. The app keeps one
@@ -41,11 +44,10 @@ Bluetooth request. A dropped reply is
 **A locked session never shows a prompt.** The app follows logind's `LockedHint`. While locked there
 is no surface: polkit requests wait and reopen fresh after unlock, with no conversation and no typed
 text carried over; NetworkManager requests are refused and BlueZ requests denied at once, queued or
-new, and show-only requests are dropped. logind out of reach at startup counts as unlocked: one
-warning, no retry. After a session is attached, every logind call sits under a 5 s deadline, a
-failed hint read publishes nothing, and a dead stream or a lost session retries from 1 s up to 30 s
-and resolves the session again. `LockedHint` changes are followed through `glimpse_dbus::events`,
-and a missed delivery reads the property again.
+new, and show-only requests are dropped. Session confirmations require a known unlocked state;
+failed reads and lost owners cancel them. Authentication retains its last known lock policy.
+Every lock-observation call has a 5 s deadline; failures retry from 1 s up to 30 s and resolve the
+session again. `LockedHint` changes use `glimpse_dbus::events`, and missed deliveries reread it.
 
 **The surface is one layer-shell overlay**, keyboard exclusive, anchored to all four edges with an
 exclusive zone of -1 and no monitor, so it covers the focused output, including the panel, and takes
