@@ -14,7 +14,7 @@ Usage:
     ./scripts/printing-mock-cups.py
     ./scripts/printing-mock-cups.py --auto 4
 
-Point a test panel at it with `[printing] server-url = "http://localhost:16631/"`.
+Point a test panel at it with CUPS_SERVER=localhost:16631.
 
 Port defaults to 16631; override with GLIMPSE_MOCK_PORT env var.
 """
@@ -22,6 +22,7 @@ Port defaults to 16631; override with GLIMPSE_MOCK_PORT env var.
 import argparse
 import os
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -54,6 +55,9 @@ OP_CANCEL_JOB        = 0x0008
 OP_HOLD_JOB          = 0x000c
 OP_RELEASE_JOB       = 0x000d
 OP_CUPS_GET_PRINTERS = 0x4001
+OP_CREATE_SUBSCRIPTION = 0x0016
+OP_RENEW_SUBSCRIPTION = 0x001a
+OP_CANCEL_SUBSCRIPTION = 0x001b
 
 STATUS_OK = 0x0000
 
@@ -189,6 +193,13 @@ def build_get_jobs(request_id: int, s: Scenario, port: int) -> bytes:
 
 def build_ok(request_id: int) -> bytes:
     return op_group(request_id) + bytes([DTAG_END])
+
+
+def notify():
+    subprocess.run([
+        "dbus-send", "--system", "--type=signal", "/org/cups/cupsd/Notifier",
+        "org.cups.cupsd.Notifier.JobState",
+    ], check=True, timeout=2)
 
 
 # ── Scenarios ─────────────────────────────────────────────────────────────────
@@ -355,6 +366,11 @@ class IppHandler(BaseHTTPRequestHandler):
             resp = build_get_printers(request_id, s, port)
         elif operation == OP_GET_JOBS:
             resp = build_get_jobs(request_id, s, port)
+        elif operation == OP_CREATE_SUBSCRIPTION:
+            resp = (op_group(request_id) + bytes([6])
+                    + attrs(TAG_INTEGER, "notify-subscription-id", 105) + bytes([DTAG_END]))
+        elif operation in (OP_RENEW_SUBSCRIPTION, OP_CANCEL_SUBSCRIPTION):
+            resp = build_ok(request_id)
         elif operation in (OP_CANCEL_JOB, OP_HOLD_JOB, OP_RELEASE_JOB):
             resp = build_ok(request_id)
         else:
@@ -432,7 +448,8 @@ def main():
     server = HTTPServer(("127.0.0.1", port), IppHandler)
 
     print(f"\n{BOLD}Mock CUPS IPP server listening on http://127.0.0.1:{port}/{RESET}")
-    print(f"  Configure:  [printing] server-url = \"http://127.0.0.1:{port}/\"")
+    print(f"  Launch panel with CUPS_SERVER=127.0.0.1:{port}")
+    notify()
     if args.auto:
         print(f"  Auto-advancing every {args.auto}s.  Ctrl-C to stop.")
     else:
@@ -451,6 +468,7 @@ def main():
                     _idx = (_idx + 1) % len(SCENARIOS)
                     idx = _idx
                 _show(idx)
+                notify()
         else:
             while True:
                 input()
@@ -458,6 +476,7 @@ def main():
                     _idx = (_idx + 1) % len(SCENARIOS)
                     idx = _idx
                 _show(idx)
+                notify()
     except (KeyboardInterrupt, EOFError):
         print(f"\n{DIM}Shutting down.{RESET}")
         server.shutdown()

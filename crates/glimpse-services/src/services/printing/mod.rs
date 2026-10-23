@@ -1,10 +1,12 @@
 mod call;
 mod failure;
 mod source;
+mod subscription;
 
 use std::time::Duration;
 
 use tokio::sync::oneshot;
+use tokio::time::{self, Instant};
 
 use ipp::model::Operation;
 use ipp::prelude::Uri;
@@ -20,6 +22,8 @@ use crate::{
 };
 
 const DEFAULT_SERVER_URL: &str = "http://localhost:631/";
+const RENEW_EVERY: Duration = Duration::from_secs(3500);
+const FETCH_FLOOR: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Printer {
@@ -81,41 +85,72 @@ pub struct PrintingState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
-    poll_active: Duration,
-    poll_idle: Duration,
-    server_url: Option<String>,
+    server: Result<Uri, String>,
 }
 
 impl From<&glimpse_config::Config> for Config {
-    fn from(document: &glimpse_config::Config) -> Self {
+    fn from(_: &glimpse_config::Config) -> Self {
         Self {
-            poll_active: Duration::from_secs(document.printing.poll_active),
-            poll_idle: Duration::from_secs(document.printing.poll_idle),
-            server_url: document.printing.server_url.clone(),
+            server: match std::env::var("CUPS_SERVER") {
+                Ok(value) => normalize_server(Some(&value)),
+                Err(std::env::VarError::NotPresent) => normalize_server(None),
+                Err(error) => Err(format!("invalid CUPS_SERVER: {error}")),
+            },
         }
     }
 }
 
 impl Config {
     fn uri(&self) -> Result<Uri, String> {
-        self.server_url
-            .as_deref()
-            .unwrap_or(DEFAULT_SERVER_URL)
-            .parse::<Uri>()
-            .map_err(|error| format!("invalid printing server url: {error}"))
+        self.server.clone()
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Cadence {
-    Active,
-    Idle,
+fn normalize_server(value: Option<&str>) -> Result<Uri, String> {
+    let value = value.unwrap_or(DEFAULT_SERVER_URL);
+    let reason = || format!("invalid CUPS_SERVER: {value:?}");
+    if value.is_empty() || value.trim() != value || value.starts_with('/') {
+        return Err(reason());
+    }
+    let explicit = value.contains("://");
+    let text = if explicit {
+        value.to_owned()
+    } else {
+        format!("http://{value}")
+    };
+    let url = reqwest::Url::parse(&text).map_err(|_| reason())?;
+    let original: Uri = text.parse().map_err(|_| reason())?;
+    let scheme = match url.scheme() {
+        "http" | "ipp" => "http",
+        "https" | "ipps" => "https",
+        _ => return Err(reason()),
+    };
+    if url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || (!explicit && url.path() != "/")
+    {
+        return Err(reason());
+    }
+    let port = original
+        .port_u16()
+        .or_else(|| (!explicit || matches!(url.scheme(), "ipp" | "ipps")).then_some(631));
+    let port = port.map(|port| format!(":{port}")).unwrap_or_default();
+    format!(
+        "{scheme}://{}{port}{}",
+        url.host_str().ok_or_else(reason)?,
+        url.path()
+    )
+    .parse()
+    .map_err(|_| reason())
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Watch {
-    Poll(Cadence, Duration, u64),
     Notifier(u64),
+    Lease(u64),
 }
 
 type Reply = oneshot::Sender<Result<(), PrintingError>>;
@@ -137,15 +172,37 @@ pub enum Command {
 }
 
 pub enum Event {
-    Polled(PrintingState),
-    Unavailable(String),
+    NotifierReady(u64, Result<(), String>),
+    NotifierFailed(u64),
+    Signal(u64, bool),
+    LeaseDue(u64),
+    Leased(u64, LeaseResult),
+    FetchStarted(u64),
+    Fetched(u64, Result<PrintingState, String>),
+}
+
+pub struct LeaseResult {
+    id: Option<i32>,
+    created: bool,
+    error: Option<String>,
 }
 
 pub struct Printing {
     state: Publisher<PrintingState>,
     config: Config,
-    active: bool,
     generation: u64,
+    subscription: Option<i32>,
+    notifier_ready: bool,
+    notifier_error: Option<String>,
+    lease_error: Option<String>,
+    fetch_error: Option<String>,
+    leasing: bool,
+    lease_pending: bool,
+    fetching: bool,
+    fetch_pending: bool,
+    next_fetch: Instant,
+    refresh_replies: Vec<Reply>,
+    fetch_replies: Vec<Reply>,
 }
 
 pub type PrintingHandle = crate::ServiceEndpoint<Printing>;
@@ -201,42 +258,37 @@ impl Service for Printing {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        let cadence = if self.active {
-            Cadence::Active
-        } else {
-            Cadence::Idle
-        };
-        let period = if self.active {
-            self.config.poll_active
-        } else {
-            self.config.poll_idle
-        };
-        let poll_config = self.config.clone();
-        let notifier_config = self.config.clone();
-        let floor = self.config.poll_active;
         let generation = self.generation;
-
-        vec![
-            Sub::interval(
-                Watch::Poll(cadence, period, generation),
-                period,
-                move |_ctx| {
-                    let config = poll_config.clone();
-                    async move { source::fetch(&config).await }
-                },
-            ),
-            Sub::stream(Watch::Notifier(generation), move |ctx| {
-                source::notifier(ctx, notifier_config, floor)
-            }),
-        ]
+        let mut sources = vec![Sub::stream(Watch::Notifier(generation), move |ctx| {
+            source::notifier(ctx, generation)
+        })];
+        if self.notifier_ready {
+            sources.push(Sub::interval(
+                Watch::Lease(generation),
+                RENEW_EVERY,
+                move |_| async move { Event::LeaseDue(generation) },
+            ));
+        }
+        sources
     }
 
     async fn start(ctx: &Ctx<Self>, config: Self::Config, _: Self::Dependencies) -> Self {
         Self {
             state: ctx.publisher(),
             config,
-            active: false,
             generation: 0,
+            subscription: None,
+            notifier_ready: false,
+            notifier_error: None,
+            lease_error: None,
+            fetch_error: None,
+            leasing: false,
+            lease_pending: false,
+            fetching: false,
+            fetch_pending: false,
+            next_fetch: Instant::now(),
+            refresh_replies: Vec::new(),
+            fetch_replies: Vec::new(),
         }
     }
 
@@ -244,27 +296,157 @@ impl Service for Printing {
         match input {
             Input::Command(command) => self.dispatch(ctx, command).await,
             Input::Config(config) => {
+                if config == self.config {
+                    return;
+                }
+                if let (Ok(uri), Some(id)) = (self.config.uri(), self.subscription.take()) {
+                    ctx.spawn_detached(move |_| async move {
+                        let _ =
+                            time::timeout(Duration::from_secs(2), subscription::cancel(&uri, id))
+                                .await;
+                    });
+                }
                 self.config = config;
                 self.generation = self.generation.wrapping_add(1);
+                self.notifier_ready = false;
+                self.notifier_error = None;
+                self.lease_error = None;
+                self.fetch_error = None;
+                self.leasing = false;
+                self.lease_pending = false;
+                self.fetching = false;
+                self.refresh_replies.append(&mut self.fetch_replies);
+                self.fetch_pending = !self.refresh_replies.is_empty();
+                self.next_fetch = Instant::now();
             }
-            Input::Event(Event::Polled(state)) => {
-                ctx.running();
-                self.active = state.jobs.iter().any(|job| job.state.is_active());
-                self.state.set(state);
+            Input::Event(Event::NotifierReady(generation, result))
+                if generation == self.generation =>
+            {
+                self.notifier_ready = true;
+                self.notifier_error = result.err();
+                self.health(ctx);
             }
-            Input::Event(Event::Unavailable(reason)) => self.note_unavailable(ctx, reason),
+            Input::Event(Event::NotifierFailed(generation)) if generation == self.generation => {
+                self.notifier_error = Some("CUPS notifier stream stopped".to_owned());
+                self.health(ctx);
+            }
+            Input::Event(Event::LeaseDue(generation)) if generation == self.generation => {
+                self.lease(ctx);
+            }
+            Input::Event(Event::Signal(generation, restart)) if generation == self.generation => {
+                if restart {
+                    self.lease(ctx);
+                }
+                self.fetch(ctx);
+            }
+            Input::Event(Event::Leased(generation, result)) if generation == self.generation => {
+                self.leasing = false;
+                self.subscription = result.id;
+                self.lease_error = result.error;
+                self.health(ctx);
+                if result.created {
+                    self.fetch_pending = true;
+                }
+                if self.lease_pending {
+                    self.lease_pending = false;
+                    self.lease(ctx);
+                } else if self.fetch_pending {
+                    self.fetch_pending = false;
+                    self.fetch(ctx);
+                }
+            }
+            Input::Event(Event::Fetched(generation, result)) if generation == self.generation => {
+                self.fetching = false;
+                match result {
+                    Ok(state) => {
+                        self.fetch_error = None;
+                        self.state.set(state);
+                    }
+                    Err(reason) => {
+                        self.fetch_error = Some(reason);
+                        self.state.set(PrintingState::default());
+                    }
+                }
+                self.health(ctx);
+                for reply in self.fetch_replies.drain(..) {
+                    let _ = reply.send(Ok(()));
+                }
+                if self.fetch_pending {
+                    self.fetch_pending = false;
+                    self.fetch(ctx);
+                }
+            }
+            Input::Event(Event::FetchStarted(generation)) if generation == self.generation => {
+                self.fetch_pending = false;
+                self.fetch_replies.append(&mut self.refresh_replies);
+            }
+            Input::Event(_) => {}
+        }
+    }
+
+    async fn stop(self, _: &Ctx<Self>) {
+        if let (Ok(uri), Some(id)) = (self.config.uri(), self.subscription) {
+            let _ = time::timeout(Duration::from_secs(2), subscription::cancel(&uri, id)).await;
         }
     }
 }
 
 impl Printing {
-    fn note_unavailable(&mut self, ctx: &Ctx<Self>, reason: String) {
-        if !ctx.is_degraded() {
-            tracing::debug!(reason = %reason, "printing: CUPS unreachable");
+    fn health(&self, ctx: &Ctx<Self>) {
+        if let Some(reason) = self
+            .notifier_error
+            .as_ref()
+            .or(self.lease_error.as_ref())
+            .or(self.fetch_error.as_ref())
+        {
+            ctx.degraded(reason.clone());
+        } else if self.subscription.is_some() {
+            ctx.running();
         }
-        ctx.degraded(reason);
-        self.active = false;
-        self.state.set(PrintingState::default());
+    }
+
+    fn lease(&mut self, ctx: &Ctx<Self>) {
+        if !self.notifier_ready || self.leasing {
+            self.lease_pending = true;
+            return;
+        }
+        self.lease_pending = false;
+        self.leasing = true;
+        let config = self.config.clone();
+        let id = self.subscription;
+        let generation = self.generation;
+        ctx.spawn_detached(move |ctx| async move {
+            let result = source::lease(&config, id).await;
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::Leased(generation, result)))
+                .await;
+        });
+    }
+
+    fn fetch(&mut self, ctx: &Ctx<Self>) {
+        if !self.notifier_ready || self.leasing || self.fetching {
+            self.fetch_pending = true;
+            return;
+        }
+        self.fetching = true;
+        self.fetch_replies.append(&mut self.refresh_replies);
+        let at = self.next_fetch.max(Instant::now());
+        self.next_fetch = at + FETCH_FLOOR;
+        let config = self.config.clone();
+        let generation = self.generation;
+        ctx.spawn_detached(move |ctx| async move {
+            time::sleep_until(at).await;
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::FetchStarted(generation)))
+                .await;
+            let result = source::fetch(&config).await;
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::Fetched(generation, result)))
+                .await;
+        });
     }
 
     async fn dispatch(&mut self, ctx: &Ctx<Self>, command: Command) {
@@ -285,20 +467,9 @@ impl Printing {
         }
     }
 
-    fn refresh(&self, ctx: &Ctx<Self>, reply: Reply) {
-        let config = self.config.clone();
-        ctx.spawn_detached(move |ctx| async move {
-            let event = source::fetch(&config).await;
-            let sent = ctx.events().send(Input::Event(event)).await.is_ok();
-            let _ = reply.send(if sent {
-                Ok(())
-            } else {
-                Err(CommandError::Unavailable(
-                    "printing stopped before the refresh completed".to_owned(),
-                )
-                .into())
-            });
-        });
+    fn refresh(&mut self, ctx: &Ctx<Self>, reply: Reply) {
+        self.refresh_replies.push(reply);
+        self.fetch(ctx);
     }
 
     fn job_action(

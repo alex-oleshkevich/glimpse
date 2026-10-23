@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn printing_is_only_an_applet_config_table() {
+    assert!(toml::from_str::<Config>("[printing]\n").is_err());
+    let config: Config =
+        toml::from_str("[applets.printing]\nshow = \"always\"\n").expect("printing applet");
+    assert!(matches!(
+        config.applets["printing"].kind,
+        AppletKind::Printing(_)
+    ));
+}
+
+#[test]
 fn typos_and_bare_exec_remain_unknown_applets() {
     for name in ["clcok", "exec"] {
         let source = format!("[[panels]]\ncenter = [\"{name}\"]\n");

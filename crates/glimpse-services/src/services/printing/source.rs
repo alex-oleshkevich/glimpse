@@ -1,5 +1,8 @@
 use std::pin::Pin;
-use std::time::Duration;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use futures_util::{Stream, StreamExt, stream};
 use ipp::attribute::{IppAttribute, IppAttributeGroup, IppAttributes};
@@ -16,7 +19,10 @@ use zbus::{Connection, MatchRule, MessageStream};
 
 use crate::{context::Ctx, services::cap};
 
-use super::{Config, Event, JobState, PrintJob, Printer, PrinterState, Printing, PrintingState};
+use super::{
+    Config, Event, JobState, LeaseResult, PrintJob, Printer, PrinterState, Printing, PrintingState,
+    subscription,
+};
 
 const NAME_CAP: usize = 128;
 const NOTIFIER_INTERFACE: &str = "org.cups.cupsd.Notifier";
@@ -34,60 +40,118 @@ const REQUESTED_JOB_ATTRIBUTES: [&str; 8] = [
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
 
-fn nothing() -> Events {
-    Box::pin(stream::empty())
+pub async fn fetch(config: &Config) -> Result<PrintingState, String> {
+    let uri = config.uri()?;
+    time::timeout(std::time::Duration::from_secs(10), fetch_state(uri))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(describe)
 }
 
-pub async fn fetch(config: &Config) -> Event {
+pub async fn lease(config: &Config, previous: Option<i32>) -> LeaseResult {
     let uri = match config.uri() {
         Ok(uri) => uri,
-        Err(reason) => return Event::Unavailable(reason),
+        Err(error) => {
+            return LeaseResult {
+                id: previous,
+                created: false,
+                error: Some(error),
+            };
+        }
     };
-    match fetch_state(uri).await {
-        Ok(state) => Event::Polled(state),
-        Err(error) => Event::Unavailable(describe(error)),
+    if let Some(id) = previous {
+        match subscription::renew(&uri, id).await {
+            subscription::Renewal::Kept => {
+                return LeaseResult {
+                    id: Some(id),
+                    created: false,
+                    error: None,
+                };
+            }
+            subscription::Renewal::Failed(error) => {
+                return LeaseResult {
+                    id: Some(id),
+                    created: false,
+                    error: Some(error),
+                };
+            }
+            subscription::Renewal::Gone => {}
+        }
+    }
+    match subscription::create(&uri).await {
+        Ok(id) => LeaseResult {
+            id: Some(id),
+            created: true,
+            error: None,
+        },
+        Err(error) => LeaseResult {
+            id: None,
+            created: false,
+            error: Some(error),
+        },
     }
 }
 
-pub async fn notifier(ctx: Ctx<Printing>, config: Config, floor: Duration) -> Events {
-    let Ok(connection) = ctx.system_bus() else {
-        return nothing();
+pub async fn notifier(ctx: Ctx<Printing>, generation: u64) -> Events {
+    let restart = Arc::new(AtomicBool::new(false));
+    let failed = Arc::new(AtomicBool::new(false));
+    let result = match ctx.system_bus() {
+        Ok(connection) => signal_stream(connection, restart.clone(), failed.clone()).await,
+        Err(reason) => Err(reason.to_owned()),
     };
-    let Some(stream) = signal_stream(connection).await else {
-        return nothing();
-    };
-
-    Box::pin(stream::unfold(
-        (stream, config, floor, time::Instant::now()),
-        |(mut stream, config, floor, mut next_allowed)| async move {
-            loop {
-                stream.next().await?;
-                let now = time::Instant::now();
-                if now < next_allowed {
-                    continue;
-                }
-                next_allowed = now + floor;
-                let event = fetch(&config).await;
-                return Some((event, (stream, config, floor, next_allowed)));
-            }
-        },
-    ))
+    match result {
+        Ok(signals) => Box::pin(
+            stream::once(async move { Event::NotifierReady(generation, Ok(())) })
+                .chain(signals.map(move |()| {
+                    if failed.load(Ordering::Acquire) {
+                        Event::NotifierFailed(generation)
+                    } else {
+                        Event::Signal(generation, restart.swap(false, Ordering::AcqRel))
+                    }
+                }))
+                .chain(stream::once(
+                    async move { Event::NotifierFailed(generation) },
+                )),
+        ),
+        Err(reason) => Box::pin(stream::once(async move {
+            Event::NotifierReady(generation, Err(reason))
+        })),
+    }
 }
 
-async fn signal_stream(connection: &Connection) -> Option<Pin<Box<dyn Stream<Item = ()> + Send>>> {
+async fn signal_stream(
+    connection: &Connection,
+    restart: Arc<AtomicBool>,
+    failed: Arc<AtomicBool>,
+) -> Result<Pin<Box<dyn Stream<Item = ()> + Send>>, String> {
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .interface(NOTIFIER_INTERFACE)
-        .ok()?
+        .map_err(|error| error.to_string())?
         .path(NOTIFIER_PATH)
-        .ok()?
+        .map_err(|error| error.to_string())?
         .build();
 
-    Some(glimpse_dbus::wake(
-        MessageStream::for_match_rule(rule, connection, None)
-            .await
-            .ok()?,
-    ))
+    let signals = time::timeout(
+        std::time::Duration::from_secs(2),
+        MessageStream::for_match_rule(rule, connection, None),
+    )
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| error.to_string())?;
+    Ok(glimpse_dbus::wake(signals.map(move |message| {
+        if let Ok(message) = message {
+            let header = message.header();
+            if matches!(
+                header.member().map(|member| member.as_str()),
+                Some("ServerStarted" | "ServerRestarted")
+            ) {
+                restart.store(true, Ordering::Release);
+            }
+        } else {
+            failed.store(true, Ordering::Release);
+        }
+    })))
 }
 
 async fn fetch_state(uri: Uri) -> Result<PrintingState, IppError> {

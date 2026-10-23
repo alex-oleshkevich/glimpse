@@ -503,9 +503,6 @@ hide-delay = {2 if motion else 1}
 image = "{layout["wallpaper"]}"
 transition-ms = 0
 
-[printing]
-server-url = "http://127.0.0.1:16631/"
-
 [calendar]
 sources = [
     {{ id = "work", name = "Work", type = "directory", uri = "{work}", color = "#3584e4" }},
@@ -975,6 +972,7 @@ def main():
         "PATH": os.environ["PATH"],
         "HOME": str(root),
         "USER": "sam",
+        "CUPS_SERVER": "127.0.0.1:16631",
         "XDG_CONFIG_HOME": str(root / ".config"),
         "XDG_DATA_HOME": str(root / ".local" / "share"),
         "XDG_STATE_HOME": str(root / ".local" / "state"),

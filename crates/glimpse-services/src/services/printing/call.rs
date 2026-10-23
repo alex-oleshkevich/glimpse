@@ -59,7 +59,7 @@ fn job_request(
     Ok(request)
 }
 
-fn user_name() -> Option<String> {
+pub(super) fn user_name() -> Option<String> {
     ["USER", "LOGNAME"]
         .into_iter()
         .filter_map(|key| std::env::var(key).ok())

@@ -3,7 +3,7 @@
 # can be exercised against the whole stack rather than a stub.
 #
 # This is not what `printing-mock-cups.py` does. That one REPLACES cups: it serves IPP itself and
-# the panel is pointed at it with `[printing] server-url`, so nothing of the real daemon is
+# the panel is pointed at it with CUPS_SERVER, so nothing of the real daemon is
 # involved. This one goes the other way — `ippeveprinter` (shipped with cups) serves a real IPP
 # Everywhere printer and advertises it over DNS-SD, avahi carries it, cups-browsed picks it up and
 # creates a temporary queue, and the applet sees it through the ordinary local cups server. Use the

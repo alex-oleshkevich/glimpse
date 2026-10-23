@@ -45,6 +45,7 @@ gtk4-layer-shell = "0.8"
 gtk4-session-lock = { version = "0.4", features = ["v1_2"] }
 icalendar = { version = "0.17.13", features = ["recurrence"] }
 ipp = { version = "7.0.0", default-features = false, features = ["async-client-rustls"] }
+inotify = "0.11"
 iso8601 = "0.6.5"
 libc = "0.2.189"
 libpulse-binding = "2.30.1"

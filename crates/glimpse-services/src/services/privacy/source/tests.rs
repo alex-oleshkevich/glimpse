@@ -15,14 +15,6 @@ fn fake_proc(root: &Path, pid: u32, comm: &str, video_fd: Option<&str>) {
     }
 }
 
-fn fake_modules(root: &Path, refcount: u32) {
-    std::fs::write(
-        root.join("modules"),
-        format!("uvcvideo 106496 {refcount} - Live 0x0\n"),
-    )
-    .expect("write fake /proc/modules");
-}
-
 fn device(id: &str) -> Device {
     Device {
         id: DeviceId::new(id),

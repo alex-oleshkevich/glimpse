@@ -4,7 +4,8 @@ mod source;
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::time::{Duration, SystemTime};
+use std::path::PathBuf;
+use std::time::SystemTime;
 
 use crate::{
     context::Ctx,
@@ -16,7 +17,6 @@ use crate::{
 };
 
 const NAME_CAP: usize = 128;
-const CAMERA_POLL: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Resource {
@@ -128,7 +128,9 @@ impl Service for Privacy {
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         vec![
-            Sub::interval(Watch::Camera, CAMERA_POLL, |_ctx| source::scan_camera()),
+            Sub::stream(Watch::Camera, |_ctx| async {
+                source::camera(PathBuf::from("/dev"), PathBuf::from("/proc"))
+            }),
             Sub::watch(
                 Watch::Microphone,
                 self.audio.subscribe(),

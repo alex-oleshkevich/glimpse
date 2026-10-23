@@ -15,7 +15,6 @@ mod night_light;
 mod notifications;
 mod panels;
 mod places;
-mod printing;
 mod regional;
 mod removable;
 mod screenshot;
@@ -58,7 +57,6 @@ pub use night_light::{CLOCK, MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Sched
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;
-pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
 pub use screenshot::{Editor, FileTemplate, PaletteColor, Screenshot as ScreenshotConfig, Stroke};
@@ -74,7 +72,6 @@ pub struct Config {
     pub regional: Regional,
     pub geolocation: Geolocation,
     pub bluetooth: Bluetooth,
-    pub printing: Printing,
     pub network: NetworkSettings,
     pub night_light: NightLight,
     pub brightness: Brightness,
@@ -145,7 +142,6 @@ impl Default for Config {
             regional: Regional::default(),
             geolocation: Geolocation::default(),
             bluetooth: Bluetooth::default(),
-            printing: Printing::default(),
             network: NetworkSettings::default(),
             night_light: NightLight::default(),
             brightness: Brightness::default(),

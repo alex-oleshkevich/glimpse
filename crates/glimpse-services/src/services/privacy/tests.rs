@@ -179,7 +179,7 @@ fn capturing_app(name: &str) -> AudioState {
 }
 
 #[tokio::test]
-async fn camera_usage_clears_when_the_next_poll_finds_nothing() {
+async fn camera_usage_clears_when_the_next_event_finds_nothing() {
     let cancel = CancellationToken::new();
     let audio = fake_audio(&cancel);
     let compositor = fake_compositor(&cancel);
@@ -276,7 +276,7 @@ async fn an_unavailable_event_degrades_health_and_clears_only_its_own_resource()
             &harness.ctx,
             Input::Event(Event::Unavailable(
                 Resource::Camera,
-                "camera: /proc/modules is unreadable",
+                "camera: no camera nodes can be watched",
             )),
         )
         .await;
@@ -372,7 +372,7 @@ async fn a_graph_event_does_not_touch_health() {
             &harness.ctx,
             Input::Event(Event::Unavailable(
                 Resource::Camera,
-                "camera: /proc/modules is unreadable",
+                "camera: no camera nodes can be watched",
             )),
         )
         .await;

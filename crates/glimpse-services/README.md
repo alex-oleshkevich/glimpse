@@ -114,8 +114,8 @@ not renewing is how you stop; a fresh install sends no outbound request otherwis
 naive local ISO strings with no offset, and `observed_at` freezes when the network dies rather than
 reflecting the fetch clock.
 
-**printing** — CUPS over IPP, polled rather than mirrored, since the protocol has no subscription
-surviving a client restart, and `Cancel-Job`/`Release-Job` on an already-finished job are not failures.
+**printing** — CUPS state follows system-bus notifier signals under a renewable `dbus://`
+subscription, and `Cancel-Job`/`Release-Job` on an already-finished job are not failures.
 Job commands to the local CUPS go over `/run/cups/cups.sock` with `Authorization: PeerCred`, because
 `@OWNER` policies authenticate only there and refuse the same request over TCP with 401.
 
@@ -186,8 +186,10 @@ such as `niri-session` runs its own teardown after its compositor unit stops, an
 scope skips that teardown and leaves the next login refused.
 
 **privacy** — camera, microphone, screen capture and location as one state, reporting rather than
-enforcing. **The camera source is a `/proc` fd scan gated on the `uvcvideo` refcount, never
-PipeWire**, since PipeWire is blind to raw V4L2 capture. **`app: None` is first-class on every
+enforcing. **The camera source watches inotify OPEN/CLOSE on each `/dev/video*` node, re-arms on
+udev video4linux hotplug, and keeps a watch whose node has disappeared until the kernel drops it, so
+a recreated node gets its own watch. It scans `/proc` fds on events, delaying closes by 500 ms, never
+polling or using PipeWire**, since PipeWire is blind to raw V4L2 capture. **`app: None` is first-class on every
 resource, and always the case for location**, since GeoClue has no per-client attribution; it takes
 no commands at all.
 

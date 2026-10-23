@@ -171,14 +171,8 @@ fn a_server_error_list_response_is_a_failure() {
     assert!(accept_list(&response).is_err());
 }
 
-fn test_config(server_url: Option<&str>) -> Config {
-    let mut document = glimpse_config::Config::default();
-    document.printing.server_url = server_url.map(str::to_owned);
-    Config::from(&document)
-}
-
 #[tokio::test]
-async fn the_notifier_source_is_inert_without_a_system_bus() {
+async fn the_notifier_reports_failure_without_a_system_bus() {
     let cancel = CancellationToken::new();
     let (events, _inbox) = tokio::sync::mpsc::channel::<Input<Printing>>(8);
     let (state, _state_rx) = tokio::sync::watch::channel(PrintingState::default());
@@ -191,15 +185,12 @@ async fn the_notifier_source_is_inert_without_a_system_bus() {
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
 
-    let mut stream = notifier(ctx, test_config(None), Duration::from_millis(10)).await;
+    let mut stream = notifier(ctx, 7).await;
 
-    assert!(
-        matches!(
-            futures_util::FutureExt::now_or_never(stream.next()),
-            Some(None)
-        ),
-        "with no system bus the notifier must degrade to an empty stream, never panic"
-    );
+    assert!(matches!(
+        stream.next().await,
+        Some(Event::NotifierReady(7, Err(_)))
+    ));
 }
 
 #[test]

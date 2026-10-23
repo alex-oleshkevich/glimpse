@@ -21,10 +21,6 @@ provider = "geoclue"
 scan-timeout = 30
 hide-unnamed = true
 
-[printing]
-poll-active = 2
-poll-idle = 30
-
 [network]
 scan-timeout = 30
 hide-unnamed = true

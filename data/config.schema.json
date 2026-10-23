@@ -179,13 +179,6 @@
         "trash": true
       }
     },
-    "printing": {
-      "$ref": "#/$defs/Printing",
-      "default": {
-        "poll-active": 2,
-        "poll-idle": 30
-      }
-    },
     "regional": {
       "$ref": "#/$defs/Regional",
       "default": {
@@ -1077,34 +1070,6 @@
           "description": "Show your trash. Restart the panel after turning this off to remove existing entries.",
           "type": "boolean",
           "default": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "Printing": {
-      "description": "The printing service: how often it polls CUPS for job state, and which server it polls.",
-      "type": "object",
-      "properties": {
-        "poll-active": {
-          "description": "How often print jobs are checked while something is printing, in seconds, with a minimum of 1.",
-          "type": "integer",
-          "format": "uint64",
-          "default": 2,
-          "minimum": 1
-        },
-        "poll-idle": {
-          "description": "How often print jobs are checked while nothing is printing, in seconds, with a minimum of 1.",
-          "type": "integer",
-          "format": "uint64",
-          "default": 30,
-          "minimum": 1
-        },
-        "server-url": {
-          "description": "Your print server's address, such as `http://localhost:631/`.",
-          "type": [
-            "string",
-            "null"
-          ]
         }
       },
       "additionalProperties": false
