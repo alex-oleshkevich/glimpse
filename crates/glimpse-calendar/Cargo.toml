@@ -1,0 +1,29 @@
+[package]
+name = "glimpse-calendar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+chrono.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+futures-util.workspace = true
+glimpse-config.workspace = true
+glimpse-dbus.workspace = true
+glimpse-services.workspace = true
+glimpse-utils.workspace = true
+shadow-rs.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+zbus.workspace = true
+
+[build-dependencies]
+shadow-rs.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+glimpse-dbus = { workspace = true, features = ["testing"] }

@@ -76,7 +76,8 @@ fn a_configuration_that_does_not_load_says_binaries_will_not_start() {
 }
 
 use glimpse_dbus::{
-    idle::*, night_light::*, notifications::*, settings::*, testing::PrivateBus, weather::*,
+    calendar::*, idle::*, night_light::*, notifications::*, settings::*, testing::PrivateBus,
+    weather::*,
 };
 use std::sync::{
     Arc,
@@ -136,6 +137,25 @@ impl Weather {
     ) -> WeatherSnapshot {
         unique_destination(header);
         (true, false, String::new(), 0, 0, Vec::new())
+    }
+}
+
+struct Calendar(Arc<AtomicBool>);
+
+#[zbus::interface(name = "me.aresa.Glimpse.Calendar1")]
+impl Calendar {
+    #[zbus(property)]
+    fn snapshot(
+        &self,
+        #[zbus(header)] header: Option<zbus::message::Header<'_>>,
+    ) -> CalendarSnapshot {
+        unique_destination(header);
+        let reason = if self.0.load(Ordering::SeqCst) {
+            String::new()
+        } else {
+            "calendar feed unavailable".to_owned()
+        };
+        (reason, (false, 0), Vec::new(), 0)
     }
 }
 
@@ -226,6 +246,11 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
         .unwrap();
     server
         .object_server()
+        .at(GLIMPSE_CALENDAR_OBJECT_PATH, Calendar(serving.clone()))
+        .await
+        .unwrap();
+    server
+        .object_server()
         .at(GLIMPSE_NOTIFICATIONS_OBJECT_PATH, Notifications)
         .await
         .unwrap();
@@ -242,6 +267,7 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
     for name in [
         GLIMPSE_NIGHT_LIGHT_BUS_NAME,
         GLIMPSE_WEATHER_BUS_NAME,
+        GLIMPSE_CALENDAR_BUS_NAME,
         GLIMPSE_NOTIFICATIONS_BUS_NAME,
         GLIMPSE_SETTINGS_BUS_NAME,
         GLIMPSE_IDLE_BUS_NAME,
@@ -255,7 +281,7 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
     assert!(healthy.status.success(), "{healthy:?}");
     let report: serde_json::Value = serde_json::from_slice(&healthy.stdout).unwrap();
     assert!(report["configuration"]["loads"].as_bool().unwrap());
-    assert_eq!(report["providers"].as_array().unwrap().len(), 5);
+    assert_eq!(report["providers"].as_array().unwrap().len(), 6);
     for name in [
         "me.aresa.GlimpseLock",
         "me.aresa.GlimpseWallpaper",
@@ -276,6 +302,8 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
         assert_eq!(output.status.code(), Some(1), "{output:?}");
         let text = String::from_utf8(output.stdout).unwrap();
         assert!(text.contains("gamma unavailable"), "{text}");
+        assert!(text.contains(GLIMPSE_CALENDAR_BUS_NAME), "{text}");
+        assert!(text.contains("calendar feed unavailable"), "{text}");
         if json {
             assert!(
                 serde_json::from_str::<serde_json::Value>(&text).unwrap()["providers"].is_array()

@@ -23,51 +23,19 @@ use crate::{
 
 const BACK: i64 = 31;
 const AHEAD: i64 = 62;
-const SPAN: i64 = 400;
 const OCCURRENCES: u16 = 512;
-const EVENTS: usize = 512;
 const DIRECTORY_BYTES: u64 = 16 * 1024 * 1024;
-const SUMMARY: usize = 120;
-const DETAIL: usize = 120;
-const ORGANIZER: usize = 80;
-const MEETING_URL: usize = 512;
 const SIDECAR: usize = 2048;
 const REASON: usize = 240;
 const ADVANCE: Duration = Duration::from_secs(3600);
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
 use super::{AGENT, transport};
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CalendarEvent {
-    pub source: String,
-    pub calendar: String,
-    pub summary: String,
-    pub location: String,
-    pub description: String,
-    pub meeting_url: Option<String>,
-    pub event_url: Option<String>,
-    pub organizer: Option<String>,
-    pub guests: Option<GuestCounts>,
-    pub tentative: bool,
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
-    pub all_day: bool,
-    pub color: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GuestCounts {
-    pub total: u32,
-    pub accepted: u32,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct CalendarEvents {
-    pub events: Vec<CalendarEvent>,
-    pub truncated_from: Option<DateTime<Utc>>,
-}
+use glimpse_dbus::calendar::{
+    CalendarEvent, CalendarEvents, DETAIL, EVENT_CAP as EVENTS, GuestCounts, MEETING_URL,
+    ORGANIZER, SPAN, SUMMARY,
+};
 
 const WEBCAL: &str = "webcal://";
 
@@ -76,10 +44,10 @@ pub enum Command {
     Refresh {
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    Range {
+    Events {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-        reply: oneshot::Sender<Result<(), CommandError>>,
+        reply: oneshot::Sender<Result<CalendarEvents, CommandError>>,
     },
 }
 
@@ -93,13 +61,13 @@ impl ServiceEndpoint<Calendar> {
         .await?
     }
 
-    pub async fn set_range(
+    pub async fn events(
         &self,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-    ) -> Result<(), CommandError> {
-        self.call("calendar stopped before changing its range", |reply| {
-            Command::Range { from, to, reply }
+    ) -> Result<CalendarEvents, CommandError> {
+        self.call("calendar stopped before reading events", |reply| {
+            Command::Events { from, to, reply }
         })
         .await?
     }
@@ -228,7 +196,6 @@ pub struct Calendar {
     poll: u64,
     attempt: u64,
     generation: u64,
-    window: Option<Window>,
     fetched: BTreeMap<String, Fetch>,
     failures: BTreeMap<String, String>,
 }
@@ -298,12 +265,18 @@ impl Service for Calendar {
         }
 
         let generation = self.generation;
-        let window = self.window.unwrap_or_else(|| Window::around(Utc::now()));
+        let window = Window::around(Utc::now());
         let loaded = self.loaded();
 
         declared.push(Sub::interval(Watch::Advance, ADVANCE, |_ctx| async {
             Event::Advanced
         }));
+
+        if self.sources.iter().any(|source| {
+            !self.fetched.contains_key(&source.id) && !self.failures.contains_key(&source.id)
+        }) {
+            return declared;
+        }
 
         declared.push(Sub::stream(
             Watch::Expand { generation },
@@ -346,8 +319,7 @@ impl Service for Calendar {
             sources: config.sources,
             poll: config.poll_interval,
             attempt: 0,
-            generation: 0,
-            window: None,
+            generation: 1,
             fetched: BTreeMap::new(),
             failures: BTreeMap::new(),
         }
@@ -398,13 +370,11 @@ impl Service for Calendar {
                 self.attempt += 1;
                 let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::Range { from, to, reply }) => {
-                let window = Window::asked(from, to);
-                if self.window != Some(window) {
-                    self.window = Some(window);
-                    self.generation += 1;
-                }
-                let _ = reply.send(Ok(()));
+            Input::Command(Command::Events { from, to, reply }) => {
+                let loaded = self.loaded();
+                ctx.spawn_detached(move |_ctx| async move {
+                    let _ = reply.send(queried(loaded, from, to).await);
+                });
             }
         }
     }
@@ -452,19 +422,36 @@ struct Loaded {
     calendars: Vec<Arc<ICalendar>>,
 }
 
+async fn queried(
+    loaded: Vec<Loaded>,
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+) -> Result<CalendarEvents, CommandError> {
+    if from >= to {
+        return Err(CommandError::InvalidArgument(
+            "from is not before to".to_owned(),
+        ));
+    }
+    if loaded.is_empty() {
+        return Ok(CalendarEvents::default());
+    }
+    let window = Window::asked(from, to);
+    match tokio::task::spawn_blocking(move || expanding(0, loaded, window)).await {
+        Ok(Event::Expanded { payload, .. }) => Ok(payload),
+        Ok(_) => Err(CommandError::Internal(
+            "expanding the calendar produced nothing".to_owned(),
+        )),
+        Err(_) => Err(CommandError::Internal(
+            "expanding the calendar panicked".to_owned(),
+        )),
+    }
+}
+
 fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
-    let near = Window::around(Utc::now());
-    let windows = match window.from <= near.to && near.from <= window.to {
-        true => vec![Window {
-            from: window.from.min(near.from),
-            to: window.to.max(near.to),
-        }],
-        false => vec![near, window],
-    };
     let mut events = Vec::new();
     for source in &loaded {
         for calendar in &source.calendars {
-            for occurrence in windows.iter().flat_map(|window| expand(calendar, *window)) {
+            for occurrence in expand(calendar, window) {
                 events.push(CalendarEvent {
                     source: source.id.clone(),
                     calendar: source.name.clone().unwrap_or_else(|| source.id.clone()),
@@ -497,6 +484,7 @@ fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
         payload: CalendarEvents {
             events,
             truncated_from,
+            revision: generation,
         },
     }
 }
@@ -647,7 +635,6 @@ async fn read(
 }
 
 fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
-    let from = bound(window.from);
     let to = bound(window.to);
     let overridden = overridden_instances(calendar);
 
@@ -670,6 +657,12 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
         let Ok(set) = entry.get_recurrence() else {
             continue;
         };
+        let opened = bound(
+            window
+                .from
+                .checked_sub_signed(length)
+                .unwrap_or(DateTime::<Utc>::MIN_UTC),
+        );
         let summary = clean(event.get_summary().unwrap_or_default(), SUMMARY);
         let location = line(event.get_location());
         let description = line(event.get_description().and_then(first_line));
@@ -683,8 +676,12 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             None => overridden.get(event.get_uid().unwrap_or("")),
         };
 
-        for date in set.after(from).before(to).all(OCCURRENCES).dates {
+        for date in set.after(opened).before(to).all(OCCURRENCES).dates {
             let start = date.with_timezone(&Utc);
+            let end = start.checked_add_signed(length).unwrap_or(start);
+            if start >= window.to || (start < window.from && end <= window.from) {
+                continue;
+            }
             if replaced.is_some_and(|replaced| replaced.holds(&date)) {
                 continue;
             }
@@ -698,7 +695,7 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
                 guests,
                 tentative,
                 start,
-                end: start.checked_add_signed(length).unwrap_or(start),
+                end,
                 all_day,
             });
         }

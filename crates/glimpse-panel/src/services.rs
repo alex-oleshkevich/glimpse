@@ -4,6 +4,7 @@ use std::sync::Arc;
 use glimpse_config::Config;
 use glimpse_dbus::{
     Buses,
+    calendar::{CalendarProvider, CalendarProviderHandle},
     idle::{IdleProvider, IdleProviderHandle},
     night_light::{NightLightProvider, NightLightProviderHandle},
     notifications::{NotificationsProvider, NotificationsProviderHandle},
@@ -12,21 +13,21 @@ use glimpse_dbus::{
 use glimpse_services::SystemdLauncher;
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryDependencies, BatteryHandle, BatterySource,
-    Bluetooth, BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
-    CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, CompositeBacklight,
-    Compositor, CompositorHandle, DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle,
-    Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies,
-    KeyboardHandle, Mpris, MprisHandle, Network, NetworkHandle, Places, PlacesHandle, Printing,
-    PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle,
-    Running, Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle,
-    SysfsBacklight, Tray, TrayHandle, kdeconnect_batteries,
+    Bluetooth, BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Clipboard,
+    ClipboardDependencies, ClipboardHandle, CompositeBacklight, Compositor, CompositorHandle,
+    DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle, Heartbeat, HeartbeatHandle,
+    Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris,
+    MprisHandle, Network, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy,
+    PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle, Running, Selection,
+    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray,
+    TrayHandle, kdeconnect_batteries,
 };
 
 #[derive(Clone)]
 pub struct Handles {
     pub compositor: CompositorHandle,
     pub keyboard: KeyboardHandle,
-    pub calendar: CalendarHandle,
+    pub calendar: CalendarProviderHandle,
     pub mpris: MprisHandle,
     pub heartbeat: HeartbeatHandle,
     pub tray: TrayHandle,
@@ -54,7 +55,6 @@ pub struct PanelServices {
     pub handles: Handles,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
-    calendar_service: Running<Calendar>,
     mpris_service: Running<Mpris>,
     heartbeat_service: Running<Heartbeat>,
     tray_service: Running<Tray>,
@@ -73,6 +73,7 @@ pub struct PanelServices {
     exec_service: Running<Exec>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
+    calendar: CalendarProvider,
     night_light: NightLightProvider,
     idle: IdleProvider,
     clipboard_served: Option<crate::clipboard_provider::Served>,
@@ -85,16 +86,18 @@ impl PanelServices {
 
     pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
         let session = buses.session_bus().ok().cloned();
-        let (notifications, weather, night_light, idle) = match buses.session_bus() {
+        let (notifications, weather, calendar, night_light, idle) = match buses.session_bus() {
             Ok(connection) => (
                 NotificationsProvider::start(connection.clone()),
                 WeatherProvider::start(connection.clone()),
+                CalendarProvider::start(connection.clone()),
                 NightLightProvider::start(connection.clone()),
                 IdleProvider::start(connection.clone()),
             ),
             Err(reason) => (
                 NotificationsProvider::unavailable(reason),
                 WeatherProvider::unavailable(reason),
+                CalendarProvider::unavailable(reason),
                 NightLightProvider::unavailable(reason),
                 IdleProvider::unavailable(reason),
             ),
@@ -108,7 +111,6 @@ impl PanelServices {
                 compositor: compositor.clone(),
             },
         );
-        let (calendar_service, calendar) = Running::<Calendar>::spawn(document, buses.clone(), ());
         let (mpris_service, mpris) = Running::<Mpris>::spawn(document, buses.clone(), ());
         let (heartbeat_service, heartbeat) =
             Running::<Heartbeat>::spawn(document, buses.clone(), ());
@@ -187,7 +189,6 @@ impl PanelServices {
             handles: Handles {
                 compositor,
                 keyboard,
-                calendar,
                 mpris,
                 heartbeat,
                 tray,
@@ -207,11 +208,11 @@ impl PanelServices {
                 night_light: night_light.handle(),
                 notifications: notifications.handle(),
                 weather: weather.handle(),
+                calendar: calendar.handle(),
                 idle: idle.handle(),
             },
             compositor_service,
             keyboard_service,
-            calendar_service,
             mpris_service,
             heartbeat_service,
             tray_service,
@@ -230,6 +231,7 @@ impl PanelServices {
             exec_service,
             notifications,
             weather,
+            calendar,
             night_light,
             idle,
             clipboard_served,
@@ -239,6 +241,7 @@ impl PanelServices {
     pub async fn shutdown(mut self) {
         self.cancel();
         self.weather.shutdown().await;
+        self.calendar.shutdown().await;
         self.idle.shutdown().await;
         self.notifications.shutdown().await;
         self.night_light.shutdown().await;
@@ -261,7 +264,6 @@ impl PanelServices {
         self.tray_service.stop().await;
         self.heartbeat_service.stop().await;
         self.mpris_service.stop().await;
-        self.calendar_service.stop().await;
         self.keyboard_service.stop().await;
         self.compositor_service.stop().await;
     }
@@ -269,7 +271,6 @@ impl PanelServices {
     pub fn reconfigure(&self, document: &Config) {
         self.compositor_service.reconfigure(document);
         self.keyboard_service.reconfigure(document);
-        self.calendar_service.reconfigure(document);
         self.mpris_service.reconfigure(document);
         self.heartbeat_service.reconfigure(document);
         self.tray_service.reconfigure(document);
@@ -305,7 +306,6 @@ impl PanelServices {
         self.tray_service.cancel();
         self.heartbeat_service.cancel();
         self.mpris_service.cancel();
-        self.calendar_service.cancel();
         self.keyboard_service.cancel();
         self.compositor_service.cancel();
     }

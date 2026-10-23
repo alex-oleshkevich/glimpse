@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, TimeDelta};
 use glimpse_config::{Applet as AppletConfig, AppletKind, NextEventConfig};
-use glimpse_services::CalendarHandle;
+use glimpse_dbus::calendar::CalendarProviderHandle;
 use glimpse_widgets::{IndicatorSpec, NextEventPopover};
 use gtk4::{gio, glib, prelude::*};
 
@@ -15,7 +15,7 @@ use crate::applets::agenda::{self, Occasion};
 const MINUTE: Duration = Duration::from_secs(60);
 
 pub struct NextEvent {
-    calendar: CalendarHandle,
+    calendar: CalendarProviderHandle,
     settings: NextEventConfig,
     events: Vec<Occasion>,
     twelve: bool,
@@ -67,7 +67,7 @@ impl Applet for NextEvent {
 }
 
 impl NextEvent {
-    pub fn start(calendar: CalendarHandle) -> Self {
+    pub fn start(calendar: CalendarProviderHandle) -> Self {
         let events = calendar.snapshot();
         Self {
             calendar,

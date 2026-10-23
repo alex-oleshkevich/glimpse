@@ -46,12 +46,12 @@ fn a_day_at_or_after_the_truncation_mark_is_truncated() {
 }
 
 #[test]
-fn a_month_pair_starts_at_its_own_first_day_and_ends_two_months_later() {
+fn a_month_pair_keeps_the_lookback_and_ends_two_months_later() {
     let (from, to) = month_pair(2026, 12).expect("December is a month");
 
     assert_eq!(
         from.with_timezone(&Local).date_naive(),
-        NaiveDate::from_ymd_opt(2026, 12, 1).expect("the first of December")
+        NaiveDate::from_ymd_opt(2026, 10, 31).expect("31 days before December")
     );
     assert_eq!(
         to.with_timezone(&Local).date_naive(),

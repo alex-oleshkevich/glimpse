@@ -48,7 +48,8 @@ pub fn truncated(day: NaiveDate, truncated_from: Option<DateTime<Utc>>) -> bool 
 pub fn month_pair(year: i32, month: u32) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
     let first = NaiveDate::from_ymd_opt(year, month, 1)?;
     let after = first.checked_add_months(Months::new(2))?;
-    Some((midnight(first), midnight(after)))
+    let before = first.checked_sub_signed(TimeDelta::days(31))?;
+    Some((midnight(before), midnight(after)))
 }
 
 fn midnight(day: NaiveDate) -> DateTime<Utc> {

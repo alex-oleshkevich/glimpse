@@ -7,7 +7,7 @@ set positional-arguments
 # Single source of truth for every script that walks the shipped binaries, passed to them as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it.
-binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-agents glimpse-weather glimpse-idle glimpse-lens glimpse-shot glimpse-settings-daemon"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-agents glimpse-weather glimpse-calendar glimpse-idle glimpse-lens glimpse-shot glimpse-settings-daemon"
 
 [doc("list recipes")]
 default:
@@ -139,6 +139,10 @@ run-notifications *ARGS:
 [doc("run weather provider")]
 run-weather *ARGS:
     cargo run -p glimpse-weather -- "$@"
+
+[doc("run calendar provider")]
+run-calendar *ARGS:
+    cargo run -p glimpse-calendar -- "$@"
 
 [doc("run the lens tool; --tool picker|ruler picks the tool")]
 run-lens *ARGS:

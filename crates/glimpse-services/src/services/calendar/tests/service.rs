@@ -107,6 +107,17 @@ fn the_cap_applies_to_the_merged_list_rather_than_to_each_source() {
 }
 
 #[tokio::test]
+async fn the_service_truncates_at_the_wire_decoder_cap() {
+    let cap = glimpse_dbus::calendar::EVENT_CAP;
+    let payload = crowd(cap + 1).await;
+    assert_eq!(payload.events.len(), cap);
+    assert_eq!(
+        payload.truncated_from,
+        Some(now() + TimeDelta::minutes(30 * cap as i64))
+    );
+}
+
+#[tokio::test]
 async fn a_source_that_comes_back_under_the_cap_clears_its_mark() {
     let root = tempfile::tempdir().expect("a scratch directory");
     let file = root.path().join("crowd.ics");
@@ -452,4 +463,262 @@ async fn a_directory_with_nothing_in_it_is_reported_rather_than_read_as_empty() 
     .await;
 
     assert!(read.is_err());
+}
+
+struct Running {
+    handle: CalendarHandle,
+    cancel: CancellationToken,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl Running {
+    fn start(sources: Vec<CalendarSource>) -> Self {
+        let cancel = CancellationToken::new();
+        let (mut runtime, handle) = ServiceRuntime::<Calendar>::new(
+            Config {
+                poll_interval: MIN_POLL,
+                sources,
+            },
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+        let task = tokio::spawn(async move {
+            runtime.run(()).await;
+        });
+        Self {
+            handle,
+            cancel,
+            task,
+        }
+    }
+
+    async fn stop(self) {
+        self.cancel.cancel();
+        let _ = self.task.await;
+    }
+}
+
+fn month(year: i32, month: u32) -> (DateTime<Utc>, DateTime<Utc>) {
+    let from = Utc
+        .with_ymd_and_hms(year, month, 1, 0, 0, 0)
+        .single()
+        .expect("a month starts");
+    let (year, month) = match month {
+        12 => (year + 1, 1),
+        month => (year, month + 1),
+    };
+    let to = Utc
+        .with_ymd_and_hms(year, month, 1, 0, 0, 0)
+        .single()
+        .expect("the next month starts");
+    (from, to)
+}
+
+fn summaries(events: &CalendarEvents) -> Vec<&str> {
+    events
+        .events
+        .iter()
+        .map(|event| event.summary.as_str())
+        .collect()
+}
+
+async fn directory(name: &str, files: &[(&str, String)]) -> (tempfile::TempDir, CalendarSource) {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    for (file, body) in files {
+        tokio::fs::write(root.path().join(file), body)
+            .await
+            .expect("a written fixture");
+    }
+    let calendar = source(
+        name,
+        CalendarSourceKind::Directory,
+        &root.path().to_string_lossy(),
+    );
+    (root, calendar)
+}
+
+#[tokio::test]
+async fn each_month_keeps_its_own_occurrence() {
+    let march = Utc
+        .with_ymd_and_hms(2027, 3, 15, 12, 0, 0)
+        .single()
+        .expect("an instant");
+    let january = Utc
+        .with_ymd_and_hms(2026, 1, 15, 12, 0, 0)
+        .single()
+        .expect("an instant");
+    let (_root, source) = directory(
+        "split",
+        &[
+            ("march.ics", ics("march@example", "March", march)),
+            ("january.ics", ics("january@example", "January", january)),
+        ],
+    )
+    .await;
+    let running = Running::start(vec![source]);
+    let march_range = month(2027, 3);
+    let mut found = None;
+    for _ in 0..400 {
+        let events = running
+            .handle
+            .events(march_range.0, march_range.1)
+            .await
+            .expect("events");
+        if summaries(&events) == ["March"] {
+            found = Some(events);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(
+        found.is_some(),
+        "march stays available once the calendars are loaded"
+    );
+
+    let january_range = month(2026, 1);
+    let january_events = running
+        .handle
+        .events(january_range.0, january_range.1)
+        .await
+        .expect("events");
+    assert_eq!(summaries(&january_events), ["January"]);
+
+    let again = running
+        .handle
+        .events(march_range.0, march_range.1)
+        .await
+        .expect("events");
+    assert_eq!(summaries(&again), ["March"]);
+    running.stop().await;
+}
+
+#[tokio::test]
+async fn an_events_query_does_not_mark_the_snapshot_changed() {
+    let soon = Utc::now() + TimeDelta::hours(2);
+    let far = Utc
+        .with_ymd_and_hms(2027, 3, 15, 12, 0, 0)
+        .single()
+        .expect("an instant");
+    let (_root, source) = directory(
+        "held",
+        &[
+            ("soon.ics", ics("soon@example", "Soon", soon)),
+            ("far.ics", ics("far@example", "Far", far)),
+        ],
+    )
+    .await;
+    let running = Running::start(vec![source]);
+    let mut watched = running.handle.subscribe();
+    let mut loaded = false;
+    for _ in 0..400 {
+        if watched
+            .borrow()
+            .events
+            .iter()
+            .any(|event| event.summary == "Soon")
+        {
+            loaded = true;
+            break;
+        }
+        watched.borrow_and_update();
+        if tokio::time::timeout(Duration::from_millis(10), watched.changed())
+            .await
+            .is_err()
+        {
+            continue;
+        }
+    }
+    assert!(loaded, "the near event is published before the query");
+    watched.borrow_and_update();
+
+    let range = month(2027, 3);
+    let events = running
+        .handle
+        .events(range.0, range.1)
+        .await
+        .expect("events");
+    assert_eq!(summaries(&events), ["Far"]);
+    let mut changed = false;
+    for _ in 0..20 {
+        if watched.has_changed().expect("the subscription stays open") {
+            changed = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(
+        !changed,
+        "a query answers the caller and leaves the snapshot alone"
+    );
+    running.stop().await;
+}
+
+#[tokio::test]
+async fn a_range_that_does_not_run_forward_is_refused() {
+    let running = Running::start(Vec::new());
+    let from = Utc
+        .with_ymd_and_hms(2026, 6, 1, 0, 0, 0)
+        .single()
+        .expect("an instant");
+
+    let equal = running.handle.events(from, from).await;
+    let backwards = running
+        .handle
+        .events(from, from - TimeDelta::seconds(1))
+        .await;
+
+    assert!(matches!(equal, Err(CommandError::InvalidArgument(_))));
+    assert!(matches!(backwards, Err(CommandError::InvalidArgument(_))));
+    running.stop().await;
+}
+
+#[tokio::test]
+async fn events_before_a_calendar_is_loaded_are_empty() {
+    let running = Running::start(Vec::new());
+    let (from, to) = month(2026, 1);
+
+    let events = running.handle.events(from, to).await.expect("events");
+
+    assert_eq!(events, CalendarEvents::default());
+    running.stop().await;
+}
+
+#[tokio::test]
+async fn a_window_past_the_span_drops_the_occurrence_on_day_500() {
+    let from = Utc
+        .with_ymd_and_hms(2026, 1, 1, 12, 0, 0)
+        .single()
+        .expect("an instant");
+    let (_root, source) = directory(
+        "span",
+        &[
+            (
+                "near.ics",
+                ics("near@example", "Near", from + TimeDelta::days(10)),
+            ),
+            (
+                "far.ics",
+                ics("far@example", "Far", from + TimeDelta::days(500)),
+            ),
+        ],
+    )
+    .await;
+    let running = Running::start(vec![source]);
+    let to = from + TimeDelta::days(2000);
+    let mut found = None;
+    for _ in 0..400 {
+        let events = running.handle.events(from, to).await.expect("events");
+        if summaries(&events).contains(&"Near") {
+            found = Some(events);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let events = found.expect("the occurrence inside the span is loaded");
+    assert!(
+        !summaries(&events).contains(&"Far"),
+        "day 500 sits past the {SPAN}-day clamp, got {:?}",
+        summaries(&events)
+    );
+    running.stop().await;
 }

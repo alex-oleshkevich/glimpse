@@ -156,13 +156,14 @@ pub use solar::{Solar, SolarDependencies, SolarHandle};
 pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 
-pub use calendar::{CalendarEvent, CalendarEvents, GuestCounts, Meeting, MeetingProvider, meeting};
+pub use calendar::{Meeting, MeetingProvider, meeting};
 pub use compositor::{
     CastInfo, CastKindInfo, CastTargetInfo, CompositorCapabilities, CompositorOutputs,
     CompositorPrivacy, CompositorStatus, CompositorWindows, CompositorWorkspaces, OutputInfo,
     OutputLogical, OutputMode, WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef,
 };
 pub use geolocation::GeolocationStatus;
+pub use glimpse_dbus::calendar::{CalendarEvent, CalendarEvents, GuestCounts};
 pub use heartbeat::{HeartbeatInterval, HeartbeatTick};
 pub use keyboard::{KeyboardLayout, KeyboardLayouts, LayoutRef};
 pub use mpris::{MprisPlayers, Playback, PlayerAction, PlayerCapabilities, PlayerStatus, Repeat};

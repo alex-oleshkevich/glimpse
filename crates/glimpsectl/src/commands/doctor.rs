@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use glimpse_compositors::{Compositor, detect_compositor};
+use glimpse_dbus::calendar::{Calendar1Proxy, GLIMPSE_CALENDAR_BUS_NAME};
 use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, HealthKind, Idle1Proxy};
 use glimpse_dbus::night_light::{GLIMPSE_NIGHT_LIGHT_BUS_NAME, NightLight1Proxy};
 use glimpse_dbus::notifications::{GLIMPSE_NOTIFICATIONS_BUS_NAME, Notifications1Proxy};
@@ -174,6 +175,7 @@ async fn providers(session: &Result<Connection>) -> Vec<Provider> {
         return [
             GLIMPSE_NIGHT_LIGHT_BUS_NAME,
             GLIMPSE_WEATHER_BUS_NAME,
+            GLIMPSE_CALENDAR_BUS_NAME,
             GLIMPSE_NOTIFICATIONS_BUS_NAME,
             GLIMPSE_SETTINGS_BUS_NAME,
             GLIMPSE_IDLE_BUS_NAME,
@@ -189,6 +191,9 @@ async fn providers(session: &Result<Connection>) -> Vec<Provider> {
         probe(connection, GLIMPSE_WEATHER_BUS_NAME, |owner| weather(
             connection, owner
         )),
+        probe(connection, GLIMPSE_CALENDAR_BUS_NAME, |owner| calendar(
+            connection, owner
+        )),
         probe(connection, GLIMPSE_NOTIFICATIONS_BUS_NAME, |owner| {
             notifications(connection, owner)
         },),
@@ -199,7 +204,7 @@ async fn providers(session: &Result<Connection>) -> Vec<Provider> {
             connection, owner
         )),
     );
-    vec![probes.0, probes.1, probes.2, probes.3, probes.4]
+    vec![probes.0, probes.1, probes.2, probes.3, probes.4, probes.5]
 }
 
 fn providers_section(providers: &[Provider], session: &Result<Connection>) -> Section {
@@ -322,6 +327,19 @@ async fn weather(
     )
     .await?;
     Ok((available, reason))
+}
+
+async fn calendar(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<(bool, String)> {
+    let (reason, ..) = within(
+        owned_proxy::<Calendar1Proxy>(connection, owner)
+            .await?
+            .snapshot(),
+    )
+    .await?;
+    Ok((true, reason))
 }
 
 async fn notifications(

@@ -1353,6 +1353,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-calendar"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "colorchoice-clap",
+ "futures-util",
+ "glimpse-config",
+ "glimpse-dbus",
+ "glimpse-services",
+ "glimpse-utils",
+ "shadow-rs",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "zbus",
+]
+
+[[package]]
 name = "glimpse-compositors"
 version = "0.16.0"
 dependencies = [

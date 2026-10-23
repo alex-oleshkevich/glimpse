@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=me.aresa.Glimpse.Calendar
+Exec=/usr/bin/glimpse-calendar
+SystemdService=glimpse-calendar.service

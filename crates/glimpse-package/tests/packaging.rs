@@ -498,17 +498,22 @@ fn every_workspace_binary_is_built_and_reaches_every_package() {
 }
 
 #[test]
-fn weather_provider_is_not_started_by_the_session_target() {
+fn weather_and_calendar_providers_are_not_started_by_the_session_target() {
     let root = workspace_root();
     let target = fs::read_to_string(root.join("data/systemd/glimpse-session.target"))
         .expect("session target");
     assert!(!target.contains("glimpse-weather.service"));
+    assert!(!target.contains("glimpse-calendar.service"));
 }
 
 #[test]
 fn notification_and_weather_providers_are_standalone() {
     let root = workspace_root();
-    for provider in ["glimpse-notifications", "glimpse-weather"] {
+    for provider in [
+        "glimpse-notifications",
+        "glimpse-weather",
+        "glimpse-calendar",
+    ] {
         let manifest = fs::read_to_string(root.join("crates").join(provider).join("Cargo.toml"))
             .expect(provider);
         assert!(
@@ -740,43 +745,45 @@ fn binary_portal_routing_preserves_the_compositors_share_directory() {
 }
 
 #[test]
-fn weather_activation_names_agree_and_uninstall_removes_the_chain() {
-    let root = workspace_root();
-    let unit_name = "glimpse-weather.service";
-    let unit = fs::read_to_string(root.join("data/systemd").join(unit_name)).unwrap();
-    let value = |body: &str, key: &str| {
-        body.lines()
-            .find_map(|line| line.strip_prefix(key))
-            .unwrap()
-            .to_owned()
-    };
-    assert_eq!(value(&unit, "Type="), "dbus");
-    let bus_name = value(&unit, "BusName=");
-    let activation_name = format!("{bus_name}.service");
-    let activation =
-        fs::read_to_string(root.join("data/dbus-1/services").join(&activation_name)).unwrap();
-    assert_eq!(value(&activation, "Name="), bus_name);
-    assert_eq!(value(&activation, "SystemdService="), unit_name);
-    assert_eq!(value(&activation, "Exec="), value(&unit, "ExecStart="));
-    let dir = tempfile::tempdir().unwrap();
-    let scratch = dir.path();
-    let unit_path = scratch.join("usr/lib/systemd/user").join(unit_name);
-    let activation_path = scratch
-        .join("usr/share/dbus-1/services")
-        .join(activation_name);
-    for path in [&unit_path, &activation_path] {
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, "fixture").unwrap();
+fn weather_and_calendar_activation_names_agree_and_uninstall_removes_the_chain() {
+    for provider in ["glimpse-weather", "glimpse-calendar"] {
+        let root = workspace_root();
+        let unit_name = format!("{provider}.service");
+        let unit = fs::read_to_string(root.join("data/systemd").join(&unit_name)).unwrap();
+        let value = |body: &str, key: &str| {
+            body.lines()
+                .find_map(|line| line.strip_prefix(key))
+                .unwrap()
+                .to_owned()
+        };
+        assert_eq!(value(&unit, "Type="), "dbus");
+        let bus_name = value(&unit, "BusName=");
+        let activation_name = format!("{bus_name}.service");
+        let activation =
+            fs::read_to_string(root.join("data/dbus-1/services").join(&activation_name)).unwrap();
+        assert_eq!(value(&activation, "Name="), bus_name);
+        assert_eq!(value(&activation, "SystemdService="), unit_name);
+        assert_eq!(value(&activation, "Exec="), value(&unit, "ExecStart="));
+        let dir = tempfile::tempdir().unwrap();
+        let scratch = dir.path();
+        let unit_path = scratch.join("usr/lib/systemd/user").join(unit_name);
+        let activation_path = scratch
+            .join("usr/share/dbus-1/services")
+            .join(activation_name);
+        for path in [&unit_path, &activation_path] {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, "fixture").unwrap();
+        }
+        let output = std::process::Command::new("bash")
+            .arg(root.join("scripts/uninstall.sh"))
+            .env("DESTDIR", scratch)
+            .env("PREFIX", "/usr")
+            .env("GLIMPSE_BINARIES", provider)
+            .current_dir(&root)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        assert!(!unit_path.exists());
+        assert!(!activation_path.exists());
     }
-    let output = std::process::Command::new("bash")
-        .arg(root.join("scripts/uninstall.sh"))
-        .env("DESTDIR", scratch)
-        .env("PREFIX", "/usr")
-        .env("GLIMPSE_BINARIES", "glimpse-weather")
-        .current_dir(&root)
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "{output:?}");
-    assert!(!unit_path.exists());
-    assert!(!activation_path.exists());
 }
