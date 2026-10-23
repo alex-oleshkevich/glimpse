@@ -10,6 +10,7 @@ pub(super) fn check(styles: &Styles) {
 
     synchronous_removal();
     animated_removal();
+    horizontal_removal();
     section_exit();
     unmapped_section();
     idle_section_leaves_with_its_last_row();
@@ -126,6 +127,27 @@ fn animated_removal() {
     wait_until(|| exit.parent().is_none());
     assert_eq!(a.next_sibling(), Some(c.upcast()));
     assert_eq!(reparents.get(), 0);
+    window.close();
+}
+
+fn horizontal_removal() {
+    let strip = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    let mut held = Vec::new();
+    update(&strip, &mut held, &[1, 2, 3]);
+    let a = held[0].1.clone();
+    let window = mapped(&strip);
+
+    update(&strip, &mut held, &[1, 3]);
+    let exit = a
+        .next_sibling()
+        .and_downcast::<gtk4::Revealer>()
+        .expect("a picture of the chip holds its place");
+    let width = exit.measure(gtk4::Orientation::Horizontal, -1).1;
+    assert!(width > 0);
+    wait_until(|| {
+        exit.parent().is_some() && exit.measure(gtk4::Orientation::Horizontal, -1).1 < width
+    });
+    wait_until(|| exit.parent().is_none());
     window.close();
 }
 

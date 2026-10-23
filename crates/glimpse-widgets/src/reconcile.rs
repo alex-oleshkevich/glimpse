@@ -61,19 +61,21 @@ pub(crate) fn exit(widget: &gtk4::Widget) {
     let Some(parent) = widget.parent() else {
         return;
     };
-    if !widget.is_mapped()
-        || duration == 0
-        || !parent
-            .layout_manager()
-            .is_some_and(|layout| layout.is::<gtk4::BoxLayout>())
-    {
+    let Some(layout) = parent.layout_manager().and_downcast::<gtk4::BoxLayout>() else {
+        return;
+    };
+    if !widget.is_mapped() || duration == 0 {
         return;
     }
+    let collapse = match layout.orientation() {
+        gtk4::Orientation::Horizontal => gtk4::RevealerTransitionType::SlideLeft,
+        _ => gtk4::RevealerTransitionType::SlideUp,
+    };
     let ghost =
         gtk4::Picture::for_paintable(&gtk4::WidgetPaintable::new(Some(widget)).current_image());
     ghost.set_can_shrink(false);
     let exit = gtk4::Revealer::builder()
-        .transition_type(gtk4::RevealerTransitionType::SlideUp)
+        .transition_type(collapse)
         .transition_duration(0)
         .reveal_child(true)
         .child(&ghost)
