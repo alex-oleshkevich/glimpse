@@ -158,6 +158,20 @@ fn a_table_in_the_wrong_file_names_the_file_it_belongs_in() {
 }
 
 #[test]
+fn an_unknown_table_in_a_panel_file_is_not_sent_to_the_config_file() {
+    let base = tempfile::tempdir().expect("a temporary directory");
+    let roots = roots_of(base.path());
+    write(&roots[1].join("panel.toml"), "[[panel]]\n");
+
+    let rendered = loaded(&roots, Documents::ConfigAndPanel)
+        .expect_err("a misspelled panels table")
+        .to_string();
+
+    assert!(rendered.contains("unknown field `panel`"), "{rendered}");
+    assert!(!rendered.contains("belongs in"), "{rendered}");
+}
+
+#[test]
 fn a_schema_error_names_the_file_it_came_from() {
     let base = tempfile::tempdir().expect("a temporary directory");
     let roots = roots_of(base.path());

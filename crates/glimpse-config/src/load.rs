@@ -363,10 +363,10 @@ pub fn load_files(files: &[PathBuf]) -> Result<Config, ConfigError> {
                 .parent()
                 .and_then(Path::file_name)
                 .is_some_and(|name| name == PANEL_DROPINS);
-        if let Some((key, value)) = table
-            .iter()
-            .find(|(key, _)| PANEL_TABLES.contains(&key.as_str()) != panel_file)
-        {
+        if let Some((key, value)) = table.iter().find(|(key, _)| {
+            PANEL_TABLES.contains(&key.as_str()) != panel_file
+                && (!panel_file || is_config_table(key))
+        }) {
             let header = if value.is_array() {
                 format!("[[{key}]]")
             } else {
@@ -394,6 +394,10 @@ pub fn load_files(files: &[PathBuf]) -> Result<Config, ConfigError> {
         .map_err(|error| ConfigError::schema(error, None))?
         .try_deserialize()
         .map_err(|error| ConfigError::schema(error, None))
+}
+
+fn is_config_table(key: &str) -> bool {
+    toml::Table::try_from(Config::default()).is_ok_and(|table| table.contains_key(key))
 }
 
 pub fn seed_user_config() {
