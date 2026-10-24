@@ -16,7 +16,7 @@ use glimpse_utils::{init_app_tracing, init_locale};
 use services::IdleServices;
 use tokio::signal::unix::{SignalKind, signal};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     cli.color.write_global();

@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adw::prelude::*;
-use glimpse_config::{Config, Theme};
+use futures_util::StreamExt as _;
+use glimpse_config::{Config, Documents, Reload, Theme, watch_config};
 use glimpse_widgets::{Styles, color_scheme};
 use gtk4::glib;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -103,6 +104,20 @@ impl SimpleComponent for App {
         styles.load(&init.theme);
         styles.set_variant(&appearance.theme_variant);
         styles.set_animation_speed(appearance.animation_speed);
+
+        let watched = init.config.clone();
+        let watch_sender = sender.input_sender().clone();
+        init.runtime.spawn(async move {
+            let mut configs = Box::pin(watch_config(Documents::Config, watched, None));
+            while let Some(Reload::Changed(config)) = configs.next().await {
+                if watch_sender
+                    .send(Input::ConfigChanged(Box::new(config)))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
 
         let forward = sender.input_sender().clone();
         let inbox = init.inbox;
@@ -221,6 +236,20 @@ impl App {
 
     fn ingest(&mut self, input: Input, sender: &Sender<Input>) {
         match input {
+            Input::ConfigChanged(config) => {
+                self.blur = blurred(&config);
+                if let Some(styles) = &self._styles {
+                    styles.set_color_scheme(color_scheme(config.appearance.color_scheme));
+                    styles.set_variant(&config.appearance.theme_variant);
+                    styles.set_animation_speed(config.appearance.animation_speed);
+                }
+                if let Some(surface) = &self.surface {
+                    glimpse_widgets::blur::apply(&surface.window, self.blur);
+                }
+                if let Some(surface) = &self.session_surface {
+                    glimpse_widgets::blur::apply(&surface.window, self.blur);
+                }
+            }
             Input::Ask(ask) => {
                 self.cancel_session();
                 self.queue.push(ask);

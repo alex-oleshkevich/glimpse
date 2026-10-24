@@ -204,7 +204,10 @@ fn a_fifo_is_refused_without_blocking() {
     let fifo = dir.path().join("pipe.png");
     mkfifo(&fifo);
     let copies = dir.path().join("copies");
-    let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
     let outcome = runtime.block_on(async {
         tokio::time::timeout(Duration::from_secs(5), copy_image(&fifo, &copies)).await
     });

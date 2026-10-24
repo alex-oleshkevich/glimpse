@@ -34,7 +34,10 @@ fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     glimpse_config::init(cli.config.config_dir.clone());
     match cli.command {
-        Some(Command::Check) => tokio::runtime::Runtime::new()?.block_on(commands::check()),
+        Some(Command::Check) => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?
+            .block_on(commands::check()),
         None => daemon(),
     }
 }
@@ -46,15 +49,23 @@ fn daemon() -> Result<()> {
     }
     init_translations(config.regional.language());
 
-    let runtime = tokio::runtime::Runtime::new()?;
     let (input, inbox) = relm4::channel();
-    let (session, system) = runtime.block_on(connect(input.clone()))?;
     let cancelled = Arc::new(Mutex::new(HashSet::new()));
-    runtime.spawn(glimpse_agents::agents::spawn_agents(
-        system.clone(),
-        input,
-        Arc::clone(&cancelled),
-    ));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    let handle = runtime.handle().clone();
+    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+    let cancelled_for_runtime = Arc::clone(&cancelled);
+    std::thread::Builder::new()
+        .name("agents-runtime".into())
+        .spawn(move || {
+            runtime.block_on(drive(input, cancelled_for_runtime, ready_tx));
+        })
+        .context("cannot start the agents runtime")?;
+    let (session, system) = ready_rx
+        .recv()
+        .context("the agents runtime stopped before the bus was ready")??;
 
     let theme =
         glimpse_config::load_theme(&config.appearance.theme, PANEL_STYLESHEET).unwrap_or_default();
@@ -64,7 +75,6 @@ fn daemon() -> Result<()> {
     if RELM_THREADS.set(4).is_err() {
         tracing::warn!("RELM_THREADS already initialized");
     }
-    runtime.block_on(watch_shutdown())?;
 
     RelmApp::new("me.aresa.GlimpseAgents")
         .visible_on_activate(false)
@@ -74,11 +84,33 @@ fn daemon() -> Result<()> {
             theme,
             session,
             system,
-            runtime: runtime.handle().clone(),
+            runtime: handle,
             inbox,
             cancelled,
         });
     Ok(())
+}
+
+async fn drive(
+    input: relm4::Sender<glimpse_agents::ask::Input>,
+    cancelled: Arc<Mutex<HashSet<String>>>,
+    ready: std::sync::mpsc::SyncSender<Result<(zbus::Connection, zbus::Connection)>>,
+) {
+    let connected = connect(input.clone()).await;
+    let (session, system) = match connected {
+        Ok(pair) => pair,
+        Err(error) => {
+            let _ = ready.send(Err(error));
+            return;
+        }
+    };
+    glimpse_agents::agents::spawn_agents(system.clone(), input, cancelled).await;
+    if let Err(error) = watch_shutdown().await {
+        let _ = ready.send(Err(error));
+        return;
+    }
+    let _ = ready.send(Ok((session, system)));
+    std::future::pending::<()>().await;
 }
 
 async fn watch_shutdown() -> Result<()> {

@@ -113,6 +113,13 @@ impl<T> Cache<T> {
         self.purge();
     }
 
+    pub fn clear(&mut self) {
+        self.generation += 1;
+        self.slots.clear();
+        self.pending.clear();
+        self.failed.clear();
+    }
+
     pub fn due(&mut self) -> Vec<Key> {
         let due = self
             .wanted()

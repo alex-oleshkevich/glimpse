@@ -293,7 +293,6 @@ impl SimpleComponent for App {
             .backgrounds
             .configure(background::variants(&model.config));
         model.backgrounds.set_outputs(outputs());
-        model.decode(&sender);
 
         let widgets = view_output!();
 
@@ -531,12 +530,14 @@ impl App {
                     move |action, id| session_report.input(AppInput::SessionRequested(action, id)),
                     move |action| track_report.input(AppInput::TrackAction(action)),
                 ));
+                self.decode(sender);
                 spawn_display_name(sender.clone());
                 self.logind(Request::FetchSessionActions);
             }
             Effect::Unlock => {
                 tracing::info!("authenticated; unlocking");
                 self.lock_started = None;
+                self.backgrounds.clear();
                 if let Some(surfaces) = &self.surfaces {
                     surfaces.unlock();
                 }
@@ -707,6 +708,9 @@ impl App {
     }
 
     fn decode(&mut self, sender: &ComponentSender<Self>) {
+        if self.surfaces.is_none() {
+            return;
+        }
         let background = &self.config.lock.background;
         let (light, dark) = background::images(&self.config);
         for key in self.backgrounds.due() {

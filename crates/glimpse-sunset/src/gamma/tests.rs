@@ -1,6 +1,25 @@
 use super::*;
 
 #[test]
+fn one_worker_keeps_running_while_block_in_place_waits() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    let (tx, rx) = std::sync::mpsc::channel();
+    runtime.spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(40)).await;
+        tx.send(()).expect("the channel stays open");
+    });
+    runtime.block_on(async {
+        tokio::task::block_in_place(|| std::thread::sleep(std::time::Duration::from_millis(200)));
+    });
+    rx.recv_timeout(std::time::Duration::from_millis(500))
+        .expect("the other task ran while block_in_place held the first worker");
+}
+
+#[test]
 fn daylight_is_neutral_on_every_channel() {
     let (red, green, blue) = scales(6500);
 

@@ -230,3 +230,34 @@ fn an_output_that_leaves_drops_its_textures() {
     assert_eq!(cache.get("eDP-1", false), None);
     assert_eq!(cache.due().len(), 1, "a returning output decodes again");
 }
+
+#[test]
+fn clearing_on_unlock_empties_every_slot_and_the_next_lock_decodes_again() {
+    let mut cache = Cache::<&str>::default();
+    cache.configure(both());
+    cache.set_outputs(vec![("eDP-1".into(), target(10, 10))]);
+    let first = cache.due();
+    assert_eq!(first.len(), 2);
+    for key in &first {
+        assert!(cache.land(key.clone(), Some("held")));
+    }
+    assert_eq!(cache.get("eDP-1", false), Some(&"held"));
+    assert_eq!(cache.get("eDP-1", true), Some(&"held"));
+
+    cache.clear();
+    assert_eq!(cache.get("eDP-1", false), None);
+    assert_eq!(cache.get("eDP-1", true), None);
+    assert!(
+        !cache.land(first[0].clone(), Some("late")),
+        "a decode in flight during the clear is stale and dropped"
+    );
+    assert_eq!(cache.get("eDP-1", false), None);
+
+    let second = cache.due();
+    assert_eq!(second.len(), 2, "the next lock decodes every variant again");
+    for key in &second {
+        assert!(cache.land(key.clone(), Some("fresh")));
+    }
+    assert_eq!(cache.get("eDP-1", false), Some(&"fresh"));
+    assert_eq!(cache.get("eDP-1", true), Some(&"fresh"));
+}

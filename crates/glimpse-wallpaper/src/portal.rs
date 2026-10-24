@@ -169,7 +169,10 @@ pub fn run() {
         tracing::warn!("no state or config directory; the wallpaper portal is off");
         return;
     };
-    let runtime = match tokio::runtime::Runtime::new() {
+    let runtime = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
         Ok(runtime) => runtime,
         Err(error) => {
             tracing::warn!(%error, "cannot start the wallpaper portal");

@@ -161,7 +161,8 @@ impl WaylandGamma {
 }
 
 /// `block_in_place` because a Wayland roundtrip waits on the compositor, and a stalled one must not
-/// take the runtime's worker with it. It needs the multi-threaded runtime, which every binary uses.
+/// take the runtime's worker with it. It needs a multi-thread runtime, which this binary keeps at
+/// one worker.
 impl Gamma for WaylandGamma {
     fn apply(&mut self, kelvin: u32) -> Result<(), String> {
         tokio::task::block_in_place(|| self.revive()?.set(kelvin))

@@ -15,7 +15,7 @@ use glimpse_utils::{init_app_tracing, init_locale};
 use services::SunsetServices;
 use tokio::signal::unix::{SignalKind, signal};
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 1)]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     cli.color.write_global();

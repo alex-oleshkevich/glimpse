@@ -6,7 +6,19 @@ use glimpse_shot::doc::wire::TargetV1;
 use tokio::sync::{oneshot, watch};
 use zbus::zvariant::Value;
 
+use glimpse_config::Reload;
+
 use super::*;
+
+#[test]
+fn a_changed_portal_document_replaces_the_running_one() {
+    let mut config = glimpse_config::Config::default();
+    config.regional.language = "lt".to_owned();
+    let next = super::take_changed(Reload::Changed(config)).expect("changed");
+    assert_eq!(next.regional.language(), Some("lt"));
+    assert!(super::take_changed(Reload::Rejected("panels".into())).is_none());
+    assert!(super::take_changed(Reload::Recovered).is_none());
+}
 
 #[test]
 fn a_screenshot_is_silent_only_when_the_portal_already_checked_permission() {

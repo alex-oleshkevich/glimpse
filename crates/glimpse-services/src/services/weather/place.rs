@@ -1,4 +1,5 @@
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 
 use glimpse_dbus::weather::{GeoCoordinates, WatchedPlace};
 use reverse_geocoder::ReverseGeocoder;
@@ -84,16 +85,38 @@ fn named(name: &str) -> Result<(String, String), String> {
 }
 
 fn reverse(coordinates: GeoCoordinates) -> ResolvedPlace {
-    static GEOCODER: OnceLock<ReverseGeocoder> = OnceLock::new();
-
-    let result = GEOCODER
-        .get_or_init(ReverseGeocoder::new)
-        .search((coordinates.latitude, coordinates.longitude));
-    ResolvedPlace {
-        coordinates,
-        city: glimpse_utils::clean(&result.record.name, CITY),
-        country_code: result.record.cc.to_ascii_uppercase(),
+    let key = (
+        coordinates.latitude.to_bits(),
+        coordinates.longitude.to_bits(),
+    );
+    if let Some(place) = reversed()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.get(&key).cloned())
+    {
+        return place;
     }
+
+    unsafe { libc::mallopt(libc::M_MMAP_THRESHOLD, 65_536) };
+    let place = {
+        let geocoder = ReverseGeocoder::new();
+        let result = geocoder.search((coordinates.latitude, coordinates.longitude));
+        ResolvedPlace {
+            coordinates,
+            city: glimpse_utils::clean(&result.record.name, CITY),
+            country_code: result.record.cc.to_ascii_uppercase(),
+        }
+    };
+    unsafe { libc::malloc_trim(0) };
+    if let Ok(mut guard) = reversed().lock() {
+        guard.entry(key).or_insert(place.clone());
+    }
+    place
+}
+
+fn reversed() -> &'static Mutex<HashMap<(u64, u64), ResolvedPlace>> {
+    static PLACES: OnceLock<Mutex<HashMap<(u64, u64), ResolvedPlace>>> = OnceLock::new();
+    PLACES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 #[derive(Deserialize)]

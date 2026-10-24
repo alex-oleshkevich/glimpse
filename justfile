@@ -199,6 +199,10 @@ build-crate CRATE:
 build-profiling:
     GLIMPSE_BINARIES="{{ binaries }}" scripts/build-binaries.sh --profile profiling
 
+[doc("PSS, swap, anon, threads and CPU of running glimpse processes")]
+perf-baseline *ARGS:
+    scripts/perf-baseline.sh "$@"
+
 [doc("build only the shipped binaries, release — unlike build-release, doesn't need every workspace crate to compile")]
 build-release-binaries:
     GLIMPSE_BINARIES="{{ binaries }}" scripts/build-binaries.sh --release

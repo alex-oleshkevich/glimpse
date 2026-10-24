@@ -29,12 +29,13 @@ lock never has zero interactive prompts while any surface exists. Shows Accounts
 else `UserName`, refreshed on every lock and never awaited — the stage shows the PAM username until
 it answers.
 
-`[lock.background]` `image`/`image-dark` decode off the UI thread, never at the lock itself; naming
-either inherits the whole pair from `[wallpaper]`, and both scheme variants decode ahead so a
-dark/light flip while locked swaps every stage at once. `[lock.session]` `actions` (gated by
-`enabled`) names which of suspend, reboot, power-off the sheet offers, each also gated by logind's
-own `Can*` answer — hidden where polkit can't prompt through a lock, disabled with the blocking
-inhibitor's reason otherwise.
+`[lock.background]` `image`/`image-dark` decode off the UI thread when a lock starts, never on
+the UI thread at the lock itself; naming either inherits the whole pair from `[wallpaper]`, and
+both scheme variants decode so a dark/light flip while locked swaps every stage at once. The
+cache drops on unlock, and nothing is decoded or held while the session is open.
+`[lock.session]` `actions` (gated by `enabled`) names which of suspend, reboot, power-off the
+sheet offers, each also gated by logind's own `Can*` answer — hidden where polkit can't prompt
+through a lock, disabled with the blocking inhibitor's reason otherwise.
 
 `Mpris`, `Compositor`, `Keyboard`, `Battery`, `Network` and `Bluetooth`, plus the notifications and
 weather providers, are hosted once at daemon start, never on the lock path. `status.rs` never shows

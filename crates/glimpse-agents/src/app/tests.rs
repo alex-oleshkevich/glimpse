@@ -789,3 +789,20 @@ fn dismissal_animates_without_delaying_replies_or_queue_handoffs() {
     assert!(!unanimated.is_visible());
     assert!(app.closing.is_none());
 }
+
+#[tokio::test]
+async fn a_config_change_applies_blur_from_the_document() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let (sender, _receiver) = relm4::channel();
+    let mut app = super::App::headless(
+        tokio::runtime::Handle::current(),
+        sender.clone(),
+        bus.connection().await,
+        None,
+    );
+    assert!(!app.blur);
+    let mut config = glimpse_config::Config::default();
+    config.appearance.blur = true;
+    app.drive(Input::ConfigChanged(Box::new(config)), &sender);
+    assert!(app.blur);
+}

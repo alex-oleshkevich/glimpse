@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
-use std::sync::OnceLock;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Mutex, OnceLock};
 
 use chrono::{
     DateTime, FixedOffset, NaiveDate, NaiveTime, Offset as _, TimeZone, Timelike as _, Utc,
@@ -29,7 +29,16 @@ pub(super) async fn met_no(client: reqwest::Client, ask: Ask) -> Result<Vec<Read
         let warnings: MetNoAlerts = met_no_json(&client, MET_NO_ALERTS, pair)
             .await
             .unwrap_or_default();
-        readings.push(met_no_reading(&forecast, &warnings, pair, &ask, now));
+        let located = pair.clone();
+        let seconds = match tokio::task::spawn_blocking(move || met_no_offset(&located, now)).await
+        {
+            Ok(seconds) => seconds,
+            Err(error) => {
+                tracing::warn!("timezone lookup failed: {error}");
+                0
+            }
+        };
+        readings.push(met_no_reading(&forecast, &warnings, &ask, now, seconds));
     }
 
     Ok(readings)
@@ -224,25 +233,46 @@ fn met_no_is_day(symbol: Option<&str>) -> bool {
 /// answers `utc_offset_seconds` outright. Without it every hour label would read in the panel's
 /// zone rather than the place's.
 fn met_no_offset(pair: &GeoCoordinates, now: DateTime<Utc>) -> i32 {
-    static FINDER: OnceLock<DefaultFinder> = OnceLock::new();
-
-    let name = FINDER
-        .get_or_init(DefaultFinder::new)
-        .get_tz_name(pair.longitude, pair.latitude);
-
-    name.parse::<chrono_tz::Tz>()
+    zone_name(pair)
+        .parse::<chrono_tz::Tz>()
         .map(|zone| now.with_timezone(&zone).offset().fix().local_minus_utc())
         .unwrap_or(0)
+}
+
+fn zone_name(pair: &GeoCoordinates) -> String {
+    let key = (pair.latitude.to_bits(), pair.longitude.to_bits());
+    if let Some(name) = zone_names()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.get(&key).cloned())
+    {
+        return name;
+    }
+
+    unsafe { libc::mallopt(libc::M_MMAP_THRESHOLD, 65_536) };
+    let name = {
+        let finder = DefaultFinder::new();
+        finder.get_tz_name(pair.longitude, pair.latitude).to_owned()
+    };
+    unsafe { libc::malloc_trim(0) };
+    if let Ok(mut guard) = zone_names().lock() {
+        guard.entry(key).or_insert(name.clone());
+    }
+    name
+}
+
+fn zone_names() -> &'static Mutex<HashMap<(u64, u64), String>> {
+    static NAMES: OnceLock<Mutex<HashMap<(u64, u64), String>>> = OnceLock::new();
+    NAMES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 fn met_no_reading(
     forecast: &MetNoForecast,
     warnings: &MetNoAlerts,
-    pair: &GeoCoordinates,
     ask: &Ask,
     now: DateTime<Utc>,
+    seconds: i32,
 ) -> Reading {
-    let seconds = met_no_offset(pair, now);
     let offset = FixedOffset::east_opt(seconds).unwrap_or_else(|| Utc.fix());
     let entries = &forecast.properties.timeseries;
 

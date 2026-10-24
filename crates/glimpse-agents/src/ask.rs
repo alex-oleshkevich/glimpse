@@ -64,6 +64,7 @@ pub enum Input {
         key: String,
         response: crate::dialog::Response,
     },
+    ConfigChanged(Box<glimpse_config::Config>),
 }
 
 impl fmt::Debug for Input {
@@ -96,6 +97,7 @@ impl fmt::Debug for Input {
                 response: crate::dialog::Response::Account(account),
                 ..
             } => write!(f, "Dialog(Account({account}))"),
+            Self::ConfigChanged(_) => f.write_str("ConfigChanged"),
         }
     }
 }

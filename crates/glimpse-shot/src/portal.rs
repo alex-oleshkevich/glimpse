@@ -5,13 +5,15 @@ use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::{Context as _, Result, bail};
+use futures_util::StreamExt as _;
 use futures_util::future::BoxFuture;
-use glimpse_config::Documents;
+use glimpse_config::{Config, Documents, Reload};
 use glimpse_shot::doc::wire::ResultV1;
 use serde::Deserialize;
 use std::process::Stdio;
 use tokio::io::AsyncReadExt as _;
 use tokio::process::Command;
+use tokio::signal::unix::{SignalKind, signal};
 use zbus::Connection;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Structure, Value};
 
@@ -65,16 +67,59 @@ trait Spawner: Send + Sync + 'static {
 pub fn run() -> Result<()> {
     let config = glimpse_config::load(Documents::Config)?;
     glimpse_utils::init_translations(config.regional.language());
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(async move {
-        let connection = zbus::Connection::session().await?;
-        glimpse_dbus::own_name(&connection, BUS_NAME)
-            .await
-            .context("me.aresa.Glimpse.Shot.Portal is already owned")?;
-        serve_at(&connection, Arc::new(ProcessSpawner)).await?;
-        tracing::info!(bus_name = BUS_NAME, "serving the screenshot portal");
-        std::future::pending::<Result<()>>().await
-    })
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    runtime.block_on(serve(config))
+}
+
+async fn serve(config: Config) -> Result<()> {
+    let connection = zbus::Connection::session().await?;
+    glimpse_dbus::own_name(&connection, BUS_NAME)
+        .await
+        .context("me.aresa.Glimpse.Shot.Portal is already owned")?;
+    serve_at(&connection, Arc::new(ProcessSpawner)).await?;
+    tracing::info!(bus_name = BUS_NAME, "serving the screenshot portal");
+    let mut current = config.clone();
+    let mut configs = Box::pin(glimpse_config::watch_config(
+        Documents::Config,
+        config,
+        None,
+    ));
+    let mut terminate = signal(SignalKind::terminate()).context("watch SIGTERM")?;
+    let mut interrupt = signal(SignalKind::interrupt()).context("watch SIGINT")?;
+    loop {
+        tokio::select! {
+            _ = terminate.recv() => {
+                tracing::info!(signal = "SIGTERM", "shutdown requested");
+                break;
+            }
+            _ = interrupt.recv() => {
+                tracing::info!(signal = "SIGINT", "shutdown requested");
+                break;
+            }
+            reloaded = configs.next() => match reloaded {
+                Some(reload) => {
+                    if let Some(reloaded) = take_changed(reload) {
+                        glimpse_utils::report_language_change(
+                            current.regional.language(),
+                            reloaded.regional.language(),
+                        );
+                        current = reloaded;
+                    }
+                }
+                None => break,
+            },
+        }
+    }
+    Ok(())
+}
+
+fn take_changed(reload: Reload<Config>) -> Option<Config> {
+    match reload {
+        Reload::Changed(config) => Some(config),
+        Reload::Recovered | Reload::Rejected(_) => None,
+    }
 }
 
 async fn serve_at(connection: &Connection, spawner: Arc<dyn Spawner>) -> Result<()> {
