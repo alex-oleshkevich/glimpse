@@ -422,6 +422,7 @@ impl Compositor {
             stale: false,
             fetch_failed: false,
             capabilities,
+            titles_at: None,
             backend,
         };
 
@@ -433,6 +434,16 @@ impl Compositor {
         });
 
         service
+    }
+
+    fn hold_title(&mut self) {
+        if self.titles_at.is_some() {
+            return;
+        }
+        match Utc::now().checked_add_signed(TITLE_HOLD) {
+            Some(at) => self.titles_at = Some(at),
+            None => self.publish(),
+        }
     }
 
     fn publish(&mut self) {
@@ -546,13 +557,23 @@ fn enabled_output_count(state: &Snapshot) -> usize {
     state.outputs.iter().filter(|output| output.enabled).count()
 }
 
-fn apply(state: &mut Snapshot, change: Change) -> bool {
+const TITLE_HOLD: chrono::TimeDelta = chrono::TimeDelta::seconds(1);
+
+#[derive(Debug, PartialEq, Eq)]
+enum Applied {
+    Resync,
+    Publish,
+    HoldTitle,
+    Stored,
+}
+
+fn apply(state: &mut Snapshot, change: Change) -> Applied {
     match change {
         Change::WorkspacesChanged(workspaces) => state.workspaces = workspaces,
         Change::WorkspaceActivated { id, focused } => {
             let Some(activated) = state.workspaces.iter().find(|workspace| workspace.id == id)
             else {
-                return true;
+                return Applied::Resync;
             };
             let output = activated.output.clone();
             if focused {
@@ -579,6 +600,7 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
         }
         Change::WindowsChanged(windows) => state.windows = windows,
         Change::WindowOpenedOrChanged(window) => {
+            let effect = window_effect(state, &window);
             let (id, focused) = (window.id, window.is_focused);
             match state.windows.iter_mut().find(|it| it.id == id) {
                 Some(found) => *found = window,
@@ -590,6 +612,7 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
                     other.is_focused = other.id == id;
                 }
             }
+            return effect;
         }
         Change::WindowClosed(id) => state.windows.retain(|window| window.id != id),
         Change::WindowFocusChanged(id) => {
@@ -615,7 +638,7 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
         }
         Change::KeyboardLayoutsChanged(_)
         | Change::KeyboardLayoutSwitched(_)
-        | Change::Resync(Resync::Keyboard) => {}
+        | Change::Resync(Resync::Keyboard) => return Applied::Stored,
         Change::CastsChanged(casts) => state.casts = casts,
         Change::CastStartedOrChanged { cast } => {
             match state
@@ -630,9 +653,29 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
         Change::CastStopped(id) => {
             state.casts.retain(|cast| cast.stream_id != id);
         }
-        Change::Resync(Resync::Structure | Resync::Outputs) => return true,
+        Change::Resync(Resync::Structure | Resync::Outputs) => return Applied::Resync,
     }
-    false
+    Applied::Publish
+}
+
+fn window_effect(state: &Snapshot, window: &Window) -> Applied {
+    let Some(found) = state.windows.iter().find(|it| it.id == window.id) else {
+        return Applied::Publish;
+    };
+    if found.app_id != window.app_id
+        || found.workspace_id != window.workspace_id
+        || found.is_focused != window.is_focused
+        || found.is_floating != window.is_floating
+        || found.is_urgent != window.is_urgent
+        || found.layout_order != window.layout_order
+    {
+        return Applied::Publish;
+    }
+    if found.title != window.title {
+        Applied::HoldTitle
+    } else {
+        Applied::Stored
+    }
 }
 
 fn workspace_mut(state: &mut Snapshot, id: WorkspaceId) -> Option<&mut Workspace> {
