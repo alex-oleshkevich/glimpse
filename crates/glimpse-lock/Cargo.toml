@@ -32,8 +32,5 @@ tracing.workspace = true
 zbus.workspace = true
 zeroize.workspace = true
 
-[dev-dependencies]
-tempfile.workspace = true
-
 [build-dependencies]
 shadow-rs.workspace = true

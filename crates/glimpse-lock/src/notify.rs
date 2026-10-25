@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use gettextrs::gettext;
-use glimpse_compositors::{Compositor, detect_compositor};
 use glimpse_dbus::DEADLINE;
 use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use tokio::sync::mpsc;
@@ -78,25 +77,16 @@ async fn post(proxy: &FreedesktopNotificationsProxy<'_>, notice: Notice) -> Resu
     }
 }
 
-pub async fn restore_notice(compositor: &Compositor) -> Option<Notice> {
-    match compositor.allows_session_lock_restore().await {
-        Ok(true) => None,
-        Ok(false) => Some(Notice::RestoreDisabled),
-        Err(error) => {
-            tracing::warn!(%error, "could not read the session lock restore option");
-            None
-        }
+pub fn restore_notice(last: &mut Option<bool>, now: Option<bool>) -> Option<Notice> {
+    let notice = (now == Some(false) && *last != Some(false)).then_some(Notice::RestoreDisabled);
+    if now.is_some() {
+        *last = now;
     }
+    notice
 }
 
 pub fn spawn() -> mpsc::UnboundedSender<Notice> {
     let (notices, mut receiver) = mpsc::unbounded_channel::<Notice>();
-    let restore = notices.clone();
-    relm4::spawn(async move {
-        if let Some(notice) = restore_notice(&detect_compositor()).await {
-            let _ = restore.send(notice);
-        }
-    });
     relm4::spawn(async move {
         let mut proxy = None;
         while let Some(notice) = receiver.recv().await {

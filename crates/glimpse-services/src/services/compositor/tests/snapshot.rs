@@ -1,184 +1,191 @@
 use super::*;
 
-#[tokio::test]
-async fn a_status_is_published_before_any_snapshot_arrives() {
-    let harness = harness(Backend::Unsupported);
+async fn unowned() -> (PrivateBus, Mirror) {
+    let bus = PrivateBus::start();
+    let mirror = mirror_on(&bus).await;
+    let mut state = mirror.handle.subscribe();
+    until(&mut state, "the unsupported status", |state| {
+        state.status.is_some()
+    })
+    .await;
+    let mut health = mirror.handle.health();
+    until(&mut health, "running health", |health| {
+        *health == ServiceState::Running
+    })
+    .await;
+    (bus, mirror)
+}
 
-    let published = harness.state.borrow().clone();
+#[tokio::test]
+async fn a_bus_with_no_owner_publishes_the_unsupported_status_and_stays_running() {
+    let (_bus, mirror) = unowned().await;
+
+    let published = mirror.handle.snapshot();
+    let status = published.status.expect("a status");
+    assert_eq!(status.name, "unsupported");
+    assert!(status.capabilities.is_empty());
+    assert!(published.workspaces.is_none());
+    assert!(published.windows.is_none());
+    assert!(published.outputs.is_none());
     assert_eq!(
-        published.status.map(|status| status.name),
-        Some(Backend::Unsupported.name().to_owned()),
-        "the bar needs a compositor name before the first snapshot resolves"
+        published.privacy,
+        Some(CompositorPrivacy {
+            active: false,
+            casts: Vec::new()
+        })
     );
-    assert!(
-        published.workspaces.is_none(),
-        "nothing is known about workspaces until a snapshot arrives"
-    );
+    assert_eq!(health_of(&mirror), ServiceState::Running);
 }
 
 #[tokio::test]
-async fn a_change_before_the_first_snapshot_publishes_nothing() {
-    let mut harness = harness(Backend::Unsupported);
+async fn every_command_is_unsupported_locally_while_no_provider_ever_owned_the_name() {
+    let (_bus, mirror) = unowned().await;
+    let handle = &mirror.handle;
 
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Changed(Change::WorkspacesChanged(Vec::new()))),
+    let unsupported = |result: Result<(), CommandError>| {
+        assert!(
+            matches!(result, Err(CommandError::Unsupported(_))),
+            "{result:?}"
         )
-        .await;
-
-    assert!(
-        harness.state.borrow().workspaces.is_none(),
-        "a change with no snapshot behind it is dropped rather than published as empty"
-    );
+    };
+    unsupported(handle.focus_workspace(WorkspaceRef::Next).await);
+    unsupported(handle.focus_window(WindowRef::Prev).await);
+    unsupported(handle.focus_app(Some(1), &["app"]).await);
+    unsupported(handle.rename_workspace(1, None).await);
+    unsupported(handle.set_output_enabled("DP-1".to_owned(), false).await);
+    unsupported(handle.power_off_monitors().await);
+    unsupported(handle.stop_screencast(1).await);
 }
 
 #[tokio::test]
-async fn the_first_snapshot_publishes_and_clears_a_degraded_health() {
-    let mut harness = harness(Backend::Unsupported);
-    harness.ctx.degraded("no compositor yet".to_owned());
+async fn an_owner_that_appears_later_is_followed() {
+    let (bus, mirror) = unowned().await;
+    let mut state = mirror.handle.subscribe();
 
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Snapshot(Box::new(snapshot_of(
-                vec![workspace(1, Some(1), "DP-2")],
-                Vec::new(),
-            )))),
-        )
-        .await;
+    let _served = serve_on::<Everything>(
+        &bus,
+        snapshot_of(vec![workspace(1, Some(1), "DP-2")], Vec::new()),
+    )
+    .await;
+    let published = until(&mut state, "the provider's sections", |state| {
+        state.workspaces.is_some()
+    })
+    .await;
 
-    assert!(!harness.ctx.is_degraded(), "a snapshot clears degraded");
-    let published = harness.state.borrow().clone();
+    let status = published.status.expect("a status");
+    assert_eq!(status.name, "fake");
+    assert_eq!(status.capabilities, Everything::SET);
     assert_eq!(
         published.workspaces.map(|shown| shown.workspaces.len()),
         Some(1)
     );
+    assert_eq!(health_of(&mirror), ServiceState::Running);
 }
 
-fn fetch_attempt(service: &Compositor) -> u64 {
+#[tokio::test]
+async fn a_lost_owner_degrades_keeps_the_last_state_and_a_new_owner_recovers() {
+    let mut rig = Rig::start(snapshot_of(vec![workspace(1, Some(1), "DP-2")], Vec::new())).await;
+    let before = rig.mirror.handle.snapshot();
+    let mut health = rig.mirror.handle.health();
+    until(&mut health, "running health", |health| {
+        *health == ServiceState::Running
+    })
+    .await;
+
+    rig.served.task.abort();
+    until(&mut health, "degraded health", |health| {
+        matches!(health, ServiceState::Degraded { .. })
+    })
+    .await;
+
+    assert_eq!(rig.mirror.handle.snapshot(), before);
+    assert!(matches!(
+        rig.mirror
+            .handle
+            .focus_workspace(WorkspaceRef::Id { id: 1 })
+            .await,
+        Err(CommandError::Unavailable(_))
+    ));
+
+    let _replacement = serve_on::<RenameOnly>(
+        &rig.bus,
+        snapshot_of(vec![workspace(1, Some(1), "DP-2")], Vec::new()),
+    )
+    .await;
+    until(&mut health, "running health again", |health| {
+        *health == ServiceState::Running
+    })
+    .await;
+    rig.until("the new capabilities", |state| {
+        state
+            .status
+            .as_ref()
+            .is_some_and(|status| status.capabilities == RenameOnly::SET)
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn the_first_snapshot_publishes_the_sections() {
+    let rig = Rig::start(snapshot_of(vec![workspace(1, Some(1), "DP-2")], Vec::new())).await;
+
+    assert_eq!(
+        rig.mirror
+            .handle
+            .snapshot()
+            .workspaces
+            .map(|shown| shown.workspaces.len()),
+        Some(1)
+    );
+    assert_eq!(health_of(&rig.mirror), ServiceState::Running);
+}
+
+#[tokio::test]
+async fn privacy_stays_unpublished_until_the_provider_ownership_resolves() {
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let (events, _inbox) = mpsc::channel(8);
+    let (published, state) = watch::channel(CompositorState::default());
+    let (health, _health) = watch::channel(ServiceState::Starting);
+    let ctx = Ctx::<Compositor>::new(
+        events,
+        &cancel,
+        published,
+        health,
+        Buses::unavailable("no bus in tests"),
+    );
+    let bus = PrivateBus::start();
+    let provider = glimpse_compositors::client::CompositorProvider::start(bus.connection().await);
+    let mut service = Compositor::start(
+        &ctx,
+        NoConfig,
+        Dependencies {
+            provider: ProviderHandle(provider.handle()),
+        },
+    )
+    .await;
+    let lost = |reason: &str| {
+        Input::Event(Event::Provider(Box::new(Mirrored {
+            unavailable: Some(reason.to_owned()),
+            ..Mirrored::default()
+        })))
+    };
+
+    service.handle(&ctx, lost(glimpse_dbus::PENDING)).await;
+    assert_eq!(*state.borrow(), CompositorState::default());
+
     service
-        .subscriptions()
-        .iter()
-        .find_map(|sub| match sub.key() {
-            Watch::Fetch { attempt } => Some(*attempt),
-            Watch::Events | Watch::Titles { .. } => None,
+        .handle(&ctx, lost("provider has no bus owner"))
+        .await;
+    let resolved = state.borrow().clone();
+    assert_eq!(
+        resolved.status.map(|status| status.name).as_deref(),
+        Some("unsupported")
+    );
+    assert_eq!(
+        resolved.privacy,
+        Some(CompositorPrivacy {
+            active: false,
+            casts: Vec::new()
         })
-        .expect("a fetch is always declared")
-}
-
-#[tokio::test]
-async fn a_failed_first_snapshot_is_fetched_again_when_a_change_arrives() {
-    let mut harness = harness(Backend::Unsupported);
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::FetchFailed("first snapshot failed".to_owned())),
-        )
-        .await;
-    let before = fetch_attempt(&harness.service);
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Changed(Change::Resync(Resync::Structure))),
-        )
-        .await;
-
-    assert_ne!(
-        fetch_attempt(&harness.service),
-        before,
-        "an unchanged fetch key leaves the failed snapshot dead for the whole session"
     );
-}
-
-#[tokio::test]
-async fn changes_while_the_first_fetch_is_in_flight_do_not_restart_it() {
-    let mut harness = harness(Backend::Unsupported);
-    let before = fetch_attempt(&harness.service);
-
-    for _ in 0..5 {
-        harness
-            .service
-            .handle(
-                &harness.ctx,
-                Input::Event(Event::Changed(Change::Resync(Resync::Structure))),
-            )
-            .await;
-    }
-
-    assert_eq!(
-        fetch_attempt(&harness.service),
-        before,
-        "every restart cancels the fetch that is still running, so a steady event flow starves it"
-    );
-}
-
-#[tokio::test]
-async fn a_change_before_the_first_snapshot_refetches_once_when_it_lands() {
-    let mut harness = harness(Backend::Unsupported);
-    let before = harness.service.attempt;
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Changed(Change::WorkspacesChanged(Vec::new()))),
-        )
-        .await;
-    assert_eq!(
-        harness.service.attempt, before,
-        "nothing refetches before the snapshot lands"
-    );
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Snapshot(Box::new(snapshot_of(
-                Vec::new(),
-                Vec::new(),
-            )))),
-        )
-        .await;
-    assert_eq!(harness.service.attempt, before + 1);
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Snapshot(Box::new(snapshot_of(
-                Vec::new(),
-                Vec::new(),
-            )))),
-        )
-        .await;
-    assert_eq!(
-        harness.service.attempt,
-        before + 1,
-        "a second snapshot does not refetch again"
-    );
-}
-
-#[tokio::test]
-async fn a_snapshot_with_no_change_during_the_fetch_does_not_refetch() {
-    let mut harness = harness(Backend::Unsupported);
-    let before = harness.service.attempt;
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::Snapshot(Box::new(snapshot_of(
-                Vec::new(),
-                Vec::new(),
-            )))),
-        )
-        .await;
-
-    assert_eq!(harness.service.attempt, before);
 }

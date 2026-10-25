@@ -1,12 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use futures_util::StreamExt;
+use glimpse_compositors::event::{LineDecoder, Resync};
+use glimpse_compositors::model::Cast;
 use serde_json::json;
 
+use super::event::Wire;
 use super::testing::FakeNiri;
 use super::*;
-use crate::event::Resync;
-use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
 fn reply(name: &str, payload: Value) -> Vec<String> {
     vec![json!({ "Ok": { name: payload } }).to_string()]
@@ -62,55 +63,35 @@ fn snapshot_server_with_casts(casts: Vec<String>) -> FakeNiri {
     })
 }
 
+fn is_refused(failure: &Error, needle: &str) -> bool {
+    matches!(failure, Error::Refused(reason) if reason.contains(needle))
+}
+
 #[tokio::test]
 async fn a_snapshot_reads_every_part_of_the_model() {
     let server = snapshot_server();
     let snapshot = Niri::at(&server.socket).snapshot().await.expect("snapshot");
 
-    assert_eq!(snapshot.focused_output.as_deref(), Some("eDP-1"));
+    assert_eq!(snapshot.focus.output.as_deref(), Some("eDP-1"));
     assert_eq!(
         snapshot
             .casts
             .iter()
-            .map(|cast| cast.stream_id)
+            .map(|cast| cast.id)
             .collect::<Vec<_>>(),
         [8]
     );
     assert!(snapshot.casts[0].active);
-    assert_eq!(snapshot.focused_window, Some(WindowId(9)));
+    assert_eq!(snapshot.focus.window, Some(WindowId(9)));
     assert_eq!(snapshot.workspaces[0].id, WorkspaceId(5));
-    assert_eq!(snapshot.workspaces[0].idx, Some(1));
+    assert_eq!(snapshot.workspaces[0].index, Some(1));
+    assert!(snapshot.workspaces[0].active);
     assert_eq!(snapshot.windows[0].app_id.as_deref(), Some("foot"));
-    assert_eq!(snapshot.windows[0].layout_order, Some(2));
-    assert_eq!(
-        snapshot.windows[0].output.as_deref(),
-        Some("eDP-1"),
-        "a window's output is filled from its workspace once the snapshot is assembled"
-    );
+    assert_eq!(snapshot.windows[0].order, Some(2));
+    assert_eq!(snapshot.windows[0].workspace, Some(WorkspaceId(5)));
     assert_eq!(snapshot.keyboard.names, ["Polish", "Russian"]);
-    assert_eq!(snapshot.keyboard.codes, ["PL", "RU"]);
+    assert!(snapshot.keyboard.codes.is_empty());
     assert_eq!(snapshot.keyboard.current, Some(1));
-}
-
-#[test]
-fn a_serial_decodes_when_present_null_or_absent() {
-    let with_serial: WireOutput = serde_json::from_value(json!({
-        "name": "DP-2", "serial": "69QC174", "current_mode": null
-    }))
-    .expect("wire output");
-    assert_eq!(with_serial.into_model().serial, Some("69QC174".to_owned()));
-
-    let null_serial: WireOutput = serde_json::from_value(json!({
-        "name": "eDP-1", "serial": null, "current_mode": null
-    }))
-    .expect("wire output");
-    assert_eq!(null_serial.into_model().serial, None);
-
-    let absent_serial: WireOutput = serde_json::from_value(json!({
-        "name": "eDP-1", "current_mode": null
-    }))
-    .expect("wire output");
-    assert_eq!(absent_serial.into_model().serial, None);
 }
 
 #[test]
@@ -149,18 +130,17 @@ async fn an_output_with_no_current_mode_is_disabled() {
         .expect("DP-3");
 
     assert!(built_in.enabled);
-    assert!(built_in.built_in);
     assert_eq!(
-        built_in.current_mode,
+        built_in.mode,
         Some(Mode {
             width: 2880,
             height: 1800,
             refresh_mhz: 120_000
         })
     );
+    assert_eq!(built_in.logical.map(|logical| logical.scale), Some(1.25));
     assert!(!external.enabled);
-    assert!(!external.built_in);
-    assert_eq!(external.current_mode, None);
+    assert_eq!(external.mode, None);
 }
 
 #[tokio::test]
@@ -168,11 +148,11 @@ async fn a_refusal_carries_the_reason_niri_gave() {
     let server = FakeNiri::spawn(|_| vec![json!({ "Err": "no such workspace" }).to_string()]);
 
     let failure = Niri::at(&server.socket)
-        .focus_workspace(WorkspaceTarget::Index(9))
+        .focus_workspace(WorkspaceId(9))
         .await
         .expect_err("refused");
 
-    assert!(matches!(failure, CompositorError::Refused(reason) if reason.contains("no such")));
+    assert!(is_refused(&failure, "no such"));
 }
 
 #[tokio::test]
@@ -182,11 +162,11 @@ async fn a_disconnected_output_is_refused_naming_the_connector() {
     });
 
     let failure = Niri::at(&server.socket)
-        .set_output_enabled("DP-9", false)
+        .set_output_enabled("DP-9".to_owned(), false)
         .await
         .expect_err("missing");
 
-    assert!(matches!(&failure, CompositorError::Refused(reason) if reason.contains("DP-9")));
+    assert!(is_refused(&failure, "DP-9"));
 }
 
 #[tokio::test]
@@ -196,33 +176,33 @@ async fn an_applied_output_change_succeeds() {
     });
 
     Niri::at(&server.socket)
-        .set_output_enabled("DP-3", true)
+        .set_output_enabled("DP-3".to_owned(), true)
         .await
         .expect("applied");
 }
 
 #[tokio::test]
-async fn a_connection_closed_before_a_reply_is_not_a_protocol_error() {
+async fn a_connection_closed_before_a_reply_is_unavailable() {
     let server = FakeNiri::silent();
 
     let failure = Niri::at(&server.socket)
-        .focus_window(WindowTarget::Next)
+        .step_window(true)
         .await
         .expect_err("closed");
 
-    assert!(matches!(failure, CompositorError::Closed));
+    assert!(matches!(failure, Error::Unavailable(_)));
 }
 
 #[tokio::test]
-async fn an_undecodable_reply_is_a_protocol_error() {
+async fn an_undecodable_reply_is_a_failure() {
     let server = FakeNiri::spawn(|_| vec!["not json at all".to_owned()]);
 
     let failure = Niri::at(&server.socket)
-        .focus_window(WindowTarget::Next)
+        .step_window(true)
         .await
         .expect_err("garbled");
 
-    assert!(matches!(failure, CompositorError::Protocol(_)));
+    assert!(matches!(failure, Error::Failed(_)));
 }
 
 #[tokio::test]
@@ -233,66 +213,50 @@ async fn a_missing_socket_names_the_path_it_tried() {
         .expect_err("no socket");
 
     assert!(
-        failure.to_string().contains("/nonexistent/niri.sock"),
-        "expected the path in {failure}"
+        format!("{failure:?}").contains("/nonexistent/niri.sock"),
+        "expected the path in {failure:?}"
     );
 }
 
 #[test]
 fn every_target_serializes_to_the_action_niri_expects() {
     assert_eq!(
-        layout_action(LayoutTarget::Index(2)),
+        layout_action(json!({ "Index": 2 })),
         json!({ "SwitchLayout": { "layout": { "Index": 2 } } })
     );
     assert_eq!(
-        layout_action(LayoutTarget::Next),
+        layout_action(json!("Next")),
         json!({ "SwitchLayout": { "layout": "Next" } })
     );
     assert_eq!(
-        layout_action(LayoutTarget::Prev),
+        layout_action(json!("Prev")),
         json!({ "SwitchLayout": { "layout": "Prev" } })
     );
 
     assert_eq!(
-        workspace_action(WorkspaceTarget::Id(WorkspaceId(5))),
-        json!({ "FocusWorkspace": { "reference": { "Id": 5 } } })
-    );
-    assert_eq!(
-        workspace_action(WorkspaceTarget::Index(3)),
-        json!({ "FocusWorkspace": { "reference": { "Index": 3 } } })
-    );
-    assert_eq!(
-        workspace_action(WorkspaceTarget::Name("chat".to_owned())),
-        json!({ "FocusWorkspace": { "reference": { "Name": "chat" } } })
-    );
-    assert_eq!(
-        workspace_action(WorkspaceTarget::Next),
+        step_workspace_action(true),
         json!({ "FocusWorkspaceDown": {} })
     );
     assert_eq!(
-        workspace_action(WorkspaceTarget::Prev),
+        step_workspace_action(false),
         json!({ "FocusWorkspaceUp": {} })
     );
 
     assert_eq!(
-        window_action(WindowTarget::Id(WindowId(9))),
-        json!({ "FocusWindow": { "id": 9 } })
-    );
-    assert_eq!(
-        window_action(WindowTarget::Next),
+        step_window_action(true),
         json!({ "FocusWindowDownOrColumnRight": {} })
     );
     assert_eq!(
-        window_action(WindowTarget::Prev),
+        step_window_action(false),
         json!({ "FocusWindowUpOrColumnLeft": {} })
     );
 
     assert_eq!(
-        rename_action(WorkspaceId(3), Some("chat")),
+        rename_action(WorkspaceId(3), "chat"),
         json!({ "SetWorkspaceName": { "name": "chat", "workspace": { "Id": 3 } } })
     );
     assert_eq!(
-        rename_action(WorkspaceId(3), None),
+        rename_action(WorkspaceId(3), ""),
         json!({ "UnsetWorkspaceName": { "reference": { "Id": 3 } } })
     );
 
@@ -303,16 +267,6 @@ fn every_target_serializes_to_the_action_niri_expects() {
     assert_eq!(
         output_request("eDP-1", false),
         json!({ "Output": { "output": "eDP-1", "action": "Off" } })
-    );
-
-    assert_eq!(
-        power_off_monitors_action(),
-        json!({ "PowerOffMonitors": {} })
-    );
-
-    assert_eq!(
-        stop_cast_action(2),
-        json!({ "StopCast": { "session_id": 2 } })
     );
 
     assert_eq!(
@@ -328,8 +282,7 @@ fn every_target_serializes_to_the_action_niri_expects() {
     );
 }
 
-#[tokio::test]
-async fn power_off_monitors_sends_the_action_envelope() {
+async fn received_by(call: impl AsyncFnOnce(Niri) -> Result<(), Error>) -> Option<String> {
     let received: Arc<Mutex<Option<String>>> = Arc::default();
     let sink = received.clone();
     let server = FakeNiri::spawn(move |request| {
@@ -337,33 +290,59 @@ async fn power_off_monitors_sends_the_action_envelope() {
         vec![json!({ "Ok": null }).to_string()]
     });
 
-    Niri::at(&server.socket)
-        .power_off_monitors()
-        .await
-        .expect("dispatched");
+    call(Niri::at(&server.socket)).await.expect("dispatched");
 
+    received.lock().expect("lock").clone()
+}
+
+#[tokio::test]
+async fn focus_workspace_and_window_send_their_ids() {
     assert_eq!(
-        received.lock().expect("lock").as_deref(),
+        received_by(async |niri| niri.focus_workspace(WorkspaceId(5)).await)
+            .await
+            .as_deref(),
+        Some(r#"{"Action":{"FocusWorkspace":{"reference":{"Id":5}}}}"#)
+    );
+    assert_eq!(
+        received_by(async |niri| niri.focus_window(WindowId(9)).await)
+            .await
+            .as_deref(),
+        Some(r#"{"Action":{"FocusWindow":{"id":9}}}"#)
+    );
+}
+
+#[tokio::test]
+async fn keyboard_layout_commands_send_the_native_action() {
+    assert_eq!(
+        received_by(async |niri| niri.switch_keyboard_layout(2).await)
+            .await
+            .as_deref(),
+        Some(r#"{"Action":{"SwitchLayout":{"layout":{"Index":2}}}}"#)
+    );
+    assert_eq!(
+        received_by(async |niri| niri.step_keyboard_layout(false).await)
+            .await
+            .as_deref(),
+        Some(r#"{"Action":{"SwitchLayout":{"layout":"Prev"}}}"#)
+    );
+}
+
+#[tokio::test]
+async fn power_off_monitors_sends_the_action_envelope() {
+    assert_eq!(
+        received_by(async |niri| niri.power_off_monitors().await)
+            .await
+            .as_deref(),
         Some(r#"{"Action":{"PowerOffMonitors":{}}}"#)
     );
 }
 
 #[tokio::test]
 async fn stop_screencast_sends_the_session_id() {
-    let received: Arc<Mutex<Option<String>>> = Arc::default();
-    let sink = received.clone();
-    let server = FakeNiri::spawn(move |request| {
-        *sink.lock().expect("lock") = Some(request.to_owned());
-        vec![json!({ "Ok": null }).to_string()]
-    });
-
-    Niri::at(&server.socket)
-        .stop_screencast(2)
-        .await
-        .expect("dispatched");
-
     assert_eq!(
-        received.lock().expect("lock").as_deref(),
+        received_by(async |niri| niri.stop_screencast(2).await)
+            .await
+            .as_deref(),
         Some(r#"{"Action":{"StopCast":{"session_id":2}}}"#)
     );
 }
@@ -382,7 +361,7 @@ async fn the_watch_is_armed_before_the_action_is_sent() {
     });
 
     Niri::at(&server.socket)
-        .screenshot_window(WindowId(9), &path)
+        .screenshot_window(WindowId(9), path.clone())
         .await
         .expect("screenshot");
 
@@ -417,7 +396,7 @@ async fn screenshot_window_returns_only_after_the_file_exists() {
     });
 
     Niri::at(&server.socket)
-        .screenshot_window(WindowId(9), &path)
+        .screenshot_window(WindowId(9), path.clone())
         .await
         .expect("screenshot");
 
@@ -432,7 +411,7 @@ fn a_close_write_watch_times_out_when_no_matching_file_ever_arrives() {
     let failure = wait_for_close_write(watch, OsStr::new("never.png"), Duration::from_millis(30))
         .expect_err("nothing ever closes that file");
 
-    assert!(matches!(failure, CompositorError::NoFile(_)));
+    assert!(matches!(failure, Error::Failed(_)));
 }
 
 #[test]
@@ -444,21 +423,11 @@ fn a_close_write_watch_ignores_an_unrelated_file_closing_in_the_same_directory()
     let failure = wait_for_close_write(watch, OsStr::new("shot.png"), Duration::from_millis(30))
         .expect_err("the decoy must not satisfy the watch");
 
-    assert!(matches!(failure, CompositorError::NoFile(_)));
-}
-
-#[tokio::test]
-async fn a_relative_screenshot_path_is_rejected_before_anything_is_armed() {
-    let failure = Niri::at("/nonexistent/niri.sock")
-        .screenshot_window(WindowId(9), Path::new("shot.png"))
-        .await
-        .expect_err("a relative path must be refused");
-
-    assert!(matches!(failure, CompositorError::InvalidPath(_)));
+    assert!(matches!(failure, Error::Failed(_)));
 }
 
 #[test]
-fn a_live_chrome_cast_decodes_its_target_and_kind() {
+fn a_live_chrome_cast_decodes_its_output_and_session() {
     let wire: WireCast = serde_json::from_value(json!({
         "stream_id": 2, "session_id": 2, "kind": "PipeWire",
         "target": { "Output": { "name": "DP-2" } },
@@ -466,61 +435,68 @@ fn a_live_chrome_cast_decodes_its_target_and_kind() {
     }))
     .expect("wire cast");
 
-    let cast = wire.into_model();
-
-    assert_eq!(cast.stream_id, 2);
-    assert_eq!(cast.session_id, Some(2));
-    assert_eq!(cast.kind, CastKind::PipeWire);
-    assert_eq!(cast.target, CastTarget::Output("DP-2".to_owned()));
-    assert_eq!(cast.pw_node_id, Some(107));
-    assert!(cast.active);
+    assert_eq!(
+        wire.into_model(),
+        Cast {
+            id: 2,
+            active: true,
+            output: Some("DP-2".to_owned()),
+            session: Some(2),
+            pw_node: Some(107),
+        }
+    );
 }
 
 #[test]
-fn a_wlr_screencopy_cast_decodes_with_no_app_attribution() {
+fn a_wlr_screencopy_cast_carries_no_session_and_no_attribution() {
     let wire: WireCast = serde_json::from_value(json!({
-        "stream_id": 4, "is_active": true, "kind": "WlrScreencopy",
+        "stream_id": 4, "session_id": 4, "is_active": true, "kind": "WlrScreencopy",
     }))
     .expect("wire cast");
 
     let cast = wire.into_model();
 
-    assert_eq!(cast.kind, CastKind::Screencopy);
-    assert_eq!(cast.pw_node_id, None);
+    assert_eq!(cast.session, None);
+    assert_eq!(cast.pw_node, None);
 }
 
 #[test]
-fn a_cast_with_only_a_stream_id_decodes_as_unknown() {
+fn a_cast_with_only_a_stream_id_decodes_as_bare() {
     let wire: WireCast = serde_json::from_value(json!({ "stream_id": 9 })).expect("wire cast");
 
     let cast = wire.into_model();
 
-    assert_eq!(cast.kind, CastKind::Unknown);
-    assert_eq!(cast.target, CastTarget::Unknown);
-    assert_eq!(cast.session_id, None);
+    assert_eq!(cast.output, None);
+    assert_eq!(cast.session, None);
     assert!(!cast.active);
 }
 
 #[test]
-fn a_cast_kind_niri_added_later_decodes_as_unknown_instead_of_failing() {
-    let wire: WireCast =
-        serde_json::from_value(json!({ "stream_id": 1, "kind": "SomeFutureKind" }))
-            .expect("wire cast");
+fn a_cast_kind_niri_added_later_has_no_session_instead_of_failing() {
+    let wire: WireCast = serde_json::from_value(json!({
+        "stream_id": 1, "session_id": 1, "kind": "SomeFutureKind"
+    }))
+    .expect("wire cast");
 
-    assert_eq!(wire.into_model().kind, CastKind::Unknown);
+    assert_eq!(wire.into_model().session, None);
 }
 
 #[test]
-fn a_cast_target_niri_added_later_decodes_as_unknown_instead_of_failing() {
+fn a_cast_target_niri_added_later_has_no_output_instead_of_failing() {
     let wire: WireCast =
         serde_json::from_value(json!({ "stream_id": 1, "target": { "SomethingNew": {} } }))
             .expect("wire cast");
 
-    assert_eq!(wire.into_model().target, CastTarget::Unknown);
+    assert_eq!(wire.into_model().output, None);
 }
 
 async fn events_from(lines: Vec<Value>) -> Vec<Event> {
     let scripted: Vec<String> = std::iter::once(json!({ "Ok": { "Handled": null } }))
+        .chain([
+            json!({ "WorkspacesChanged": { "workspaces": [] } }),
+            json!({ "WindowsChanged": { "windows": [{ "id": 1, "is_focused": true }] } }),
+            json!({ "KeyboardLayoutsChanged": { "keyboard_layouts": { "names": ["English", "German"], "current_idx": 1 } } }),
+        ])
         .chain(lines)
         .map(|line| line.to_string())
         .collect();
@@ -532,6 +508,27 @@ async fn events_from(lines: Vec<Value>) -> Vec<Event> {
         .expect("subscribed")
         .collect()
         .await
+}
+
+#[tokio::test]
+async fn initial_replication_is_consumed_before_later_focus_and_layout_changes() {
+    let events = events_from(vec![
+        json!({ "WindowFocusChanged": { "id": 2 } }),
+        json!({ "KeyboardLayoutSwitched": { "idx": 0 } }),
+        json!({ "WindowsChanged": { "windows": [{ "id": 3, "is_focused": true }] } }),
+    ])
+    .await;
+
+    assert_eq!(events.len(), 3);
+    assert_eq!(events[0], Event::WindowFocusChanged(Some(WindowId(2))));
+    assert_eq!(events[1], Event::KeyboardLayoutSwitched(0));
+    assert!(matches!(
+        &events[2],
+        Event::WindowsChanged {
+            focused: Some(WindowId(3)),
+            ..
+        }
+    ));
 }
 
 #[tokio::test]
@@ -591,7 +588,7 @@ async fn reading_the_layouts_asks_for_nothing_else() {
         .await
         .expect("layouts");
 
-    assert_eq!(layouts.codes, ["PL", "RU"]);
+    assert!(layouts.codes.is_empty());
     assert_eq!(layouts.current, Some(1));
     assert_eq!(*requests.lock().expect("lock"), ["\"KeyboardLayouts\""]);
 }
@@ -614,12 +611,12 @@ async fn losing_a_monitor_asks_for_an_output_resync() {
 
     assert_eq!(events[0], Event::Resync(Resync::Outputs));
     assert!(
-        matches!(events[1], Event::WorkspacesChanged(_)),
+        matches!(events[1], Event::WorkspacesChanged { .. }),
         "the first list is also delivered, got {:?}",
         events[1]
     );
     assert!(
-        matches!(events[2], Event::WorkspacesChanged(_)),
+        matches!(events[2], Event::WorkspacesChanged { .. }),
         "an unchanged monitor set must not resync, got {:?}",
         events[2]
     );
@@ -627,10 +624,26 @@ async fn losing_a_monitor_asks_for_an_output_resync() {
 }
 
 #[tokio::test]
+async fn the_focused_workspace_rides_along_with_the_list() {
+    let events = events_from(vec![json!({ "WorkspacesChanged": { "workspaces": [
+        { "id": 1, "output": "eDP-1", "is_active": true },
+        { "id": 2, "output": "eDP-1", "is_focused": true },
+    ] } })])
+    .await;
+
+    assert!(matches!(
+        events[1],
+        Event::WorkspacesChanged {
+            focused: Some(WorkspaceId(2)),
+            ..
+        }
+    ));
+}
+
+#[tokio::test]
 async fn urgency_and_layout_order_arrive_incrementally() {
     let events = events_from(vec![
         json!({ "WindowUrgencyChanged": { "id": 9, "urgent": true } }),
-        json!({ "WorkspaceUrgencyChanged": { "id": 5, "urgent": false } }),
         json!({ "WindowLayoutsChanged": { "changes": [
             [9, { "pos_in_scrolling_layout": [3, 1] }],
             [4, { "pos_in_scrolling_layout": null }],
@@ -644,10 +657,6 @@ async fn urgency_and_layout_order_arrive_incrementally() {
             Event::WindowUrgencyChanged {
                 id: WindowId(9),
                 urgent: true
-            },
-            Event::WorkspaceUrgencyChanged {
-                id: WorkspaceId(5),
-                urgent: false
             },
             Event::WindowLayoutsChanged(vec![(WindowId(9), Some(3)), (WindowId(4), None)]),
         ]
@@ -668,22 +677,19 @@ async fn screencasts_report_the_full_set_changes_and_stops() {
     ])
     .await;
 
-    let cast = |stream_id, active| Cast {
-        stream_id,
-        session_id: None,
-        kind: CastKind::Unknown,
-        target: CastTarget::Unknown,
-        pw_node_id: None,
+    let cast = |id, active| Cast {
+        id,
         active,
+        output: None,
+        session: None,
+        pw_node: None,
     };
 
     assert_eq!(
         events,
         [
             Event::CastsChanged(vec![cast(3, true), cast(5, false)]),
-            Event::CastStartedOrChanged {
-                cast: cast(7, true)
-            },
+            Event::CastStartedOrChanged(cast(7, true)),
             Event::CastStopped(3),
         ]
     );
@@ -729,4 +735,116 @@ async fn a_hostile_window_title_is_capped_before_it_leaves_the_crate() {
     assert!(!title.contains('\u{2068}'), "bidi overrides survived");
     assert_eq!(title.chars().count(), 512);
     assert!(title.starts_with("spoof"));
+}
+
+#[tokio::test]
+async fn a_floating_window_has_a_geometry_and_a_tiled_one_has_none() {
+    let server = FakeNiri::spawn(|_| {
+        reply(
+            "Windows",
+            json!([
+                { "id": 1, "is_floating": true, "layout": {
+                    "pos_in_scrolling_layout": null,
+                    "window_size": [400, 300],
+                    "tile_pos_in_workspace_view": [100.0, 50.0],
+                    "window_offset_in_tile": [2.0, 3.0] } },
+                { "id": 2, "is_floating": false, "layout": {
+                    "pos_in_scrolling_layout": [1, 1],
+                    "window_size": [800, 600],
+                    "tile_pos_in_workspace_view": null,
+                    "window_offset_in_tile": [0.0, 0.0] } },
+                { "id": 3, "layout": null },
+            ]),
+        )
+    });
+
+    let geometries = Niri::at(&server.socket)
+        .window_geometries()
+        .await
+        .expect("geometries");
+
+    assert_eq!(
+        geometries,
+        HashMap::from([(
+            WindowId(1),
+            Rect {
+                x: 102.0,
+                y: 53.0,
+                width: 400.0,
+                height: 300.0
+            }
+        )])
+    );
+}
+
+#[tokio::test]
+async fn probe_is_true_when_niri_answers_the_version_request() {
+    let server = FakeNiri::spawn(|request| {
+        assert_eq!(request, "\"Version\"");
+        reply("Version", json!("25.08"))
+    });
+
+    assert!(Niri::at(&server.socket).probe().await);
+}
+
+#[tokio::test]
+async fn probe_is_false_when_nothing_listens_on_the_socket() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let socket = dir.path().join("stale.sock");
+    drop(tokio::net::UnixListener::bind(&socket).expect("bind"));
+
+    assert!(socket.exists());
+    assert!(!Niri::at(&socket).probe().await);
+}
+
+#[tokio::test(start_paused = true)]
+async fn probe_gives_up_on_a_listener_that_never_replies() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let socket = dir.path().join("silent.sock");
+    let listener = tokio::net::UnixListener::bind(&socket).expect("bind");
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((stream, _)) = listener.accept().await {
+            held.push(stream);
+        }
+    });
+
+    let start = tokio::time::Instant::now();
+    let probe = tokio::time::timeout(PROBE_DEADLINE * 2, Niri::at(&socket).probe()).await;
+
+    assert!(
+        probe.is_ok(),
+        "the probe did not give up within {PROBE_DEADLINE:?}"
+    );
+    assert!(
+        !probe.expect("the probe already finished"),
+        "a silent listener must report no niri"
+    );
+    assert_eq!(start.elapsed(), PROBE_DEADLINE);
+}
+
+#[tokio::test]
+async fn events_niri_reports_but_the_model_drops_decode_as_known_no_ops() {
+    for line in [
+        json!({ "WorkspaceUrgencyChanged": { "id": 5, "urgent": true } }).to_string(),
+        json!({ "WorkspaceActiveWindowChanged": { "workspace_id": 5, "active_window_id": 7 } })
+            .to_string(),
+    ] {
+        serde_json::from_str::<Wire>(&line).expect("a known niri event");
+        assert!(EventState::default().decode(&line).await.is_empty());
+    }
+}
+
+#[tokio::test]
+async fn a_refused_event_stream_is_refused() {
+    let server = FakeNiri::spawn(|request| {
+        assert_eq!(request, "\"EventStream\"");
+        vec![json!({ "Err": "denied" }).to_string()]
+    });
+
+    let Err(failure) = Niri::at(&server.socket).events().await else {
+        panic!("the event stream was not refused");
+    };
+
+    assert!(is_refused(&failure, "denied"));
 }

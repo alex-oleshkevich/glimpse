@@ -3,58 +3,64 @@ use std::io;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use glimpse_compositors::{Compositor, Rect as WindowRect, Snapshot, Window};
 use glimpse_shot::doc::units::{BufferPx, Rect};
-use glimpse_shot::ports::{Clipboard, Windows};
+use glimpse_shot::ports::{Clipboard, Rect as WindowRect, Window, Windows};
 use glimpse_wayland::capture::{self, CaptureError, Frame, Layout, Toplevel};
 use glimpse_wayland::selection::{self, Changes};
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
 
-use crate::adapters::screens::compositor_snapshot;
+use crate::adapters::screens;
+use crate::headless::Layout as ShotLayout;
 use crate::render::within_frame;
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(2);
 const LATE_FILE_GRACE: Duration = Duration::from_secs(1);
+const REASON_CAP: usize = 240;
 
 pub struct CompositorWindows<'a> {
-    pub compositor: Compositor,
-    pub snapshot: RefCell<Snapshot>,
+    pub layout: RefCell<ShotLayout>,
     pub clipboard: &'a dyn Clipboard,
     pub restore: bool,
 }
 
 impl Windows for CompositorWindows<'_> {
     fn list(&self) -> Result<Vec<Window>, CaptureError> {
-        if let Some(fresh) =
-            compositor_snapshot().map_err(|error| CaptureError::Failed(format!("{error:#}")))?
+        if let Some(fresh) = screens::layout()
+            .map_err(|error| CaptureError::Failed(capped(&format!("{error:#}"))))?
         {
-            self.snapshot.replace(fresh);
+            self.layout.replace(fresh);
         }
-        Ok(self.snapshot.borrow().windows.clone())
+        Ok(self.layout.borrow().windows.clone())
     }
 
     fn capture(&self, id: u64) -> Result<Frame, CaptureError> {
-        let snapshot = self.snapshot.borrow();
-        let window = snapshot
-            .windows
-            .iter()
-            .find(|window| window.id.0 == id)
-            .ok_or(CaptureError::NoSuchToplevel)?;
+        let (window, crop) = {
+            let layout = self.layout.borrow();
+            let window = layout
+                .windows
+                .iter()
+                .find(|window| window.id == id)
+                .cloned()
+                .ok_or(CaptureError::NoSuchToplevel)?;
+            let crop = visible_crop(&window, &layout);
+            (window, crop)
+        };
         let connector = window.output.clone().unwrap_or_default();
         let deadline = Instant::now() + CAPTURE_TIMEOUT;
         if matches!(capture::capabilities(deadline), Ok(offered) if offered.toplevels)
-            && let Some(identifier) = correlate(window, &capture::toplevels(deadline)?)
+            && let Some(identifier) = correlate(&window, &capture::toplevels(deadline)?)
         {
             let frame = capture::toplevel(&identifier, deadline)?;
             return Ok(Frame { connector, ..frame });
         }
-        let visible = visible_crop(window, &snapshot);
-        let can_screenshot = self.compositor.capabilities().window_screenshot;
-        match visible {
-            Some(crop) if window.is_floating || !can_screenshot => crop_output(&connector, crop),
+        let can_screenshot = screens::session()
+            .map_err(|error| CaptureError::Failed(capped(&format!("{error:#}"))))?
+            .is_some_and(|link| link.screenshots());
+        match crop {
+            Some(crop) if window.floating || !can_screenshot => crop_output(&connector, crop),
             _ if can_screenshot => {
-                let frame = self.screenshot(window)?;
+                let frame = self.screenshot(&window)?;
                 Ok(Frame { connector, ..frame })
             }
             _ => Err(CaptureError::Failed(
@@ -67,27 +73,24 @@ impl Windows for CompositorWindows<'_> {
 
 impl CompositorWindows<'_> {
     fn screenshot(&self, window: &Window) -> Result<Frame, CaptureError> {
+        let link = screens::session()
+            .map_err(|error| CaptureError::Failed(capped(&format!("{error:#}"))))?
+            .ok_or_else(|| CaptureError::Failed(crate::headless::NO_WINDOWS.to_owned()))?;
         let dir = glimpse_config::runtime_dir()
             .ok_or_else(|| CaptureError::Failed("XDG_RUNTIME_DIR is not set".to_owned()))?;
         std::fs::create_dir_all(&dir).map_err(|error| failed(&dir, error))?;
         let path = dir.join(format!(
             "shot-window-{}-{}.png",
             std::process::id(),
-            window.id.0
+            window.id
         ));
         let started = Instant::now();
         let changes = self.restore.then(Changes::start);
         let before = self.restore.then(|| self.clipboard.snapshot());
         tracing::debug!(elapsed = ?started.elapsed(), "window capture: clipboard read");
-        let written = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|error| failed(&path, error))
-            .and_then(|runtime| {
-                runtime
-                    .block_on(self.compositor.screenshot_window(window.id, &path))
-                    .map_err(|error| CaptureError::Failed(error.to_string()))
-            });
+        let written = link
+            .screenshot(window.id, &path)
+            .map_err(CaptureError::Failed);
         tracing::debug!(elapsed = ?started.elapsed(), "window capture: niri wrote the file");
         let late = written.is_err();
         let frame = written.and_then(|()| decode(&path));
@@ -134,6 +137,10 @@ impl CompositorWindows<'_> {
 
 fn failed(path: &Path, error: impl std::fmt::Display) -> CaptureError {
     CaptureError::Failed(format!("{}: {error}", path.display()))
+}
+
+fn capped(text: &str) -> String {
+    glimpse_utils::text::clean(text, REASON_CAP)
 }
 
 pub fn decode(path: &Path) -> Result<Frame, CaptureError> {
@@ -194,20 +201,24 @@ pub fn correlate(window: &Window, toplevels: &[Toplevel]) -> Option<String> {
     }
 }
 
-pub fn visible_crop(window: &Window, snapshot: &Snapshot) -> Option<Rect<BufferPx>> {
+pub fn visible_crop(window: &Window, layout: &ShotLayout) -> Option<Rect<BufferPx>> {
     let rect = window.rect?;
-    let visible = snapshot
+    let visible = layout
         .workspaces
         .iter()
-        .any(|workspace| Some(workspace.id) == window.workspace_id && workspace.is_active);
-    let scale = snapshot
+        .any(|workspace| window.workspace == Some(workspace.id.0) && workspace.active);
+    let logical = layout
         .outputs
         .iter()
         .find(|output| Some(&output.connector) == window.output.as_ref())?
-        .logical
-        .as_ref()?
-        .scale;
-    visible.then(|| buffer_crop(rect, scale))
+        .logical?;
+    let local = WindowRect {
+        x: rect.x - f64::from(logical.x),
+        y: rect.y - f64::from(logical.y),
+        width: rect.width,
+        height: rect.height,
+    };
+    visible.then(|| buffer_crop(local, logical.scale))
 }
 
 pub fn buffer_crop(rect: WindowRect, scale: f64) -> Rect<BufferPx> {

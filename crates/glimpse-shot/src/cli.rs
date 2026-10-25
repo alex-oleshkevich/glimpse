@@ -576,9 +576,19 @@ fn joined(problems: Vec<String>) -> Result<(), String> {
     }
 }
 
+fn log_filter(level: &str, source: Option<ValueSource>) -> String {
+    match source {
+        Some(ValueSource::DefaultValue) | None => format!("{level},glimpse_dbus=warn"),
+        Some(_) => level.to_owned(),
+    }
+}
+
 pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, clap::Error> {
     let args = attach_negative_geometry(args);
+    #[cfg(not(test))]
     let mut command = Cli::command();
+    #[cfg(test)]
+    let mut command = Cli::command().mut_arg("log", |arg| arg.env(None::<&'static str>));
     let matches = match command.try_get_matches_from_mut(args.clone()) {
         Ok(matches) => matches,
         Err(error) => return Err(editor_option_after(&mut command, &args, error)),
@@ -595,7 +605,8 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Cli, clap::Erro
             return Err(editor_only_error(&mut command, &long, name, &args));
         }
     }
-    let cli = Cli::from_arg_matches(&matches)?;
+    let mut cli = Cli::from_arg_matches(&matches)?;
+    cli.log.log = log_filter(&cli.log.log, matches.value_source("log"));
     if let Some(file) = &cli.gui.file
         && !file
             .extension()

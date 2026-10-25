@@ -60,7 +60,15 @@ right = []
 A table that names only `left` still showed this repo's default center and right applets on the bar (clock, weather, keyboard, …). Set `center = []` and `right = []`.
 
 
+Start the compositor provider on the private bus before the panel. `$S/env` must name the nested
+socket; for Hyprland use `glimpse-compositor-hyprland` with its nested signature and unset
+`NIRI_SOCKET` instead. Record the provider pid for cleanup with the other test processes.
+
 ```bash
+. "$S/env"
+env -u HYPRLAND_INSTANCE_SIGNATURE ./target/debug/glimpse-compositor-niri \
+  > "$S/logs/compositor.log" 2>&1 &
+COMPOSITOR_PID=$!
 WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock> GLIMPSE_PANEL_APP_ID=me.aresa.GlimpsePanel.<Feature>Test \
   XDG_CONFIG_HOME="$S/home" ./target/debug/glimpse-panel --config-dir "$S/cfg" \
   > "$S/logs/panel.log" 2>&1 &

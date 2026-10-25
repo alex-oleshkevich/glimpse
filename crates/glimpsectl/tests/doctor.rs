@@ -75,6 +75,9 @@ fn a_configuration_that_does_not_load_says_binaries_will_not_start() {
     assert!(!rendered.contains("exit on it"));
 }
 
+use glimpse_compositors::contract::{
+    BUS_NAME as COMPOSITOR_BUS_NAME, OBJECT_PATH as COMPOSITOR_PATH,
+};
 use glimpse_dbus::{
     calendar::*, idle::*, night_light::*, notifications::*, settings::*, testing::PrivateBus,
     weather::*,
@@ -229,9 +232,7 @@ async fn diagnose(bus: &PrivateBus, config: &std::path::Path, json: bool) -> std
         .unwrap()
 }
 
-#[tokio::test]
-async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_informational() {
-    let bus = PrivateBus::start();
+async fn serve_providers(bus: &PrivateBus) -> (zbus::Connection, Arc<AtomicBool>) {
     let server = bus.connection().await;
     let serving = Arc::new(AtomicBool::new(true));
     server
@@ -274,6 +275,13 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
     ] {
         glimpse_dbus::own_name(&server, name).await.unwrap();
     }
+    (server, serving)
+}
+
+#[tokio::test]
+async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_informational() {
+    let bus = PrivateBus::start();
+    let (server, serving) = serve_providers(&bus).await;
     let scratch = tempfile::tempdir().unwrap();
     let config = scratch.path().join("config.toml");
     std::fs::write(&config, "").unwrap();
@@ -281,7 +289,7 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
     assert!(healthy.status.success(), "{healthy:?}");
     let report: serde_json::Value = serde_json::from_slice(&healthy.stdout).unwrap();
     assert!(report["configuration"]["loads"].as_bool().unwrap());
-    assert_eq!(report["providers"].as_array().unwrap().len(), 6);
+    assert_eq!(report["providers"].as_array().unwrap().len(), 7);
     for name in [
         "me.aresa.GlimpseLock",
         "me.aresa.GlimpseWallpaper",
@@ -339,6 +347,7 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
                     .as_array()
                     .unwrap()
                     .iter()
+                    .filter(|row| row["name"] != COMPOSITOR_BUS_NAME)
                     .all(|row| row["serving"] == true)
             );
         } else {
@@ -351,31 +360,125 @@ async fn doctor_reports_failures_in_text_and_json_and_optional_ui_absence_is_inf
     }
 }
 
-async fn restore_lock(value: bool) -> glimpsectl::commands::doctor::SessionLock {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let dir = tempfile::tempdir().unwrap();
-    let listener = tokio::net::UnixListener::bind(dir.path().join(".socket.sock")).unwrap();
-    tokio::spawn(async move {
-        while let Ok((mut stream, _)) = listener.accept().await {
-            let mut command = vec![0_u8; 256];
-            let _ = stream.read(&mut command).await;
-            let reply = format!(r#"{{"option":"misc:allow_session_lock_restore","bool":{value}}}"#);
-            let _ = stream.write_all(reply.as_bytes()).await;
-        }
-    });
-    glimpsectl::commands::doctor::session_lock(&glimpse_compositors::Compositor::Hyprland(
-        glimpse_compositors::Hyprland::at(dir.path()),
-    ))
-    .await
-    .unwrap()
+struct Niri;
+
+#[zbus::interface(name = "me.aresa.Glimpse.Compositor1")]
+impl Niri {
+    #[zbus(property)]
+    fn name(&self) -> String {
+        "ni\u{7}ri\n".into()
+    }
+}
+
+struct Hyprland(Arc<AtomicBool>);
+
+#[zbus::interface(name = "me.aresa.Glimpse.Compositor1")]
+impl Hyprland {
+    #[zbus(property)]
+    fn name(&self) -> String {
+        "hyprland".into()
+    }
+    #[zbus(property)]
+    fn session_lock_restore(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+struct Hung;
+
+#[zbus::interface(name = "me.aresa.Glimpse.Compositor1")]
+impl Hung {
+    #[zbus(property)]
+    async fn name(&self) -> String {
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        String::new()
+    }
+    #[zbus(property)]
+    fn session_lock_restore(&self) -> bool {
+        false
+    }
+}
+
+async fn serve_compositor(
+    bus: &PrivateBus,
+    fake: impl zbus::object_server::Interface,
+) -> zbus::Connection {
+    let connection = bus.connection().await;
+    connection
+        .object_server()
+        .at(COMPOSITOR_PATH, fake)
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&connection, COMPOSITOR_BUS_NAME)
+        .await
+        .unwrap();
+    connection
+}
+
+fn compositor_row(report: &serde_json::Value) -> &serde_json::Value {
+    report["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["name"] == COMPOSITOR_BUS_NAME)
+        .unwrap()
 }
 
 #[tokio::test]
-async fn a_disabled_lock_restore_is_a_failure_with_the_fix_and_an_enabled_one_is_not() {
-    let off = restore_lock(false).await;
-    assert!(!off.enabled);
-    let text = off.section().render();
+async fn the_compositor_row_is_information_and_lock_restore_off_is_the_only_failure() {
+    let bus = PrivateBus::start();
+    let (_server, _serving) = serve_providers(&bus).await;
+    let scratch = tempfile::tempdir().unwrap();
+    let config = scratch.path().join("config.toml");
+    std::fs::write(&config, "").unwrap();
+
+    let absent = diagnose(&bus, &config, true).await;
+    assert!(absent.status.success(), "{absent:?}");
+    let report: serde_json::Value = serde_json::from_slice(&absent.stdout).unwrap();
+    assert_eq!(compositor_row(&report)["running"], false);
+    let text = diagnose(&bus, &config, false).await;
+    assert!(text.status.success(), "{text:?}");
+    let text = String::from_utf8(text.stdout).unwrap();
+    assert!(text.contains("not running"));
+    assert!(!text.contains("provider is not running"));
+    assert!(!text.contains("providers are not running"));
+
+    let niri = serve_compositor(&bus, Niri).await;
+    let served = diagnose(&bus, &config, true).await;
+    assert!(served.status.success(), "{served:?}");
+    let report: serde_json::Value = serde_json::from_slice(&served.stdout).unwrap();
+    assert_eq!(compositor_row(&report)["serving"], true);
+    assert_eq!(compositor_row(&report)["reason"], "ni ri");
+    assert!(compositor_row(&report).get("optional").is_none());
+    assert!(report["session_lock"].is_null());
+    let text = diagnose(&bus, &config, false).await;
+    assert!(String::from_utf8(text.stdout).unwrap().contains("ni ri"));
+    niri.release_name(COMPOSITOR_BUS_NAME).await.unwrap();
+
+    let restore = Arc::new(AtomicBool::new(false));
+    let hyprland = serve_compositor(&bus, Hyprland(restore.clone())).await;
+    let off = diagnose(&bus, &config, true).await;
+    assert_eq!(off.status.code(), Some(1), "{off:?}");
+    let report: serde_json::Value = serde_json::from_slice(&off.stdout).unwrap();
+    assert_eq!(report["session_lock"]["enabled"], false);
+    let text = diagnose(&bus, &config, false).await;
+    assert_eq!(text.status.code(), Some(1));
+    let text = String::from_utf8(text.stdout).unwrap();
     assert!(text.contains("misc:allow_session_lock_restore"));
     assert!(text.contains("misc { allow_session_lock_restore = true }"));
-    assert!(restore_lock(true).await.enabled);
+
+    restore.store(true, Ordering::SeqCst);
+    let on = diagnose(&bus, &config, true).await;
+    assert!(on.status.success(), "{on:?}");
+    let report: serde_json::Value = serde_json::from_slice(&on.stdout).unwrap();
+    assert!(report["session_lock"].is_null());
+    hyprland.release_name(COMPOSITOR_BUS_NAME).await.unwrap();
+
+    let _hung = serve_compositor(&bus, Hung).await;
+    let hung = diagnose(&bus, &config, true).await;
+    assert_eq!(hung.status.code(), Some(1), "{hung:?}");
+    let report: serde_json::Value = serde_json::from_slice(&hung.stdout).unwrap();
+    assert_eq!(compositor_row(&report)["running"], true);
+    assert_eq!(compositor_row(&report)["serving"], false);
+    assert!(report["session_lock"].is_null());
 }

@@ -149,6 +149,24 @@ fn global_options_go_before_or_after_the_subcommand() {
 }
 
 #[test]
+fn the_default_log_filter_hides_dbus_info() {
+    assert_eq!(
+        log_filter("info", Some(clap::parser::ValueSource::DefaultValue)),
+        "info,glimpse_dbus=warn"
+    );
+    assert_eq!(
+        log_filter("debug", Some(clap::parser::ValueSource::CommandLine)),
+        "debug"
+    );
+    assert_eq!(
+        log_filter("info", Some(clap::parser::ValueSource::EnvVariable)),
+        "info"
+    );
+    let cli = parse(&["list"]).expect("parses");
+    assert_eq!(cli.log.log, "info,glimpse_dbus=warn");
+}
+
+#[test]
 fn without_a_subcommand_the_default_command_still_takes_its_file_and_target() {
     let cli = parse(&["--config-dir", "/x", "shot.png"]).expect("parses");
     assert!(cli.command.is_none());

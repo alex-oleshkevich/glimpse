@@ -2,7 +2,7 @@ use super::*;
 
 use crate::services::audio::{App, AppId, Device, DeviceId, Role, StreamRef};
 
-use crate::services::compositor::{CastInfo, CastKindInfo};
+use crate::services::compositor::CastInfo;
 
 fn fake_proc(root: &Path, pid: u32, comm: &str, video_fd: Option<&str>) {
     let pid_dir = root.join(pid.to_string());
@@ -59,18 +59,11 @@ fn app(id: &str, name: &str, binary: Option<&str>, capture: Option<Role>) -> App
     }
 }
 
-fn cast(
-    stream_id: u64,
-    session_id: Option<u64>,
-    kind: CastKindInfo,
-    target: CastTargetInfo,
-    active: bool,
-) -> CastInfo {
+fn cast(stream_id: u64, session_id: Option<u64>, output: Option<&str>, active: bool) -> CastInfo {
     CastInfo {
         stream_id,
         session_id,
-        kind,
-        target,
+        output: output.map(str::to_owned),
         pw_node_id: None,
         active,
     }

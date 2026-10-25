@@ -17,7 +17,6 @@ use std::process::ExitCode;
 use anyhow::{Result, anyhow};
 use cli::{CaptureArgs, Cli, Command, GuiArgs, Terminal};
 use errors::{Exit, Usage};
-use glimpse_compositors::detect_compositor;
 use glimpse_config::Documents;
 use glimpse_shot::ports::Windows;
 use glimpse_shot::session::Target;
@@ -27,7 +26,7 @@ use gtk4::glib;
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::clock::SystemClock;
 use crate::adapters::files::Disk;
-use crate::adapters::screens::{WaylandScreens, compositor_snapshot};
+use crate::adapters::screens::{self, WaylandScreens};
 use crate::adapters::windows::CompositorWindows;
 
 fn main() -> ExitCode {
@@ -90,11 +89,9 @@ fn run(
         }
         Some(Command::Prime) => cli::prime::print(&mut std::io::stdout().lock()),
         Some(Command::List { json }) => {
-            let snapshot = compositor_snapshot()?.ok_or_else(|| {
-                anyhow!("list needs a compositor; neither NIRI_SOCKET nor HYPRLAND_INSTANCE_SIGNATURE is set")
-            })?;
+            let layout = screens::layout()?.ok_or_else(|| anyhow!(headless::NO_WINDOWS))?;
             headless::list(
-                &snapshot,
+                &layout,
                 json,
                 terminal.stdout,
                 &mut std::io::stdout().lock(),
@@ -123,26 +120,28 @@ fn capture(args: &CaptureArgs, terminal: Terminal) -> Result<()> {
     cli::validate_capture(args, terminal).map_err(Usage)?;
     let target = args.target.resolve(true).map_err(Usage)?;
     let config = glimpse_config::load(Documents::Config)?;
-    let snapshot = match args
-        .image
-        .as_ref()
-        .map_or_else(compositor_snapshot, |_| Ok(None))
-    {
-        Ok(snapshot) => snapshot,
-        Err(error) if matches!(target, Target::Screen(_)) => {
-            tracing::warn!("continuing without the compositor: {error:#}");
-            None
-        }
-        Err(error) => return Err(error),
+    let layout = match args.image.as_ref() {
+        Some(_) => None,
+        None => match screens::layout() {
+            Ok(layout) => layout,
+            Err(error) if matches!(target, Target::Screen(_)) => {
+                tracing::warn!("continuing without the compositor: {error:#}");
+                None
+            }
+            Err(error) => return Err(error),
+        },
     };
     let screens = WaylandScreens {
-        compositor: snapshot.is_some(),
+        compositor: if layout.is_some() {
+            screens::session()?
+        } else {
+            None
+        },
         counted: RefCell::default(),
     };
     let clipboard = HoldClipboard;
-    let windows = snapshot.clone().map(|snapshot| CompositorWindows {
-        compositor: detect_compositor(),
-        snapshot: RefCell::new(snapshot),
+    let windows = layout.clone().map(|layout| CompositorWindows {
+        layout: RefCell::new(layout),
         clipboard: &clipboard,
         restore: !args.copy,
     });
@@ -152,7 +151,7 @@ fn capture(args: &CaptureArgs, terminal: Terminal) -> Result<()> {
         clipboard: &clipboard,
         files: &Disk,
         clock: &SystemClock,
-        outputs: snapshot.as_ref().map(headless::placed).unwrap_or_default(),
+        outputs: layout.as_ref().map(headless::placed).unwrap_or_default(),
         encode: &render::export,
         step: glimpse_shot::session::step,
     };

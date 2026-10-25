@@ -18,6 +18,7 @@ const developers = [
     text: "Reference",
     items: [
       { text: "systemd and D-Bus", link: "/developers/systemd" },
+      { text: "Compositor providers", link: "/developers/compositors" },
       { text: "Installed files", link: "/developers/files" },
       { text: "Applet protocol", link: "/developers/protocol" },
     ],

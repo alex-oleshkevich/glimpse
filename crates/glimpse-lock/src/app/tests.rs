@@ -11,7 +11,6 @@ fn output(connector: &str, focused: bool) -> OutputInfo {
         focused,
         make: None,
         model: None,
-        serial: None,
         current_mode: None,
         logical: None,
         enabled: true,

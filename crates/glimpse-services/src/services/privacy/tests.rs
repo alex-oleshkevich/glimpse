@@ -8,7 +8,7 @@ use crate::service::ServiceRuntime;
 use crate::services::audio::{
     App, AppId, Audio, Device as AudioDevice, DeviceId as AudioDeviceId, Role, StreamRef,
 };
-use crate::services::compositor::{CastInfo, CastKindInfo, CastTargetInfo, Compositor};
+use crate::services::compositor::{CastInfo, Compositor};
 use glimpse_dbus::Buses;
 
 fn usage(
@@ -300,8 +300,7 @@ fn pipewire_privacy(pw_node_id: u32) -> CompositorPrivacy {
         casts: vec![CastInfo {
             stream_id: 1,
             session_id: Some(11),
-            kind: CastKindInfo::PipeWire,
-            target: CastTargetInfo::Unknown,
+            output: None,
             pw_node_id: Some(pw_node_id),
             active: true,
         }],

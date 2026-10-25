@@ -64,7 +64,7 @@ Today five processes open the compositor socket themselves. After this change:
 | Description differs: Hyprland IPC sends `m_shortDescription`, `wl_output` sends `m_description`; niri IPC has none | source; `niri/mod.rs:283` |
 | niri workspace `is_urgent` = any window on it urgent | source niri `src/layout/workspace.rs` `is_urgent`, `niri-ipc` docs |
 | niri casts: `session_id` on every cast, `StopCast` works only for PipeWire, `pw_node_id` is `None` for screencopy | documented `niri-ipc/src/lib.rs` |
-| Hyprland screencast events: `screencast>>STATE,TYPE`, `screencastv2>>STATE,TYPE,NAME` (TYPE 1 monitor, 2 window, 3 region; NAME = monitor name or window title); no list/stop command exists | source `Hyprland src/managers/screenshare/ScreenshareSession.cpp:157-165`, `ScreenshareManager.hpp:19-24`; installed 0.56.2 has `screencastv2` |
+| Hyprland screencast events: `screencast>>STATE,TYPE`, `screencastv2>>STATE,TYPE,NAME` with TYPE the word `monitor`, `window` or `region` (NAME = monitor name, or the window title for `window`); wlr-screencopy clients report `region`; a live share emits a start/stop pair every ~0.6 s; no list/stop command exists | measured (Hyprland 0.56.2 VM, event socket during wf-recorder and portal shares) |
 | zvariant rejects enums whose variants carry different data; `Option` needs `option-as-array` and still fails as a property | measured (throwaway crate) — moot after Q3 (`a{sv}`) |
 | zbus updates the proxy property cache before notifying property streams, under one write lock | source `zbus-5.19.0/src/proxy/mod.rs:445-467` |
 | Cost of `Windows` (14 real windows): 3,269 B; emit→3 subscribers decoded p50 0.47 ms, p99 1.0 ms; ~500 µs CPU provider+3 clients, ~80 µs dbus-broker per update | measured (release, real session bus) |
@@ -177,7 +177,7 @@ Text is capped by the provider and again by the client (titles 512, app ids 128,
 | `FocusWindow(t id)` | pid lookups resolve to an id in the service |
 | `StepWindow(b forward)` | |
 | `SwitchKeyboardLayout(u index)` | |
-| `StepKeyboardLayout(b forward)` | native step, not computed from a possibly stale index |
+| `StepKeyboardLayout(b forward) → u` | native step; return the selected zero-based index, not computed from mirrored state |
 | `SetOutputEnabled(s connector, b enabled)` | |
 | `PowerOffMonitors()` | |
 | `StopScreencast(t session)` | |
@@ -186,9 +186,10 @@ Text is capped by the provider and again by the client (titles 512, app ids 128,
 
 ### 6.4 Errors
 
-`me.aresa.Glimpse.Compositor1.Error.{Unsupported, Refused, Unavailable, Failed}`, mapping
-one-to-one onto today's `CommandError::{Unsupported, InvalidArgument, Unavailable, Internal}`
-(`compositor.rs:792-806`) so applet notifications read the same.
+`me.aresa.Glimpse.Compositor1.Error.{Unsupported, Refused, Unavailable, Failed}`, mapping onto
+`CommandError::{Unsupported, InvalidArgument, Unavailable, Internal}` so applet notifications read
+the same. With no owner ever, the mirror answers `Unsupported` itself (AC-16); a lost owner answers
+`Unavailable`.
 
 Provider input validation (`Refused`): unknown workspace/window/output/session id or connector,
 names over 128 chars or containing control characters, non-absolute or non-UTF-8 paths. The service
@@ -206,8 +207,8 @@ keeps its own guards (last enabled display, `compositor.rs:488-514`) for a fast 
   `CompositorHandle::supports(Capability)` in `glimpse-services`.
 - Model changes: `KeyboardLayouts.current` becomes `u32`; `Cast` loses `kind` and `target`, gains
   `output`/`session`/`pw_node`; `Window` loses `rect`, `size`, `output`; `Workspace` loses
-  `is_focused`, `is_urgent`, `active_window_id`; `Output` loses `serial`, `built_in` (derived from
-  the connector prefix, `model.rs:290`). `Event::WorkspaceActiveWindowChanged`,
+  `is_focused`, `is_urgent`, `active_window_id`; `Output` loses `serial`, `built_in` (the mirror
+  derives it from the connector prefix `eDP-`/`LVDS-`). `Event::WorkspaceActiveWindowChanged`,
   `Event::WorkspaceUrgencyChanged` (urgency is derived from windows, Q7) and the
   `WorkspaceTarget::{Index, Name}` variants are deleted. The provider's merge tracks the focused
   output directly instead of through `Workspace.is_focused` (today `compositor.rs:529-540`).
@@ -229,8 +230,7 @@ StartLimitBurst=5
 StartLimitIntervalSec=60
 
 [Service]
-Type=dbus
-BusName=me.aresa.Glimpse.Compositor
+Type=exec
 ExecCondition=/usr/bin/glimpse-compositor-niri --probe
 ExecStart=/usr/bin/glimpse-compositor-niri
 Restart=on-failure
@@ -259,7 +259,7 @@ ours with `systemctl --user mask`.
 
 **Login (niri).** niri imports env → `graphical-session.target` → `glimpse-session.target` wants
 both providers → niri unit passes condition and probe, Hyprland unit is skipped → provider connects,
-subscribes, reads the first state, owns the name (`Type=dbus` ready) → panel, notifications and lock
+subscribes, reads the first state, owns the name (`Type=exec`: systemd refuses two loaded units with one `BusName=`) → panel, notifications and lock
 mirrors see the owner, read all properties, render. Wallpaper and lock may start first: they render
 without compositor facts and update when the provider appears (Q15).
 
@@ -275,6 +275,10 @@ Failure → named error → `CommandError` → notification.
 **Provider restart.** Crash → owner gone → mirrors report the provider unavailable, applets keep the
 last render → systemd restarts after 2 s → new owner → mirrors re-read everything including
 `Capabilities`.
+
+**No provider (panel).** The provider is an enhancement: no owner since the mirror started → mirrors
+report "unsupported" with health running, and compositor features are not offered (AC-16). A provider
+lost mid-session keeps the last render and marks the mirror degraded (Provider restart).
 
 **Screenshot of a window (niri).** shot reads state and `WindowGeometries()` → `ScreenshotWindow(id,
 path)` → provider arms the directory watch, sends the action, replies after `close_write`.
@@ -347,12 +351,23 @@ AC-12 As a Hyprland user, I want the lock-restore warning even if the lock start
       the "Lock restore is off" notification is sent once. Verify by: lock test with a fake mirror.
 
 AC-13 As a Hyprland user, I want real screencast rows.
-      GIVEN screencastv2>>1,1,DP-2 then screencastv2>>0,1,DP-2 WHEN decoded THEN Casts holds one cast with
+      GIVEN screencastv2>>1,monitor,DP-2 then screencastv2>>0,monitor,DP-2 WHEN decoded THEN Casts holds one cast with
       output DP-2, then none. Verify by: hyprland decoder test.
 
 AC-14 As a glimpse-shot user outside a glimpse session, I want graceful degradation.
       GIVEN no provider owner WHEN `glimpse-shot capture --window` runs THEN it fails with "no compositor
       provider is running"; `--screen NAME` still captures. Verify by: shot headless test with an absent client.
+
+AC-16 As a user on a compositor no provider serves, I want a working desktop without compositor features.
+      GIVEN no provider has owned the name since the mirror started WHEN the panel, notifications and lock run
+      THEN the Compositor mirror publishes status name "unsupported", no capabilities and no sections, and
+      privacy reads not-sharing so notification popups show; the Compositor and Keyboard mirrors' health stays
+      running (absence is not a fault), every command answers `CommandError::Unsupported` without a bus call,
+      and no notification is sent; when an owner later appears the mirrors follow
+      it. A provider lost after it owned the name marks the mirror degraded until a new owner appears.
+      `glimpsectl doctor` reports no provider as information, not a failure.
+      Verify by: service test on PrivateBus with no owner (health running, sections absent) and with an owner
+      that drops (degraded, last state kept); live check with both provider units stopped.
 
 AC-15 As a maintainer, I want CI to enforce units and packaging.
       Verify by: `just verify` (check-units sees both binaries, systemd-analyze verify passes) and
@@ -390,7 +405,9 @@ Each step merges on its own and leaves the desktop working. One builder per crat
 - ~~Socket-file `ExecCondition` and `!NIRI_SOCKET`~~: stale files and variables pick the wrong provider (Q13).
 - ~~Shot starts providers on demand~~ (Q14).
 - ~~`After=` ordering on providers~~: a hanging provider would delay the lock at login (Q15).
-- ~~Debounce timer~~: not needed at measured rates.
+- ~~Debounce timer~~: not needed at measured rates, except Hyprland casts: a live share emits a
+  start/stop pair every ~0.6 s, so the Hyprland provider holds a stopped share for 2 s and revives
+  it, same id, when the same `(TYPE, NAME)` starts again (user decision 2026-10-22).
 
 ## 13. Open questions
 

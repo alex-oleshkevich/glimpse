@@ -1,14 +1,10 @@
-use chrono::{DateTime, Utc};
-use futures_util::{
-    FutureExt, StreamExt,
-    future::{BoxFuture, ready},
-    stream,
-};
+use futures_util::{FutureExt, future::BoxFuture};
 use glimpse_compositors::{
-    Capabilities, Cast, CastKind, CastTarget, Compositor as Backend, CompositorError,
-    Event as Change, Output, Resync, Snapshot, Window, WindowId, WindowTarget, Workspace,
-    WorkspaceId, WorkspaceTarget, detect_compositor,
+    client::{CompositorState as Mirrored, Handle as ProviderHandle},
+    contract::{Capability, Error as ProviderError},
+    model::{Output, WindowId, WorkspaceId},
 };
+use glimpse_dbus::PENDING;
 use tokio::sync::oneshot;
 
 use crate::{
@@ -18,6 +14,9 @@ use crate::{
     subscription::Sub,
 };
 use serde::{Deserialize, Serialize};
+
+pub(crate) const NO_PROVIDER: &str = "no compositor provider is running";
+const UNSUPPORTED: &str = "unsupported";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceInfo {
@@ -67,25 +66,15 @@ pub struct OutputInfo {
     pub focused: bool,
     pub make: Option<String>,
     pub model: Option<String>,
-    pub serial: Option<String>,
     pub current_mode: Option<OutputMode>,
     pub logical: Option<OutputLogical>,
     pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CompositorCapabilities {
-    pub output_power: bool,
-    #[serde(default)]
-    pub blank_screens: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "by", rename_all = "snake_case")]
 pub enum WorkspaceRef {
     Id { id: u64 },
-    Index { index: u8 },
-    Name { name: String },
     Next,
     Prev,
 }
@@ -99,10 +88,10 @@ pub enum WindowRef {
     Prev,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompositorStatus {
     pub name: String,
-    pub capabilities: CompositorCapabilities,
+    pub capabilities: Vec<Capability>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -120,26 +109,11 @@ pub struct CompositorOutputs {
     pub outputs: Vec<OutputInfo>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CastKindInfo {
-    PipeWire,
-    Screencopy,
-    Unknown,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CastTargetInfo {
-    Output(String),
-    Window(u64),
-    Unknown,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CastInfo {
     pub stream_id: u64,
     pub session_id: Option<u64>,
-    pub kind: CastKindInfo,
-    pub target: CastTargetInfo,
+    pub output: Option<String>,
     pub pw_node_id: Option<u32>,
     pub active: bool,
 }
@@ -151,11 +125,8 @@ pub struct CompositorPrivacy {
 }
 
 pub enum Event {
-    Snapshot(Box<Snapshot>),
-    Changed(Change),
-    FetchFailed(String),
-    Failed(String),
-    TitlesDue(DateTime<Utc>),
+    Provider(Box<Mirrored>),
+    Closed,
 }
 
 #[derive(Debug)]
@@ -190,6 +161,14 @@ pub enum Command {
 pub type CompositorHandle = ServiceEndpoint<Compositor>;
 
 impl ServiceEndpoint<Compositor> {
+    pub fn supports(&self, capability: Capability) -> bool {
+        self.subscribe()
+            .borrow()
+            .status
+            .as_ref()
+            .is_some_and(|status| status.capabilities.contains(&capability))
+    }
+
     pub async fn focus_workspace(&self, target: WorkspaceRef) -> Result<(), CommandError> {
         self.call("compositor service stopped", |reply| {
             Command::FocusWorkspace { target, reply }
@@ -206,17 +185,17 @@ impl ServiceEndpoint<Compositor> {
     }
 
     pub async fn focus_app(&self, pid: Option<i32>, names: &[&str]) -> Result<(), CommandError> {
-        let by_pid = match pid {
-            Some(pid) => self.focus_window(WindowRef::Pid { pid }).await,
-            None => Err(CommandError::InvalidArgument(
-                "the application has no known process".to_owned(),
-            )),
+        let Some(windows) = self.snapshot().windows else {
+            return Err(CommandError::Unsupported(NO_PROVIDER.to_owned()));
         };
-        if by_pid.is_ok() {
-            return by_pid;
+        if let Some(pid) = pid {
+            match self.focus_window(WindowRef::Pid { pid }).await {
+                Ok(()) => return Ok(()),
+                Err(CommandError::InvalidArgument(_)) => {}
+                Err(error) => return Err(error),
+            }
         }
-        let windows = self.snapshot().windows.map(|windows| windows.windows);
-        match app_window(windows.as_deref().unwrap_or_default(), names) {
+        match app_window(&windows.windows, names) {
             Some(id) => self.focus_window(WindowRef::Id { id }).await,
             None => {
                 tracing::debug!(?pid, ?names, "no window to focus");
@@ -275,22 +254,19 @@ pub struct CompositorState {
     pub privacy: Option<CompositorPrivacy>,
 }
 
+pub struct Dependencies {
+    pub provider: ProviderHandle,
+}
+
 pub struct Compositor {
-    backend: Backend,
     state_publisher: Publisher<CompositorState>,
-    state: Option<Snapshot>,
-    attempt: u64,
-    stale: bool,
-    fetch_failed: bool,
-    capabilities: CompositorCapabilities,
-    titles_at: Option<DateTime<Utc>>,
+    provider: ProviderHandle,
+    served: Option<Mirrored>,
 }
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
-    Events,
-    Fetch { attempt: u64 },
-    Titles { at: DateTime<Utc> },
+    Provider,
 }
 
 impl Service for Compositor {
@@ -300,7 +276,7 @@ impl Service for Compositor {
     type State = CompositorState;
     type Command = Command;
     type Event = Event;
-    type Dependencies = ();
+    type Dependencies = Dependencies;
     type SubKey = Watch;
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -308,104 +284,43 @@ impl Service for Compositor {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        let follow = self.backend.clone();
-        let read = self.backend.clone();
-
-        let mut declared = vec![
-            Sub::stream(Watch::Events, move |_ctx| async move {
-                match follow.events().await {
-                    Ok(events) => events
-                        .map(Event::Changed)
-                        .chain(stream::once(async {
-                            Event::Failed("the compositor closed its event stream".to_owned())
-                        }))
-                        .boxed(),
-                    Err(error) => {
-                        stream::once(async move { Event::Failed(error.to_string()) }).boxed()
-                    }
-                }
-            }),
-            Sub::stream(
-                Watch::Fetch {
-                    attempt: self.attempt,
-                },
-                move |_ctx| async move {
-                    stream::once(async move {
-                        match read.snapshot().await {
-                            Ok(snapshot) => Event::Snapshot(Box::new(snapshot)),
-                            Err(error) => Event::FetchFailed(error.to_string()),
-                        }
-                    })
-                },
-            ),
-        ];
-        if let Some(at) = self.titles_at {
-            declared.push(Sub::deadline(
-                Watch::Titles { at },
-                at,
-                Event::TitlesDue(at),
-            ));
-        }
-        declared
+        vec![Sub::watch(
+            Watch::Provider,
+            self.provider.subscribe(),
+            |state| Event::Provider(Box::new(state)),
+            Event::Closed,
+        )]
     }
 
     async fn start(
         ctx: &Ctx<Self>,
         _config: Self::Config,
-        _dependencies: Self::Dependencies,
+        dependencies: Self::Dependencies,
     ) -> Self {
-        let backend = detect_compositor();
-        tracing::debug!(compositor = backend.name(), "starting compositor service");
-
-        Self::with_backend(ctx, backend)
+        tracing::debug!("starting compositor service");
+        Self {
+            state_publisher: ctx.publisher(),
+            provider: dependencies.provider,
+            served: None,
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Event(Event::Snapshot(snapshot)) => {
-                self.state = Some(*snapshot);
-                self.titles_at = None;
-                if std::mem::take(&mut self.stale) {
-                    self.attempt += 1;
-                }
-                if ctx.is_degraded() {
-                    ctx.running();
-                }
-                self.publish();
-            }
-            Input::Event(Event::Changed(change)) => {
-                let Some(state) = self.state.as_mut() else {
-                    self.stale = true;
-                    if std::mem::take(&mut self.fetch_failed) {
-                        self.attempt += 1;
+            Input::Event(Event::Provider(state)) => match state.unavailable.clone() {
+                None => {
+                    if ctx.is_degraded() {
+                        ctx.running();
                     }
-                    return;
-                };
-                match apply(state, change) {
-                    Applied::Resync => {
-                        self.attempt += 1;
-                        self.titles_at = None;
-                        self.publish();
-                    }
-                    Applied::Publish => {
-                        self.titles_at = None;
-                        self.publish();
-                    }
-                    Applied::HoldTitle => self.hold_title(),
-                    Applied::Stored => {}
+                    self.publish(&state);
+                    self.served = Some(*state);
                 }
+                Some(reason) if reason == PENDING => {}
+                Some(reason) => self.lost(ctx, reason),
+            },
+            Input::Event(Event::Closed) => {
+                self.lost(ctx, "the compositor provider closed".to_owned());
             }
-            Input::Event(Event::TitlesDue(at)) => {
-                if self.titles_at == Some(at) {
-                    self.titles_at = None;
-                    self.publish();
-                }
-            }
-            Input::Event(Event::FetchFailed(reason)) => {
-                self.fetch_failed = true;
-                ctx.degraded(reason);
-            }
-            Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
             Input::Command(command) => self.dispatch(ctx, command),
             Input::Config(NoConfig) => {}
         }
@@ -413,298 +328,194 @@ impl Service for Compositor {
 }
 
 impl Compositor {
-    fn with_backend(ctx: &Ctx<Self>, backend: Backend) -> Self {
-        let capabilities = capabilities(backend.capabilities());
-        let service = Self {
-            state_publisher: ctx.publisher(),
-            state: None,
-            attempt: 0,
-            stale: false,
-            fetch_failed: false,
-            capabilities,
-            titles_at: None,
-            backend,
-        };
-
-        service.state_publisher.update(|state| {
-            state.status = Some(CompositorStatus {
-                name: service.backend.name().to_owned(),
-                capabilities: service.capabilities,
-            });
+    fn lost(&self, ctx: &Ctx<Self>, reason: String) {
+        if self.served.is_some() {
+            ctx.degraded(reason);
+            return;
+        }
+        self.state_publisher.set(CompositorState {
+            status: Some(CompositorStatus {
+                name: UNSUPPORTED.to_owned(),
+                capabilities: Vec::new(),
+            }),
+            privacy: Some(CompositorPrivacy {
+                active: false,
+                casts: Vec::new(),
+            }),
+            ..CompositorState::default()
         });
-
-        service
     }
 
-    fn hold_title(&mut self) {
-        if self.titles_at.is_some() {
-            return;
-        }
-        match Utc::now().checked_add_signed(TITLE_HOLD) {
-            Some(at) => self.titles_at = Some(at),
-            None => self.publish(),
-        }
-    }
-
-    fn publish(&mut self) {
-        let Some(state) = self.state.as_ref() else {
-            return;
-        };
-
-        let workspaces = workspaces_of(state);
-        let windows = windows_of(state);
-        let outputs = outputs_of(state);
-        let casts = casts_of(state);
-
-        self.state_publisher.update(|published| {
-            published.workspaces = Some(CompositorWorkspaces { workspaces });
-            published.windows = Some(CompositorWindows { windows });
-            published.outputs = Some(CompositorOutputs { outputs });
-            published.privacy = Some(CompositorPrivacy {
+    fn publish(&self, state: &Mirrored) {
+        self.state_publisher.set(CompositorState {
+            status: Some(CompositorStatus {
+                name: state.name.clone(),
+                capabilities: state.capabilities.clone(),
+            }),
+            workspaces: Some(CompositorWorkspaces {
+                workspaces: workspaces_of(state),
+            }),
+            windows: Some(CompositorWindows {
+                windows: windows_of(state),
+            }),
+            outputs: Some(CompositorOutputs {
+                outputs: outputs_of(state),
+            }),
+            privacy: Some(CompositorPrivacy {
                 active: !state.casts.is_empty(),
-                casts,
-            });
+                casts: casts_of(state),
+            }),
         });
+    }
+
+    fn gate(&self, needs: Option<Capability>) -> Result<&Mirrored, ProviderError> {
+        let served = self
+            .served
+            .as_ref()
+            .ok_or_else(|| ProviderError::Unsupported(NO_PROVIDER.to_owned()))?;
+        match needs.filter(|needed| !served.capabilities.contains(needed)) {
+            Some(missing) => Err(ProviderError::Unsupported(format!(
+                "this compositor does not support {}",
+                missing.as_str()
+            ))),
+            None => Ok(served),
+        }
     }
 
     fn dispatch(&self, ctx: &Ctx<Self>, command: Command) {
-        let backend = self.backend.clone();
-        let (call, reply): (BoxFuture<'static, Result<(), CompositorError>>, _) = match command {
-            Command::FocusWorkspace { target, reply } => {
-                let target = workspace_target(target);
-                (
-                    async move { backend.focus_workspace(target).await }.boxed(),
+        let provider = self.provider.clone();
+        let (call, reply): (Result<BoxFuture<'static, Result<(), ProviderError>>, _>, _) =
+            match command {
+                Command::FocusWorkspace { target, reply } => (
+                    self.gate(None).map(|_| match target {
+                        WorkspaceRef::Id { id } => {
+                            async move { provider.focus_workspace(WorkspaceId(id)).await }.boxed()
+                        }
+                        WorkspaceRef::Next => {
+                            async move { provider.step_workspace(true).await }.boxed()
+                        }
+                        WorkspaceRef::Prev => {
+                            async move { provider.step_workspace(false).await }.boxed()
+                        }
+                    }),
                     reply,
-                )
-            }
-            Command::FocusWindow { target, reply } => (
-                match window_target(target, self.state.as_ref()) {
-                    Some(target) => async move { backend.focus_window(target).await }.boxed(),
-                    None => ready(Err(CompositorError::Refused(
-                        "no window matches the requested reference".to_owned(),
-                    )))
-                    .boxed(),
-                },
-                reply,
-            ),
-            Command::RenameWorkspace { id, name, reply } => (
-                async move {
-                    backend
-                        .rename_workspace(WorkspaceId(id), name.as_deref())
-                        .await
-                }
-                .boxed(),
-                reply,
-            ),
-            Command::SetOutputEnabled {
-                connector,
-                enabled,
-                reply,
-            } => (
-                match self.check_output_enabled(&connector, enabled) {
-                    Ok(()) => {
-                        async move { backend.set_output_enabled(&connector, enabled).await }.boxed()
-                    }
-                    Err(error) => ready(Err(error)).boxed(),
-                },
-                reply,
-            ),
-            Command::PowerOffMonitors { reply } => (
-                async move { backend.power_off_monitors().await }.boxed(),
-                reply,
-            ),
-            Command::StopScreencast { session_id, reply } => (
-                async move { backend.stop_screencast(session_id).await }.boxed(),
-                reply,
-            ),
-        };
+                ),
+                Command::FocusWindow { target, reply } => (
+                    self.gate(None).and_then(|served| match target {
+                        WindowRef::Id { id } => {
+                            Ok(async move { provider.focus_window(WindowId(id)).await }.boxed())
+                        }
+                        WindowRef::Pid { pid } => served
+                            .windows
+                            .iter()
+                            .filter(|window| window.pid == Some(pid))
+                            .min_by_key(|window| window.id.0)
+                            .map(|window| window.id)
+                            .ok_or_else(|| {
+                                ProviderError::Refused(
+                                    "no window matches the requested reference".to_owned(),
+                                )
+                            })
+                            .map(|id| async move { provider.focus_window(id).await }.boxed()),
+                        WindowRef::Next => {
+                            Ok(async move { provider.step_window(true).await }.boxed())
+                        }
+                        WindowRef::Prev => {
+                            Ok(async move { provider.step_window(false).await }.boxed())
+                        }
+                    }),
+                    reply,
+                ),
+                Command::RenameWorkspace { id, name, reply } => (
+                    self.gate(Some(Capability::RenameWorkspace)).map(|_| {
+                        async move {
+                            provider
+                                .rename_workspace(
+                                    WorkspaceId(id),
+                                    name.as_deref().unwrap_or_default(),
+                                )
+                                .await
+                        }
+                        .boxed()
+                    }),
+                    reply,
+                ),
+                Command::SetOutputEnabled {
+                    connector,
+                    enabled,
+                    reply,
+                } => (
+                    self.gate(Some(Capability::OutputPower))
+                        .and_then(|served| last_display_guard(served, &connector, enabled))
+                        .map(|()| {
+                            async move { provider.set_output_enabled(&connector, enabled).await }
+                                .boxed()
+                        }),
+                    reply,
+                ),
+                Command::PowerOffMonitors { reply } => (
+                    self.gate(Some(Capability::BlankScreens))
+                        .map(|_| async move { provider.power_off_monitors().await }.boxed()),
+                    reply,
+                ),
+                Command::StopScreencast { session_id, reply } => (
+                    self.gate(None)
+                        .map(|_| async move { provider.stop_screencast(session_id).await }.boxed()),
+                    reply,
+                ),
+            };
 
         ctx.spawn_detached(move |_| async move {
-            let _ = reply.send(call.await.map_err(|error| command_error(&error)));
+            let result = match call {
+                Ok(call) => call.await,
+                Err(error) => Err(error),
+            };
+            let _ = reply.send(result.map_err(|error| command_error(&error)));
         });
     }
+}
 
-    fn check_output_enabled(&self, connector: &str, enabled: bool) -> Result<(), CompositorError> {
-        if !self.capabilities.output_power {
-            return Err(CompositorError::Unsupported(
-                "this compositor cannot turn displays on or off",
-            ));
-        }
-        let Some(state) = self.state.as_ref() else {
-            return Err(CompositorError::Refused(
-                "the compositor state has not arrived yet".to_owned(),
-            ));
-        };
-        let Some(output) = state
+fn last_display_guard(
+    state: &Mirrored,
+    connector: &str,
+    enabled: bool,
+) -> Result<(), ProviderError> {
+    let enabled_outputs = state.outputs.iter().filter(|output| output.enabled).count();
+    let turning_off_the_last = !enabled
+        && enabled_outputs <= 1
+        && state
             .outputs
             .iter()
-            .find(|output| output.connector == connector)
-        else {
-            return Err(CompositorError::Refused(format!(
-                "unknown output {connector}"
-            )));
-        };
-        if !enabled && output.enabled && enabled_output_count(state) <= 1 {
-            return Err(CompositorError::Refused(
-                "cannot turn off the last display that is still on".to_owned(),
-            ));
-        }
-        Ok(())
+            .any(|output| output.connector == connector && output.enabled);
+    match turning_off_the_last {
+        true => Err(ProviderError::Refused(
+            "cannot turn off the last display that is still on".to_owned(),
+        )),
+        false => Ok(()),
     }
 }
 
-fn enabled_output_count(state: &Snapshot) -> usize {
-    state.outputs.iter().filter(|output| output.enabled).count()
-}
-
-const TITLE_HOLD: chrono::TimeDelta = chrono::TimeDelta::seconds(1);
-
-#[derive(Debug, PartialEq, Eq)]
-enum Applied {
-    Resync,
-    Publish,
-    HoldTitle,
-    Stored,
-}
-
-fn apply(state: &mut Snapshot, change: Change) -> Applied {
-    match change {
-        Change::WorkspacesChanged(workspaces) => state.workspaces = workspaces,
-        Change::WorkspaceActivated { id, focused } => {
-            let Some(activated) = state.workspaces.iter().find(|workspace| workspace.id == id)
-            else {
-                return Applied::Resync;
-            };
-            let output = activated.output.clone();
-            if focused {
-                state.focused_output = output.clone();
-            }
-            for workspace in &mut state.workspaces {
-                if workspace.output == output {
-                    workspace.is_active = workspace.id == id;
-                }
-                if focused {
-                    workspace.is_focused = workspace.id == id;
-                }
-            }
-        }
-        Change::WorkspaceActiveWindowChanged { workspace, window } => {
-            if let Some(found) = workspace_mut(state, workspace) {
-                found.active_window_id = window;
-            }
-        }
-        Change::WorkspaceUrgencyChanged { id, urgent } => {
-            if let Some(found) = workspace_mut(state, id) {
-                found.is_urgent = urgent;
-            }
-        }
-        Change::WindowsChanged(windows) => state.windows = windows,
-        Change::WindowOpenedOrChanged(window) => {
-            let effect = window_effect(state, &window);
-            let (id, focused) = (window.id, window.is_focused);
-            match state.windows.iter_mut().find(|it| it.id == id) {
-                Some(found) => *found = window,
-                None => state.windows.push(window),
-            }
-            if focused {
-                state.focused_window = Some(id);
-                for other in &mut state.windows {
-                    other.is_focused = other.id == id;
-                }
-            }
-            return effect;
-        }
-        Change::WindowClosed(id) => state.windows.retain(|window| window.id != id),
-        Change::WindowFocusChanged(id) => {
-            state.focused_window = id;
-            for window in &mut state.windows {
-                window.is_focused = Some(window.id) == id;
-                if window.is_focused {
-                    window.is_urgent = false;
-                }
-            }
-        }
-        Change::WindowUrgencyChanged { id, urgent } => {
-            if let Some(found) = state.windows.iter_mut().find(|it| it.id == id) {
-                found.is_urgent = urgent;
-            }
-        }
-        Change::WindowLayoutsChanged(orders) => {
-            for (id, order) in orders {
-                if let Some(found) = state.windows.iter_mut().find(|it| it.id == id) {
-                    found.layout_order = order;
-                }
-            }
-        }
-        Change::KeyboardLayoutsChanged(_)
-        | Change::KeyboardLayoutSwitched(_)
-        | Change::Resync(Resync::Keyboard) => return Applied::Stored,
-        Change::CastsChanged(casts) => state.casts = casts,
-        Change::CastStartedOrChanged { cast } => {
-            match state
-                .casts
-                .iter_mut()
-                .find(|existing| existing.stream_id == cast.stream_id)
-            {
-                Some(existing) => *existing = cast,
-                None => state.casts.push(cast),
-            }
-        }
-        Change::CastStopped(id) => {
-            state.casts.retain(|cast| cast.stream_id != id);
-        }
-        Change::Resync(Resync::Structure | Resync::Outputs) => return Applied::Resync,
-    }
-    Applied::Publish
-}
-
-fn window_effect(state: &Snapshot, window: &Window) -> Applied {
-    let Some(found) = state.windows.iter().find(|it| it.id == window.id) else {
-        return Applied::Publish;
-    };
-    if found.app_id != window.app_id
-        || found.workspace_id != window.workspace_id
-        || found.is_focused != window.is_focused
-        || found.is_floating != window.is_floating
-        || found.is_urgent != window.is_urgent
-        || found.layout_order != window.layout_order
-    {
-        return Applied::Publish;
-    }
-    if found.title != window.title {
-        Applied::HoldTitle
-    } else {
-        Applied::Stored
-    }
-}
-
-fn workspace_mut(state: &mut Snapshot, id: WorkspaceId) -> Option<&mut Workspace> {
-    state
-        .workspaces
-        .iter_mut()
-        .find(|workspace| workspace.id == id)
-}
-
-fn workspaces_of(state: &Snapshot) -> Vec<WorkspaceInfo> {
+fn workspaces_of(state: &Mirrored) -> Vec<WorkspaceInfo> {
     let mut workspaces: Vec<WorkspaceInfo> = state
         .workspaces
         .iter()
         .map(|workspace| WorkspaceInfo {
             id: workspace.id.0,
-            index: workspace.idx,
+            index: workspace.index,
             name: workspace.name.clone(),
             output: workspace.output.clone(),
-            active: workspace.is_active,
-            focused: workspace.is_focused,
-            urgent: workspace.is_urgent
-                || state
-                    .windows
-                    .iter()
-                    .any(|window| window.is_urgent && window.workspace_id == Some(workspace.id)),
+            active: workspace.active,
+            focused: workspace.active
+                && workspace.output.is_some()
+                && workspace.output == state.focus.output,
+            urgent: state
+                .windows
+                .iter()
+                .any(|window| window.urgent && window.workspace == Some(workspace.id)),
             windows: state
                 .windows
                 .iter()
-                .filter(|window| window.workspace_id == Some(workspace.id))
+                .filter(|window| window.workspace == Some(workspace.id))
                 .count() as u32,
         })
         .collect();
@@ -717,7 +528,7 @@ fn workspaces_of(state: &Snapshot) -> Vec<WorkspaceInfo> {
     workspaces
 }
 
-fn windows_of(state: &Snapshot) -> Vec<WindowInfo> {
+fn windows_of(state: &Mirrored) -> Vec<WindowInfo> {
     let mut windows: Vec<WindowInfo> = state
         .windows
         .iter()
@@ -725,11 +536,11 @@ fn windows_of(state: &Snapshot) -> Vec<WindowInfo> {
             id: window.id.0,
             title: window.title.clone(),
             app_id: window.app_id.clone(),
-            workspace: window.workspace_id.map(|id| id.0),
-            focused: window.is_focused,
-            floating: window.is_floating,
-            urgent: window.is_urgent,
-            order: window.layout_order,
+            workspace: window.workspace.map(|id| id.0),
+            focused: state.focus.window == Some(window.id),
+            floating: window.floating,
+            urgent: window.urgent,
+            order: window.order,
         })
         .collect();
 
@@ -737,24 +548,23 @@ fn windows_of(state: &Snapshot) -> Vec<WindowInfo> {
     windows
 }
 
-fn outputs_of(state: &Snapshot) -> Vec<OutputInfo> {
+fn outputs_of(state: &Mirrored) -> Vec<OutputInfo> {
     state
         .outputs
         .iter()
         .map(|output| OutputInfo {
             connector: output.connector.clone(),
             label: label_of(output),
-            built_in: output.built_in,
-            focused: state.focused_output.as_ref() == Some(&output.connector),
+            built_in: built_in(&output.connector),
+            focused: state.focus.output.as_ref() == Some(&output.connector),
             make: output.make.clone(),
             model: output.model.clone(),
-            serial: output.serial.clone(),
-            current_mode: output.current_mode.map(|mode| OutputMode {
+            current_mode: output.mode.map(|mode| OutputMode {
                 width: mode.width,
                 height: mode.height,
                 refresh_mhz: mode.refresh_mhz,
             }),
-            logical: output.logical.as_ref().map(|logical| OutputLogical {
+            logical: output.logical.map(|logical| OutputLogical {
                 x: logical.x,
                 y: logical.y,
                 width: logical.width,
@@ -766,27 +576,23 @@ fn outputs_of(state: &Snapshot) -> Vec<OutputInfo> {
         .collect()
 }
 
-fn casts_of(state: &Snapshot) -> Vec<CastInfo> {
-    state.casts.iter().map(cast_info).collect()
+fn casts_of(state: &Mirrored) -> Vec<CastInfo> {
+    state
+        .casts
+        .iter()
+        .map(|cast| CastInfo {
+            stream_id: cast.id,
+            session_id: cast.session,
+            output: cast.output.clone(),
+            pw_node_id: cast.pw_node,
+            active: cast.active,
+        })
+        .collect()
 }
 
-fn cast_info(cast: &Cast) -> CastInfo {
-    CastInfo {
-        stream_id: cast.stream_id,
-        session_id: cast.session_id,
-        kind: match cast.kind {
-            CastKind::PipeWire => CastKindInfo::PipeWire,
-            CastKind::Screencopy => CastKindInfo::Screencopy,
-            CastKind::Unknown => CastKindInfo::Unknown,
-        },
-        target: match &cast.target {
-            CastTarget::Output(name) => CastTargetInfo::Output(name.clone()),
-            CastTarget::Window(id) => CastTargetInfo::Window(id.0),
-            CastTarget::Unknown => CastTargetInfo::Unknown,
-        },
-        pw_node_id: cast.pw_node_id,
-        active: cast.active,
-    }
+fn built_in(connector: &str) -> bool {
+    let connector = connector.to_ascii_lowercase();
+    connector.starts_with("edp-") || connector.starts_with("lvds-")
 }
 
 fn label_of(output: &Output) -> Option<String> {
@@ -805,37 +611,6 @@ fn label_of(output: &Output) -> Option<String> {
 
 fn position(workspace: &WorkspaceInfo) -> u64 {
     workspace.index.map_or(workspace.id, u64::from)
-}
-
-fn capabilities(capabilities: Capabilities) -> CompositorCapabilities {
-    CompositorCapabilities {
-        output_power: capabilities.output_power,
-        blank_screens: capabilities.blank_screens,
-    }
-}
-
-fn workspace_target(reference: WorkspaceRef) -> WorkspaceTarget {
-    match reference {
-        WorkspaceRef::Id { id } => WorkspaceTarget::Id(WorkspaceId(id)),
-        WorkspaceRef::Index { index } => WorkspaceTarget::Index(index),
-        WorkspaceRef::Name { name } => WorkspaceTarget::Name(name),
-        WorkspaceRef::Next => WorkspaceTarget::Next,
-        WorkspaceRef::Prev => WorkspaceTarget::Prev,
-    }
-}
-
-fn window_target(reference: WindowRef, state: Option<&Snapshot>) -> Option<WindowTarget> {
-    match reference {
-        WindowRef::Id { id } => Some(WindowTarget::Id(WindowId(id))),
-        WindowRef::Pid { pid } => state?
-            .windows
-            .iter()
-            .filter(|window| window.pid == Some(pid))
-            .min_by_key(|window| window.id.0)
-            .map(|window| WindowTarget::Id(window.id)),
-        WindowRef::Next => Some(WindowTarget::Next),
-        WindowRef::Prev => Some(WindowTarget::Prev),
-    }
 }
 
 fn app_window(windows: &[WindowInfo], names: &[&str]) -> Option<u64> {
@@ -860,21 +635,14 @@ fn app_key(name: &str) -> String {
     name.trim().trim_end_matches(".desktop").to_lowercase()
 }
 
-pub(crate) fn command_error(error: &CompositorError) -> CommandError {
+pub(crate) fn command_error(error: &ProviderError) -> CommandError {
     match error {
-        CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
-            CommandError::Unsupported(reason.to_string())
-        }
-        CompositorError::Connect { .. } | CompositorError::Closed => {
-            CommandError::Unavailable(error.to_string())
-        }
-        CompositorError::Refused(reason) => CommandError::InvalidArgument(reason.to_string()),
-        CompositorError::Protocol(reason) => CommandError::Internal(reason.to_string()),
-        CompositorError::NoFile(_)
-        | CompositorError::InvalidPath(_)
-        | CompositorError::Watch { .. } => CommandError::Internal(error.to_string()),
+        ProviderError::Unsupported(reason) => CommandError::Unsupported(reason.clone()),
+        ProviderError::Refused(reason) => CommandError::InvalidArgument(reason.clone()),
+        ProviderError::Unavailable(reason) => CommandError::Unavailable(reason.clone()),
+        ProviderError::Failed(reason) => CommandError::Internal(reason.clone()),
     }
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

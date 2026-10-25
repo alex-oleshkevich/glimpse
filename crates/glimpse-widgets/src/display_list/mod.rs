@@ -17,8 +17,6 @@ pub struct DisplayMode {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct DisplayLogical {
-    pub x: i32,
-    pub y: i32,
     pub scale: f64,
 }
 
@@ -28,7 +26,6 @@ pub struct Display {
     pub label: String,
     pub make: Option<String>,
     pub model: Option<String>,
-    pub serial: Option<String>,
     pub current_mode: Option<DisplayMode>,
     pub logical: Option<DisplayLogical>,
     pub enabled: bool,
@@ -169,12 +166,8 @@ fn facts_of(display: &Display) -> Vec<Fact> {
     if let Some(model) = non_empty(display.model.as_deref()) {
         facts.push(Fact::new(gettext("Model"), model));
     }
-    if let Some(serial) = non_empty(display.serial.as_deref()) {
-        facts.push(Fact::new(gettext("Serial"), serial));
-    }
     if let Some(logical) = &display.logical {
         facts.push(Fact::new(gettext("Scale"), scale_summary(logical.scale)));
-        facts.push(Fact::new(gettext("Position"), position_summary(logical)));
     }
 
     facts
@@ -200,10 +193,4 @@ fn refresh_hz(refresh_mhz: i32) -> String {
 
 fn scale_summary(scale: f64) -> String {
     crate::percent_text(scale * 100.0)
-}
-
-fn position_summary(logical: &DisplayLogical) -> String {
-    gettext("{x}, {y}")
-        .replace("{x}", &logical.x.to_string())
-        .replace("{y}", &logical.y.to_string())
 }

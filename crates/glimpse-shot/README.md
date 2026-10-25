@@ -26,14 +26,13 @@ TARGET: --screen [NAME] | --window [ID|focused] | --region [GEOMETRY]   (at most
 ```
 
 `capture` with no target is the current output: the compositor's focused one, or with no
-compositor socket the only output when exactly one exists (that counting capture is reused as the
+compositor provider the only output when exactly one exists (that counting capture is reused as the
 shot when the cursor setting allows). `--region` takes slurp's `"X,Y WxH"` (or `X,Y,WxH`) in the
 compositor's global logical layout, negative coordinates included; it must lie within one output.
-With no compositor there is no layout, so `--region` and `--scale logical` exit 1 naming
-`NIRI_SOCKET` and `HYPRLAND_INSTANCE_SIGNATURE` rather than guess a position or a scale; `--screen
-NAME` still works, and a stale socket only warns for it. The crop is clamped to the captured frame,
-so a fractional scale never reports a crop past the image. `--window` with no compositor
-socket exits 1 naming both variables; no such window, or nothing focused, exits 5.
+With no compositor provider, `--region`, `--scale logical`, `--window` and `list` exit 1 saying
+"no compositor provider is running"; `--screen NAME` still captures. The crop is clamped to the
+captured frame, so a fractional scale never reports a crop past the image. No such window, or
+nothing focused, exits 5.
 
 `capture` writes exactly one thing to stdout: the saved path (plain), one result object (`--json`,
 `path` null when nothing was saved), or the PNG bytes (`-o -`, where a closed pipe is a clean exit).

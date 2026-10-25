@@ -127,29 +127,18 @@ async fn unavailable_reports_the_reason_and_spawns_no_task() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn start_before_the_provider_appears_reports_no_bus_owner() {
+async fn start_before_the_provider_appears_reports_pending_then_the_resolved_loss() {
     let bus = PrivateBus::start();
     let connection = bus.connection().await;
     let mut provider = NightLightProvider::start(connection);
     let handle = provider.handle();
-    let state = handle.snapshot();
-    assert_eq!(state.current, None);
-    assert_eq!(
-        state.unavailable.as_deref(),
-        Some("provider has no bus owner")
-    );
-
     let mut watching = handle.subscribe();
     wait_until(&mut watching, |state| {
-        state.unavailable.as_deref() != Some("provider has no bus owner")
+        state.unavailable.as_deref() != Some(crate::clients::PENDING)
     })
     .await;
     let settled = handle.snapshot().unavailable.expect("still unavailable");
-    assert!(!settled.is_empty());
-    assert!(
-        settled.contains(GLIMPSE_NIGHT_LIGHT_BUS_NAME),
-        "the settled reason should name the bus name the panel could not reach, got {settled}"
-    );
+    assert_eq!(settled, "provider has no bus owner");
 
     let error = handle.set_temperature(4000).await.unwrap_err();
     assert!(matches!(error, NightLightProviderError::Unavailable(_)));

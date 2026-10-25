@@ -85,7 +85,7 @@ epoch microseconds (`0` means indefinite). `--until` is accepted only with `on`.
 **`config` reads the layered stack from disk and opens no bus**, so it works when a provider will
 not start; validation problems exit 1. **`doctor` asks `NameHasOwner` before probing**, so inspection
 does not activate the provider it reports on. It prints its report before returning 1 for invalid
-configuration or a failed required provider. An absent optional UI process is informational.
+configuration or a failed required provider. An absent optional UI process or compositor provider is informational, and a compositor that owns its name but does not answer is a failure.
 
 **`applet list --installed` and `inspect --installed` read desktop entries and placements locally**, query systemd for
 running `app-glimpse-*.service` units when a bus is there, and report `runtime: unavailable` when it is not. `list --installed --json`

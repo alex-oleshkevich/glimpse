@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 use adw::prelude::*;
 use chrono::{DateTime, Local};
 use gettextrs::gettext;
-use glimpse_compositors::{Snapshot, detect_compositor};
 use glimpse_config::ScreenshotConfig;
 use glimpse_shot::doc::document::{Document, Mark, Source, Style, Tool};
 use glimpse_shot::doc::esc::EscOutcome;
@@ -32,12 +31,12 @@ use super::{barrier, desktop_entry};
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::clock::SystemClock;
 use crate::adapters::files::Disk;
-use crate::adapters::screens::WaylandScreens;
+use crate::adapters::screens::{self, WaylandScreens};
 use crate::adapters::windows::{CompositorWindows, cropped, visible_crop};
 use crate::cli::ScaleMode;
 use crate::errors::OutputGone;
 use crate::finish::{self, Destination};
-use crate::headless::{self, Shot};
+use crate::headless::{self, Layout, Shot};
 use crate::render::{self, Png};
 
 const NAMESPACE: &str = "glimpse-shot";
@@ -63,7 +62,7 @@ pub struct Options {
     pub marks: Vec<Mark>,
     pub output: Option<PathBuf>,
     pub config: ScreenshotConfig,
-    pub snapshot: Option<Snapshot>,
+    pub snapshot: Option<Layout>,
     pub tool: Option<Tool>,
 }
 
@@ -1244,16 +1243,16 @@ impl Run {
         let active = snapshot
             .workspaces
             .iter()
-            .find(|workspace| workspace.is_active && workspace.output.as_deref() == Some(name))
-            .map(|workspace| workspace.id);
+            .find(|workspace| workspace.active && workspace.output.as_deref() == Some(name))
+            .map(|workspace| workspace.id.0);
         snapshot
             .windows
             .iter()
             .map(|window| {
                 let info = window.app_id.as_deref().and_then(desktop_entry);
-                let here = active.is_some() && window.workspace_id == active;
+                let here = active.is_some() && window.workspace == active;
                 ShotWindowEntry {
-                    id: window.id.0,
+                    id: window.id,
                     app_id: window.app_id.clone(),
                     title: window.title.clone().unwrap_or_default(),
                     name: info.as_ref().map(|info| info.name().to_string()),
@@ -1262,9 +1261,9 @@ impl Run {
                         .and_then(|icon| icon.downcast::<gio::ThemedIcon>().ok())
                         .and_then(|icon| icon.names().first().map(ToString::to_string)),
                     this_workspace: here,
-                    focused: window.is_focused,
+                    focused: window.focused,
                     captured_when_picked: !(here
-                        && window.is_floating
+                        && window.floating
                         && window.output.as_deref() == Some(name)),
                 }
             })
@@ -1497,7 +1496,7 @@ impl Run {
 }
 
 struct Taker {
-    snapshot: Option<Snapshot>,
+    snapshot: Option<Layout>,
     cursor: bool,
     scale: ScaleMode,
     marks: Vec<Mark>,
@@ -1508,12 +1507,15 @@ struct Taker {
 impl Taker {
     fn take(&self, target: Target) -> anyhow::Result<Shot> {
         let screens = WaylandScreens {
-            compositor: self.snapshot.is_some(),
+            compositor: if self.snapshot.is_some() {
+                screens::session()?
+            } else {
+                None
+            },
             counted: RefCell::default(),
         };
-        let windows = self.snapshot.clone().map(|snapshot| CompositorWindows {
-            compositor: detect_compositor(),
-            snapshot: RefCell::new(snapshot),
+        let windows = self.snapshot.clone().map(|layout| CompositorWindows {
+            layout: RefCell::new(layout),
             clipboard: &self.clipboard,
             restore: true,
         });
@@ -1538,12 +1540,12 @@ impl Taker {
         let window = self
             .snapshot
             .as_ref()
-            .and_then(|snapshot| snapshot.windows.iter().find(|window| window.id.0 == id));
-        if let (Some(window), Some(snapshot), Some(Source::Output { name, scale, frame })) =
+            .and_then(|layout| layout.windows.iter().find(|window| window.id == id));
+        if let (Some(window), Some(layout), Some(Source::Output { name, scale, frame })) =
             (window, self.snapshot.as_ref(), &self.frozen)
-            && window.is_floating
+            && window.floating
             && window.output.as_deref() == Some(name.as_str())
-            && let Some(crop) = visible_crop(window, snapshot)
+            && let Some(crop) = visible_crop(window, layout)
         {
             return Ok(Source::Window {
                 id,

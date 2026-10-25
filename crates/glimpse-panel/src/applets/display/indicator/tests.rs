@@ -8,7 +8,6 @@ fn output(connector: &str, built_in: bool) -> OutputInfo {
         focused: false,
         make: None,
         model: None,
-        serial: None,
         current_mode: None,
         logical: None,
         enabled: true,

@@ -7,7 +7,6 @@ use std::rc::Rc;
 use adw::prelude::*;
 use anyhow::{Context as _, Result, anyhow, bail};
 use gettextrs::gettext;
-use glimpse_compositors::Snapshot;
 use glimpse_config::{Config, Documents, PANEL_STYLESHEET, load_theme};
 use glimpse_shot::doc::document::{Document, Mark, Source, Style};
 use glimpse_shot::doc::wire::TargetV1;
@@ -24,7 +23,7 @@ use super::prefs;
 use super::result::{self, Opened, ResultFace, Setup};
 use super::{barrier, canvas};
 use crate::adapters::clipboard::HoldClipboard;
-use crate::adapters::screens::compositor_snapshot;
+use crate::adapters::screens;
 use crate::cli::{self, GuiArgs, ScaleMode, missing_directory, paired};
 use crate::errors::{self, Busy, Cancelled, TimedOut, Usage};
 use crate::headless;
@@ -195,7 +194,7 @@ struct Main {
     mode: RefCell<String>,
     delay: Cell<u32>,
     cursor: Cell<bool>,
-    snapshot: RefCell<Option<Snapshot>>,
+    snapshot: RefCell<Option<headless::Layout>>,
 }
 
 struct Shell {
@@ -435,7 +434,7 @@ impl Shell {
                 report_failure(&error);
             }
         }
-        let snapshot = match compositor_snapshot() {
+        let snapshot = match screens::layout() {
             Ok(snapshot) => snapshot,
             Err(error) if matches!(target, Target::Screen(_)) => {
                 tracing::warn!("continuing without the compositor: {error:#}");
@@ -957,7 +956,7 @@ impl Shell {
 
 impl Main {
     fn refresh(&self) {
-        let snapshot = compositor_snapshot().ok().flatten();
+        let snapshot = screens::layout().ok().flatten();
         if let Some(snapshot) = &snapshot {
             let outputs: Vec<(String, String)> = snapshot
                 .outputs
@@ -982,12 +981,12 @@ impl Main {
             let current = snapshot.focused_output.clone().unwrap_or_default();
             self.page.set_outputs_labeled(&outputs, &current);
             let mut windows: Vec<_> = snapshot.windows.iter().collect();
-            windows.sort_by_key(|window| !window.is_focused);
+            windows.sort_by_key(|window| !window.focused);
             let entries: Vec<(u64, String)> = windows
                 .into_iter()
                 .map(|window| {
                     (
-                        window.id.0,
+                        window.id,
                         window_label(window.app_id.as_deref(), window.title.as_deref()),
                     )
                 })

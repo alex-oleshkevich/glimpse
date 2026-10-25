@@ -97,14 +97,15 @@ child whose name contains "aux". **A built-in panel connector (`eDP`, `LVDS`, `D
 at all**, since one DDC/CI transaction there can freeze the panel on its last frame until the next
 modeset; `[brightness] ddc` turns it off.
 
-**compositor** — mirrors `glimpse-compositors` into one aggregate state and typed commands.
-Disabling the last enabled output is refused from the service's own snapshot rather than a round
-trip. **Urgency is derived here so every client sees one answer** — a workspace is urgent when the
-compositor says so *or* any window on it is, the only way Hyprland works. **A title-only change is
-held and published at most once a second**; focus, urgency, workspace, floating and order still
-publish immediately, and that publish carries the title held so far. A spinning title must not wake
-every compositor consumer at the compositor's event rate. **keyboard** owns compositor layouts, so
-switching one does not resync workspaces or windows.
+**compositor** — mirrors the D-Bus compositor provider into one aggregate state and typed commands.
+A command the provider's capabilities do not cover answers `Unsupported` locally, and disabling the
+last enabled output is refused from the mirrored snapshot, neither costing a bus call. No owner
+since the mirror started is not a fault: it publishes status `unsupported`, no sections and an
+inactive privacy, stays running and answers every command `Unsupported`; an owner lost after it
+served degrades the service and keeps the last state. **Urgency is derived here so every client
+sees one answer** — a workspace is urgent when any window on it is. **keyboard** derives badges
+unless labels override them. Layout memory follows `[keyboard] remember` (window, app or global),
+uses ordered provider events, and resets when the provider disconnects.
 
 **calendar** — every occurrence from every source becomes one sorted state value. A local path is
 watched, `http(s)` is polled, and a `file://` holding a one-line feed URL does both. **A failure

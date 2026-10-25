@@ -7,8 +7,8 @@ host interface.
 
 `glimpse-session.target` is `WantedBy=graphical-session.target` and wants every unit below except
 weather, calendar and the screenshot portal, which start on their first D-Bus call. `systemctl --user reload
-glimpse-session.target` sends `SIGHUP` to each except the lock and desktop units, and each rereads
-its config; they also reread it on their own when a file changes.
+glimpse-session.target` sends `SIGHUP` to each except the lock, desktop and compositor units.
+Services with configuration also reread it on their own when a file changes.
 
 | Unit | Service bus name | Restart |
 | --- | --- | --- |
@@ -19,6 +19,8 @@ its config; they also reread it on their own when a file changes.
 | `glimpse-agents.service` | `me.aresa.Glimpse.Agents` | On failure |
 | `glimpse-idle.service` | `me.aresa.Glimpse.Idle`, `me.aresa.Glimpse.Idle.Portal`, `org.freedesktop.ScreenSaver` | On failure |
 | `glimpse-settings-daemon.service` | `me.aresa.Glimpse.Settings` | On failure |
+| `glimpse-compositor-niri.service` | `me.aresa.Glimpse.Compositor` | On failure, except exit 4 (name already owned); requires `NIRI_SOCKET` and a successful probe |
+| `glimpse-compositor-hyprland.service` | `me.aresa.Glimpse.Compositor` | On failure, except exit 4 (name already owned); requires `HYPRLAND_INSTANCE_SIGNATURE` and a successful probe |
 | `glimpse-sunset.service` | `me.aresa.Glimpse.NightLight` | On failure, except exit 4 (no gamma control) |
 | `glimpse-weather.service` | `me.aresa.Glimpse.Weather` | On failure |
 | `glimpse-calendar.service` | `me.aresa.Glimpse.Calendar` | On failure |

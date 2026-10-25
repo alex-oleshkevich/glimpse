@@ -18,9 +18,10 @@ use glimpse_dbus::notifications::{
 };
 use glimpse_dbus::weather::{WeatherProvider, WeatherProviderState};
 use glimpse_services::{
-    Battery, BatteryState, Bluetooth, BluetoothState, Compositor, CompositorState, Keyboard,
-    KeyboardDependencies, KeyboardLayouts, Mpris, MprisHandle, MprisPlayers, Network, NetworkState,
-    PlayerAction, Running,
+    Battery, BatteryState, Bluetooth, BluetoothState, Compositor, CompositorDependencies,
+    CompositorProvider, CompositorProviderHandle, CompositorState, Keyboard, KeyboardDependencies,
+    KeyboardLayouts, Mpris, MprisHandle, MprisPlayers, Network, NetworkState, PlayerAction,
+    Running,
 };
 use glimpse_widgets::SessionActionState;
 use glimpse_widgets::Styles;
@@ -97,6 +98,7 @@ pub enum AppInput {
     Bluetooth(BluetoothState),
     Layouts(KeyboardLayouts),
     Weather(WeatherProviderState),
+    Restore(Notice),
 }
 
 impl std::fmt::Debug for AppInput {
@@ -125,6 +127,7 @@ impl std::fmt::Debug for AppInput {
             Self::Bluetooth(_) => "Bluetooth",
             Self::Layouts(_) => "Layouts",
             Self::Weather(_) => "Weather",
+            Self::Restore(_) => "Restore",
         };
         f.write_str(name)
     }
@@ -482,6 +485,7 @@ impl SimpleComponent for App {
                     self.restage();
                 }
             }
+            AppInput::Restore(notice) => self.apply(Effect::Notify(notice), &sender),
         }
     }
 
@@ -789,6 +793,7 @@ pub struct StatusServices {
     network: Running<Network>,
     bluetooth: Running<Bluetooth>,
     _weather: WeatherProvider,
+    _compositor_provider: CompositorProvider,
     feeds: Vec<JoinHandle<()>>,
 }
 
@@ -800,13 +805,23 @@ impl StatusServices {
         sender: &ComponentSender<App>,
     ) -> Self {
         let config = hosted(config);
-        let (compositor, compositor_handle) =
-            Running::<Compositor>::spawn(&config, buses.clone(), ());
+        let compositor_provider = match buses.session_bus() {
+            Ok(connection) => CompositorProvider::start(connection.clone()),
+            Err(reason) => CompositorProvider::unavailable(reason),
+        };
+        let provider = CompositorProviderHandle(compositor_provider.handle());
+        let (compositor, compositor_handle) = Running::<Compositor>::spawn(
+            &config,
+            buses.clone(),
+            CompositorDependencies {
+                provider: provider.clone(),
+            },
+        );
         let (keyboard, layouts) = Running::<Keyboard>::spawn(
             &config,
             buses.clone(),
             KeyboardDependencies {
-                compositor: compositor_handle.clone(),
+                provider: provider.clone(),
             },
         );
         let (battery, battery_handle) =
@@ -815,6 +830,7 @@ impl StatusServices {
         let (bluetooth, bluetooth_handle) = Running::<Bluetooth>::spawn(&config, buses, ());
         let feeds = vec![
             forward_focus(compositor_handle.subscribe(), sender),
+            forward_restore(provider, sender),
             forward(layouts.subscribe(), sender, AppInput::Layouts),
             forward(battery_handle.subscribe(), sender, AppInput::Battery),
             forward_reports(network_handle.subscribe(), sender, AppInput::Network),
@@ -828,6 +844,7 @@ impl StatusServices {
             network,
             bluetooth,
             _weather: weather,
+            _compositor_provider: compositor_provider,
             feeds,
         }
     }
@@ -915,6 +932,26 @@ fn forward_focus(
             if focused.is_some() && focused != last {
                 sender.input(AppInput::FocusedOutput(focused.clone().flatten()));
                 last = focused;
+            }
+            if states.changed().await.is_err() {
+                break;
+            }
+        }
+    })
+}
+
+fn forward_restore(
+    handle: CompositorProviderHandle,
+    sender: &ComponentSender<App>,
+) -> JoinHandle<()> {
+    let sender = sender.clone();
+    relm4::spawn(async move {
+        let mut states = handle.subscribe();
+        let mut last = None;
+        loop {
+            let now = states.borrow_and_update().session_lock_restore;
+            if let Some(notice) = notify::restore_notice(&mut last, now) {
+                sender.input(AppInput::Restore(notice));
             }
             if states.changed().await.is_err() {
                 break;

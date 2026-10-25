@@ -1,22 +1,27 @@
 use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 
-use futures_util::{StreamExt, stream};
+use futures_util::StreamExt;
+
 use glimpse_compositors::{
-    Compositor as Backend, Event as Change, KeyboardLayouts as BackendLayouts, LayoutTarget,
-    Resync, detect_compositor, layout_code,
+    client::{
+        CompositorState as Mirrored, Handle as ProviderHandle, KeyboardBarrier, KeyboardUpdate,
+    },
+    model::KeyboardLayouts as Served,
 };
 use glimpse_config::Remember;
+use glimpse_dbus::PENDING;
 use tokio::sync::oneshot;
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint},
-    services::{CompositorWindows, WindowInfo, cap},
+    services::{WindowInfo, cap},
     subscription::Sub,
 };
 
-use super::compositor::{CompositorHandle, command_error};
+use super::compositor::{NO_PROVIDER, command_error};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,14 +45,14 @@ pub struct KeyboardLayouts {
 }
 
 const NAME_CAP: usize = 128;
+const BUILT_IN_CODES: &str = include_str!("../../../../data/language-codes.json");
 
 pub enum Event {
-    Snapshot(BackendLayouts),
-    Changed(Change),
-    Windows(Option<CompositorWindows>),
-    Switched(StoreKey, u8),
-    FetchFailed(String),
-    Failed(String),
+    Provider(Box<Mirrored>),
+    Closed,
+    Switched(u64, Option<u8>),
+    Restored(u64, bool),
+    Watching(KeyboardBarrier),
 }
 
 #[derive(Debug)]
@@ -71,7 +76,7 @@ impl ServiceEndpoint<Keyboard> {
 }
 
 pub struct Dependencies {
-    pub compositor: CompositorHandle,
+    pub provider: ProviderHandle,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,22 +101,21 @@ pub enum StoreKey {
 }
 
 pub struct Keyboard {
-    backend: Backend,
     layouts: Publisher<KeyboardLayouts>,
-    compositor: CompositorHandle,
-    state: BackendLayouts,
+    provider: ProviderHandle,
+    served: Option<Served>,
     config: Config,
+    language_codes: BTreeMap<String, String>,
     store: HashMap<StoreKey, u8>,
     focused: Option<WindowInfo>,
-    attempt: u64,
-    fetch_failed: bool,
+    operations: HashMap<u64, Option<StoreKey>>,
+    operation_id: u64,
+    barrier: Option<KeyboardBarrier>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Watch {
-    Events,
-    Fetch { attempt: u64 },
-    Windows,
+    Provider,
 }
 
 impl Service for Keyboard {
@@ -129,38 +133,20 @@ impl Service for Keyboard {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        let follow = self.backend.clone();
-        let read = self.backend.clone();
-        let mut subs = vec![
-            Sub::stream(Watch::Events, move |_ctx| async move {
-                match follow.events().await {
-                    Ok(events) => events
-                        .map(Event::Changed)
-                        .chain(stream::once(async {
-                            Event::Failed("the compositor closed its event stream".to_owned())
-                        }))
-                        .boxed(),
-                    Err(error) => {
-                        stream::once(async move { Event::Failed(error.to_string()) }).boxed()
-                    }
-                }
-            }),
-            Sub::stream(
-                Watch::Fetch {
-                    attempt: self.attempt,
-                },
-                move |_ctx| async move { stream::once(async move { fetch_layouts(&read).await }) },
-            ),
-        ];
-        if self.config.remember != Remember::Global {
-            subs.push(Sub::watch(
-                Watch::Windows,
-                self.compositor.subscribe(),
-                |state| Event::Windows(state.windows),
-                Event::Windows(None),
-            ));
-        }
-        subs
+        let provider = self.provider.clone();
+        vec![Sub::stream(Watch::Provider, move |ctx| async move {
+            let (barrier, updates) = provider.keyboard_updates();
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::Watching(barrier)))
+                .await;
+            updates
+                .map(|update| match update {
+                    KeyboardUpdate::State(state) => Event::Provider(state),
+                    KeyboardUpdate::Barrier(id) => Event::Restored(id, true),
+                })
+                .chain(futures_util::stream::once(async { Event::Closed }))
+        })]
     }
 
     async fn start(
@@ -170,50 +156,47 @@ impl Service for Keyboard {
     ) -> Self {
         tracing::debug!("starting keyboard service");
         Self {
-            backend: detect_compositor(),
             layouts: ctx.publisher(),
-            compositor: dependencies.compositor,
-            state: BackendLayouts::default(),
+            provider: dependencies.provider,
+            served: None,
             config,
+            language_codes: load_codes().await,
             store: HashMap::new(),
             focused: None,
-            attempt: 0,
-            fetch_failed: false,
+            operations: HashMap::new(),
+            operation_id: 0,
+            barrier: None,
         }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Event(Event::Snapshot(state)) => {
-                self.state = state;
-                if ctx.is_degraded() {
-                    ctx.running();
+            Input::Event(Event::Provider(state)) => match state.unavailable.as_deref() {
+                None => {
+                    if ctx.is_degraded() {
+                        ctx.running();
+                    }
+                    self.followed(ctx, &state);
                 }
-                self.publish();
+                Some(PENDING) => {}
+                Some(reason) => self.lost(ctx, reason),
+            },
+            Input::Event(Event::Closed) => {
+                self.lost(ctx, "the compositor provider closed");
             }
-            Input::Event(Event::Changed(change)) => {
-                if std::mem::take(&mut self.fetch_failed) {
-                    self.attempt += 1;
+            Input::Event(Event::Switched(id, index)) => {
+                if let Some(index) = index {
+                    if let Some(Some(key)) = self.operations.get(&id) {
+                        self.store.insert(key.clone(), index);
+                    }
+                } else {
+                    self.finished(ctx, id, false);
                 }
-                if let Change::KeyboardLayoutSwitched(idx) = &change {
-                    self.remember(*idx);
-                }
-                match apply_keyboard(&mut self.state, change) {
-                    Apply::Publish => self.publish(),
-                    Apply::Refetch => self.attempt += 1,
-                    Apply::Ignore => {}
-                }
             }
-            Input::Event(Event::Windows(Some(windows))) => self.windows_changed(ctx, windows),
-            Input::Event(Event::Switched(key, index)) => {
-                self.store.insert(key, index);
+            Input::Event(Event::Restored(id, succeeded)) => {
+                self.finished(ctx, id, succeeded);
             }
-            Input::Event(Event::Windows(None)) => self.focused = None,
-            Input::Event(Event::FetchFailed(reason)) => {
-                self.fetch_failed = true;
-                ctx.degraded(reason);
-            }
-            Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
+            Input::Event(Event::Watching(barrier)) => self.barrier = Some(barrier),
             Input::Command(Command::Switch { target, reply }) => {
                 self.switch(ctx, target, reply);
             }
@@ -229,12 +212,61 @@ impl Service for Keyboard {
 }
 
 impl Keyboard {
-    fn publish(&mut self) {
-        self.layouts.set(payload(&self.state, &self.config.labels));
+    fn lost(&mut self, ctx: &Ctx<Self>, reason: &str) {
+        self.store.clear();
+        self.focused = None;
+        self.operations.clear();
+        if self.served.is_some() {
+            ctx.degraded(reason);
+        }
     }
 
-    fn remember(&mut self, idx: usize) {
-        let Ok(index) = u8::try_from(idx) else {
+    fn published(&self) -> KeyboardLayouts {
+        self.served
+            .as_ref()
+            .map(|served| payload(served, &self.config.labels, &self.language_codes))
+            .unwrap_or_default()
+    }
+
+    fn publish(&mut self) {
+        self.layouts.set(self.published());
+    }
+
+    fn followed(&mut self, ctx: &Ctx<Self>, state: &Mirrored) {
+        let was = self.served.replace(state.keyboard.clone());
+        let focused = focused_of(state);
+        let moved = self.focused.as_ref().map(|window| window.id)
+            != focused.as_ref().map(|window| window.id);
+        self.focused = focused;
+        self.store.retain(|key, _| match key {
+            StoreKey::App(_) => true,
+            StoreKey::Window(id) => state.windows.iter().any(|window| window.id.0 == *id),
+        });
+
+        let switched = was.is_some_and(|was| was.current != state.keyboard.current);
+        if let Some(index) = state
+            .keyboard
+            .current
+            .filter(|_| switched && !moved && self.operations.is_empty())
+        {
+            self.remember(index);
+        }
+        if let Some(index) = state
+            .keyboard
+            .current
+            .and_then(|index| u8::try_from(index).ok())
+            && let Some(key) = remember_key(self.config.remember, self.focused.as_ref())
+        {
+            self.store.entry(key).or_insert(index);
+        }
+        self.publish();
+        if moved {
+            self.restore(ctx);
+        }
+    }
+
+    fn remember(&mut self, index: u32) {
+        let Ok(index) = u8::try_from(index) else {
             return;
         };
         if let Some(key) = remember_key(self.config.remember, self.focused.as_ref()) {
@@ -242,54 +274,8 @@ impl Keyboard {
         }
     }
 
-    fn switch(
-        &self,
-        ctx: &Ctx<Self>,
-        target: LayoutRef,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    ) {
-        let backend = self.backend.clone();
-        let index = match target {
-            LayoutRef::Index { index } => Some(index),
-            LayoutRef::Next | LayoutRef::Prev => payload(&self.state, &self.config.labels)
-                .current
-                .and_then(|current| stepped(current, target, self.state.names.len())),
-        };
-        let remembered = index.zip(remember_key(self.config.remember, self.focused.as_ref()));
-
-        ctx.spawn_detached(move |ctx| async move {
-            match backend.switch_keyboard_layout(layout_target(target)).await {
-                Ok(()) => {
-                    let _ = reply.send(Ok(()));
-                    if let Some((index, key)) = remembered {
-                        let _ = ctx
-                            .events()
-                            .send(Input::Event(Event::Switched(key, index)))
-                            .await;
-                    }
-                }
-                Err(error) => {
-                    let _ = reply.send(Err(command_error(&error)));
-                }
-            }
-        });
-    }
-
-    fn windows_changed(&mut self, ctx: &Ctx<Self>, windows: CompositorWindows) {
-        self.store.retain(|key, _| match key {
-            StoreKey::App(_) => true,
-            StoreKey::Window(id) => windows.windows.iter().any(|window| window.id == *id),
-        });
-
-        let focused = windows.windows.into_iter().find(|window| window.focused);
-        let changed = match (&self.focused, &focused) {
-            (Some(was), Some(now)) => was.id != now.id,
-            (None, Some(_)) => true,
-            (Some(_), None) => true,
-            (None, None) => false,
-        };
-        self.focused = focused;
-        if !changed {
+    fn restore(&mut self, ctx: &Ctx<Self>) {
+        if !self.operations.is_empty() {
             return;
         }
         let Some(key) = remember_key(self.config.remember, self.focused.as_ref()) else {
@@ -298,61 +284,152 @@ impl Keyboard {
         let Some(&index) = self.store.get(&key) else {
             return;
         };
-        let current = payload(&self.state, &self.config.labels).current;
-        if current == Some(index) {
+        if usize::from(index) >= self.published().layouts.len() {
+            self.store.remove(&key);
             return;
         }
-        let backend = self.backend.clone();
-        ctx.spawn_detached(move |_| async move {
-            let _ = backend
-                .switch_keyboard_layout(LayoutTarget::Index(index))
+        if self.published().current == Some(index) {
+            return;
+        }
+        self.operation_id += 1;
+        let id = self.operation_id;
+        self.operations.insert(id, Some(key));
+        let provider = self.provider.clone();
+        let barrier = self.barrier.clone();
+        ctx.spawn_detached(move |ctx| async move {
+            let succeeded = provider
+                .switch_keyboard_layout(u32::from(index))
+                .await
+                .is_ok();
+            if succeeded && let Some(barrier) = barrier {
+                if barrier.request(id).await.is_ok() {
+                    return;
+                }
+                let _ = ctx
+                    .events()
+                    .send(Input::Event(Event::Restored(id, false)))
+                    .await;
+                return;
+            }
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::Restored(id, succeeded)))
                 .await;
         });
     }
-}
 
-async fn fetch_layouts(backend: &Backend) -> Event {
-    match backend.keyboard_layouts().await {
-        Ok(layouts) => Event::Snapshot(layouts),
-        Err(error) => Event::FetchFailed(error.to_string()),
+    fn switch(
+        &mut self,
+        ctx: &Ctx<Self>,
+        target: LayoutRef,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    ) {
+        let served = self.served.is_some();
+        let remembered = remember_key(self.config.remember, self.focused.as_ref());
+        self.operation_id += 1;
+        let id = self.operation_id;
+        self.operations.insert(id, remembered);
+        let provider = self.provider.clone();
+        let barrier = self.barrier.clone();
+
+        ctx.spawn_detached(move |ctx| async move {
+            let result = if served {
+                match target {
+                    LayoutRef::Index { index } => provider
+                        .switch_keyboard_layout(u32::from(index))
+                        .await
+                        .map(|()| u32::from(index)),
+                    LayoutRef::Next | LayoutRef::Prev => {
+                        provider
+                            .step_keyboard_layout(target == LayoutRef::Next)
+                            .await
+                    }
+                }
+                .map_err(|error| command_error(&error))
+            } else {
+                Err(CommandError::Unsupported(NO_PROVIDER.to_owned()))
+            };
+            let index = result
+                .as_ref()
+                .ok()
+                .and_then(|index| u8::try_from(*index).ok());
+            let _ = ctx
+                .events()
+                .send(Input::Event(Event::Switched(id, index)))
+                .await;
+            let succeeded = result.is_ok();
+            let _ = reply.send(result.map(|_| ()));
+            if succeeded {
+                if let Some(barrier) = barrier {
+                    if barrier.request(id).await.is_ok() {
+                        return;
+                    }
+                    let _ = ctx
+                        .events()
+                        .send(Input::Event(Event::Restored(id, false)))
+                        .await;
+                } else {
+                    let _ = ctx
+                        .events()
+                        .send(Input::Event(Event::Restored(id, true)))
+                        .await;
+                }
+            }
+        });
+    }
+
+    fn finished(&mut self, ctx: &Ctx<Self>, id: u64, succeeded: bool) {
+        let Some(key) = self.operations.remove(&id) else {
+            return;
+        };
+        if !self.operations.is_empty() {
+            return;
+        }
+        if remember_key(self.config.remember, self.focused.as_ref()) != key {
+            self.restore(ctx);
+        } else if succeeded
+            && let Some(index) = self.served.as_ref().and_then(|served| served.current)
+        {
+            self.remember(index);
+        }
     }
 }
 
-enum Apply {
-    Publish,
-    Refetch,
-    Ignore,
+fn focused_of(state: &Mirrored) -> Option<WindowInfo> {
+    let id = state.focus.window?;
+    let window = state.windows.iter().find(|window| window.id == id)?;
+    Some(WindowInfo {
+        id: id.0,
+        title: None,
+        app_id: window.app_id.clone(),
+        workspace: None,
+        focused: true,
+        floating: false,
+        urgent: false,
+        order: None,
+    })
 }
 
-fn apply_keyboard(state: &mut BackendLayouts, change: Change) -> Apply {
-    match change {
-        Change::KeyboardLayoutsChanged(layouts) => {
-            *state = layouts;
-            Apply::Publish
-        }
-        Change::KeyboardLayoutSwitched(idx) => {
-            state.current = (idx < state.names.len()).then_some(idx);
-            Apply::Publish
-        }
-        Change::Resync(Resync::Keyboard) => Apply::Refetch,
-        _ => Apply::Ignore,
-    }
-}
-
-fn payload(layouts: &BackendLayouts, labels: &BTreeMap<String, String>) -> KeyboardLayouts {
-    let n = layouts.names.len().min(layouts.codes.len());
-    let items = layouts
-        .names
-        .iter()
-        .zip(layouts.codes.iter())
-        .take(n)
-        .map(|(name, code)| KeyboardLayout {
-            code: cap(&badge(labels, code, name), NAME_CAP),
-            name: cap(name, NAME_CAP),
+fn payload(
+    layouts: &Served,
+    labels: &BTreeMap<String, String>,
+    codes: &BTreeMap<String, String>,
+) -> KeyboardLayouts {
+    let count = layouts.names.len().max(layouts.codes.len());
+    let items = (0..count)
+        .map(|at| {
+            let code = layouts.codes.get(at).filter(|code| !code.is_empty());
+            let name = layouts.names.get(at).or(code).map_or("", String::as_str);
+            let code = code.map_or(name, String::as_str);
+            KeyboardLayout {
+                code: cap(&badge(labels, code, name, codes), NAME_CAP),
+                name: cap(name, NAME_CAP),
+            }
         })
         .collect::<Vec<_>>();
     let current = layouts
         .current
+        .and_then(|index| usize::try_from(index).ok())
         .filter(|&index| index < items.len())
         .and_then(|index| u8::try_from(index).ok());
     KeyboardLayouts {
@@ -361,25 +438,80 @@ fn payload(layouts: &BackendLayouts, labels: &BTreeMap<String, String>) -> Keybo
     }
 }
 
-fn badge(labels: &BTreeMap<String, String>, code: &str, name: &str) -> String {
+fn badge(
+    labels: &BTreeMap<String, String>,
+    code: &str,
+    name: &str,
+    codes: &BTreeMap<String, String>,
+) -> String {
+    let derived = layout_code(code, codes);
     let code_key = code.to_lowercase();
+    let derived_key = derived.to_lowercase();
     let name_key = name.to_lowercase();
     labels
         .iter()
         .find(|(key, _)| {
             let key = key.to_lowercase();
-            key == code_key || key == name_key
+            key == code_key || key == derived_key || key == name_key
         })
         .map(|(_, label)| label.as_str())
         .filter(|label| !label.is_empty())
-        .map(str::to_owned)
-        .unwrap_or_else(|| {
-            if code.is_empty() {
-                layout_code(name)
-            } else {
-                layout_code(code)
+        .map_or(derived, str::to_owned)
+}
+
+fn layout_code(layout: &str, codes: &BTreeMap<String, String>) -> String {
+    let first_word = layout.split_whitespace().next().unwrap_or(layout);
+    if let Some(code) = codes.get(&first_word.to_lowercase()) {
+        return code.clone();
+    }
+    if !layout.contains(' ') {
+        return layout.to_uppercase();
+    }
+    first_word
+        .chars()
+        .take(2)
+        .collect::<String>()
+        .to_uppercase()
+}
+
+async fn load_codes() -> BTreeMap<String, String> {
+    let path = match tokio::task::spawn_blocking(|| {
+        glimpse_config::find(Path::new("language-codes.json"))
+    })
+    .await
+    {
+        Ok(path) => path,
+        Err(error) => {
+            tracing::warn!(%error, "could not find the language codes");
+            None
+        }
+    };
+    if let Some(path) = path {
+        match tokio::fs::read_to_string(&path).await {
+            Ok(text) => match parse_codes(&text) {
+                Ok(codes) => {
+                    tracing::debug!(path = %path.display(), entries = codes.len(), "read language codes");
+                    return codes;
+                }
+                Err(error) => {
+                    tracing::warn!(path = %path.display(), %error, "ignored malformed language codes");
+                }
+            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                tracing::warn!(path = %path.display(), %error, "could not read the language codes");
             }
-        })
+        }
+    }
+    parse_codes(BUILT_IN_CODES).unwrap_or_default()
+}
+
+fn parse_codes(text: &str) -> Result<BTreeMap<String, String>, serde_json::Error> {
+    let codes: BTreeMap<String, String> = serde_json::from_str(text)?;
+    Ok(codes
+        .into_iter()
+        .map(|(language, code)| (language.to_lowercase(), code))
+        .collect())
 }
 
 fn remember_key(remember: Remember, focused: Option<&WindowInfo>) -> Option<StoreKey> {
@@ -394,23 +526,6 @@ fn remember_key(remember: Remember, focused: Option<&WindowInfo>) -> Option<Stor
             .filter(|id| !id.is_empty())
             .map(|id| StoreKey::App(id.to_owned())),
     }
-}
-
-fn layout_target(target: LayoutRef) -> LayoutTarget {
-    match target {
-        LayoutRef::Next => LayoutTarget::Next,
-        LayoutRef::Prev => LayoutTarget::Prev,
-        LayoutRef::Index { index } => LayoutTarget::Index(index),
-    }
-}
-
-fn stepped(current: u8, target: LayoutRef, len: usize) -> Option<u8> {
-    let n = u8::try_from(len).ok().filter(|&n| n > 0)?;
-    Some(match target {
-        LayoutRef::Next => (current + 1) % n,
-        LayoutRef::Prev => current.checked_sub(1).unwrap_or(n - 1),
-        LayoutRef::Index { index } => index,
-    })
 }
 
 #[cfg(test)]

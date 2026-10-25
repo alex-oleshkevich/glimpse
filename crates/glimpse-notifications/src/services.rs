@@ -5,7 +5,8 @@ use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{
-    Compositor, CompositorHandle, Notifications, NotificationsHandle, Running, Session,
+    Compositor, CompositorDependencies, CompositorHandle, CompositorProvider,
+    CompositorProviderHandle, Notifications, NotificationsHandle, Running, Session,
     SessionDependencies, SessionHandle,
 };
 
@@ -17,6 +18,7 @@ pub struct NotificationServices {
     pub session: SessionHandle,
     notifications_service: Running<Notifications>,
     compositor_service: Running<Compositor>,
+    compositor_provider: CompositorProvider,
     session_service: Running<Session>,
     provider: Option<provider::Runtime>,
 }
@@ -41,8 +43,17 @@ impl NotificationServices {
     }
 
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let (compositor_service, compositor) =
-            Running::<Compositor>::spawn(document, buses.clone(), ());
+        let compositor_provider = match buses.session_bus() {
+            Ok(connection) => CompositorProvider::start(connection.clone()),
+            Err(reason) => CompositorProvider::unavailable(reason),
+        };
+        let (compositor_service, compositor) = Running::<Compositor>::spawn(
+            document,
+            buses.clone(),
+            CompositorDependencies {
+                provider: CompositorProviderHandle(compositor_provider.handle()),
+            },
+        );
         let (session_service, session) = Running::spawn(
             document,
             buses.clone(),
@@ -59,6 +70,7 @@ impl NotificationServices {
             session,
             notifications_service,
             compositor_service,
+            compositor_provider,
             session_service,
             provider: None,
         }
@@ -72,6 +84,7 @@ impl NotificationServices {
 
     pub async fn shutdown(mut self) {
         self.cancel();
+        self.compositor_provider.shutdown().await;
         self.notifications_service.stop().await;
         if let Some(provider) = self.provider.take() {
             provider.shutdown().await;

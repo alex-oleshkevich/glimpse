@@ -88,7 +88,9 @@ pub use clipboard::{
     Clipboard, ClipboardEntry, ClipboardEntryId, ClipboardHandle, ClipboardKind, ClipboardState,
     Config as ClipboardConfig, Dependencies as ClipboardDependencies,
 };
-pub use compositor::{Compositor, CompositorHandle, CompositorState};
+pub use compositor::{
+    Compositor, CompositorHandle, CompositorState, Dependencies as CompositorDependencies,
+};
 pub use desktop_mode::{DesktopMode, DesktopModeHandle, ModeDependencies, ModeWriter};
 pub use exec::{
     ActionRowProps, AddonProps, Align, BarsProps, BoxProps, ButtonProps, CalendarMarker,
@@ -109,6 +111,10 @@ pub use exec::{
     Status as ExecStatus, SystemdLauncher, UserEvent as ExecUserEvent,
 };
 pub use geolocation::{Geolocation, GeolocationDependencies, GeolocationHandle};
+pub use glimpse_compositors::{
+    client::{CompositorProvider, Handle as CompositorProviderHandle},
+    contract::Capability,
+};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use kdeconnect::{
     Action as KdeconnectAction, Actions as KdeconnectActions, Battery as KdeconnectBattery,
@@ -158,9 +164,9 @@ pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, Weather
 
 pub use calendar::{Meeting, MeetingProvider, meeting};
 pub use compositor::{
-    CastInfo, CastKindInfo, CastTargetInfo, CompositorCapabilities, CompositorOutputs,
-    CompositorPrivacy, CompositorStatus, CompositorWindows, CompositorWorkspaces, OutputInfo,
-    OutputLogical, OutputMode, WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef,
+    CastInfo, CompositorOutputs, CompositorPrivacy, CompositorStatus, CompositorWindows,
+    CompositorWorkspaces, OutputInfo, OutputLogical, OutputMode, WindowInfo, WindowRef,
+    WorkspaceInfo, WorkspaceRef,
 };
 pub use geolocation::GeolocationStatus;
 pub use glimpse_dbus::calendar::{CalendarEvent, CalendarEvents, GuestCounts};

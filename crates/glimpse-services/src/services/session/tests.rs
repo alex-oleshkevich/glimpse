@@ -82,3 +82,38 @@ async fn losing_the_lock_source_fails_closed() {
     assert!(state.changed().await.is_ok());
     assert!(state.borrow().as_ref().is_some_and(|state| state.locked));
 }
+
+#[tokio::test]
+async fn with_no_compositor_provider_the_session_is_not_private() {
+    use crate::services::compositor::tests::{mirror_on, until};
+
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let mirror = mirror_on(&bus).await;
+    let mut compositor = mirror.handle.subscribe();
+    let published = until(&mut compositor, "the unsupported privacy", |state| {
+        state.privacy.is_some()
+    })
+    .await;
+    let (mut session, ctx, mut state) = session().await;
+
+    session
+        .handle(
+            &ctx,
+            Input::Event(Event::Privacy(
+                published.privacy.map(|privacy| privacy.active),
+            )),
+        )
+        .await;
+    session
+        .handle(&ctx, Input::Event(Event::Locked(false)))
+        .await;
+
+    assert!(state.changed().await.is_ok());
+    assert_eq!(
+        *state.borrow(),
+        Some(SessionStatus {
+            locked: false,
+            private: false,
+        })
+    );
+}

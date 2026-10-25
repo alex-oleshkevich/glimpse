@@ -47,10 +47,11 @@ and `urgency`.
 
 ## Rules
 
-Depends on no other glimpse process — it reads its own config and reaches logind and the compositor
-directly, so nothing else's absence can blank it or block a lock. **If the process dies after
-`locked`, the compositor keeps the session locked with a blank screen — that is correct and must
-not be worked around.** `LockedHint` stays true, so a restarted locker re-acquires the lock where the compositor allows it (Hyprland: `misc:allow_session_lock_restore`, which `notify.rs` warns about at start and `glimpsectl doctor` checks).
+The lock mirrors the compositor provider; with no owner, the lock stays up and sends no restore
+notice; `notify.rs` sends "Lock restore is off" once when the provider reports the setting false.
+**If the process dies after `locked`, the compositor keeps the session locked with a blank screen —
+that is correct and must not be worked around.** `LockedHint` stays true, so a restarted locker
+re-acquires the lock where the compositor allows it.
 
 The lifecycle is one state machine in `lifecycle.rs`; GTK, zbus and PAM only feed it and carry out
 its effects, and a stale-generation signal is always ignored. **An `unlocked` this process didn't

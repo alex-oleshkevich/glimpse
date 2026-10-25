@@ -130,6 +130,11 @@ their state instead, since a stale list could dismiss against a gone provider an
 temperature would claim what the screen no longer shows. Idle keeps `health` while discarding
 `inhibitors`, since a disconnect says nothing about which backend degraded.
 
+**A follower reads an unowned name only if the bus can activate it.** Weather and calendar start
+by D-Bus activation alone, so the follower's read is what starts them. A name nothing can activate,
+such as the compositor provider, gets no proxy and parks on "provider has no bus owner" until an
+owner appears.
+
 **`NightLightProviderHandle::set_temperature(0)` clears the override, not 0 kelvin** — that sentinel
 belongs to `glimpse-sunset` and is documented only in its README.
 

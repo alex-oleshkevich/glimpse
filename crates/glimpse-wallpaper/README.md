@@ -31,8 +31,9 @@ Never blur by shrinking and re-stretching: that is a thumbnail, not a blur.
 A crossfade fades the outgoing texture out and clears it when the fade ends; a decode is applied
 only while its key is still the one the surface wants, so it cannot overwrite a newer image.
 
-It depends on no other glimpse process: the image and the theme mode come from the configuration it
-reads itself, so there is nothing whose absence leaves a black screen.
+The image and the theme mode come from the configuration it reads itself, so no other process's
+absence leaves a black screen. The overview backdrop follows the compositor provider and stays off
+while no provider serves it.
 
 Configuration is the `[wallpaper]` table of the shared `config.toml`, including its nested
 `[wallpaper.backdrop]`. Tables owned by other binaries are ignored, not validated. Schema in

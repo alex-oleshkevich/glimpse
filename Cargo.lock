@@ -1373,19 +1373,51 @@ dependencies = [
 ]
 
 [[package]]
-name = "glimpse-compositors"
+name = "glimpse-compositor-hyprland"
 version = "0.16.0"
 dependencies = [
+ "clap",
  "dirs",
  "futures-util",
- "glimpse-config",
+ "glimpse-compositors",
+ "glimpse-utils",
  "rustix",
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
+ "tracing",
+ "wayland-client",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
+name = "glimpse-compositor-niri"
+version = "0.16.0"
+dependencies = [
+ "clap",
+ "futures-util",
+ "glimpse-compositors",
+ "glimpse-utils",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "glimpse-compositors"
+version = "0.16.0"
+dependencies = [
+ "futures-util",
+ "glimpse-dbus",
+ "glimpse-utils",
  "thiserror",
  "tokio",
  "tracing",
+ "zbus",
 ]
 
 [[package]]
@@ -1498,7 +1530,6 @@ dependencies = [
  "relm4",
  "rustix",
  "shadow-rs",
- "tempfile",
  "thiserror",
  "tokio",
  "tracing",

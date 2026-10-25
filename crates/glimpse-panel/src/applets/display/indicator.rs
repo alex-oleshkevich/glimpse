@@ -9,8 +9,8 @@ use glimpse_dbus::night_light::{
 };
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
-    BrightnessHandle, BrightnessState, CommandError, CompositorCapabilities, CompositorHandle,
-    OutputInfo, OutputLogical, OutputMode,
+    BrightnessHandle, BrightnessState, Capability, CommandError, CompositorHandle, OutputInfo,
+    OutputLogical, OutputMode,
 };
 use glimpse_widgets::{
     Display as WidgetDisplay, DisplayLogical as WidgetDisplayLogical,
@@ -38,7 +38,6 @@ pub struct Display {
     night_light_state: NightLightProviderState,
     night_light_seen: bool,
     outputs: Vec<OutputInfo>,
-    capabilities: Option<CompositorCapabilities>,
     brightness: BrightnessHandle,
     night_light: NightLightProviderHandle,
     compositor: CompositorHandle,
@@ -74,7 +73,6 @@ impl Applet for Display {
                     .outputs
                     .map(|outputs| outputs.outputs)
                     .unwrap_or_default();
-                self.capabilities = state.status.map(|status| status.capabilities);
             }
             Input::Pointer(Pointer::Scroll(direction)) => {
                 self.nudge(*direction);
@@ -412,8 +410,6 @@ fn to_mode(mode: &OutputMode) -> WidgetDisplayMode {
 
 fn to_logical(logical: &OutputLogical) -> WidgetDisplayLogical {
     WidgetDisplayLogical {
-        x: logical.x,
-        y: logical.y,
         scale: logical.scale,
     }
 }
@@ -424,7 +420,6 @@ fn to_widget_display(output: &OutputInfo) -> WidgetDisplay {
         label: output.label.clone().unwrap_or_default(),
         make: output.make.clone(),
         model: output.model.clone(),
-        serial: output.serial.clone(),
         current_mode: output.current_mode.as_ref().map(to_mode),
         logical: output.logical.as_ref().map(to_logical),
         enabled: output.enabled,
@@ -482,7 +477,6 @@ impl Display {
         let state = brightness.snapshot();
         let night_light_state = night_light.snapshot();
         let compositor_state = compositor.snapshot();
-        let capabilities = compositor_state.status.map(|status| status.capabilities);
         let outputs = compositor_state
             .outputs
             .map(|value| value.outputs)
@@ -493,7 +487,6 @@ impl Display {
             night_light_state,
             night_light_seen,
             outputs,
-            capabilities,
             brightness,
             night_light,
             compositor,
@@ -556,9 +549,8 @@ impl Display {
             });
         shown.set_night_light(night_light.as_ref());
 
-        let output_power = self.capabilities.is_some_and(|caps| caps.output_power);
-        shown.set_output_power(output_power);
-        shown.set_blank_screens(self.capabilities.is_some_and(|caps| caps.blank_screens));
+        shown.set_output_power(self.compositor.supports(Capability::OutputPower));
+        shown.set_blank_screens(self.compositor.supports(Capability::BlankScreens));
         let displays: Vec<WidgetDisplay> = self.outputs.iter().map(to_widget_display).collect();
         shown.set_displays(&displays);
     }

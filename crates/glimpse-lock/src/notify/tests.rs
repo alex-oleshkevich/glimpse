@@ -21,28 +21,66 @@ fn a_safety_notice_is_critical_and_an_expired_password_is_not() {
     assert!(body.contains("passwd"));
 }
 
-async fn restore_with(value: bool) -> Option<Notice> {
-    let dir = tempfile::tempdir().expect("a temporary directory");
-    let listener = tokio::net::UnixListener::bind(dir.path().join(".socket.sock")).expect("bind");
-    tokio::spawn(async move {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        while let Ok((mut stream, _)) = listener.accept().await {
-            let mut command = vec![0_u8; 256];
-            let _ = stream.read(&mut command).await;
-            let reply = format!(r#"{{"option":"misc:allow_session_lock_restore","bool":{value}}}"#);
-            let _ = stream.write_all(reply.as_bytes()).await;
-        }
-    });
-    restore_notice(&glimpse_compositors::Compositor::Hyprland(
-        glimpse_compositors::Hyprland::at(dir.path()),
-    ))
-    .await
-}
-
-#[tokio::test]
-async fn a_disabled_restore_option_posts_one_warning_and_an_enabled_one_none() {
-    assert_eq!(restore_with(false).await, Some(Notice::RestoreDisabled));
-    assert_eq!(restore_with(true).await, None);
+#[test]
+fn a_disabled_restore_posts_once_when_the_provider_first_says_so() {
+    let mut last = None;
+    assert_eq!(
+        restore_notice(&mut last, Some(false)),
+        Some(Notice::RestoreDisabled)
+    );
     let (_, body) = text(Notice::RestoreDisabled);
     assert!(body.contains("misc:allow_session_lock_restore"));
+}
+
+#[test]
+fn a_repeated_false_posts_nothing_and_true_then_false_posts_again() {
+    let mut last = Some(false);
+    assert_eq!(restore_notice(&mut last, None), None);
+    last = Some(false);
+    assert_eq!(restore_notice(&mut last, Some(false)), None);
+    last = Some(false);
+    assert_eq!(restore_notice(&mut last, Some(true)), None);
+    last = Some(true);
+    assert_eq!(
+        restore_notice(&mut last, Some(false)),
+        Some(Notice::RestoreDisabled)
+    );
+}
+
+#[test]
+fn niri_and_an_enabled_restore_post_nothing() {
+    let mut last = None;
+    assert_eq!(restore_notice(&mut last, None), None);
+    last = None;
+    assert_eq!(restore_notice(&mut last, Some(true)), None);
+    last = Some(true);
+    assert_eq!(restore_notice(&mut last, Some(true)), None);
+}
+
+#[test]
+fn a_provider_gap_keeps_the_last_false_and_posts_exactly_twice() {
+    let mut last = None;
+    let posted: Vec<Option<Notice>> = [
+        None,
+        Some(false),
+        None,
+        Some(false),
+        Some(true),
+        Some(false),
+    ]
+    .into_iter()
+    .map(|now| restore_notice(&mut last, now))
+    .collect();
+
+    assert_eq!(
+        posted,
+        [
+            None,
+            Some(Notice::RestoreDisabled),
+            None,
+            None,
+            None,
+            Some(Notice::RestoreDisabled),
+        ]
+    );
 }

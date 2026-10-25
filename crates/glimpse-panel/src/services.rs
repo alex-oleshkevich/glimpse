@@ -14,13 +14,13 @@ use glimpse_services::SystemdLauncher;
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryDependencies, BatteryHandle, BatterySource,
     Bluetooth, BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Clipboard,
-    ClipboardDependencies, ClipboardHandle, CompositeBacklight, Compositor, CompositorHandle,
-    DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle, Heartbeat, HeartbeatHandle,
-    Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris,
-    MprisHandle, Network, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy,
-    PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle, Running, Selection,
-    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray,
-    TrayHandle, kdeconnect_batteries,
+    ClipboardDependencies, ClipboardHandle, CompositeBacklight, Compositor, CompositorDependencies,
+    CompositorHandle, CompositorProvider, CompositorProviderHandle, DdcBacklight, DesktopCatalog,
+    Exec, ExecDependencies, ExecHandle, Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle,
+    Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network, NetworkHandle,
+    Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle,
+    Removable, RemovableHandle, Running, Selection, SessionActions, SessionActionsDependencies,
+    SessionActionsHandle, SysfsBacklight, Tray, TrayHandle, kdeconnect_batteries,
 };
 
 #[derive(Clone)]
@@ -76,6 +76,7 @@ pub struct PanelServices {
     calendar: CalendarProvider,
     night_light: NightLightProvider,
     idle: IdleProvider,
+    compositor_provider: CompositorProvider,
     clipboard_served: Option<crate::clipboard_provider::Served>,
 }
 
@@ -86,29 +87,37 @@ impl PanelServices {
 
     pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
         let session = buses.session_bus().ok().cloned();
-        let (notifications, weather, calendar, night_light, idle) = match buses.session_bus() {
-            Ok(connection) => (
-                NotificationsProvider::start(connection.clone()),
-                WeatherProvider::start(connection.clone()),
-                CalendarProvider::start(connection.clone()),
-                NightLightProvider::start(connection.clone()),
-                IdleProvider::start(connection.clone()),
-            ),
-            Err(reason) => (
-                NotificationsProvider::unavailable(reason),
-                WeatherProvider::unavailable(reason),
-                CalendarProvider::unavailable(reason),
-                NightLightProvider::unavailable(reason),
-                IdleProvider::unavailable(reason),
-            ),
-        };
-        let (compositor_service, compositor) =
-            Running::<Compositor>::spawn(document, buses.clone(), ());
+        let (notifications, weather, calendar, night_light, idle, compositor_provider) =
+            match buses.session_bus() {
+                Ok(connection) => (
+                    NotificationsProvider::start(connection.clone()),
+                    WeatherProvider::start(connection.clone()),
+                    CalendarProvider::start(connection.clone()),
+                    NightLightProvider::start(connection.clone()),
+                    IdleProvider::start(connection.clone()),
+                    CompositorProvider::start(connection.clone()),
+                ),
+                Err(reason) => (
+                    NotificationsProvider::unavailable(reason),
+                    WeatherProvider::unavailable(reason),
+                    CalendarProvider::unavailable(reason),
+                    NightLightProvider::unavailable(reason),
+                    IdleProvider::unavailable(reason),
+                    CompositorProvider::unavailable(reason),
+                ),
+            };
+        let (compositor_service, compositor) = Running::<Compositor>::spawn(
+            document,
+            buses.clone(),
+            CompositorDependencies {
+                provider: CompositorProviderHandle(compositor_provider.handle()),
+            },
+        );
         let (keyboard_service, keyboard) = Running::spawn(
             document,
             buses.clone(),
             KeyboardDependencies {
-                compositor: compositor.clone(),
+                provider: CompositorProviderHandle(compositor_provider.handle()),
             },
         );
         let (mpris_service, mpris) = Running::<Mpris>::spawn(document, buses.clone(), ());
@@ -234,6 +243,7 @@ impl PanelServices {
             calendar,
             night_light,
             idle,
+            compositor_provider,
             clipboard_served,
         }
     }
@@ -266,6 +276,7 @@ impl PanelServices {
         self.mpris_service.stop().await;
         self.keyboard_service.stop().await;
         self.compositor_service.stop().await;
+        self.compositor_provider.shutdown().await;
     }
 
     pub fn reconfigure(&self, document: &Config) {

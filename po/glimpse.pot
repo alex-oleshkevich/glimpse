@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-23 15:51+0200\n"
+"POT-Creation-Date: 2026-10-25 14:15+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -362,42 +362,42 @@ msgstr ""
 msgid "Notifications"
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:17
+#: crates/glimpse-lock/src/notify.rs:16
 msgid "Screen not locked"
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:18
+#: crates/glimpse-lock/src/notify.rs:17
 msgid "Suspending unlocked"
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:21
+#: crates/glimpse-lock/src/notify.rs:20
 msgid "Lock restore is off"
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:23
+#: crates/glimpse-lock/src/notify.rs:22
 msgid ""
 "Hyprland will refuse a restarted glimpse-lock. Set "
 "misc:allow_session_lock_restore to true."
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:29
+#: crates/glimpse-lock/src/notify.rs:28
 msgid "Password expired"
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:30
+#: crates/glimpse-lock/src/notify.rs:29
 msgid "Your password has expired. Change it now with passwd."
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:36
+#: crates/glimpse-lock/src/notify.rs:35
 msgid ""
 "glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:38
+#: crates/glimpse-lock/src/notify.rs:37
 msgid "This compositor has no session lock."
 msgstr ""
 
-#: crates/glimpse-lock/src/notify.rs:39
+#: crates/glimpse-lock/src/notify.rs:38
 msgid "The compositor refused the lock."
 msgstr ""
 
@@ -441,22 +441,22 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:164
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:290
-#: crates/glimpse-panel/src/applets/display/indicator.rs:388
+#: crates/glimpse-panel/src/applets/display/indicator.rs:386
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:167
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:165
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:291
-#: crates/glimpse-panel/src/applets/display/indicator.rs:389
+#: crates/glimpse-panel/src/applets/display/indicator.rs:387
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:168
 msgid "That could not be completed."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:166
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:292
-#: crates/glimpse-panel/src/applets/display/indicator.rs:390
-#: crates/glimpse-panel/src/applets/display/indicator.rs:401
+#: crates/glimpse-panel/src/applets/display/indicator.rs:388
+#: crates/glimpse-panel/src/applets/display/indicator.rs:399
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:126
 #: crates/glimpse-panel/src/applets/network/render.rs:97
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:169
@@ -582,7 +582,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:172
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:489
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:156
-#: crates/glimpse-panel/src/applets/display/indicator.rs:379
+#: crates/glimpse-panel/src/applets/display/indicator.rs:377
 #: crates/glimpse-panel/src/applets/network/indicator.rs:372
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:105
 msgid "Could not change that setting"
@@ -612,8 +612,8 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:288
-#: crates/glimpse-panel/src/applets/display/indicator.rs:386
-#: crates/glimpse-panel/src/applets/display/indicator.rs:397
+#: crates/glimpse-panel/src/applets/display/indicator.rs:384
+#: crates/glimpse-panel/src/applets/display/indicator.rs:395
 msgid "That was not a valid value."
 msgstr ""
 
@@ -864,7 +864,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
 #: crates/glimpse-panel/src/applets/display/render.rs:78
-#: crates/glimpse-panel/src/applets/display/render/tests.rs:195
+#: crates/glimpse-panel/src/applets/display/render/tests.rs:194
 #: crates/glimpse-panel/src/applets/keyboard/indicator.rs:101
 #: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
 msgid "Keyboard"
@@ -1069,54 +1069,54 @@ msgstr ""
 msgid "{program} could not be started."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:243
-#: crates/glimpse-panel/src/applets/display/indicator.rs:265
-#: crates/glimpse-panel/src/applets/display/indicator.rs:363
+#: crates/glimpse-panel/src/applets/display/indicator.rs:241
+#: crates/glimpse-panel/src/applets/display/indicator.rs:263
+#: crates/glimpse-panel/src/applets/display/indicator.rs:361
 #: crates/glimpse-widgets/blueprints/display_popover.blp:80
 msgid "Displays"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:245
+#: crates/glimpse-panel/src/applets/display/indicator.rs:243
 msgid "Could not change that display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:250
-#: crates/glimpse-panel/src/applets/display/indicator.rs:272
+#: crates/glimpse-panel/src/applets/display/indicator.rs:248
+#: crates/glimpse-panel/src/applets/display/indicator.rs:270
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:166
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:218
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:224
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:267
+#: crates/glimpse-panel/src/applets/display/indicator.rs:265
 msgid "Could not blank the screens"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:365
+#: crates/glimpse-panel/src/applets/display/indicator.rs:363
 msgid "Could not change the brightness"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:377
+#: crates/glimpse-panel/src/applets/display/indicator.rs:375
 #: crates/glimpse-widgets/blueprints/display_popover.blp:50
 msgid "Night light"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:387
+#: crates/glimpse-panel/src/applets/display/indicator.rs:385
 msgid "The brightness service is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:396
+#: crates/glimpse-panel/src/applets/display/indicator.rs:394
 msgid "That was not a valid setting."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:398
+#: crates/glimpse-panel/src/applets/display/indicator.rs:396
 msgid "The night light is off."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:399
+#: crates/glimpse-panel/src/applets/display/indicator.rs:397
 msgid "The night light is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:400
+#: crates/glimpse-panel/src/applets/display/indicator.rs:398
 #: crates/glimpse-panel/src/applets/idle/keep_awake.rs:124
 msgid "That took too long."
 msgstr ""
@@ -1473,7 +1473,7 @@ msgstr[1] ""
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/printing/render.rs:163
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
-#: crates/glimpse-widgets/src/display_list/mod.rs:160
+#: crates/glimpse-widgets/src/display_list/mod.rs:157
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:155
 msgid "Status"
 msgstr ""
@@ -1688,12 +1688,12 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/power/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
-#: crates/glimpse-widgets/src/display_list/mod.rs:170
+#: crates/glimpse-widgets/src/display_list/mod.rs:167
 msgid "Model"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/power/render.rs:163
-#: crates/glimpse-widgets/src/display_list/mod.rs:167
+#: crates/glimpse-widgets/src/display_list/mod.rs:164
 msgid "Make"
 msgstr ""
 
@@ -2266,12 +2266,12 @@ msgid ""
 "{condition}, {temperature}, feels like {feels-like}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:220
 #: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:222
 msgid "Could not rename the workspace"
 msgstr ""
 
@@ -2312,86 +2312,86 @@ msgstr ""
 msgid "a screenshot is already being taken"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:215
+#: crates/glimpse-shot/src/gui/app.rs:214
 msgid "_Open Image…"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:217
+#: crates/glimpse-shot/src/gui/app.rs:216
 msgid "_Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:218
+#: crates/glimpse-shot/src/gui/app.rs:217
 msgid "_Keyboard Shortcuts"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:219
+#: crates/glimpse-shot/src/gui/app.rs:218
 msgid "_About Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:368
+#: crates/glimpse-shot/src/gui/app.rs:367
 msgid "--portal needs a screen target"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:521
-#: crates/glimpse-shot/src/gui/app.rs:651
-#: crates/glimpse-shot/src/gui/app.rs:935 crates/glimpse-shot/src/notify.rs:288
+#: crates/glimpse-shot/src/gui/app.rs:520
+#: crates/glimpse-shot/src/gui/app.rs:650
+#: crates/glimpse-shot/src/gui/app.rs:934 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:568
+#: crates/glimpse-shot/src/gui/app.rs:567
 msgid "The clipboard holds no image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:774
+#: crates/glimpse-shot/src/gui/app.rs:773
 msgid "There is no window to capture"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:843
+#: crates/glimpse-shot/src/gui/app.rs:842
 msgid "That window has closed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:860
+#: crates/glimpse-shot/src/gui/app.rs:859
 msgid "Images"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:870
+#: crates/glimpse-shot/src/gui/app.rs:869
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:895
+#: crates/glimpse-shot/src/gui/app.rs:894
 msgid "The image must be a local file"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1011
+#: crates/glimpse-shot/src/gui/app.rs:1010
 msgid "Untitled window"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1103
+#: crates/glimpse-shot/src/gui/app.rs:1102
 msgid "Screenshot failed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:380
+#: crates/glimpse-shot/src/gui/overlay.rs:379
 msgid "Waiting to take a screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1078
+#: crates/glimpse-shot/src/gui/overlay.rs:1077
 #: crates/glimpse-shot/src/gui/result.rs:925
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1636
+#: crates/glimpse-shot/src/gui/overlay.rs:1638
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1798
+#: crates/glimpse-shot/src/gui/overlay.rs:1800
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1799
+#: crates/glimpse-shot/src/gui/overlay.rs:1801
 msgid "Copied"
 msgstr ""
 
@@ -2471,10 +2471,10 @@ msgctxt "notification action"
 msgid "Open"
 msgstr ""
 
-#: crates/glimpse-shot/src/portal.rs:117
-#: crates/glimpse-shot/src/portal/tests.rs:41
-#: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:599
+#: crates/glimpse-shot/src/portal.rs:162
+#: crates/glimpse-shot/src/portal/tests.rs:53
+#: crates/glimpse-shot/src/portal/tests.rs:54
+#: crates/glimpse-shot/src/portal/tests.rs:611
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr ""
@@ -2578,7 +2578,7 @@ msgid "Brightness"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/display_popover.blp:57
-#: crates/glimpse-widgets/src/display_list/mod.rs:107
+#: crates/glimpse-widgets/src/display_list/mod.rs:104
 msgid "Enabled"
 msgstr ""
 
@@ -3359,40 +3359,28 @@ msgstr ""
 msgid "Unmute"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:136
+#: crates/glimpse-widgets/src/display_list/mod.rs:133
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:160
+#: crates/glimpse-widgets/src/display_list/mod.rs:157
 msgid "Off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:161
+#: crates/glimpse-widgets/src/display_list/mod.rs:158
 msgid "Mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:164
+#: crates/glimpse-widgets/src/display_list/mod.rs:161
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:173
-msgid "Serial"
-msgstr ""
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:176
+#: crates/glimpse-widgets/src/display_list/mod.rs:170
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:177
-msgid "Position"
-msgstr ""
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:188
+#: crates/glimpse-widgets/src/display_list/mod.rs:181
 msgid "{width} × {height} · {hz} Hz"
-msgstr ""
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:206
-msgid "{x}, {y}"
 msgstr ""
 
 #: crates/glimpse-widgets/src/display_popover/mod.rs:220

@@ -132,26 +132,28 @@ async fn signal_stream(
         .map_err(|error| error.to_string())?
         .build();
 
-    let signals = time::timeout(
-        std::time::Duration::from_secs(2),
-        MessageStream::for_match_rule(rule, connection, None),
-    )
-    .await
-    .map_err(|error| error.to_string())?
-    .map_err(|error| error.to_string())?;
-    Ok(glimpse_dbus::wake(signals.map(move |message| {
-        if let Ok(message) = message {
-            let header = message.header();
-            if matches!(
-                header.member().map(|member| member.as_str()),
-                Some("ServerStarted" | "ServerRestarted")
-            ) {
-                restart.store(true, Ordering::Release);
+    Ok(glimpse_dbus::wake(
+        time::timeout(
+            std::time::Duration::from_secs(2),
+            MessageStream::for_match_rule(rule, connection, None),
+        )
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())?
+        .map(move |message| {
+            if let Ok(message) = message {
+                let header = message.header();
+                if matches!(
+                    header.member().map(|member| member.as_str()),
+                    Some("ServerStarted" | "ServerRestarted")
+                ) {
+                    restart.store(true, Ordering::Release);
+                }
+            } else {
+                failed.store(true, Ordering::Release);
             }
-        } else {
-            failed.store(true, Ordering::Release);
-        }
-    })))
+        }),
+    ))
 }
 
 async fn fetch_state(uri: Uri) -> Result<PrintingState, IppError> {

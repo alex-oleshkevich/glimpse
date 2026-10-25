@@ -68,6 +68,10 @@ impl PrivateBus {
         &self.address
     }
 
+    pub fn service_dir(&self) -> PathBuf {
+        self.scratch.join("services")
+    }
+
     /// Stop the daemon early, for a test that wants to see a provider lose the bus.
     pub fn kill(&mut self) {
         let _ = self.child.kill();

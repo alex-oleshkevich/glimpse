@@ -39,8 +39,9 @@ XDG_CONFIG_HOME="$SCRATCH/home/.config" glimpse-panel --config-dir "$SCRATCH/cfg
 
 ## Testing against a compositor
 
-`crates/glimpse-compositors/tests/live.rs` runs against whatever the environment names. Point it
-elsewhere with `NIRI_SOCKET` or `HYPRLAND_INSTANCE_SIGNATURE` (unsetting the other): spawn
+A panel on a private bus needs `glimpse-compositor-niri` or `-hyprland` started on that bus. It
+reaches the compositor the environment names; point it with `NIRI_SOCKET` or
+`HYPRLAND_INSTANCE_SIGNATURE` (unsetting the other): spawn
 `niri -c <config>` or `Hyprland -c <config>`, diff `$XDG_RUNTIME_DIR` before and after to find the
 socket, export it. Neither compositor has a headless mode, so a nested instance always opens a
 window — do mutating tests there. A Unix socket path is capped near 108 bytes, so a daemon under

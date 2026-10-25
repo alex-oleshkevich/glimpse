@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixListener;
@@ -18,20 +19,29 @@ impl FakeHyprland {
         respond: impl Fn(&str) -> String + Send + Sync + 'static,
         events: Vec<String>,
     ) -> Self {
-        Self::text(respond, events, false)
+        Self::text(respond, events, false, None)
     }
 
     pub fn spawn_lua(
         respond: impl Fn(&str) -> String + Send + Sync + 'static,
         events: Vec<String>,
     ) -> Self {
-        Self::text(respond, events, true)
+        Self::text(respond, events, true, None)
+    }
+
+    pub fn spawn_live(
+        respond: impl Fn(&str) -> String + Send + Sync + 'static,
+        events: Vec<String>,
+        gap: Duration,
+    ) -> Self {
+        Self::text(respond, events, false, Some(gap))
     }
 
     fn text(
         respond: impl Fn(&str) -> String + Send + Sync + 'static,
         events: Vec<String>,
         lua: bool,
+        live: Option<Duration>,
     ) -> Self {
         Self::start(
             move |command| respond(command).into_bytes(),
@@ -40,6 +50,7 @@ impl FakeHyprland {
                 .map(|line| format!("{line}\n").into_bytes())
                 .collect(),
             lua,
+            live,
         )
     }
 
@@ -47,13 +58,14 @@ impl FakeHyprland {
         respond: impl Fn(&str) -> Vec<u8> + Send + Sync + 'static,
         events: Vec<Vec<u8>>,
     ) -> Self {
-        Self::start(respond, events, false)
+        Self::start(respond, events, false, None)
     }
 
     fn start(
         respond: impl Fn(&str) -> Vec<u8> + Send + Sync + 'static,
         events: Vec<Vec<u8>>,
         lua: bool,
+        live: Option<Duration>,
     ) -> Self {
         let temp = tempfile::tempdir().expect("a temporary directory");
         let dir = temp.path().to_path_buf();
@@ -81,6 +93,14 @@ impl FakeHyprland {
             }
         });
 
+        if live.is_some() {
+            tokio::spawn(async {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            });
+        }
+
         let stream_socket =
             UnixListener::bind(dir.join(".socket2.sock")).expect("bind the event socket");
         tokio::spawn(async move {
@@ -88,9 +108,15 @@ impl FakeHyprland {
                 let events = events.clone();
                 tokio::spawn(async move {
                     for line in events {
+                        if let Some(gap) = live {
+                            tokio::time::sleep(gap).await;
+                        }
                         if stream.write_all(&line).await.is_err() {
                             return;
                         }
+                    }
+                    if live.is_some() {
+                        std::future::pending::<()>().await;
                     }
                 });
             }

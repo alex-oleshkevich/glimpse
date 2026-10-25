@@ -1,7 +1,9 @@
+use std::cell::Cell;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use glimpse_compositors::{Compositor, detect_compositor};
+use glimpse_compositors::client::Compositor1Proxy;
+use glimpse_compositors::contract::BUS_NAME as GLIMPSE_COMPOSITOR_BUS_NAME;
 use glimpse_dbus::calendar::{Calendar1Proxy, GLIMPSE_CALENDAR_BUS_NAME};
 use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, HealthKind, Idle1Proxy};
 use glimpse_dbus::night_light::{GLIMPSE_NIGHT_LIGHT_BUS_NAME, NightLight1Proxy};
@@ -20,20 +22,16 @@ use crate::render::{self, Section, Table, styled};
 pub async fn doctor(json: bool) -> Result<()> {
     let session = within(Connection::session()).await;
     let configuration = configuration();
-    let providers = providers(&session).await;
-    let session_lock = session_lock(&detect_compositor())
-        .await
-        .filter(|lock| !lock.enabled);
+    let (providers, restore) = providers(&session).await;
+    let session_lock = session_lock(restore).filter(|lock| !lock.enabled);
     let components = match &session {
         Ok(connection) => super::status::rows(connection).await,
         Err(error) => Err(anyhow::anyhow!(error.to_string())),
     };
     let failed = !configuration.loads
         || !configuration.warnings.is_empty()
-        || providers
-            .iter()
-            .any(|provider| !provider.running || !provider.serving)
-        || session_lock.as_ref().is_some_and(|lock| !lock.enabled)
+        || providers.iter().any(Provider::failing)
+        || session_lock.is_some()
         || components.is_err();
     let components = components.unwrap_or_else(|_| super::status::absent_rows());
 
@@ -77,15 +75,8 @@ pub struct SessionLock {
     pub fix: &'static str,
 }
 
-pub async fn session_lock(compositor: &Compositor) -> Option<SessionLock> {
-    let enabled = match within(compositor.allows_session_lock_restore()).await {
-        Ok(enabled) => enabled,
-        Err(error) => {
-            tracing::warn!(%error, "could not read {RESTORE_OPTION}");
-            return None;
-        }
-    };
-    Some(SessionLock {
+pub fn session_lock(restore: Option<bool>) -> Option<SessionLock> {
+    restore.map(|enabled| SessionLock {
         option: RESTORE_OPTION,
         enabled,
         fix: RESTORE_FIX,
@@ -122,6 +113,8 @@ pub struct Provider {
     pub running: bool,
     serving: bool,
     reason: String,
+    #[serde(skip)]
+    optional: bool,
 }
 
 fn configuration() -> Configuration {
@@ -170,20 +163,23 @@ impl Configuration {
     }
 }
 
-async fn providers(session: &Result<Connection>) -> Vec<Provider> {
+async fn providers(session: &Result<Connection>) -> (Vec<Provider>, Option<bool>) {
     let Ok(connection) = session else {
-        return [
+        let absent = [
             GLIMPSE_NIGHT_LIGHT_BUS_NAME,
             GLIMPSE_WEATHER_BUS_NAME,
             GLIMPSE_CALENDAR_BUS_NAME,
             GLIMPSE_NOTIFICATIONS_BUS_NAME,
             GLIMPSE_SETTINGS_BUS_NAME,
             GLIMPSE_IDLE_BUS_NAME,
+            GLIMPSE_COMPOSITOR_BUS_NAME,
         ]
         .into_iter()
         .map(|name| Provider::absent(name, "cannot reach the session bus".into()))
         .collect();
+        return (absent, None);
     };
+    let restore = Cell::new(None);
     let probes = tokio::join!(
         probe(connection, GLIMPSE_NIGHT_LIGHT_BUS_NAME, |owner| {
             night_light(connection, owner)
@@ -203,8 +199,20 @@ async fn providers(session: &Result<Connection>) -> Vec<Provider> {
         probe(connection, GLIMPSE_IDLE_BUS_NAME, |owner| idle(
             connection, owner
         )),
+        probe(connection, GLIMPSE_COMPOSITOR_BUS_NAME, |owner| compositor(
+            connection, owner, &restore
+        )),
     );
-    vec![probes.0, probes.1, probes.2, probes.3, probes.4, probes.5]
+    let providers = vec![
+        probes.0,
+        probes.1,
+        probes.2,
+        probes.3,
+        probes.4,
+        probes.5,
+        probes.6.optional(),
+    ];
+    (providers, restore.get())
 }
 
 fn providers_section(providers: &[Provider], session: &Result<Connection>) -> Section {
@@ -221,7 +229,11 @@ fn providers_section(providers: &[Provider], session: &Result<Connection>) -> Se
             .render(),
     );
 
-    match providers.iter().filter(|p| !p.running).count() {
+    match providers
+        .iter()
+        .filter(|p| !p.running && !p.optional)
+        .count()
+    {
         0 => section,
         1 => section.with_note("1 provider is not running"),
         absent => section.with_note(&format!("{absent} providers are not running")),
@@ -235,6 +247,7 @@ impl Provider {
             running: false,
             serving: false,
             reason,
+            optional: false,
         }
     }
 
@@ -244,11 +257,27 @@ impl Provider {
             running: true,
             serving,
             reason,
+            optional: false,
+        }
+    }
+
+    fn optional(self) -> Self {
+        Self {
+            optional: true,
+            ..self
+        }
+    }
+
+    fn failing(&self) -> bool {
+        match self.running {
+            false => !self.optional,
+            true => !self.serving,
         }
     }
 
     pub fn row(&self) -> [String; 3] {
         let state = match (self.running, self.serving) {
+            (false, _) if self.optional => styled::key("not running"),
             (false, _) => styled::bad("not running"),
             (true, true) => styled::good("serving"),
             (true, false) => styled::warn("degraded"),
@@ -266,12 +295,7 @@ where
     F: FnOnce(zbus::names::OwnedUniqueName) -> R,
     R: Future<Output = Result<(bool, String)>>,
 {
-    let owner = async {
-        let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
-        within(dbus.get_name_owner(name.try_into()?)).await
-    }
-    .await;
-    let owner = match owner {
+    let owner = match owner(connection, name).await {
         Ok(owner) => owner,
         Err(error) => return Provider::absent(name, error.to_string()),
     };
@@ -285,6 +309,11 @@ where
             }
         }
     }
+}
+
+async fn owner(connection: &Connection, name: &str) -> Result<zbus::names::OwnedUniqueName> {
+    let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
+    within(dbus.get_name_owner(name.try_into()?)).await
 }
 
 async fn owned_proxy<'a, P>(
@@ -301,6 +330,17 @@ where
             .build(),
     )
     .await
+}
+
+async fn compositor(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+    restore: &Cell<Option<bool>>,
+) -> Result<(bool, String)> {
+    let compositor = owned_proxy::<Compositor1Proxy>(connection, owner).await?;
+    let name = within(compositor.name()).await?;
+    restore.set(within(compositor.session_lock_restore()).await.ok());
+    Ok((true, name))
 }
 
 async fn night_light(

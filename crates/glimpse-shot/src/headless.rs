@@ -5,13 +5,13 @@ use std::time::Duration;
 
 use anyhow::{Context as _, Result, bail};
 use chrono::{DateTime, Local};
-use glimpse_compositors::Snapshot;
+use glimpse_compositors::model::{Output, Workspace};
 use glimpse_config::ScreenshotConfig;
 use glimpse_shot::doc::document::{Document, Mark, Source};
 use glimpse_shot::doc::geometry::within_one_output;
 use glimpse_shot::doc::units::{BufferPx, Logical, Rect, Scale};
 use glimpse_shot::doc::wire::{self, AnnotationV1, RectV1, ResultV1, TargetV1};
-use glimpse_shot::ports::{Clipboard, Clock, Files, Screens, Windows};
+use glimpse_shot::ports::{Clipboard, Clock, Files, Screens, Window, Windows};
 use glimpse_shot::session::{self, Effect, Event, Face, FinishKey, Outcome, Phase, Target};
 use glimpse_wayland::capture::CaptureError;
 use glimpse_wayland::selection::Entry;
@@ -29,8 +29,16 @@ pub struct Placed {
     pub scale: Scale,
 }
 
-pub fn placed(snapshot: &Snapshot) -> Vec<Placed> {
-    snapshot
+#[derive(Debug, Clone, PartialEq)]
+pub struct Layout {
+    pub outputs: Vec<Output>,
+    pub workspaces: Vec<Workspace>,
+    pub windows: Vec<Window>,
+    pub focused_output: Option<String>,
+}
+
+pub fn placed(layout: &Layout) -> Vec<Placed> {
+    layout
         .outputs
         .iter()
         .filter_map(|output| {
@@ -65,9 +73,8 @@ const FACE: Face = Face {
     notify: false,
 };
 
-const NO_LAYOUT: &str = "there is no output layout: neither NIRI_SOCKET nor HYPRLAND_INSTANCE_SIGNATURE names a reachable compositor";
-const NO_WINDOWS: &str =
-    "neither NIRI_SOCKET nor HYPRLAND_INSTANCE_SIGNATURE names a reachable compositor";
+pub(crate) const NO_LAYOUT: &str = "no compositor provider is running";
+pub(crate) const NO_WINDOWS: &str = "no compositor provider is running";
 const LIST_HINT: &str = "run `glimpse-shot list` to see the windows";
 
 pub struct Shot {
@@ -351,8 +358,8 @@ fn take_window(target: Target, mode: ScaleMode, marks: &[Mark], deps: &Deps) -> 
     let windows = deps.windows.context(NO_WINDOWS)?;
     let listed = windows.list().context("cannot list the windows")?;
     let window = match target {
-        Target::Window(id) => listed.into_iter().find(|window| window.id.0 == id),
-        _ => listed.into_iter().find(|window| window.is_focused),
+        Target::Window(id) => listed.into_iter().find(|window| window.id == id),
+        _ => listed.into_iter().find(|window| window.focused),
     };
     let window = window.ok_or_else(|| NotFound {
         what: match target {
@@ -362,17 +369,17 @@ fn take_window(target: Target, mode: ScaleMode, marks: &[Mark], deps: &Deps) -> 
         hint: Some(LIST_HINT),
     })?;
     let frame = windows
-        .capture(window.id.0)
+        .capture(window.id)
         .context("cannot capture the window")?;
     let taken = Local::now();
     let scale = scale_on(&frame.connector, mode, deps)?;
     let target = TargetV1::Window {
-        id: window.id.0,
+        id: window.id,
         app_id: window.app_id.clone(),
         title: window.title.clone(),
     };
     let source = Source::Window {
-        id: window.id.0,
+        id: window.id,
         app_id: window.app_id,
         title: window.title,
         scale: Scale(scale),
@@ -450,33 +457,16 @@ pub fn region_crop(
     ))
 }
 
-pub fn list(snapshot: &Snapshot, json: bool, terminal: bool, stdout: &mut dyn Write) -> Result<()> {
+pub fn list(layout: &Layout, json: bool, terminal: bool, stdout: &mut dyn Write) -> Result<()> {
     let text = match json {
-        true => list_json(snapshot).to_string(),
-        false => list_text(snapshot, terminal),
+        true => list_json(layout).to_string(),
+        false => list_text(layout, terminal),
     };
     finish::line(stdout, text.trim_end())
 }
 
-fn global_rect(
-    snapshot: &Snapshot,
-    window: &glimpse_compositors::Window,
-) -> Option<glimpse_compositors::Rect> {
-    let rect = window.rect?;
-    let output = snapshot
-        .outputs
-        .iter()
-        .find(|output| Some(&output.connector) == window.output.as_ref())?;
-    let logical = output.logical.as_ref()?;
-    Some(glimpse_compositors::Rect {
-        x: rect.x + f64::from(logical.x),
-        y: rect.y + f64::from(logical.y),
-        ..rect
-    })
-}
-
-pub fn list_json(snapshot: &Snapshot) -> serde_json::Value {
-    let outputs: Vec<_> = snapshot
+pub fn list_json(layout: &Layout) -> serde_json::Value {
+    let outputs: Vec<_> = layout
         .outputs
         .iter()
         .filter_map(|output| {
@@ -488,32 +478,32 @@ pub fn list_json(snapshot: &Snapshot) -> serde_json::Value {
                 "width": logical.width,
                 "height": logical.height,
                 "scale": logical.scale,
-                "focused": snapshot.focused_output.as_ref() == Some(&output.connector),
+                "focused": layout.focused_output.as_ref() == Some(&output.connector),
             }))
         })
         .collect();
-    let windows: Vec<_> = snapshot
+    let windows: Vec<_> = layout
         .windows
         .iter()
         .map(|window| {
             json!({
-                "id": window.id.0,
+                "id": window.id,
                 "app_id": window.app_id,
                 "title": window.title,
-                "workspace": window.workspace_id.map(|id| id.0),
+                "workspace": window.workspace,
                 "output": window.output,
-                "focused": window.is_focused,
-                "floating": window.is_floating,
-                "width": window.size.map(|(width, _)| width),
-                "height": window.size.map(|(_, height)| height),
-                "rect": global_rect(snapshot, window),
+                "focused": window.focused,
+                "floating": window.floating,
+                "width": window.rect.map(|rect| whole(rect.width)),
+                "height": window.rect.map(|rect| whole(rect.height)),
+                "rect": window.rect,
             })
         })
         .collect();
     json!({ "version": 1, "outputs": outputs, "windows": windows })
 }
 
-fn list_text(snapshot: &Snapshot, terminal: bool) -> String {
+fn list_text(layout: &Layout, terminal: bool) -> String {
     let mut rows = vec![vec![
         "KIND".to_owned(),
         "NAME/ID".to_owned(),
@@ -525,7 +515,7 @@ fn list_text(snapshot: &Snapshot, terminal: bool) -> String {
         "APP ID".to_owned(),
         "TITLE".to_owned(),
     ]];
-    for output in &snapshot.outputs {
+    for output in &layout.outputs {
         let Some(logical) = &output.logical else {
             continue;
         };
@@ -541,19 +531,18 @@ fn list_text(snapshot: &Snapshot, terminal: bool) -> String {
             String::new(),
         ]);
     }
-    for window in &snapshot.windows {
-        let rect = global_rect(snapshot, window);
-        let size = window.size;
+    for window in &layout.windows {
+        let rect = window.rect;
         rows.push(vec![
             "window".to_owned(),
-            window.id.0.to_string(),
+            window.id.to_string(),
             rect.map(|rect| rect.x.to_string())
                 .unwrap_or_else(|| "-".to_owned()),
             rect.map(|rect| rect.y.to_string())
                 .unwrap_or_else(|| "-".to_owned()),
-            size.map(|(width, _)| width.to_string())
+            rect.map(|rect| whole(rect.width).to_string())
                 .unwrap_or_else(|| "-".to_owned()),
-            size.map(|(_, height)| height.to_string())
+            rect.map(|rect| whole(rect.height).to_string())
                 .unwrap_or_else(|| "-".to_owned()),
             window.output.clone().unwrap_or_else(|| "-".to_owned()),
             window.app_id.clone().unwrap_or_default(),
@@ -588,6 +577,10 @@ fn list_text(snapshot: &Snapshot, terminal: bool) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn whole(px: f64) -> i64 {
+    px.round() as i64
 }
 
 #[cfg(test)]

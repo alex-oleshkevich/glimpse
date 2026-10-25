@@ -12,11 +12,7 @@ pub(super) fn check() {
         height: 1080,
         refresh_mhz: 60_000,
     };
-    let logical = DisplayLogical {
-        x: 0,
-        y: 0,
-        scale: 1.5,
-    };
+    let logical = DisplayLogical { scale: 1.5 };
     let built_in = Display {
         connector: "eDP-1".to_owned(),
         label: "Built-in display".to_owned(),
@@ -31,7 +27,6 @@ pub(super) fn check() {
         label: "DELL U2720Q".to_owned(),
         make: Some("Dell Inc.".to_owned()),
         model: Some("U2720Q".to_owned()),
-        serial: Some("8QK1P93".to_owned()),
         current_mode: Some(mode.clone()),
         logical: Some(logical.clone()),
         enabled: true,
@@ -78,25 +73,24 @@ pub(super) fn check() {
     let external_fact_rows: Vec<Row> = children_of(&external_facts);
     assert_eq!(
         built_in_fact_rows.len(),
-        4,
-        "the mode and the connector always lead the detail; a display with no make, model or \
-             serial omits those lines rather than rendering Unknown or an empty row"
+        3,
+        "the mode and the connector always lead the detail; a display with no make or model \
+             omits those lines rather than rendering Unknown or an empty row"
     );
-    assert_eq!(external_fact_rows.len(), 7);
+    assert_eq!(external_fact_rows.len(), 5);
     assert_eq!(
         built_in_fact_rows[0].value().as_deref(),
         Some("1920 × 1080 · 60 Hz"),
         "an enabled display's card leads with its current mode"
     );
-    assert!(
-        !built_in_fact_rows
-            .iter()
-            .any(|row| row.value().as_deref() == Some("8QK1P93"))
-    );
-    assert!(
-        external_fact_rows
-            .iter()
-            .any(|row| row.value().as_deref() == Some("8QK1P93"))
+    let titles: Vec<_> = external_fact_rows
+        .iter()
+        .filter_map(|row| row.title())
+        .collect();
+    assert_eq!(
+        titles,
+        ["Mode", "Connector", "Make", "Model", "Scale"],
+        "an external display lists no serial and no position"
     );
     assert!(
         built_in_fact_rows
@@ -212,7 +206,6 @@ pub(super) fn check() {
         connector: "DP-2".to_owned(),
         make: Some("ё".repeat(300)),
         model: Some("ё".repeat(300)),
-        serial: Some("ё".repeat(300)),
         enabled: true,
         ..Display::default()
     };
@@ -288,13 +281,13 @@ pub(super) fn check() {
     }
     assert_eq!(
         children_of::<Row>(&facts_of(&gate_rows_off[0])).len(),
-        4,
+        3,
         "AC-3: the built-in display's own facts survive the gate"
     );
     assert_eq!(
         children_of::<Row>(&facts_of(&gate_rows_off[1])).len(),
-        7,
-        "AC-3: so do the external display's, mode through position"
+        5,
+        "AC-3: so do the external display's, mode through scale"
     );
 
     gate.set_output_power(true);

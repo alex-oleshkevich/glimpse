@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use clap::Parser as _;
-use glimpse_compositors::{Logical as OutputLogical, Output, Window, WindowId, WorkspaceId};
+use glimpse_compositors::model::Logical as OutputLogical;
+use glimpse_shot::ports::Rect as WindowRect;
 use glimpse_wayland::capture::Frame;
 
 use super::*;
@@ -128,7 +129,7 @@ struct FakeWindows;
 
 impl Windows for FakeWindows {
     fn list(&self) -> Result<Vec<Window>, CaptureError> {
-        Ok(snapshot().windows)
+        Ok(layout().windows)
     }
 
     fn capture(&self, id: u64) -> Result<Frame, CaptureError> {
@@ -553,7 +554,7 @@ fn a_window_target_resolves_or_exits_five() {
 }
 
 #[test]
-fn a_window_with_no_compositor_fails_naming_the_variables() {
+fn a_window_without_a_provider_fails_saying_no_compositor_provider_is_running() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let out = dir.path().join("w.png");
     let files = FakeFiles::default();
@@ -571,7 +572,11 @@ fn a_window_with_no_compositor_fails_naming_the_variables() {
     );
 
     assert_eq!(exit, Exit::Failed);
-    assert!(stderr.contains("HYPRLAND_INSTANCE_SIGNATURE"), "{stderr}");
+    assert!(
+        stderr.contains("no compositor provider is running"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("NIRI_SOCKET"), "{stderr}");
     assert!(files.0.borrow().is_empty());
 }
 
@@ -726,7 +731,7 @@ fn a_crop_rounded_past_the_frame_is_clamped_to_it() {
 }
 
 #[test]
-fn with_no_layout_a_region_or_logical_scale_fails_naming_the_variables() {
+fn without_a_provider_a_region_or_logical_scale_fails_saying_no_compositor_provider_is_running() {
     let files = FakeFiles::default();
     for args in [
         &["capture", "--region", "0,0 10x10"][..],
@@ -734,7 +739,11 @@ fn with_no_layout_a_region_or_logical_scale_fails_naming_the_variables() {
     ] {
         let (exit, _, stderr) = run_with(args, &files, Vec::new(), PIPES);
         assert_eq!(exit, Exit::Failed, "{args:?}");
-        assert!(stderr.contains("NIRI_SOCKET"), "{stderr}");
+        assert!(
+            stderr.contains("no compositor provider is running"),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("NIRI_SOCKET"), "{stderr}");
     }
     let (exit, _, stderr) = run_with(
         &["capture", "--scale", "logical", "--screen", "DP-3"],
@@ -791,13 +800,14 @@ fn annotations_name_the_first_bad_element_by_index() {
     assert!(parse_marks("{").is_err());
 }
 
-fn snapshot() -> Snapshot {
+fn layout() -> Layout {
     let output = |connector: &str, x: i32| Output {
         connector: connector.to_owned(),
+        enabled: true,
+        description: None,
         make: None,
         model: None,
-        serial: None,
-        description: None,
+        mode: None,
         logical: Some(OutputLogical {
             x,
             y: 0,
@@ -805,32 +815,26 @@ fn snapshot() -> Snapshot {
             height: 1440,
             scale: 1.25,
         }),
-        current_mode: None,
-        enabled: true,
-        built_in: false,
     };
-    let window = |id: u64, rect: Option<glimpse_compositors::Rect>| Window {
-        id: WindowId(id),
+    let window = |id: u64, rect: Option<WindowRect>| Window {
+        id,
         title: Some("<b>&title</b>".to_owned()),
         app_id: Some("firefox".to_owned()),
-        pid: None,
-        workspace_id: Some(WorkspaceId(8)),
-        is_focused: id == 42,
-        is_floating: rect.is_some(),
-        is_urgent: false,
-        layout_order: None,
-        size: Some((400, 300)),
-        rect,
+        workspace: Some(8),
         output: Some("eDP-1".to_owned()),
+        focused: id == 42,
+        floating: rect.is_some(),
+        rect,
     };
-    Snapshot {
+    Layout {
         outputs: vec![output("DP-2", 1920), output("eDP-1", -1440)],
+        workspaces: Vec::new(),
         windows: vec![
             window(42, None),
             window(
                 371,
-                Some(glimpse_compositors::Rect {
-                    x: 952.0,
+                Some(WindowRect {
+                    x: -488.0,
                     y: 568.0,
                     width: 400.0,
                     height: 300.0,
@@ -838,13 +842,12 @@ fn snapshot() -> Snapshot {
             ),
         ],
         focused_output: Some("DP-2".to_owned()),
-        ..Snapshot::default()
     }
 }
 
 #[test]
 fn list_json_has_the_documented_shape() {
-    let value = list_json(&snapshot());
+    let value = list_json(&layout());
 
     assert_eq!(value["version"], 1);
     assert_eq!(
@@ -855,25 +858,72 @@ fn list_json_has_the_documented_shape() {
     assert_eq!(
         value["windows"][0],
         json!({ "id": 42, "app_id": "firefox", "title": "<b>&title</b>", "workspace": 8, "output": "eDP-1",
-                "focused": true, "floating": false, "width": 400, "height": 300, "rect": null })
+                "focused": true, "floating": false, "width": null, "height": null, "rect": null })
     );
     assert_eq!(
-        value["windows"][1]["rect"],
-        json!({ "x": -488.0, "y": 568.0, "width": 400.0, "height": 300.0 })
+        serde_json::to_string(&value["windows"][1]["rect"]).expect("rect"),
+        r#"{"height":300.0,"width":400.0,"x":-488.0,"y":568.0}"#
+    );
+    assert_eq!(
+        serde_json::to_string(&value["windows"][1]["width"]).expect("width"),
+        "400"
+    );
+    assert_eq!(
+        serde_json::to_string(&value["windows"][1]["height"]).expect("height"),
+        "300"
+    );
+
+    let mut fractional = layout();
+    fractional.windows[1].rect = Some(WindowRect {
+        x: 300.5,
+        y: 195.5,
+        width: 500.5,
+        height: 399.5,
+    });
+    let rounded = list_json(&fractional);
+    assert_eq!(
+        serde_json::to_string(&rounded["windows"][1]["width"]).expect("width"),
+        "501"
+    );
+    assert_eq!(
+        serde_json::to_string(&rounded["windows"][1]["height"]).expect("height"),
+        "400"
+    );
+    assert_eq!(
+        serde_json::to_string(&rounded["windows"][1]["rect"]["width"]).expect("rect width"),
+        "500.5"
+    );
+    assert_eq!(rounded["outputs"][1]["x"].to_string(), "-1440");
+    assert_eq!(rounded["outputs"][1]["y"].to_string(), "0");
+    assert!(rounded["windows"][1].get("x").is_none());
+    assert!(rounded["windows"][1].get("y").is_none());
+    assert_eq!(
+        list_text(&fractional, false)
+            .lines()
+            .find(|line| line.starts_with("window\t371\t")),
+        Some("window\t371\t300.5\t195.5\t501\t400\teDP-1\tfirefox\t<b>&title</b>")
     );
 }
 
 #[test]
 fn list_text_is_tab_separated_off_a_terminal_and_aligned_on_one() {
-    let snapshot = snapshot();
-    let piped = list_text(&snapshot, false);
+    let layout = layout();
+    let piped = list_text(&layout, false);
     assert_eq!(piped.lines().count(), 4);
     assert_eq!(
         piped.lines().next(),
         Some("output\tDP-2\t1920\t0\t2304\t1440\t1.25\t\t")
     );
+    assert_eq!(
+        piped.lines().nth(2),
+        Some("window\t42\t-\t-\t-\t-\teDP-1\tfirefox\t<b>&title</b>")
+    );
+    assert_eq!(
+        piped.lines().nth(3),
+        Some("window\t371\t-488\t568\t400\t300\teDP-1\tfirefox\t<b>&title</b>")
+    );
 
-    let aligned = list_text(&snapshot, true);
+    let aligned = list_text(&layout, true);
     let lines: Vec<&str> = aligned.lines().collect();
     assert_eq!(lines.len(), 5);
     assert!(lines[0].starts_with("KIND"));

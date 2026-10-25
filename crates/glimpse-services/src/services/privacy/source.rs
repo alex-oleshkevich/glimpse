@@ -11,7 +11,7 @@ use tokio::time::Instant;
 
 use crate::context::Ctx;
 use crate::services::audio::{App, AudioState, Direction};
-use crate::services::compositor::{CastInfo, CastKindInfo, CastTargetInfo, CompositorPrivacy};
+use crate::services::compositor::{CastInfo, CompositorPrivacy};
 
 use super::{Event, Fact, NAME_CAP, Privacy, Resource};
 
@@ -359,23 +359,15 @@ pub fn screen(privacy: &CompositorPrivacy, attribution: &HashMap<u32, String>) -
         .map(|cast| Fact {
             app: screen_app(cast, attribution),
             icon: None,
-            detail: match &cast.target {
-                CastTargetInfo::Output(name) => Some(clean(name, NAME_CAP)),
-                CastTargetInfo::Window(_) | CastTargetInfo::Unknown => None,
-            },
+            detail: cast.output.as_deref().map(|name| clean(name, NAME_CAP)),
             stream_id: Some(cast.stream_id),
-            session: match cast.kind {
-                CastKindInfo::PipeWire => cast.session_id,
-                CastKindInfo::Screencopy | CastKindInfo::Unknown => None,
-            },
+            session: cast.session_id,
         })
         .collect()
 }
 
 fn screen_app(cast: &CastInfo, attribution: &HashMap<u32, String>) -> Option<String> {
-    if cast.kind != CastKindInfo::PipeWire {
-        return None;
-    }
+    cast.session_id?;
     let name = attribution.get(&cast.pw_node_id?)?;
     Some(clean(name, NAME_CAP))
 }

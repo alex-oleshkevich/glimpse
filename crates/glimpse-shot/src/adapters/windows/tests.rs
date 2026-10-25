@@ -1,4 +1,4 @@
-use glimpse_compositors::{Logical, Output, WindowId, Workspace, WorkspaceId};
+use glimpse_compositors::model::{Logical, Output, Workspace, WorkspaceId};
 
 use super::*;
 
@@ -19,23 +19,19 @@ fn the_clipboard_is_restored_only_when_niri_alone_replaced_it() {
 
 fn window(app_id: &str, title: &str) -> Window {
     Window {
-        id: WindowId(42),
+        id: 42,
         title: Some(title.to_owned()),
         app_id: Some(app_id.to_owned()),
-        pid: None,
-        workspace_id: Some(WorkspaceId(8)),
-        is_focused: false,
-        is_floating: true,
-        is_urgent: false,
-        layout_order: None,
-        size: Some((400, 300)),
+        workspace: Some(8),
+        output: Some("eDP-1".to_owned()),
+        focused: false,
+        floating: true,
         rect: Some(WindowRect {
-            x: 952.0,
+            x: -488.0,
             y: 568.0,
             width: 400.0,
             height: 300.0,
         }),
-        output: Some("eDP-1".to_owned()),
     }
 }
 
@@ -90,14 +86,15 @@ fn titles_and_app_ids_are_compared_as_the_compositor_cleans_them() {
     assert_eq!(correlate(&sanitized, &[raw_bidi, clean]), None);
 }
 
-fn snapshot(active: bool) -> Snapshot {
-    Snapshot {
+fn layout(active: bool) -> ShotLayout {
+    ShotLayout {
         outputs: vec![Output {
             connector: "eDP-1".to_owned(),
+            enabled: true,
+            description: None,
             make: None,
             model: None,
-            serial: None,
-            description: None,
+            mode: None,
             logical: Some(Logical {
                 x: -1440,
                 y: 0,
@@ -105,21 +102,16 @@ fn snapshot(active: bool) -> Snapshot {
                 height: 1440,
                 scale: 1.25,
             }),
-            current_mode: None,
-            enabled: true,
-            built_in: true,
         }],
         workspaces: vec![Workspace {
             id: WorkspaceId(8),
-            idx: Some(1),
+            index: Some(1),
             name: None,
             output: Some("eDP-1".to_owned()),
-            is_active: active,
-            is_focused: active,
-            is_urgent: false,
-            active_window_id: None,
+            active,
         }],
-        ..Snapshot::default()
+        windows: Vec::new(),
+        focused_output: None,
     }
 }
 
@@ -133,19 +125,19 @@ fn buffer(x: i32, y: i32, width: i32, height: i32) -> Rect<BufferPx> {
 }
 
 #[test]
-fn a_floating_window_is_its_output_relative_rect_times_the_scale() {
+fn a_floating_window_crops_its_global_rect_times_the_scale() {
     let floating = window("firefox", "Docs");
 
     assert_eq!(
-        visible_crop(&floating, &snapshot(true)),
+        visible_crop(&floating, &layout(true)),
         Some(buffer(1190, 710, 500, 375))
     );
-    assert_eq!(visible_crop(&floating, &snapshot(false)), None);
+    assert_eq!(visible_crop(&floating, &layout(false)), None);
     let tiled = Window {
         rect: None,
         ..floating
     };
-    assert_eq!(visible_crop(&tiled, &snapshot(true)), None);
+    assert_eq!(visible_crop(&tiled, &layout(true)), None);
 }
 
 #[test]

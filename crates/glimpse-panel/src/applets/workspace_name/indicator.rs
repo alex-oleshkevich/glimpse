@@ -4,7 +4,7 @@ use std::rc::Rc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{CompositorHandle, WorkspaceInfo, WorkspaceRef};
+use glimpse_services::{Capability, CompositorHandle, WorkspaceInfo, WorkspaceRef};
 use glimpse_widgets::{IndicatorSpec, WorkspaceNamePopover};
 use gtk4::glib;
 use gtk4::prelude::Cast as _;
@@ -51,7 +51,10 @@ impl Applet for WorkspaceName {
                     .current
                     .borrow()
                     .as_ref()
-                    .filter(|workspace| workspace.name.is_some())
+                    .filter(|workspace| {
+                        workspace.name.is_some()
+                            && self.compositor.supports(Capability::RenameWorkspace)
+                    })
                     .map(|workspace| workspace.id);
                 if let Some(id) = named {
                     rename(
@@ -81,6 +84,9 @@ impl Applet for WorkspaceName {
     }
 
     fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
+        if !self.compositor.supports(Capability::RenameWorkspace) {
+            return None;
+        }
         let shown = WorkspaceNamePopover::new();
         let opener = seat.opener();
         opener.typing(true);

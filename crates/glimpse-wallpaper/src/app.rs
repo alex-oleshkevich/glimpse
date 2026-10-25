@@ -1,5 +1,7 @@
 use adw::gdk;
 use futures_util::StreamExt;
+use glimpse_compositors::client::{CompositorProvider, CompositorState};
+use glimpse_compositors::contract::Capability;
 use glimpse_config::{
     Config, Documents, Reload, Theme, WALLPAPER_STYLESHEET, watch_config, watch_theme,
 };
@@ -11,6 +13,7 @@ use relm4::{
 };
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
+use zbus::Connection;
 
 use crate::resolve::{self, Key, MissingWarned, Role};
 use crate::surface;
@@ -27,6 +30,7 @@ pub enum AppInput {
     ThemeChanged(Theme),
     MonitorsChanged,
     DarkFlipped,
+    Backdrop(bool),
 }
 
 struct SurfaceState {
@@ -67,23 +71,13 @@ impl SimpleComponent for App {
     ) -> ComponentParts<Self> {
         watch_monitors(sender.clone());
         watch_scheme(sender.clone());
+        watch_backdrop(sender.clone());
         let theme_watch = spawn_theme_watch(
             &init.config.appearance.theme,
             init.theme.clone(),
             sender.clone(),
         );
         spawn_config_watch(init.config.clone(), sender);
-
-        let backdrop = glimpse_compositors::detect_compositor()
-            .capabilities()
-            .overview_backdrop;
-        if backdrop {
-            tracing::info!(
-                "the backdrop surface is visible only where niri places it; add \
-                 `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
-                 to show it in the Overview"
-            );
-        }
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let dark = adw::StyleManager::default().is_dark();
@@ -94,7 +88,7 @@ impl SimpleComponent for App {
             styles,
             surfaces: Vec::new(),
             dark,
-            backdrop,
+            backdrop: false,
             missing_warned: MissingWarned::default(),
         };
         model.reload_styles();
@@ -145,6 +139,16 @@ impl SimpleComponent for App {
             AppInput::MonitorsChanged => {}
             AppInput::DarkFlipped => {
                 self.dark = adw::StyleManager::default().is_dark();
+            }
+            AppInput::Backdrop(backdrop) => {
+                if backdrop && !self.backdrop {
+                    tracing::info!(
+                        "the backdrop surface is visible only where niri places it; add \
+                         `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
+                         to show it in the Overview"
+                    );
+                }
+                self.backdrop = backdrop;
             }
         }
         reconcile_surfaces(
@@ -206,6 +210,38 @@ fn watch_scheme(sender: ComponentSender<App>) {
     adw::StyleManager::default().connect_dark_notify(move |_| {
         let _ = scheme_sender.send(AppInput::DarkFlipped);
     });
+}
+
+fn watch_backdrop(sender: ComponentSender<App>) {
+    relm4::spawn(async move {
+        let Ok(connection) = Connection::session().await else {
+            tracing::debug!("no D-Bus session bus; the overview backdrop stays off");
+            return;
+        };
+        let provider = CompositorProvider::start(connection);
+        let mut states = provider.handle().subscribe();
+        let mut last = None;
+        loop {
+            if let Some(value) = backdrop(&mut last, &states.borrow_and_update()) {
+                sender.input(AppInput::Backdrop(value));
+            }
+            if states.changed().await.is_err() {
+                break;
+            }
+        }
+    });
+}
+
+fn backdrop(last: &mut Option<bool>, state: &CompositorState) -> Option<bool> {
+    if state.unavailable.is_some() {
+        return None;
+    }
+    let now = state.capabilities.contains(&Capability::OverviewBackdrop);
+    if last.as_ref() == Some(&now) {
+        return None;
+    }
+    *last = Some(now);
+    Some(now)
 }
 
 fn wants_role(role: Role, backdrop: bool) -> bool {

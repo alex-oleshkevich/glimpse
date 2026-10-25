@@ -28,7 +28,7 @@ glimpse/
 | ----------------------- | --------------------------------------------------------------------------------- |
 | `glimpse-dbus`          | D-Bus proxies and the shared bus connections                                      |
 | `glimpse-config`        | two TOML documents over a root stack: load, merge, validate, watch                |
-| `glimpse-compositors`   | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
+| `glimpse-compositors`   | the compositor contract: model, D-Bus contract, provider runtime, client mirror   |
 | `glimpse-services`      | service framework and every service implementation                                |
 | `glimpse-widgets`       | GObject subclasses, Blueprint templates, shared CSS, compositor blur              |
 | `glimpse-utils`         | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
