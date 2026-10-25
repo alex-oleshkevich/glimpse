@@ -64,6 +64,76 @@ fn nothing_at_all_is_nothing() {
     assert_eq!(classify(Some("not a url")), None);
 }
 
+#[tokio::test]
+#[ignore = "sets XDG_RUNTIME_DIR, so it runs alone"]
+async fn a_fetch_saves_a_small_body_and_refuses_one_past_the_cap() {
+    let runtime = std::env::temp_dir().join(format!("glimpse-art-{}", std::process::id()));
+    std::fs::create_dir_all(&runtime).unwrap();
+    unsafe { std::env::set_var("XDG_RUNTIME_DIR", &runtime) };
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut sock, _)) = listener.accept().await else {
+                break;
+            };
+            tokio::spawn(async move {
+                use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                let mut buf = [0u8; 512];
+                let Ok(n) = sock.read(&mut buf).await else {
+                    return;
+                };
+                let request = String::from_utf8_lossy(&buf[..n]);
+                let path = request.split_whitespace().nth(1).unwrap_or("");
+                if path == "/small" {
+                    let _ = sock
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\n",
+                        )
+                        .await;
+                    let _ = sock.write_all(b"ok!\n").await;
+                } else if path == "/big" {
+                    let _ = sock
+                        .write_all(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n")
+                        .await;
+                    let _ = sock.write_all(&vec![b'x'; 2048]).await;
+                }
+            });
+        }
+    });
+
+    let client = reqwest::Client::builder().build().unwrap();
+    let small = format!("http://{addr}/small");
+    match fetch(client.clone(), small, 1).await {
+        Event::Art {
+            path: Some(path), ..
+        } => assert_eq!(tokio::fs::read(&path).await.unwrap(), b"ok!\n"),
+        Event::Art { path: None, .. } => panic!("a 4-byte body was not saved"),
+        _ => panic!("fetch returned something other than artwork"),
+    }
+
+    let big = format!("http://{addr}/big");
+    match fetch(client, big.clone(), 1).await {
+        Event::Art { path: None, .. } => {}
+        Event::Art {
+            path: Some(path), ..
+        } => panic!("stored {path} past the cap"),
+        _ => panic!("fetch returned something other than artwork"),
+    }
+    assert!(!cached(&big).unwrap().exists());
+    let _ = std::fs::remove_dir_all(&runtime);
+}
+
+#[test]
+fn a_chunk_past_the_cap_is_refused_and_the_buffer_stays_inside_it() {
+    let mut body = vec![1, 2, 3];
+    assert!(!append_capped(&mut body, &[4, 5], 4));
+    assert_eq!(body, vec![1, 2, 3]);
+    assert!(append_capped(&mut body, &[4], 4));
+    assert_eq!(body, vec![1, 2, 3, 4]);
+}
+
 #[test]
 fn one_url_always_hashes_to_one_name() {
     assert_eq!(

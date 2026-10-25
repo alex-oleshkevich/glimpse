@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use futures_util::{
     FutureExt, StreamExt,
     future::{BoxFuture, ready},
@@ -5,8 +6,8 @@ use futures_util::{
 };
 use glimpse_compositors::{
     Capabilities, Cast, CastKind, CastTarget, Compositor as Backend, CompositorError,
-    Event as Change, Output, Resync, Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId,
-    WorkspaceTarget, detect_compositor,
+    Event as Change, Output, Resync, Snapshot, Window, WindowId, WindowTarget, Workspace,
+    WorkspaceId, WorkspaceTarget, detect_compositor,
 };
 use tokio::sync::oneshot;
 
@@ -154,6 +155,7 @@ pub enum Event {
     Changed(Change),
     FetchFailed(String),
     Failed(String),
+    TitlesDue(DateTime<Utc>),
 }
 
 #[derive(Debug)]
@@ -281,12 +283,14 @@ pub struct Compositor {
     stale: bool,
     fetch_failed: bool,
     capabilities: CompositorCapabilities,
+    titles_at: Option<DateTime<Utc>>,
 }
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
     Events,
     Fetch { attempt: u64 },
+    Titles { at: DateTime<Utc> },
 }
 
 impl Service for Compositor {
@@ -307,7 +311,7 @@ impl Service for Compositor {
         let follow = self.backend.clone();
         let read = self.backend.clone();
 
-        vec![
+        let mut declared = vec![
             Sub::stream(Watch::Events, move |_ctx| async move {
                 match follow.events().await {
                     Ok(events) => events
@@ -334,7 +338,15 @@ impl Service for Compositor {
                     })
                 },
             ),
-        ]
+        ];
+        if let Some(at) = self.titles_at {
+            declared.push(Sub::deadline(
+                Watch::Titles { at },
+                at,
+                Event::TitlesDue(at),
+            ));
+        }
+        declared
     }
 
     async fn start(
@@ -352,6 +364,7 @@ impl Service for Compositor {
         match input {
             Input::Event(Event::Snapshot(snapshot)) => {
                 self.state = Some(*snapshot);
+                self.titles_at = None;
                 if std::mem::take(&mut self.stale) {
                     self.attempt += 1;
                 }
@@ -368,10 +381,25 @@ impl Service for Compositor {
                     }
                     return;
                 };
-                if apply(state, change) {
-                    self.attempt += 1;
+                match apply(state, change) {
+                    Applied::Resync => {
+                        self.attempt += 1;
+                        self.titles_at = None;
+                        self.publish();
+                    }
+                    Applied::Publish => {
+                        self.titles_at = None;
+                        self.publish();
+                    }
+                    Applied::HoldTitle => self.hold_title(),
+                    Applied::Stored => {}
                 }
-                self.publish();
+            }
+            Input::Event(Event::TitlesDue(at)) => {
+                if self.titles_at == Some(at) {
+                    self.titles_at = None;
+                    self.publish();
+                }
             }
             Input::Event(Event::FetchFailed(reason)) => {
                 self.fetch_failed = true;

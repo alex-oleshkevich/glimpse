@@ -218,4 +218,5 @@ mod commands;
 mod focus;
 mod outputs;
 mod snapshot;
+mod titles;
 mod workspaces;

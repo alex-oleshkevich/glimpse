@@ -64,7 +64,7 @@ fn fetch_attempt(service: &Compositor) -> u64 {
         .iter()
         .find_map(|sub| match sub.key() {
             Watch::Fetch { attempt } => Some(*attempt),
-            Watch::Events => None,
+            Watch::Events | Watch::Titles { .. } => None,
         })
         .expect("a fetch is always declared")
 }

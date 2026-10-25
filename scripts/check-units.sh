@@ -59,5 +59,19 @@ fi
 grep -qx 'WantedBy=graphical-session.target' "$target" || {
     echo "$target: not enabled by graphical-session.target"; exit 1;
 }
+propagated=" $(grep -m1 '^PropagatesReloadTo=' "$target" | cut -d= -f2-) "
+for unit in data/systemd/*.service; do
+    name=$(basename "$unit")
+    grep -qx 'PartOf=glimpse-session.target' "$unit" || continue
+    reloads=$(grep -c '^ExecReload=' "$unit" || true)
+    case "$propagated" in
+        *" $name "*) [ "$reloads" -gt 0 ] || {
+            echo "$unit: in PropagatesReloadTo but has no ExecReload=, so systemd skips the reload"; exit 1;
+        } ;;
+        *) [ "$reloads" -eq 0 ] || {
+            echo "$target: $name has ExecReload= but is missing from PropagatesReloadTo"; exit 1;
+        } ;;
+    esac
+done
 
 echo "units ok"

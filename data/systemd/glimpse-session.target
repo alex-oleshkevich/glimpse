@@ -4,7 +4,7 @@ Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=graphical-session.target
 After=graphical-session.target
 Wants=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service glimpse-agents.service glimpse-idle.service glimpse-lock.service glimpse-desktop.service glimpse-settings-daemon.service
-PropagatesReloadTo=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service glimpse-agents.service glimpse-idle.service glimpse-settings-daemon.service
+PropagatesReloadTo=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service glimpse-agents.service glimpse-idle.service glimpse-settings-daemon.service glimpse-weather.service glimpse-calendar.service glimpse-shot-portal.service
 
 [Install]
 WantedBy=graphical-session.target

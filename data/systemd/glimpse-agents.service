@@ -11,5 +11,6 @@ StartLimitIntervalSec=60
 Type=dbus
 BusName=me.aresa.Glimpse.Agents
 ExecStart=/usr/bin/glimpse-agents
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=2

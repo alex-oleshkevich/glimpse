@@ -100,8 +100,11 @@ modeset; `[brightness] ddc` turns it off.
 **compositor** — mirrors `glimpse-compositors` into one aggregate state and typed commands.
 Disabling the last enabled output is refused from the service's own snapshot rather than a round
 trip. **Urgency is derived here so every client sees one answer** — a workspace is urgent when the
-compositor says so *or* any window on it is, the only way Hyprland works. **keyboard** owns
-compositor layouts, so switching one does not resync workspaces or windows.
+compositor says so *or* any window on it is, the only way Hyprland works. **A title-only change is
+held and published at most once a second**; focus, urgency, workspace, floating and order still
+publish immediately, and that publish carries the title held so far. A spinning title must not wake
+every compositor consumer at the compositor's event rate. **keyboard** owns compositor layouts, so
+switching one does not resync workspaces or windows.
 
 **calendar** — every occurrence from every source becomes one sorted state value. A local path is
 watched, `http(s)` is polled, and a `file://` holding a one-line feed URL does both. **A failure

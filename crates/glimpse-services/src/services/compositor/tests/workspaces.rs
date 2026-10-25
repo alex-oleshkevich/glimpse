@@ -118,7 +118,7 @@ fn an_activation_naming_a_workspace_we_have_not_seen_asks_for_a_resync() {
         ..Snapshot::default()
     };
 
-    assert!(
+    assert_eq!(
         apply(
             &mut state,
             Change::WorkspaceActivated {
@@ -126,6 +126,7 @@ fn an_activation_naming_a_workspace_we_have_not_seen_asks_for_a_resync() {
                 focused: true,
             }
         ),
+        Applied::Resync,
         "the list is behind the compositor, and re-reading it is the only way to catch up"
     );
     assert!(
@@ -139,10 +140,17 @@ fn an_activation_naming_a_workspace_we_have_not_seen_asks_for_a_resync() {
 fn a_structural_resync_asks_for_a_new_snapshot_and_a_keyboard_one_does_not() {
     let mut state = Snapshot::default();
 
-    assert!(apply(&mut state, Change::Resync(Resync::Structure)));
-    assert!(apply(&mut state, Change::Resync(Resync::Outputs)));
-    assert!(
-        !apply(&mut state, Change::Resync(Resync::Keyboard)),
+    assert_eq!(
+        apply(&mut state, Change::Resync(Resync::Structure)),
+        Applied::Resync
+    );
+    assert_eq!(
+        apply(&mut state, Change::Resync(Resync::Outputs)),
+        Applied::Resync
+    );
+    assert_eq!(
+        apply(&mut state, Change::Resync(Resync::Keyboard)),
+        Applied::Stored,
         "the keyboard belongs to another service, and re-reading the whole snapshot for it \
              would be a round trip per layout switch"
     );

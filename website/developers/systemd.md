@@ -6,7 +6,7 @@ host interface.
 ## Session units
 
 `glimpse-session.target` is `WantedBy=graphical-session.target` and wants every unit below except
-weather and the screenshot portal, which start on their first D-Bus call. `systemctl --user reload
+weather, calendar and the screenshot portal, which start on their first D-Bus call. `systemctl --user reload
 glimpse-session.target` sends `SIGHUP` to each except the lock and desktop units, and each rereads
 its config; they also reread it on their own when a file changes.
 
@@ -16,11 +16,13 @@ its config; they also reread it on their own when a file changes.
 | `glimpse-wallpaper.service` | None | On failure |
 | `glimpse-lock.service` | None | Always, no start limit; skipped while the Wayland display socket is missing |
 | `glimpse-notifications.service` | `me.aresa.Glimpse.Notifications`, `org.freedesktop.Notifications` | On failure |
+| `glimpse-agents.service` | `me.aresa.Glimpse.Agents` | On failure |
 | `glimpse-idle.service` | `me.aresa.Glimpse.Idle`, `me.aresa.Glimpse.Idle.Portal`, `org.freedesktop.ScreenSaver` | On failure |
 | `glimpse-settings-daemon.service` | `me.aresa.Glimpse.Settings` | On failure |
 | `glimpse-sunset.service` | `me.aresa.Glimpse.NightLight` | On failure, except exit 4 (no gamma control) |
 | `glimpse-weather.service` | `me.aresa.Glimpse.Weather` | On failure |
-| `glimpse-shot-portal.service` | `me.aresa.Glimpse.Shot.Portal` | No |
+| `glimpse-calendar.service` | `me.aresa.Glimpse.Calendar` | On failure |
+| `glimpse-shot-portal.service` | `me.aresa.Glimpse.Shot.Portal` | On failure |
 | `glimpse-desktop.service` | None | Oneshot at login |
 
 Units that restart on failure wait 2 seconds and give up after 5 failures in 60 seconds.

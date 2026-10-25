@@ -74,9 +74,12 @@ async fn download(client: &reqwest::Client, url: &str, max_kib: u32) -> Result<S
         return over();
     }
 
-    let body = response.bytes().await.map_err(transport)?;
-    if body.len() as u64 > cap {
-        return over();
+    let mut response = response;
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(transport)? {
+        if !append_capped(&mut body, &chunk, cap) {
+            return over();
+        }
     }
 
     let parent = target.parent().ok_or("no cache directory")?;
@@ -94,6 +97,17 @@ async fn download(client: &reqwest::Client, url: &str, max_kib: u32) -> Result<S
     }
 
     keep(target)
+}
+
+fn append_capped(body: &mut Vec<u8>, chunk: &[u8], cap: u64) -> bool {
+    let Some(next) = (body.len() as u64).checked_add(chunk.len() as u64) else {
+        return false;
+    };
+    if next > cap {
+        return false;
+    }
+    body.extend_from_slice(chunk);
+    true
 }
 
 fn keep(path: PathBuf) -> Result<String, String> {
