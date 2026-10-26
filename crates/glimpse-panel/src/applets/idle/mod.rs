@@ -156,7 +156,7 @@ impl Idle {
                 ..Default::default()
             });
         }
-        let active = !manual_holds(&self.state.inhibitors).is_empty();
+        let active = !self.state.inhibitors.is_empty();
         let icon = self.themed(render::icon(active));
         Some(IndicatorSpec {
             icon: Some(icon),
@@ -185,7 +185,7 @@ impl Idle {
         let held = !manual_holds(&self.state.inhibitors).is_empty();
         let ends = self.ends();
         shown.set_heading(
-            render::icon(held),
+            render::icon(!self.state.inhibitors.is_empty()),
             &gettext("Idle"),
             Some(&render::hero_subtitle(
                 &self.state,

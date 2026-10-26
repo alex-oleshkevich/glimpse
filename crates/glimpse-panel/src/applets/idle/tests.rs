@@ -8,7 +8,7 @@ use glimpse_dbus::notifications::NotificationsProvider;
 use super::*;
 
 #[test]
-fn external_inhibitors_leave_the_indicator_idle() {
+fn external_inhibitors_activate_the_indicator() {
     let provider = IdleProvider::unavailable("idle provider unavailable");
     let mut applet = Idle::start(
         provider.handle(),
@@ -30,10 +30,10 @@ fn external_inhibitors_leave_the_indicator_idle() {
 
     let indicator = applet.indicator().unwrap();
 
-    assert_eq!(indicator.severity, None);
+    assert_eq!(indicator.severity, Some(Severity::Warning));
     assert_eq!(
         applet.icon.as_ref().map(|(name, _)| *name),
-        Some(render::ICON_IDLE)
+        Some(render::ICON_ACTIVE)
     );
 }
 
