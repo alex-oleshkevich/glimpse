@@ -542,7 +542,9 @@ impl App {
                 self.release_artwork();
                 self.release_renderer();
                 return_heap();
-                glib::timeout_add_local_once(HEAP_RETURN_AFTER, return_heap);
+                for after in HEAP_RETURN_AFTER {
+                    glib::timeout_add_local_once(after, return_heap);
+                }
             }
         }
         self.render();
@@ -890,7 +892,7 @@ impl App {
 
 const ART_RETRY_AFTER: Duration = Duration::from_secs(30);
 
-const HEAP_RETURN_AFTER: Duration = Duration::from_secs(2);
+const HEAP_RETURN_AFTER: [Duration; 2] = [Duration::from_secs(2), Duration::from_secs(35)];
 
 #[derive(Default)]
 struct ArtWorker {

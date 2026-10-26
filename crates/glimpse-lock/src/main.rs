@@ -62,6 +62,8 @@ fn runtime() -> Result<tokio::runtime::Runtime> {
         .build()?)
 }
 
+const MMAP_THRESHOLD: i32 = 128 * 1024;
+
 fn daemon(cli: Cli) -> Result<()> {
     glimpse_config::seed_user_config();
     let (config, failure) = glimpse_config::load_or_default(Documents::Config);
@@ -81,6 +83,8 @@ fn daemon(cli: Cli) -> Result<()> {
             cant_verify.push(error.clone());
         })
         .ok();
+
+    unsafe { libc::mallopt(libc::M_MMAP_THRESHOLD, MMAP_THRESHOLD) };
 
     if RELM_THREADS.set(4).is_err() {
         tracing::warn!("RELM_THREADS already initialized");

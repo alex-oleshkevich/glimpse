@@ -50,7 +50,11 @@ The wake blur is one small pre-rendered copy faded in by opacity, never a live `
 `[lock.background]` `image`/`image-dark` decode off the UI thread when a lock starts, never on
 the UI thread at the lock itself; naming either inherits the whole pair from `[wallpaper]`, and
 both scheme variants decode so a dark/light flip while locked swaps every stage at once. The
-cache drops on unlock, and nothing is decoded or held while the session is open.
+cache drops on unlock, and nothing is decoded or held while the session is open. The daemon fixes
+glibc's mmap threshold at start, so a decode buffer is its own mapping and returns to the system on
+free rather than staying resident in a worker thread's arena. GTK's renderer cache frees an unused
+texture only once it is fifteen seconds old, checked every fifteen seconds, so the heap is returned
+again 35 seconds after an unlock as well as at once.
 `[lock.session]` `actions` (gated by `enabled`) names which of suspend, reboot, power-off the
 sheet offers, each also gated by logind's own `Can*` answer — hidden where polkit can't prompt
 through a lock, disabled with the blocking inhibitor's reason otherwise.
