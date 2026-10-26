@@ -10,13 +10,13 @@ fn ensure_types() {
         Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, DisplayList,
         DisplayPopover, EventList, Expandable, ForecastList, ForecastStrip, Hero, Indicator,
         IndicatorGroup, InhibitorList, KeyboardPopover, LockClock, LockStage, Notice,
-        NotificationCard, NotificationChips, NotificationHeader, NotificationImageBody,
-        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
-        PasswordPrompt, Placeholder, PlayerList, PopoverShell, PrintingPopover, PrivacyPopover,
-        RangeBar, Readout, Scrubber, Section, SessionPopover, SessionSheet, ShotBanner,
-        ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar,
-        ShotWindowList, SourceList, StatusIsland, Swatch, TrackCard, Transport, TrayStrip,
-        WeatherPopover, WorkspaceNamePopover, WorldClock,
+        NotificationCard, NotificationHeader, NotificationImageBody, NotificationStack,
+        NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt,
+        Placeholder, PlayerList, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout,
+        Scrubber, Section, SessionPopover, SessionSheet, ShotBanner, ShotCapturePage,
+        ShotCountdown, ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar, ShotWindowList,
+        SourceList, StatusIsland, Swatch, TrackCard, Transport, TrayStrip, WeatherPopover,
+        WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -78,7 +78,6 @@ fn ensure_types() {
         SessionSheet::static_type(),
         StatusIsland::static_type(),
         TrackCard::static_type(),
-        NotificationChips::static_type(),
         LockStage::static_type(),
         ShotBanner::static_type(),
         ShotCapturePage::static_type(),

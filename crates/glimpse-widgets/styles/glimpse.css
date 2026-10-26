@@ -59,6 +59,10 @@
     --gl-lock-dim: #000000;
     --gl-lock-field: rgb(255 255 255 / 0.16);
     --gl-lock-glass-hover: rgb(255 255 255 / 0.18);
+    --gl-lock-glass: rgb(255 255 255 / 0.1);
+    --gl-lock-glass-raised: rgb(255 255 255 / 0.12);
+    --gl-lock-edge: rgb(255 255 255 / 0.24);
+    --gl-lock-ring: rgb(255 255 255 / 0.35);
     --gl-lock-shade: rgb(0 0 0 / 0.55);
     --gl-lock-text-shadow: 0 1px 3px var(--gl-lock-shade);
     --gl-lock-error: #ffc4bf;
@@ -1739,13 +1743,33 @@ window.blurred .notification--activatable:hover {
 
 .lock-clock__time {
     font-size: calc(var(--gl-text-display) * 3.2);
-    font-weight: 200;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
 }
 
 .lock-clock__date {
     font-size: var(--gl-text-title);
     opacity: 0.9;
+}
+
+.session-sheet__frame {
+    padding: 0.4rem 1rem 1.6rem 1.6rem;
+}
+
+.session-sheet .session-sheet__panel {
+    transform-origin: top right;
+    transform: translateY(calc(-1 * var(--gl-popup-motion))) scale(0.97);
+    transition: transform 220ms var(--gl-ease);
+}
+
+.session-sheet--open .session-sheet__panel {
+    transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .session-sheet .session-sheet__panel {
+        transition: none;
+    }
 }
 
 .session-sheet__panel {
@@ -1776,24 +1800,33 @@ window.blurred .notification--activatable:hover {
     padding: 0.2rem 0.6rem;
 }
 
-.status-island {
-    padding: 0.3rem 0.4rem 0.3rem 1rem;
-}
-
 .status-island__power {
     min-width: 0;
     min-height: 0;
-    padding: 0.2rem 0.4rem;
+    padding: 0;
     border-radius: 999px;
 }
 
 .status-island__power:hover {
     background-color: var(--gl-hover);
+    outline: 0.4rem solid var(--gl-hover);
+    outline-offset: 0;
 }
 
 .track-card {
-    padding: 0.5rem 0.5rem 0.5rem 1rem;
-    min-width: 18rem;
+    padding: 0.7rem;
+    min-width: 24rem;
+    border-radius: var(--gl-radius);
+    background-color: var(--gl-lock-glass);
+    border: 1px solid var(--gl-lock-field);
+}
+
+.track-card__art {
+    min-width: 3.5rem;
+    min-height: 3.5rem;
+    margin-right: 0.7rem;
+    border-radius: 0.65rem;
+    background-color: var(--gl-lock-glass-raised);
 }
 
 .track-card__title {
@@ -1825,16 +1858,10 @@ window.blurred .notification--activatable:hover {
     opacity: var(--gl-disabled);
 }
 
-.notification-chip {
-    border-radius: 999px;
-    padding: 0.45rem 0.9rem 0.45rem 0.7rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-
 .lock-stage {
     color: var(--gl-lock-fg);
     font-family: var(--gl-font-family);
+    outline: none;
 }
 
 .lock-stage__scrim {
@@ -1850,12 +1877,12 @@ window.blurred .notification--activatable:hover {
 }
 
 .lock-stage__prompt {
-    margin-top: 3.5rem;
+    margin-top: 1rem;
 }
 
 .lock-stage__sheet {
-    margin-top: 3.6rem;
-    margin-right: 1rem;
+    margin-top: 3.2rem;
+    margin-right: 0;
 }
 
 .lock-stage__sheet label {
@@ -1865,6 +1892,7 @@ window.blurred .notification--activatable:hover {
 .lock-stage .password-prompt__entry {
     background-color: var(--gl-lock-field);
     color: var(--gl-lock-fg);
+    border: 1px solid var(--gl-lock-ring);
 }
 
 .lock-stage .password-prompt__message--error {
@@ -1898,15 +1926,80 @@ window.blurred .notification--activatable:hover {
 }
 
 .lock-stage .status-island__power,
-.lock-stage .track-card__play,
 .lock-stage .track-card__next {
     color: inherit;
 }
 
-.lock-stage .status-island__power:hover,
+.lock-stage .status-island__power:hover {
+    background-color: var(--gl-lock-glass-hover);
+    outline-color: var(--gl-lock-glass-hover);
+}
+
 .lock-stage .track-card__play:hover,
 .lock-stage .track-card__next:hover {
     background-color: var(--gl-lock-glass-hover);
+}
+
+.lock-stage__blurred {
+    opacity: 0;
+    transition: opacity 380ms var(--gl-ease);
+}
+
+.lock-stage--awake .lock-stage__blurred {
+    opacity: 1;
+}
+
+.lock-stage__unlock {
+    margin-top: 4rem;
+}
+
+.lock-stage__avatar {
+    background-color: var(--gl-lock-glass);
+    border: 1px solid var(--gl-lock-edge);
+    border-radius: 999px;
+}
+
+.lock-stage__initials {
+    font-size: 1.6rem;
+    font-weight: 400;
+}
+
+.lock-stage__top,
+.lock-stage__bottom {
+    opacity: 0;
+    transition: opacity 250ms var(--gl-ease);
+}
+
+.lock-stage--awake .lock-stage__top,
+.lock-stage--awake .lock-stage__bottom {
+    opacity: 1;
+}
+
+.lock-stage__ghost {
+    opacity: 0;
+}
+
+.lock-stage__cover {
+    opacity: 1;
+    transition: opacity 200ms var(--gl-ease);
+}
+
+.lock-stage--awake .lock-stage__cover {
+    opacity: 0;
+}
+
+.lock-stage .track-card__play {
+    background-color: var(--gl-lock-fg);
+    color: var(--gl-lock-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lock-stage__blurred,
+    .lock-stage__top,
+    .lock-stage__bottom,
+    .lock-stage__cover {
+        transition: none;
+    }
 }
 
 .shot-surface {

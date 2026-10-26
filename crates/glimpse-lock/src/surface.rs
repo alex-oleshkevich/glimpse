@@ -27,10 +27,11 @@ pub struct Look {
     pub dim: f64,
     pub clock: Option<(String, String)>,
     pub user: Option<String>,
+    pub avatar: Option<gdk::Texture>,
     pub prompt_output: String,
     pub session: HashMap<&'static str, SessionActionState>,
     pub track: Option<Track>,
-    pub chips: Vec<ChipGroup>,
+    pub notifications: Vec<ChipGroup>,
     pub status: Status,
 }
 
@@ -39,6 +40,7 @@ pub struct PromptState {
     pub available: bool,
     pub busy: bool,
     pub message: Option<String>,
+    pub lasting: bool,
 }
 
 impl Default for PromptState {
@@ -47,6 +49,7 @@ impl Default for PromptState {
             available: true,
             busy: false,
             message: None,
+            lasting: false,
         }
     }
 }
@@ -118,6 +121,10 @@ pub fn prompt_output<'a>(configured: &'a str, focused: Option<&'a str>) -> Optio
 
 pub fn accepts<T: PartialEq>(submitter: Option<&T>, interactive: Option<&T>) -> bool {
     submitter.is_some() && submitter == interactive
+}
+
+pub fn carried_awake(previous: Option<bool>) -> bool {
+    previous.unwrap_or_default()
 }
 
 pub fn submitted(text: Zeroizing<String>) -> Option<Zeroizing<String>> {
@@ -267,6 +274,9 @@ impl Surfaces {
     }
 
     pub fn resumed(&self) {
+        for stage in self.shared.stages.borrow().iter() {
+            stage.stage.set_awake(false);
+        }
         self.shared.tick();
         arm_clock(&self.shared);
     }
@@ -281,6 +291,9 @@ impl Surfaces {
     }
 
     pub fn shake(&self) {
+        for stage in self.shared.stages.borrow().iter() {
+            stage.stage.set_awake(true);
+        }
         self.shared.each_prompt(PasswordPrompt::shake);
     }
 
@@ -407,6 +420,9 @@ impl Shared {
                 let Some(shared) = shared.upgrade() else {
                     return;
                 };
+                if !accepts(Some(&monitor), shared.interactive.borrow().as_ref()) {
+                    return;
+                }
                 let Some(action) = Action::from_key(action) else {
                     tracing::warn!(action, "unknown session action requested");
                     return;
@@ -426,8 +442,11 @@ impl Shared {
         });
         stage.track().connect_action({
             let shared = Rc::downgrade(shared);
+            let monitor = monitor.clone();
             move |_, action| {
-                if let Some(shared) = shared.upgrade() {
+                if let Some(shared) = shared.upgrade()
+                    && accepts(Some(&monitor), shared.interactive.borrow().as_ref())
+                {
                     (shared.on_track_action)(action);
                 }
             }
@@ -550,10 +569,13 @@ impl Shared {
         else {
             return;
         };
-        if let Some(previous) = self.interactive_stage() {
+        let awake = carried_awake(self.interactive_stage().map(|previous| {
+            let awake = previous.is_awake();
             previous.set_interactive(false);
-        }
+            awake
+        }));
         stage.set_interactive(true);
+        stage.set_awake(awake);
         self.interactive.replace(Some(monitor));
         focus_prompt(&stage);
     }
@@ -578,7 +600,8 @@ impl Shared {
             }
             None => clock.set_visible(false),
         }
-        stage.stage.prompt().set_user(look.user.as_deref());
+        stage.stage.set_user(look.user.as_deref());
+        stage.stage.set_avatar(look.avatar.as_ref());
         stage
             .stage
             .set_session_actions(ACTIONS.iter().filter_map(|action| {
@@ -586,21 +609,20 @@ impl Shared {
                 look.session.get(key).map(|state| (key, state))
             }));
         stage.stage.track().set_track(look.track.as_ref());
-        stage.stage.chips().set_groups(&look.chips);
-        let island = stage.stage.status();
-        island.set_weather(look.status.weather.as_ref());
-        island.set_battery(look.status.battery.as_ref());
-        island.set_layout(look.status.layout.as_ref());
-        island.set_bluetooth(look.status.bluetooth.as_ref());
-        island.set_network(look.status.network.as_ref());
+        stage.stage.set_notifications(&look.notifications);
+        stage.stage.set_battery(look.status.battery.as_ref());
     }
 
     fn apply_prompt(&self, stage: &LockStage) {
         let state = self.prompt.borrow();
         let prompt = stage.prompt();
         prompt.set_available(state.available);
-        prompt.set_busy(state.busy);
-        prompt.set_message(state.message.as_deref(), MessageKind::Error);
+        stage.set_busy(state.busy);
+        let kind = match state.lasting {
+            true => MessageKind::Lasting,
+            false => MessageKind::Error,
+        };
+        stage.set_message(state.message.as_deref(), kind);
     }
 
     fn each_prompt(&self, f: impl Fn(&PasswordPrompt)) {
@@ -628,9 +650,13 @@ impl Shared {
 }
 
 fn focus_prompt(stage: &LockStage) {
-    if !stage.session_open() {
-        stage.prompt().grab_focus();
+    if stage.session_open() {
+        return;
     }
+    match stage.is_awake() {
+        true => stage.prompt().grab_focus(),
+        false => stage.grab_focus(),
+    };
 }
 
 fn build() -> (gtk4::Window, LockStage) {

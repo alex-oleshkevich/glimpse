@@ -41,7 +41,7 @@ impl NotificationImageBody {
 }
 
 pub fn notification_image(path: &Path) -> Option<gdk::Texture> {
-    crate::artwork(path, IMAGE_SIDE)
+    crate::artwork(path, IMAGE_SIDE, crate::Formats::Any)
 }
 
 pub(crate) fn bound(

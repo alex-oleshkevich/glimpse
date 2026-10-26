@@ -124,3 +124,233 @@ fn a_thumbnail_of_an_extreme_strip_stays_within_the_side_and_never_collapses() {
     assert!(texture.width() <= 320 && texture.height() <= 320);
     assert!(texture.width() > 0 && texture.height() > 0);
 }
+
+struct Scratch(std::path::PathBuf);
+
+impl Scratch {
+    fn new(name: &str) -> Self {
+        let path =
+            std::env::temp_dir().join(format!("glimpse-artwork-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        Self(path)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+        let _ = std::fs::remove_dir(&self.0);
+    }
+}
+
+fn jpeg(width: i32, height: i32) -> Vec<u8> {
+    let source =
+        Pixbuf::new(gtk4::gdk_pixbuf::Colorspace::Rgb, false, 8, width, height).expect("a pixbuf");
+    source.fill(0x00ff00ff);
+    source
+        .save_to_bufferv("jpeg", &[])
+        .expect("a jpeg buffer")
+        .to_vec()
+}
+
+#[test]
+fn png_and_jpeg_files_become_square_textures() {
+    for (name, bytes) in [("png", png(300, 200)), ("jpeg", jpeg(300, 200))] {
+        let file = Scratch::new(name);
+        std::fs::write(&file.0, bytes).expect("written");
+
+        let texture = artwork(&file.0, 100, Formats::Strict).expect(name);
+
+        assert_eq!((texture.width(), texture.height()), (100, 100), "{name}");
+    }
+}
+
+#[test]
+fn a_fifo_is_refused_without_waiting_for_a_writer() {
+    let file = Scratch::new("fifo");
+    let path = std::ffi::CString::new(file.0.to_string_lossy().as_bytes()).expect("a path");
+    assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
+
+    assert!(artwork(&file.0, 100, Formats::Strict).is_none());
+    assert!(matches!(
+        cached_artwork(&file.0, 100, Formats::Strict, None),
+        Artwork::Rejected(None)
+    ));
+}
+
+#[test]
+fn a_directory_is_refused() {
+    let file = Scratch::new("directory");
+    std::fs::create_dir(&file.0).expect("a directory");
+
+    assert!(artwork(&file.0, 100, Formats::Strict).is_none());
+}
+
+#[test]
+fn a_file_over_the_size_cap_is_refused_unread() {
+    let file = Scratch::new("oversize");
+    let mut bytes = png(8, 8);
+    bytes.resize(STRICT_MAX_BYTES as usize + 1, 0);
+    std::fs::write(&file.0, bytes).expect("written");
+
+    assert!(matches!(
+        cached_artwork(&file.0, 100, Formats::Strict, None),
+        Artwork::Rejected(Some(_))
+    ));
+}
+
+#[test]
+fn a_format_outside_the_allow_list_is_refused() {
+    let svg: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8"/></svg>"#;
+    let gif: &[u8] = b"GIF89a\x01\x00\x01\x00\x00\x00\x00;";
+    for (name, bytes) in [("svg", svg), ("gif", gif)] {
+        let file = Scratch::new(name);
+        std::fs::write(&file.0, bytes).expect("written");
+
+        assert!(artwork(&file.0, 100, Formats::Strict).is_none(), "{name}");
+    }
+}
+
+#[test]
+fn an_image_larger_than_the_decode_limit_is_refused() {
+    let file = Scratch::new("huge");
+    std::fs::write(&file.0, png(LARGEST + 1, 8)).expect("written");
+
+    assert!(artwork(&file.0, 100, Formats::Strict).is_none());
+}
+
+#[test]
+fn a_file_rewritten_at_the_same_path_is_decoded_again() {
+    let file = Scratch::new("rewritten");
+    std::fs::write(&file.0, png(64, 64)).expect("written");
+    let Artwork::Decoded(_, stamp) = cached_artwork(&file.0, 100, Formats::Strict, None) else {
+        panic!("a first read decodes");
+    };
+
+    assert!(matches!(
+        cached_artwork(&file.0, 100, Formats::Strict, Some(&stamp)),
+        Artwork::Unchanged
+    ));
+
+    std::fs::write(&file.0, png(96, 96)).expect("rewritten");
+    let Artwork::Decoded(texture, fresh) =
+        cached_artwork(&file.0, 100, Formats::Strict, Some(&stamp))
+    else {
+        panic!("a rewritten file decodes");
+    };
+    assert_ne!(fresh, stamp);
+    assert_eq!(texture.width(), 96);
+}
+
+#[test]
+fn an_unchanged_stamp_answers_without_reading_the_bytes() {
+    let file = Scratch::new("unread");
+    std::fs::write(&file.0, png(64, 64)).expect("written");
+    let Artwork::Decoded(_, stamp) = cached_artwork(&file.0, 100, Formats::Strict, None) else {
+        panic!("a first read decodes");
+    };
+    let modified = std::fs::metadata(&file.0)
+        .and_then(|metadata| metadata.modified())
+        .expect("a modification time");
+    let len = stamp.len as usize;
+
+    std::fs::write(&file.0, vec![0u8; len]).expect("overwritten with garbage of the same size");
+    std::fs::File::options()
+        .write(true)
+        .open(&file.0)
+        .and_then(|file| file.set_modified(modified))
+        .expect("the time restored");
+
+    assert!(
+        matches!(
+            cached_artwork(&file.0, 100, Formats::Strict, Some(&stamp)),
+            Artwork::Unchanged
+        ),
+        "the stamp matches, so the invalid bytes are never looked at"
+    );
+    assert!(
+        matches!(
+            cached_artwork(&file.0, 100, Formats::Strict, None),
+            Artwork::Rejected(_)
+        ),
+        "while a caller with no stamp does read them"
+    );
+}
+
+fn crc32(bytes: &[u8]) -> u32 {
+    let mut crc = 0xffff_ffffu32;
+    for byte in bytes {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            crc = (crc >> 1) ^ (0xedb8_8320 & 0u32.wrapping_sub(crc & 1));
+        }
+    }
+    !crc
+}
+
+fn claimed_png(width: u32, height: u32) -> Vec<u8> {
+    let mut bytes = png(8, 8);
+    bytes[16..20].copy_from_slice(&width.to_be_bytes());
+    bytes[20..24].copy_from_slice(&height.to_be_bytes());
+    let crc = crc32(&bytes[12..29]);
+    bytes[29..33].copy_from_slice(&crc.to_be_bytes());
+    bytes
+}
+
+#[test]
+fn a_header_claiming_a_huge_image_is_refused_quickly() {
+    let file = Scratch::new("claimed");
+    std::fs::write(&file.0, claimed_png(30000, 30000)).expect("written");
+    let started = std::time::Instant::now();
+
+    assert!(artwork(&file.0, 128, Formats::Strict).is_none());
+    assert!(artwork(&file.0, 128, Formats::Any).is_none());
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+}
+
+#[test]
+fn the_strict_bound_is_lower_than_the_loose_one() {
+    let file = Scratch::new("middling");
+    std::fs::write(&file.0, png(STRICT_LARGEST + 1, 8)).expect("written");
+
+    assert!(artwork(&file.0, 100, Formats::Strict).is_none());
+    assert!(artwork(&file.0, 100, Formats::Any).is_some());
+}
+
+#[test]
+fn the_loose_policy_keeps_the_formats_it_always_read() {
+    let file = Scratch::new("loose");
+    let bmp = Pixbuf::new(gtk4::gdk_pixbuf::Colorspace::Rgb, false, 8, 40, 40)
+        .expect("a pixbuf")
+        .save_to_bufferv("bmp", &[])
+        .expect("a bmp buffer");
+    std::fs::write(&file.0, bmp).expect("written");
+
+    assert!(artwork(&file.0, 100, Formats::Strict).is_none());
+    assert!(artwork(&file.0, 100, Formats::Any).is_some());
+}
+
+#[test]
+fn each_policy_has_its_own_byte_cap() {
+    let file = Scratch::new("padded");
+    let mut bytes = png(32, 32);
+    bytes.resize(STRICT_MAX_BYTES as usize + 1, 0);
+    std::fs::write(&file.0, &bytes).expect("written");
+
+    assert!(artwork(&file.0, 100, Formats::Strict).is_none());
+    assert!(artwork(&file.0, 100, Formats::Any).is_some());
+
+    bytes.resize(ANY_MAX_BYTES as usize + 1, 0);
+    std::fs::write(&file.0, &bytes).expect("written");
+    assert!(artwork(&file.0, 100, Formats::Any).is_none());
+}
+
+#[test]
+fn the_loose_dimension_bound_is_exact() {
+    let file = Scratch::new("edge");
+    std::fs::write(&file.0, png(LARGEST, 8)).expect("written");
+    assert!(artwork(&file.0, 100, Formats::Any).is_some());
+
+    std::fs::write(&file.0, png(LARGEST + 1, 8)).expect("written");
+    assert!(artwork(&file.0, 100, Formats::Any).is_none());
+}

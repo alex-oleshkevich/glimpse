@@ -119,8 +119,8 @@ clears the box whenever the key changes.
 ## ForecastStrip, ForecastList, the media widgets and SourceList
 
 Artwork is a `Gtk.Image`, the only one that can be told how big to be, since `Gtk.Picture` reports
-the paintable's natural width. `Pixbuf::file_info` reads dimensions out of the header without
-decoding, so an oversized `mpris:artUrl` is refused before anything expands it in memory.
+the paintable's natural width. `artwork` streams a file opened once and refuses a header over its
+bound: `Formats::Strict` (PNG, JPEG, WebP, 8 MiB, 2048 px) or `Formats::Any` (64 MiB, 4096 px).
 
 `SourceList` has no template: a row and its `SliderRow` are parented as
 siblings, never nested, so the row's `activatable: false` cannot reach the slider beneath it.
@@ -146,7 +146,7 @@ hides; History closes before it hides too, and emits `history-opened` only on op
 updates sections hide when empty, and the widget emits `action-requested` and `activate-session`
 without knowing logind.
 
-## PasswordPrompt, LockClock, SessionSheet, LockStage, StatusIsland, TrackCard and NotificationChips
+## PasswordPrompt, LockClock, SessionSheet, LockStage, StatusIsland and TrackCard
 
 `PasswordPrompt` knows nothing about PAM: `submitted` and `edited` never carry the text. **The
 password leaves the entry exactly once** — `take_text` copies the buffer into a `Zeroizing<String>`
@@ -158,9 +158,9 @@ catalog**: an English, `C` or `C.<codeset>` time locale gets `1st`, anything els
 
 `SessionSheet` rows start hidden until `set_action` shows one, and every action goes through a
 confirm page that re-checks the row before emitting, since `set_action` can revoke it mid-page.
-`StatusIsland` has five fixed `$Indicator` slots with no popovers; `set_*(None)` hides a slot.
+`StatusIsland` is one box, one spacing: notification chips, battery and power button.
 `TrackCard`'s labels carry `width-chars` beside `max-width-chars` and a fixed `min-width`, so a
-track change never resizes the footer. `NotificationChips` is built with `accessible-role: Img`
+track change never resizes the footer. A notification item is built with `accessible-role: Img`
 through `glib::Object::builder`, since the role is construct-only.
 
 `LockStage::set_session_actions` writes every action first, then keeps the power button in step with

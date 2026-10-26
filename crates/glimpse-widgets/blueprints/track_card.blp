@@ -12,6 +12,18 @@ template $TrackCard: Gtk.Widget {
     "track-card",
   ]
 
+  Gtk.Image art {
+    icon-name: "audio-x-generic-symbolic";
+    pixel-size: 28;
+    valign: center;
+    overflow: hidden;
+    accessible-role: presentation;
+
+    styles [
+      "track-card__art",
+    ]
+  }
+
   Gtk.Box body {
     orientation: vertical;
     valign: center;

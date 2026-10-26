@@ -10,6 +10,8 @@ use crate::TransportAction;
 #[template(resource = "/me/aresa/GlimpseShell/widgets/track_card.ui")]
 pub struct TrackCard {
     #[template_child]
+    pub art: TemplateChild<gtk4::Image>,
+    #[template_child]
     pub body: TemplateChild<gtk4::Box>,
     #[template_child]
     pub title: TemplateChild<gtk4::Label>,

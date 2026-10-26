@@ -24,10 +24,28 @@ Locks on logind `Session.Lock`, before sleep, and at start when `LockedHint` is 
 surface per monitor, including one hotplugged while locked, before it can show anything, and treats
 the session as locked — setting `LockedHint` — only once the compositor sends `locked`.
 Authenticates through PAM service `[lock] pam-service` off the UI thread. Every surface carries a
-`LockStage` mirroring the same prompt state, but exactly one is interactive and only it submits; a
-lock never has zero interactive prompts while any surface exists. Shows AccountsService `RealName`,
-else `UserName`, refreshed on every lock and never awaited — the stage shows the PAM username until
-it answers.
+`LockStage` sharing the same prompt state, but exactly one is interactive and only it submits and
+wakes; the others stay on their cover. A lock never has zero interactive prompts while any surface
+exists. Shows AccountsService `RealName`, else `UserName`, and `IconFile`, refreshed on every lock
+and never awaited — the stage shows the PAM username and its initials until it answers. The avatar
+and the current track's local art decode off the UI thread, one art decode at a time, only while
+locked (not while unlocking) and only when `[lock.media]` is enabled, from PNG, JPEG or WebP regular
+files of at most 8 MiB and 2048 px a side; both drop on unlock, and the blur renderer with them, so
+a decode that lands after unlock is discarded unblurred. Art at a rewritten path decodes again, and
+a path that could not be read is retried when the path changes or after thirty seconds. Session and
+transport actions come only from the interactive stage. Moving the prompt to another output carries
+over whether it was awake but clears typed text, and a resume returns every stage to the cover.
+
+A stage starts on its cover and wakes on a non-modifier key, a press, or a pointer move past a small
+threshold; the stage holds the focus there, since the entry is unmapped and a key would otherwise
+miss its controller. The waking key goes through the input method into the entry, and a chord types
+nothing. Escape on an empty prompt that is not busy, ten idle seconds with an empty prompt, or an idle
+cap of sixty seconds with anything typed return to the cover and clear the entry; busy never covers.
+An ordinary refusal is cleared with it, a lockout or an unavailable prompt stays. A new message wakes
+an interactive stage. The cover shows the notification count and battery in the corner where the
+awake chips, battery and power button sit, and the two cross-fade there; the corner takes no input
+until awake and the faded-out side is hidden from assistive technology. A mirror stays on its cover.
+The wake blur is one small pre-rendered copy faded in by opacity, never a live `filter: blur()`.
 
 `[lock.background]` `image`/`image-dark` decode off the UI thread when a lock starts, never on
 the UI thread at the lock itself; naming either inherits the whole pair from `[wallpaper]`, and
@@ -37,13 +55,12 @@ cache drops on unlock, and nothing is decoded or held while the session is open.
 sheet offers, each also gated by logind's own `Can*` answer — hidden where polkit can't prompt
 through a lock, disabled with the blocking inhibitor's reason otherwise.
 
-`Mpris`, `Compositor`, `Keyboard`, `Battery`, `Network` and `Bluetooth`, plus the notifications and
-weather providers, are hosted once at daemon start, never on the lock path. `status.rs` never shows
-an SSID or device name, and the locker never leases a weather place of its own, only what the
-panel's applet already asked for. Notifications group by `app_id` (never `app_name`,
-sender-chosen), and `lock_started` marks which count as "since this lock", clearing only on a real
-authenticated unlock; bodies and summaries never reach a chip, only `app_id`, `app_name`, `icon`
-and `urgency`.
+`Mpris`, `Compositor` and `Battery`, plus the notifications provider, are hosted once at daemon
+start, never on the lock path. The lock shows only the battery, notification counts and the power
+button: no weather, keyboard layout, network or Bluetooth state is hosted or shown. Notifications
+group by `app_id` (never `app_name`, sender-chosen), and `lock_started` marks which count as "since
+this lock", clearing only on a real authenticated unlock; bodies and summaries never reach a chip,
+only `app_id`, `app_name`, `icon` and `urgency`.
 
 ## Rules
 

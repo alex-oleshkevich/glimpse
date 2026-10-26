@@ -135,6 +135,10 @@ impl Lifecycle {
         self.phase == Phase::Idle
     }
 
+    pub fn is_locking(&self) -> bool {
+        matches!(self.phase, Phase::Acquiring | Phase::Locked)
+    }
+
     pub fn prompt(&self) -> PromptView {
         PromptView {
             available: self.settings.refusal.is_none(),

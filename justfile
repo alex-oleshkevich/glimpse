@@ -168,6 +168,10 @@ net-guard *ARGS:
 click *ARGS:
     python3 scripts/click.py "$@"
 
+[doc("the real lock stage in a window with stub data; password is glimpse")]
+preview-lock *ARGS:
+    cargo run -q -p glimpse-widgets --features preview --example lock-preview -- {{ ARGS }}
+
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:
     case "{{ BLUEPRINT }}" in \

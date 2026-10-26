@@ -188,6 +188,47 @@ fn a_stale_decode_is_dropped() {
 }
 
 #[test]
+fn a_decode_is_wanted_only_while_its_key_is_current() {
+    let mut cache = Cache::<&str>::default();
+    cache.configure(Variants::of(Some(Path::new("a")), None));
+    cache.set_outputs(vec![("eDP-1".into(), target(10, 10))]);
+    let key = cache.due().remove(0);
+    assert!(cache.is_wanted(&key));
+
+    cache.set_outputs(Vec::new());
+    assert!(
+        !cache.is_wanted(&key),
+        "an output that left is no longer wanted"
+    );
+}
+
+#[test]
+fn a_decode_that_lands_after_the_lock_ended_does_not_starve_the_next_lock() {
+    let mut cache = Cache::<&str>::default();
+    cache.configure(Variants::of(Some(Path::new("a")), None));
+    cache.set_outputs(vec![("eDP-1".into(), target(10, 10))]);
+    let in_flight = cache.due().remove(0);
+    assert!(
+        cache.due().is_empty(),
+        "while it is in flight nothing is asked twice"
+    );
+
+    cache.clear();
+    assert!(
+        !cache.land(in_flight.clone(), None),
+        "the late result of the ended lock is dropped"
+    );
+
+    let next = cache.due();
+    assert_eq!(next.len(), 1, "the next lock decodes the wallpaper again");
+    assert!(
+        !cache.land(in_flight, Some("stale")),
+        "and the old key is still refused"
+    );
+    assert_eq!(cache.get("eDP-1", false), None);
+}
+
+#[test]
 fn a_failed_decode_or_a_removed_image_falls_back_to_the_color() {
     let mut cache = Cache::<&str>::default();
     cache.configure(Variants::of(Some(Path::new("a")), None));

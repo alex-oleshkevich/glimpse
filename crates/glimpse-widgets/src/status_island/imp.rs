@@ -6,14 +6,7 @@ use crate::Indicator;
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/status_island.ui")]
 pub struct StatusIsland {
-    #[template_child]
-    pub weather: TemplateChild<Indicator>,
-    #[template_child]
-    pub bluetooth: TemplateChild<Indicator>,
-    #[template_child]
-    pub network: TemplateChild<Indicator>,
-    #[template_child]
-    pub layout: TemplateChild<Indicator>,
+    pub chips: std::cell::RefCell<Vec<(String, Indicator)>>,
     #[template_child]
     pub battery: TemplateChild<Indicator>,
     #[template_child]
@@ -60,6 +53,9 @@ impl ObjectImpl for StatusIsland {
     }
 
     fn dispose(&self) {
+        for (_, chip) in self.chips.take() {
+            chip.unparent();
+        }
         self.dispose_template();
     }
 }

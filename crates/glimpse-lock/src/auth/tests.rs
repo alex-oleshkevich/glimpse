@@ -164,3 +164,16 @@ fn the_conversation_keeps_the_last_pam_text_sanitized_and_capped() {
         Some(PAM_TEXT_MAX_CHARS + 1)
     );
 }
+
+#[test]
+fn only_the_ordinary_refusals_are_cleared_when_the_cover_returns() {
+    assert!(!Message::WrongPassword.lasting());
+    assert!(!Message::TimedOut.lasting());
+    assert!(!Message::Failed.lasting());
+    assert!(Message::Pam("(10 minutes left to unlock)".to_owned()).lasting());
+    assert!(Message::TooManyAttempts.lasting());
+    assert!(Message::AccountRefused.lasting());
+    assert!(Message::PasswordChange.lasting());
+    assert!(Message::CantVerify.lasting());
+    assert!(Message::ConsoleOnly.lasting());
+}

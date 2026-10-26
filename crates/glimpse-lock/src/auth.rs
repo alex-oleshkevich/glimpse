@@ -37,6 +37,10 @@ impl Message {
             ),
         }
     }
+
+    pub fn lasting(&self) -> bool {
+        !matches!(self, Self::WrongPassword | Self::TimedOut | Self::Failed)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

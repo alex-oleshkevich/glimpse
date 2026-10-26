@@ -9,6 +9,7 @@ fn track(title: &str, artist: &str, playing: bool, can_play_pause: bool, can_nex
         playing,
         can_play_pause,
         can_next,
+        art: None,
     }
 }
 

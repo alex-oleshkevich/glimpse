@@ -32,5 +32,10 @@ tracing-subscriber.workspace = true
 name = "preview"
 required-features = ["preview"]
 
+[[example]]
+name = "lock-preview"
+path = "examples/lock_preview.rs"
+required-features = ["preview"]
+
 [build-dependencies]
 glib-build-tools.workspace = true

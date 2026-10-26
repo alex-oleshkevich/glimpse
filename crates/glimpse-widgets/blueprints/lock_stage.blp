@@ -24,6 +24,18 @@ template $LockStage: Gtk.Widget {
     }
 
     [overlay]
+    Gtk.Picture blurred {
+      can-shrink: true;
+      can-target: false;
+      content-fit: cover;
+      accessible-role: presentation;
+
+      styles [
+        "lock-stage__blurred",
+      ]
+    }
+
+    [overlay]
     Gtk.Box scrim {
       opacity: 0;
       can-target: false;
@@ -39,12 +51,50 @@ template $LockStage: Gtk.Widget {
       orientation: vertical;
 
       [start]
-      $StatusIsland status {
+      Gtk.Overlay corner {
         halign: end;
+        accessible-role: presentation;
 
-        styles [
-          "lock-stage__edge",
-        ]
+        child: $StatusIsland status {
+          can-target: false;
+
+          styles [
+            "lock-stage__edge",
+            "lock-stage__top",
+          ]
+        };
+
+        [overlay]
+        Gtk.Box cover {
+          halign: end;
+          valign: start;
+          spacing: 12;
+          can-target: false;
+
+          styles [
+            "lock-stage__edge",
+            "lock-stage__cover",
+          ]
+
+          $Indicator cover_notifications {
+            visible: false;
+          }
+
+          $Indicator cover_battery {
+            visible: false;
+          }
+
+          Gtk.Image cover_power {
+            icon-name: "system-shutdown-symbolic";
+            visible: false;
+            accessible-role: presentation;
+
+            styles [
+              "indicator__icon",
+              "lock-stage__ghost",
+            ]
+          }
+        }
       }
 
       [center]
@@ -55,12 +105,56 @@ template $LockStage: Gtk.Widget {
 
         $LockClock clock {}
 
-        $PasswordPrompt prompt {
-          halign: center;
+        Gtk.Revealer reveal {
+          transition-type: slide_down;
+          transition-duration: 380;
 
-          styles [
-            "lock-stage__prompt",
-          ]
+          Gtk.Box unlock {
+            orientation: vertical;
+            halign: center;
+
+            styles [
+              "lock-stage__unlock",
+            ]
+
+            Gtk.Overlay avatar {
+              halign: center;
+              width-request: 88;
+              height-request: 88;
+              overflow: hidden;
+              accessible-role: presentation;
+
+              styles [
+                "lock-stage__avatar",
+              ]
+
+              Gtk.Label initials {
+                halign: center;
+                valign: center;
+                accessible-role: presentation;
+
+                styles [
+                  "lock-stage__initials",
+                ]
+              }
+
+              [overlay]
+              Gtk.Picture photo {
+                visible: false;
+                can-shrink: true;
+                content-fit: cover;
+                accessible-role: presentation;
+              }
+            }
+
+            $PasswordPrompt prompt {
+              halign: center;
+
+              styles [
+                "lock-stage__prompt",
+              ]
+            }
+          }
         }
       }
 
@@ -68,20 +162,21 @@ template $LockStage: Gtk.Widget {
       Gtk.Box {
         spacing: 12;
 
-        styles [
-          "lock-stage__edge",
-        ]
-
-        $NotificationChips chips {
+        Gtk.Box bottom {
+          spacing: 12;
           hexpand: true;
-          halign: start;
-          valign: end;
-        }
+          can-target: false;
 
-        $TrackCard track {
-          hexpand: true;
-          halign: end;
-          valign: end;
+          styles [
+            "lock-stage__edge",
+            "lock-stage__bottom",
+          ]
+
+          $TrackCard track {
+            hexpand: true;
+            halign: end;
+            valign: end;
+          }
         }
       }
     }

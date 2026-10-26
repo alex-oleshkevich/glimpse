@@ -7,8 +7,8 @@ use gtk4::glib;
 use zeroize::Zeroizing;
 
 use super::{
-    FOCUSED, Timer, accepts, next_minute, prompt_output, prompt_stage, session_result_target,
-    submitted,
+    FOCUSED, Timer, accepts, carried_awake, next_minute, prompt_output, prompt_stage,
+    session_result_target, submitted,
 };
 
 #[test]
@@ -221,4 +221,30 @@ fn the_clock_wakes_on_the_next_minute_boundary() {
     assert_eq!(next_minute(61.0), Duration::from_secs(59));
     assert_eq!(next_minute(f64::NAN), Duration::from_secs(60));
     assert_eq!(next_minute(f64::INFINITY), Duration::from_secs(60));
+}
+
+#[test]
+fn an_action_or_a_wake_is_carried_only_from_the_stage_that_was_interactive() {
+    let (edp, dp) = ("eDP-1".to_owned(), "DP-2".to_owned());
+    assert!(
+        accepts(Some(&edp), Some(&edp)),
+        "the interactive stage acts"
+    );
+    assert!(
+        !accepts(Some(&dp), Some(&edp)),
+        "a mirror's session or transport action is ignored"
+    );
+
+    assert!(
+        carried_awake(Some(true)),
+        "the prompt moves while awake and stays awake"
+    );
+    assert!(
+        !carried_awake(Some(false)),
+        "and while covered stays covered"
+    );
+    assert!(
+        !carried_awake(None),
+        "a stage with no predecessor starts on the cover"
+    );
 }

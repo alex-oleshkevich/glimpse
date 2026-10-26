@@ -81,7 +81,7 @@ and limits.
 
 ## Choose what the lock screen shows
 
-The clock, the status island (weather, battery, keyboard layout, Bluetooth and network),
+The clock, the battery level,
 notifications, media controls and the session buttons each have a table with an `enabled` switch:
 
 ```toml
@@ -98,7 +98,7 @@ shows a single icon with the total. Neither mode shows a summary or a body.
 
 The media area shows the track title and artist to anyone, and its pause and next buttons work
 without a password. Turn off `[lock.media]` as above to hide it. Turn off `[lock.status]` to hide
-the status island; the session button has its own switch under `[lock.session]`.
+the battery level; the session button has its own switch under `[lock.session]`.
 
 The session menu offers `Suspend...`, `Restart...`, and `Power Off...`, and every action asks for
 confirmation. Configuration edits apply live while the screen is locked; only `pam-service` waits

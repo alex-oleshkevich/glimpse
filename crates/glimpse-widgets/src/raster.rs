@@ -142,19 +142,84 @@ pub fn blurred(
     texture: &gdk::Texture,
     sigma: f32,
 ) -> Option<gdk::Texture> {
-    let (width, height) = (texture.width() as f32, texture.height() as f32);
+    blurred_to(renderer, texture, sigma, texture.width())
+}
+
+pub fn blurred_to(
+    renderer: &gsk::Renderer,
+    texture: &gdk::Texture,
+    sigma: f32,
+    width: i32,
+) -> Option<gdk::Texture> {
+    let (source_width, source_height) = (texture.width().max(1), texture.height().max(1));
+    let (width, height) = blurred_size(source_width, source_height, width);
     let bounds = graphene::Rect::new(0.0, 0.0, width, height);
     let bleed = sigma * 3.0;
     let snapshot = gtk4::Snapshot::new();
-    snapshot.push_clip(&bounds);
     snapshot.push_blur(f64::from(sigma));
-    snapshot.append_texture(
-        texture,
-        &graphene::Rect::new(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed),
-    );
-    snapshot.pop();
+    for row in [-1, 0, 1] {
+        for column in [-1, 0, 1] {
+            let x = axis(column, width, bleed);
+            let y = axis(row, height, bleed);
+            snapshot.push_clip(&graphene::Rect::new(x.start, y.start, x.length, y.length));
+            snapshot.save();
+            snapshot.translate(&graphene::Point::new(x.shift, y.shift));
+            snapshot.scale(x.scale, y.scale);
+            snapshot.append_scaled_texture(
+                texture,
+                gsk::ScalingFilter::Trilinear,
+                &graphene::Rect::new(x.origin, y.origin, width, height),
+            );
+            snapshot.restore();
+            snapshot.pop();
+        }
+    }
     snapshot.pop();
     Some(renderer.render_texture(snapshot.to_node()?, Some(&bounds)))
+}
+
+fn blurred_size(source_width: i32, source_height: i32, width: i32) -> (f32, f32) {
+    let width = width.clamp(1, source_width.max(1)) as f32;
+    let height = (width * source_height as f32 / source_width.max(1) as f32)
+        .round()
+        .max(1.0);
+    (width, height)
+}
+
+#[derive(Debug, PartialEq)]
+struct Axis {
+    start: f32,
+    length: f32,
+    shift: f32,
+    scale: f32,
+    origin: f32,
+}
+
+fn axis(side: i32, size: f32, bleed: f32) -> Axis {
+    let bleed = bleed.min(size);
+    match side {
+        0 => Axis {
+            start: 0.0,
+            length: size,
+            shift: 0.0,
+            scale: 1.0,
+            origin: 0.0,
+        },
+        -1 => Axis {
+            start: -bleed,
+            length: bleed,
+            shift: 0.0,
+            scale: -1.0,
+            origin: 0.0,
+        },
+        _ => Axis {
+            start: size,
+            length: bleed,
+            shift: size,
+            scale: -1.0,
+            origin: -size,
+        },
+    }
 }
 
 pub fn texture(raster: &Raster) -> gdk::Texture {

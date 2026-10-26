@@ -22,6 +22,7 @@ glimpse-utils.workspace = true
 glimpse-widgets.workspace = true
 gtk4.workspace = true
 gtk4-session-lock.workspace = true
+libc.workspace = true
 pam-client2.workspace = true
 relm4.workspace = true
 rustix.workspace = true

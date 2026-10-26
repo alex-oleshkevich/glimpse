@@ -276,8 +276,12 @@ impl Mpris {
         if self.art.as_ref().is_some_and(|(held, _)| *held == path) {
             return;
         }
-        self.art = glimpse_widgets::artwork(std::path::Path::new(&path), ART)
-            .map(|texture| (path, texture));
+        self.art = glimpse_widgets::artwork(
+            std::path::Path::new(&path),
+            ART,
+            glimpse_widgets::Formats::Any,
+        )
+        .map(|texture| (path, texture));
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

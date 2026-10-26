@@ -32,6 +32,10 @@ fn session_sheet_states() {
 
     let (_, closed_height, _, _) = sheet.measure(gtk4::Orientation::Vertical, -1);
     assert_eq!(closed_height, 0, "a closed sheet paints no strip");
+    assert!(
+        !sheet.can_target(),
+        "a closed sheet takes no pointer, or it sits over whatever is beneath it"
+    );
 
     let requested = Rc::new(RefCell::new(Vec::new()));
     sheet.connect_action_requested({
@@ -73,12 +77,14 @@ fn session_sheet_states() {
 
     sheet.toggle();
     assert!(sheet.is_open(), "a closed sheet opens");
+    assert!(sheet.can_target(), "and an open one takes the pointer");
     assert!(
         exact_focus(&window, &*imp.suspend),
         "opening focuses exactly the suspend row"
     );
     sheet.toggle();
     assert!(!sheet.is_open(), "an open sheet closes");
+    assert!(!sheet.can_target());
     assert_eq!(closed.get(), 1, "closing fires the typed signal once");
 
     sheet.toggle();

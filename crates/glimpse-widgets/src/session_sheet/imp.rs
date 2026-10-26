@@ -221,6 +221,8 @@ impl ObjectImpl for SessionSheet {
             sheet,
             move |revealer| {
                 let imp = sheet.imp();
+                crate::set_css_class(&sheet, "session-sheet--open", revealer.reveals_child());
+                sheet.set_can_target(revealer.reveals_child());
                 if revealer.reveals_child() {
                     imp.focus_first_row();
                 } else {

@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use glimpse_config::{
-    Config, Documents, LOCK_STYLESHEET, Reload, Remember, Theme, watch_config, watch_theme,
+    Config, Documents, LOCK_STYLESHEET, Reload, Theme, watch_config, watch_theme,
 };
 use glimpse_dbus::Buses;
 use glimpse_dbus::accounts::{AccountsProxy, AccountsUserProxy};
@@ -16,11 +16,9 @@ use glimpse_dbus::notifications::{
     NotificationRecord, NotificationsProvider, NotificationsProviderHandle,
     NotificationsProviderState,
 };
-use glimpse_dbus::weather::{WeatherProvider, WeatherProviderState};
 use glimpse_services::{
-    Battery, BatteryState, Bluetooth, BluetoothState, Compositor, CompositorDependencies,
-    CompositorProvider, CompositorProviderHandle, CompositorState, Keyboard, KeyboardDependencies,
-    KeyboardLayouts, Mpris, MprisHandle, MprisPlayers, Network, NetworkState, PlayerAction,
+    Battery, BatteryState, Compositor, CompositorDependencies, CompositorProvider,
+    CompositorProviderHandle, CompositorState, Mpris, MprisHandle, MprisPlayers, PlayerAction,
     Running,
 };
 use glimpse_widgets::SessionActionState;
@@ -52,6 +50,8 @@ use crate::surface::{Look, PromptState, Surfaces};
 use crate::user;
 
 const ACCOUNTS_TIMEOUT: Duration = Duration::from_secs(5);
+const AVATAR_SIDE: i32 = 176;
+const ART_SIDE: i32 = 128;
 
 pub struct AppInit {
     pub config: Config,
@@ -78,7 +78,9 @@ pub enum AppInput {
     Outputs,
     Decoded(Key, Option<Raster>),
     SchemeChanged,
-    DisplayName(Option<String>),
+    DisplayName(Option<String>, Option<String>),
+    Avatar(u64, String, Option<gdk::Texture>),
+    Art(u64, String, glimpse_widgets::Artwork),
     SessionAnswers(session::Answers),
     SessionRequested(Action, u64),
     SessionResult(Action, u64, session::Outcome),
@@ -94,10 +96,6 @@ pub enum AppInput {
     Notifications(NotificationsProviderState),
     TrackAction(TransportAction),
     Battery(BatteryState),
-    Network(NetworkState),
-    Bluetooth(BluetoothState),
-    Layouts(KeyboardLayouts),
-    Weather(WeatherProviderState),
     Restore(Notice),
 }
 
@@ -113,7 +111,9 @@ impl std::fmt::Debug for AppInput {
             Self::Outputs => "Outputs",
             Self::Decoded(..) => "Decoded",
             Self::SchemeChanged => "SchemeChanged",
-            Self::DisplayName(_) => "DisplayName",
+            Self::DisplayName(..) => "DisplayName",
+            Self::Avatar(..) => "Avatar",
+            Self::Art(..) => "Art",
             Self::SessionAnswers(_) => "SessionAnswers",
             Self::SessionRequested(..) => "SessionRequested",
             Self::SessionResult(..) => "SessionResult",
@@ -123,10 +123,6 @@ impl std::fmt::Debug for AppInput {
             Self::Notifications(_) => "Notifications",
             Self::TrackAction(_) => "TrackAction",
             Self::Battery(_) => "Battery",
-            Self::Network(_) => "Network",
-            Self::Bluetooth(_) => "Bluetooth",
-            Self::Layouts(_) => "Layouts",
-            Self::Weather(_) => "Weather",
             Self::Restore(_) => "Restore",
         };
         f.write_str(name)
@@ -153,6 +149,9 @@ pub struct App {
     blur_renderer: Option<gsk::Renderer>,
     color: gdk::RGBA,
     display_name: Option<String>,
+    avatar: AvatarState,
+    art: ArtState,
+    art_worker: ArtWorker,
     session_answers: session::Answers,
     session: HashMap<&'static str, SessionActionState>,
     session_request_ids: Rc<Cell<u64>>,
@@ -275,6 +274,9 @@ impl SimpleComponent for App {
             blur_renderer: None,
             color,
             display_name: None,
+            avatar: AvatarState::default(),
+            art: ArtState::default(),
+            art_worker: ArtWorker::default(),
             session_answers: session::Answers::default(),
             session: HashMap::new(),
             session_request_ids: Rc::default(),
@@ -340,6 +342,9 @@ impl SimpleComponent for App {
                 if let Some(status_services) = &self.status_services {
                     status_services.reconfigure(&self.config);
                 }
+                if self.lock_active() {
+                    self.load_art(&sender);
+                }
                 self.restage();
                 if renamed {
                     self.theme_watch.abort();
@@ -387,6 +392,14 @@ impl SimpleComponent for App {
                 }
             }
             AppInput::Decoded(key, raster) => {
+                if self.surfaces.is_none() {
+                    self.backgrounds.land(key, None);
+                    return;
+                }
+                if !self.backgrounds.is_wanted(&key) {
+                    self.backgrounds.land(key, None);
+                    return;
+                }
                 let failed = raster.is_none().then(|| (key.connector.clone(), key.dark));
                 let texture = raster
                     .as_ref()
@@ -404,9 +417,38 @@ impl SimpleComponent for App {
                 self.restage();
             }
             AppInput::SchemeChanged => self.restage(),
-            AppInput::DisplayName(name) => {
+            AppInput::DisplayName(name, icon) => {
                 self.display_name = name;
+                if self.lock_active() {
+                    self.avatar.icon = icon;
+                    self.load_avatar(&sender);
+                }
                 self.restage();
+            }
+            AppInput::Avatar(generation, icon, avatar) => {
+                match self
+                    .avatar
+                    .take(generation, &icon, avatar, self.lock_active())
+                {
+                    AvatarTaken::Applied => self.restage(),
+                    AvatarTaken::Reload => self.load_avatar(&sender),
+                    AvatarTaken::Stale | AvatarTaken::Dropped => {}
+                }
+            }
+            AppInput::Art(generation, path, loaded) => {
+                let current = self.art_wanted().map(ToOwned::to_owned);
+                match self.art.take(
+                    generation,
+                    path,
+                    loaded,
+                    current.as_deref(),
+                    self.lock_active(),
+                    Instant::now(),
+                ) {
+                    ArtTaken::Changed => self.restage(),
+                    ArtTaken::Reload => self.load_art(&sender),
+                    ArtTaken::Stale | ArtTaken::Dropped | ArtTaken::Same => {}
+                }
             }
             AppInput::SessionAnswers(answers) => {
                 self.session_answers = answers;
@@ -452,6 +494,9 @@ impl SimpleComponent for App {
             }
             AppInput::Media(players) => {
                 self.mpris_players = players;
+                if self.lock_active() {
+                    self.load_art(&sender);
+                }
                 self.restage();
             }
             AppInput::Notifications(state) => {
@@ -462,26 +507,6 @@ impl SimpleComponent for App {
             AppInput::TrackAction(action) => self.control_track(action),
             AppInput::Battery(state) => {
                 if status::replace(&mut self.status.battery, status::battery(&state)) {
-                    self.restage();
-                }
-            }
-            AppInput::Network(state) => {
-                if status::replace(&mut self.status.network, status::network(&state)) {
-                    self.restage();
-                }
-            }
-            AppInput::Bluetooth(state) => {
-                if status::replace(&mut self.status.bluetooth, status::bluetooth(&state)) {
-                    self.restage();
-                }
-            }
-            AppInput::Layouts(layouts) => {
-                if status::replace(&mut self.status.layout, status::layout(&layouts)) {
-                    self.restage();
-                }
-            }
-            AppInput::Weather(state) => {
-                if status::replace(&mut self.status.weather, status::weather(&state)) {
                     self.restage();
                 }
             }
@@ -505,12 +530,20 @@ impl SimpleComponent for App {
 
 impl App {
     fn step(&mut self, input: Input, sender: &ComponentSender<Self>) {
+        let was_idle = self.machine.is_idle();
         for effect in self.machine.handle(input) {
             self.apply(effect, sender);
         }
         if self.machine.is_idle() {
             self.surfaces = None;
             self.lock_started = None;
+            if !was_idle {
+                self.backgrounds.clear();
+                self.release_artwork();
+                self.release_renderer();
+                return_heap();
+                glib::timeout_add_local_once(HEAP_RETURN_AFTER, return_heap);
+            }
         }
         self.render();
     }
@@ -536,12 +569,16 @@ impl App {
                 ));
                 self.decode(sender);
                 spawn_display_name(sender.clone());
+                self.load_avatar(sender);
+                self.load_art(sender);
                 self.logind(Request::FetchSessionActions);
             }
             Effect::Unlock => {
                 tracing::info!("authenticated; unlocking");
                 self.lock_started = None;
                 self.backgrounds.clear();
+                self.release_artwork();
+                self.release_renderer();
                 if let Some(surfaces) = &self.surfaces {
                     surfaces.unlock();
                 }
@@ -630,6 +667,7 @@ impl App {
             available: view.available,
             busy: view.busy,
             message: view.message.as_ref().map(Message::text),
+            lasting: view.message.as_ref().is_some_and(Message::lasting),
         });
     }
 
@@ -656,11 +694,94 @@ impl App {
                 )
             }),
             user: self.display_name.clone().or_else(|| self.user.clone()),
+            avatar: self.avatar.shown.clone(),
             prompt_output: lock.prompt_output.clone(),
             session: self.session.clone(),
-            track: media::track_of(&self.mpris_players, lock.media.enabled),
-            chips: self.chip_groups(),
+            track: media::track_of(
+                &self.mpris_players,
+                lock.media.enabled,
+                self.art.shown.as_ref(),
+            ),
+            notifications: self.chip_groups(),
             status: status::shown(&self.status, lock.status.enabled),
+        }
+    }
+
+    fn release_artwork(&mut self) {
+        self.avatar.release();
+        self.art.release();
+        self.art_worker.release();
+    }
+
+    fn release_renderer(&mut self) {
+        if let Some(renderer) = self.blur_renderer.take() {
+            renderer.unrealize();
+        }
+    }
+
+    fn load_avatar(&mut self, sender: &ComponentSender<Self>) {
+        let Some(request) = self.avatar.request(self.lock_active()) else {
+            return;
+        };
+        let sender = sender.clone();
+        let generation = request.generation;
+        let queued = self.art_worker.submit(move || {
+            let AvatarRequest { generation, icon } = request;
+            let avatar = std::panic::catch_unwind(|| {
+                glimpse_widgets::artwork(
+                    std::path::Path::new(&icon),
+                    AVATAR_SIDE,
+                    glimpse_widgets::Formats::Strict,
+                )
+            })
+            .unwrap_or_default();
+            sender.input(AppInput::Avatar(generation, icon, avatar));
+        });
+        if !queued {
+            self.avatar.job.finish(generation);
+        }
+    }
+
+    fn lock_active(&self) -> bool {
+        self.surfaces.is_some() && self.machine.is_locking()
+    }
+
+    fn art_wanted(&self) -> Option<&str> {
+        match self.config.lock.media.enabled {
+            true => media::art_path(&self.mpris_players),
+            false => None,
+        }
+    }
+
+    fn load_art(&mut self, sender: &ComponentSender<Self>) {
+        let wanted = self.art_wanted().map(ToOwned::to_owned);
+        let Some(request) = self
+            .art
+            .request(wanted.as_deref(), self.lock_active(), Instant::now())
+        else {
+            return;
+        };
+        let sender = sender.clone();
+        let generation = request.generation;
+        let queued = self.art_worker.submit(move || {
+            let ArtRequest {
+                generation,
+                path,
+                known,
+            } = request;
+            let loaded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                glimpse_widgets::cached_artwork(
+                    std::path::Path::new(&path),
+                    ART_SIDE,
+                    glimpse_widgets::Formats::Strict,
+                    known.as_ref(),
+                )
+            }))
+            .unwrap_or(glimpse_widgets::Artwork::Rejected(None));
+            sender.input(AppInput::Art(generation, path, loaded));
+        });
+        if !queued {
+            self.art.job.finish(generation);
         }
     }
 
@@ -767,6 +888,239 @@ impl App {
     }
 }
 
+const ART_RETRY_AFTER: Duration = Duration::from_secs(30);
+
+const HEAP_RETURN_AFTER: Duration = Duration::from_secs(2);
+
+#[derive(Default)]
+struct ArtWorker {
+    jobs: Option<std::sync::mpsc::Sender<Box<dyn FnOnce() + Send>>>,
+}
+
+impl ArtWorker {
+    fn submit(&mut self, job: impl FnOnce() + Send + 'static) -> bool {
+        if self.jobs.is_none() {
+            let (jobs, queue) = std::sync::mpsc::channel::<Box<dyn FnOnce() + Send>>();
+            let started = std::thread::Builder::new()
+                .name("glimpse-lock-art".to_owned())
+                .spawn(move || queue.into_iter().for_each(|job| job()));
+            if let Err(error) = started {
+                tracing::warn!(%error, "cannot start the art decode thread");
+                return false;
+            }
+            self.jobs = Some(jobs);
+        }
+        let sent = self
+            .jobs
+            .as_ref()
+            .is_some_and(|jobs| jobs.send(Box::new(job)).is_ok());
+        if !sent {
+            tracing::warn!("the art decode thread is gone");
+            self.jobs = None;
+        }
+        sent
+    }
+
+    fn release(&mut self) {
+        self.jobs = None;
+    }
+}
+
+fn return_heap() {
+    unsafe { libc::malloc_trim(0) };
+}
+
+#[derive(Default)]
+struct Job {
+    loading: bool,
+    generation: u64,
+}
+
+impl Job {
+    fn begin(&mut self) -> Option<u64> {
+        if self.loading {
+            return None;
+        }
+        self.loading = true;
+        Some(self.generation)
+    }
+
+    fn finish(&mut self, generation: u64) -> bool {
+        if generation != self.generation {
+            return false;
+        }
+        self.loading = false;
+        true
+    }
+
+    fn release(&mut self) {
+        self.loading = false;
+        self.generation += 1;
+    }
+}
+
+#[derive(Default)]
+struct ArtState {
+    shown: Option<(String, gdk::Texture)>,
+    seen: Option<(String, glimpse_widgets::Stamp)>,
+    failed: Option<(String, Instant)>,
+    job: Job,
+}
+
+struct ArtRequest {
+    generation: u64,
+    path: String,
+    known: Option<glimpse_widgets::Stamp>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ArtTaken {
+    Stale,
+    Dropped,
+    Reload,
+    Same,
+    Changed,
+}
+
+impl ArtState {
+    fn request(&mut self, wanted: Option<&str>, locked: bool, now: Instant) -> Option<ArtRequest> {
+        let Some(path) = wanted else {
+            self.shown = None;
+            self.seen = None;
+            self.failed = None;
+            return None;
+        };
+        if !locked {
+            return None;
+        }
+        if let Some((failed, at)) = &self.failed
+            && failed == path
+            && now.saturating_duration_since(*at) < ART_RETRY_AFTER
+        {
+            return None;
+        }
+        let generation = self.job.begin()?;
+        let known = self
+            .seen
+            .as_ref()
+            .filter(|(seen, _)| seen == path)
+            .map(|(_, stamp)| stamp.clone());
+        Some(ArtRequest {
+            generation,
+            path: path.to_owned(),
+            known,
+        })
+    }
+
+    fn take(
+        &mut self,
+        generation: u64,
+        path: String,
+        loaded: glimpse_widgets::Artwork,
+        wanted: Option<&str>,
+        locked: bool,
+        now: Instant,
+    ) -> ArtTaken {
+        if !self.job.finish(generation) {
+            return ArtTaken::Stale;
+        }
+        if !locked {
+            return ArtTaken::Dropped;
+        }
+        if wanted != Some(path.as_str()) {
+            return ArtTaken::Reload;
+        }
+        match loaded {
+            glimpse_widgets::Artwork::Unchanged => ArtTaken::Same,
+            glimpse_widgets::Artwork::Decoded(texture, stamp) => {
+                self.failed = None;
+                self.seen = Some((path.clone(), stamp));
+                self.shown = Some((path, texture));
+                ArtTaken::Changed
+            }
+            glimpse_widgets::Artwork::Rejected(stamp) => {
+                self.failed = match &stamp {
+                    Some(_) => None,
+                    None => Some((path.clone(), now)),
+                };
+                self.seen = stamp.map(|stamp| (path, stamp));
+                match self.shown.take() {
+                    Some(_) => ArtTaken::Changed,
+                    None => ArtTaken::Same,
+                }
+            }
+        }
+    }
+
+    fn release(&mut self) {
+        self.shown = None;
+        self.seen = None;
+        self.failed = None;
+        self.job.release();
+    }
+}
+
+#[derive(Default)]
+struct AvatarState {
+    icon: Option<String>,
+    shown: Option<gdk::Texture>,
+    tried: bool,
+    job: Job,
+}
+
+struct AvatarRequest {
+    generation: u64,
+    icon: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AvatarTaken {
+    Stale,
+    Dropped,
+    Reload,
+    Applied,
+}
+
+impl AvatarState {
+    fn request(&mut self, locked: bool) -> Option<AvatarRequest> {
+        if !locked || self.tried {
+            return None;
+        }
+        let icon = self.icon.clone().filter(|icon| !icon.is_empty())?;
+        let generation = self.job.begin()?;
+        self.tried = true;
+        Some(AvatarRequest { generation, icon })
+    }
+
+    fn take(
+        &mut self,
+        generation: u64,
+        icon: &str,
+        avatar: Option<gdk::Texture>,
+        locked: bool,
+    ) -> AvatarTaken {
+        if !self.job.finish(generation) {
+            return AvatarTaken::Stale;
+        }
+        if !locked {
+            return AvatarTaken::Dropped;
+        }
+        if self.icon.as_deref() != Some(icon) {
+            self.tried = false;
+            return AvatarTaken::Reload;
+        }
+        self.shown = avatar;
+        AvatarTaken::Applied
+    }
+
+    fn release(&mut self) {
+        self.shown = None;
+        self.icon = None;
+        self.tried = false;
+        self.job.release();
+    }
+}
+
 fn offscreen_renderer() -> Option<gsk::Renderer> {
     let display = gdk::Display::default()?;
     let renderer = gsk::GLRenderer::new().upcast::<gsk::Renderer>();
@@ -782,28 +1136,18 @@ fn offscreen_renderer() -> Option<gsk::Renderer> {
 fn hosted(config: &Config) -> Config {
     let mut config = config.clone();
     config.mpris.fetch_art = false;
-    config.keyboard.remember = Remember::Global;
     config
 }
 
 pub struct StatusServices {
     compositor: Running<Compositor>,
-    keyboard: Running<Keyboard>,
     battery: Running<Battery>,
-    network: Running<Network>,
-    bluetooth: Running<Bluetooth>,
-    _weather: WeatherProvider,
     _compositor_provider: CompositorProvider,
     feeds: Vec<JoinHandle<()>>,
 }
 
 impl StatusServices {
-    fn start(
-        config: &Config,
-        buses: Buses,
-        weather: WeatherProvider,
-        sender: &ComponentSender<App>,
-    ) -> Self {
+    fn start(config: &Config, buses: Buses, sender: &ComponentSender<App>) -> Self {
         let config = hosted(config);
         let compositor_provider = match buses.session_bus() {
             Ok(connection) => CompositorProvider::start(connection.clone()),
@@ -817,33 +1161,15 @@ impl StatusServices {
                 provider: provider.clone(),
             },
         );
-        let (keyboard, layouts) = Running::<Keyboard>::spawn(
-            &config,
-            buses.clone(),
-            KeyboardDependencies {
-                provider: provider.clone(),
-            },
-        );
-        let (battery, battery_handle) =
-            Running::<Battery>::spawn(&config, buses.clone(), <_>::default());
-        let (network, network_handle) = Running::<Network>::spawn(&config, buses.clone(), ());
-        let (bluetooth, bluetooth_handle) = Running::<Bluetooth>::spawn(&config, buses, ());
+        let (battery, battery_handle) = Running::<Battery>::spawn(&config, buses, <_>::default());
         let feeds = vec![
             forward_focus(compositor_handle.subscribe(), sender),
             forward_restore(provider, sender),
-            forward(layouts.subscribe(), sender, AppInput::Layouts),
             forward(battery_handle.subscribe(), sender, AppInput::Battery),
-            forward_reports(network_handle.subscribe(), sender, AppInput::Network),
-            forward(bluetooth_handle.subscribe(), sender, AppInput::Bluetooth),
-            forward(weather.handle().subscribe(), sender, AppInput::Weather),
         ];
         Self {
             compositor,
-            keyboard,
             battery,
-            network,
-            bluetooth,
-            _weather: weather,
             _compositor_provider: compositor_provider,
             feeds,
         }
@@ -852,10 +1178,7 @@ impl StatusServices {
     fn reconfigure(&self, config: &Config) {
         let config = hosted(config);
         self.compositor.reconfigure(&config);
-        self.keyboard.reconfigure(&config);
         self.battery.reconfigure(&config);
-        self.network.reconfigure(&config);
-        self.bluetooth.reconfigure(&config);
     }
 }
 
@@ -870,18 +1193,12 @@ impl Drop for StatusServices {
 fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()> {
     relm4::spawn(async move {
         let buses = Buses::connect().await;
-        let (notifications_service, weather) = match buses.session_bus() {
-            Ok(connection) => (
-                NotificationsProvider::start(connection.clone()),
-                WeatherProvider::start(connection.clone()),
-            ),
-            Err(reason) => (
-                NotificationsProvider::unavailable(reason),
-                WeatherProvider::unavailable(reason),
-            ),
+        let notifications_service = match buses.session_bus() {
+            Ok(connection) => NotificationsProvider::start(connection.clone()),
+            Err(reason) => NotificationsProvider::unavailable(reason),
         };
         let notifications = notifications_service.handle();
-        let status_services = StatusServices::start(&config, buses.clone(), weather, &sender);
+        let status_services = StatusServices::start(&config, buses.clone(), &sender);
         let (mpris_service, mpris) = Running::<Mpris>::spawn(&hosted(&config), buses, ());
         sender.input(AppInput::ServicesReady {
             mpris_service,
@@ -903,15 +1220,6 @@ fn forward<T: Clone + Send + Sync + 'static>(
         sender.input(wrap(states.borrow_and_update().clone()));
         reports(states, |state| sender.input(wrap(state))).await;
     })
-}
-
-fn forward_reports<T: Clone + Send + Sync + 'static>(
-    states: watch::Receiver<T>,
-    sender: &ComponentSender<App>,
-    wrap: fn(T) -> AppInput,
-) -> JoinHandle<()> {
-    let sender = sender.clone();
-    relm4::spawn(reports(states, move |state| sender.input(wrap(state))))
 }
 
 async fn reports<T: Clone>(mut states: watch::Receiver<T>, send: impl Fn(T)) {
@@ -1092,10 +1400,13 @@ fn spawn_display_name(sender: ComponentSender<App>) {
                 .map_err(|error| error.to_string())?;
             let real_name = account.real_name().await.unwrap_or_default();
             let user_name = account.user_name().await.unwrap_or_default();
-            Ok::<_, String>(user::display_name(&real_name, &user_name))
+            let icon = account.icon_file().await.unwrap_or_default();
+            Ok::<_, String>((user::display_name(&real_name, &user_name), icon))
         };
         match tokio::time::timeout(ACCOUNTS_TIMEOUT, fetch).await {
-            Ok(Ok(name)) => sender.input(AppInput::DisplayName(name)),
+            Ok(Ok((name, icon))) => {
+                sender.input(AppInput::DisplayName(name, Some(icon)));
+            }
             Ok(Err(error)) => tracing::debug!(%error, "no display name from AccountsService"),
             Err(_) => tracing::debug!("AccountsService did not answer in time"),
         }

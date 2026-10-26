@@ -135,6 +135,10 @@ impl<T> Cache<T> {
         due
     }
 
+    pub fn is_wanted(&self, key: &Key) -> bool {
+        self.wanted().any(|wanted| wanted == *key)
+    }
+
     pub fn land(&mut self, key: Key, value: Option<T>) -> bool {
         self.pending.retain(|pending| pending != &key);
         if !self.wanted().any(|wanted| wanted == key) {

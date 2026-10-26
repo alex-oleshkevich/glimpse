@@ -1,6 +1,6 @@
 mod imp;
 
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::TransportAction;
 
@@ -23,7 +23,12 @@ pub struct Track {
     pub playing: bool,
     pub can_play_pause: bool,
     pub can_next: bool,
+    pub art: Option<gdk::Texture>,
 }
+
+const ICON_SIZE: i32 = 28;
+const ART_SIZE: i32 = 56;
+const ART_PLACEHOLDER: &str = "audio-x-generic-symbolic";
 
 impl TrackCard {
     pub fn new() -> Self {
@@ -43,6 +48,7 @@ impl TrackCard {
         self.set_visible(true);
         set_cleaned(&imp.title, &track.title, crate::TEXT_MAX_CHARS);
         set_cleaned(&imp.artist, &track.artist, crate::TEXT_MAX_CHARS);
+        set_art(&imp.art, track.art.as_ref());
 
         if imp.playing.replace(track.playing) != track.playing {
             crate::set_play_pause(&imp.play, track.playing);
@@ -64,6 +70,25 @@ impl TrackCard {
             false,
             glib::closure_local!(move |card: Self, action: TransportAction| f(&card, action)),
         )
+    }
+}
+
+fn set_art(image: &gtk4::Image, art: Option<&gdk::Texture>) {
+    match art {
+        Some(art) => {
+            if image.paintable().as_ref() == Some(art.upcast_ref::<gdk::Paintable>()) {
+                return;
+            }
+            image.set_paintable(Some(art));
+            image.set_pixel_size(ART_SIZE);
+        }
+        None => {
+            if image.icon_name().as_deref() == Some(ART_PLACEHOLDER) {
+                return;
+            }
+            image.set_icon_name(Some(ART_PLACEHOLDER));
+            image.set_pixel_size(ICON_SIZE);
+        }
     }
 }
 

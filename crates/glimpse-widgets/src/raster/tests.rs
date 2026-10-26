@@ -370,3 +370,78 @@ fn a_cover_plan_past_the_ceiling_keeps_the_source_and_output_aspects() {
     );
     assert!((aspect(crop.width, crop.height) - aspect(output.width, output.height)).abs() < 0.01);
 }
+
+#[test]
+fn a_blurred_copy_keeps_the_aspect_and_is_never_enlarged() {
+    assert_eq!(blurred_size(3840, 2160, 480), (480.0, 270.0));
+    assert_eq!(blurred_size(300, 200, 480), (300.0, 200.0));
+    assert_eq!(blurred_size(1000, 1, 10), (10.0, 1.0));
+    assert_eq!(blurred_size(100, 100, 0), (1.0, 1.0));
+}
+
+#[test]
+fn the_middle_of_an_axis_is_the_image_itself() {
+    let axis = axis(0, 480.0, 30.0);
+    assert_eq!((axis.start, axis.length), (0.0, 480.0));
+    assert_eq!((axis.shift, axis.scale, axis.origin), (0.0, 1.0, 0.0));
+}
+
+fn world(axis: &Axis, local: f32) -> f32 {
+    axis.shift + axis.scale * local
+}
+
+#[test]
+fn the_border_cells_mirror_the_image_across_its_edge() {
+    let (size, bleed) = (480.0_f32, 30.0_f32);
+
+    let low = axis(-1, size, bleed);
+    assert_eq!((low.start, low.length), (-bleed, bleed));
+    assert_eq!(
+        world(&low, low.origin),
+        0.0,
+        "the image's first column stays at the edge"
+    );
+    assert_eq!(
+        world(&low, low.origin + size),
+        -size,
+        "and the rest folds outwards"
+    );
+
+    let high = axis(1, size, bleed);
+    assert_eq!((high.start, high.length), (size, bleed));
+    assert_eq!(
+        world(&high, high.origin + size),
+        size,
+        "the last column stays at the edge"
+    );
+    assert_eq!(
+        world(&high, high.origin),
+        2.0 * size,
+        "and the rest folds outwards"
+    );
+}
+
+#[test]
+fn every_tile_is_no_larger_than_the_image() {
+    for side in [-1, 0, 1] {
+        let axis = axis(side, 480.0, 30.0);
+        assert!(axis.length <= 480.0);
+        assert!(
+            axis.scale.abs() == 1.0,
+            "no tile is stretched, so none exceeds the image"
+        );
+    }
+}
+
+#[test]
+fn a_bleed_wider_than_the_image_is_cut_to_it_so_no_gap_opens() {
+    let low = axis(-1, 10.0, 30.0);
+    assert_eq!((low.start, low.length), (-10.0, 10.0));
+    let high = axis(1, 10.0, 30.0);
+    assert_eq!((high.start, high.length), (10.0, 10.0));
+    assert_eq!(
+        world(&high, high.origin),
+        20.0,
+        "the mirrored tile still ends at the cell"
+    );
+}

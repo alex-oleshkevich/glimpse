@@ -744,7 +744,7 @@
           }
         },
         "status": {
-          "description": "Weather, battery, keyboard layout, Bluetooth and network on your lock screen.",
+          "description": "The battery level on your lock screen.",
           "$ref": "#/$defs/LockSection",
           "default": {
             "enabled": true

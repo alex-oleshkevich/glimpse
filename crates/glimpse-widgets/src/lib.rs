@@ -39,7 +39,6 @@ mod network_popover;
 mod next_event_popover;
 mod notice;
 mod notification_card;
-mod notification_chips;
 mod notification_header;
 mod notification_image_body;
 mod notification_stack;
@@ -98,7 +97,7 @@ mod world_clock;
 
 pub use action_row::ActionRow;
 pub use applet_popover::{AppletPopover, PopoverSize};
-pub use artwork::{Thumbnail, artwork, thumbnail};
+pub use artwork::{Artwork, Formats, Stamp, Thumbnail, artwork, cached_artwork, thumbnail};
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
@@ -142,7 +141,6 @@ pub use network_popover::{
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_card::{Action, Body, Notification, NotificationCard, Urgency};
-pub use notification_chips::{ChipGroup, NotificationChips};
 pub use notification_header::{NotificationHeader, notification_icon};
 pub use notification_image_body::{NotificationImageBody, notification_image};
 pub use notification_stack::NotificationStack;
@@ -188,7 +186,7 @@ pub use shot_window_list::{ShotWindowEntry, ShotWindowList};
 pub use slider_row::SliderRow;
 pub use source_list::{Source, SourceList};
 pub use sparkline::{Sparkline, Tick};
-pub use status_island::StatusIsland;
+pub use status_island::{ChipGroup, StatusIsland};
 pub use swatch::{Swatch, rgba};
 pub(crate) use theme::animation_ms;
 pub use theme::{Styles, color_scheme, duration_ms};

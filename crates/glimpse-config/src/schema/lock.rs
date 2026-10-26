@@ -17,7 +17,7 @@ pub struct Lock {
     pub background: Background,
     /// The time and date on your lock screen.
     pub clock: Clock,
-    /// Weather, battery, keyboard layout, Bluetooth and network on your lock screen.
+    /// The battery level on your lock screen.
     pub status: Section,
     /// Notifications received while the screen is locked.
     pub notifications: Notifications,

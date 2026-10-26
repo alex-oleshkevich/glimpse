@@ -26,7 +26,7 @@ an unknown placeholder is printed as typed.
 
 <ConfigTable path="lock.status" describe />
 
-Turning off this table hides the status island but leaves the session button.
+Turning off this table hides the battery level but leaves the session button.
 
 <ConfigTable path="lock.notifications" describe />
 

@@ -166,3 +166,19 @@ fn logind_unlock_unlocks_nothing() {
     assert_eq!(machine.handle(Input::Unlocked(0)), vec![]);
     assert_eq!(machine.handle(Input::Submit), vec![Effect::StartAttempt(1)]);
 }
+
+#[test]
+fn the_lock_is_active_from_acquiring_until_the_unlock_begins() {
+    let (mut machine, _) = started(DAEMON, false);
+    assert!(!machine.is_locking(), "idle before any lock");
+    machine.handle(Input::LockRequested);
+    assert!(machine.is_locking(), "acquiring counts, the surfaces exist");
+    machine.handle(Input::Locked(1));
+    assert!(machine.is_locking());
+    machine.handle(Input::Submit);
+    machine.handle(Input::AuthFinished {
+        attempt: 1,
+        verdict: UNLOCKED,
+    });
+    assert!(!machine.is_locking(), "unlocking no longer holds the lock");
+}

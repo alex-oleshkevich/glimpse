@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-25 14:15+0100\n"
+"POT-Creation-Date: 2026-10-26 19:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -56,9 +56,9 @@ msgstr ""
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
 #: crates/glimpse-widgets/blueprints/network_popover.blp:160
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:106
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:156
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:206
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:125
 #: docs/plans/glimpse-agents/agents_bt_1.blp:45
 #: docs/plans/glimpse-agents/agents_bt_2.blp:50
@@ -262,7 +262,7 @@ msgstr ""
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:160
 #: docs/plans/glimpse-agents/agents_session_2.blp:43
 msgid "Restart"
 msgstr ""
@@ -358,7 +358,6 @@ msgstr ""
 
 #: crates/glimpse-lock/src/chips.rs:38
 #: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
-#: crates/glimpse-widgets/src/notification_chips/imp.rs:28
 msgid "Notifications"
 msgstr ""
 
@@ -649,7 +648,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:381
+#: crates/glimpse-widgets/src/lib.rs:379
 msgid "{percent}%"
 msgstr ""
 
@@ -1283,7 +1282,7 @@ msgstr ""
 msgid "Built-in display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:345
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:349
 msgid "Open {player}"
 msgstr ""
 
@@ -1583,7 +1582,7 @@ msgid "No new notifications"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/notifications/render.rs:62
-#: crates/glimpse-widgets/src/notification_chips/mod.rs:105
+#: crates/glimpse-widgets/src/status_island/mod.rs:101
 msgid "{count} new notification"
 msgid_plural "{count} new notifications"
 msgstr[0] ""
@@ -1639,8 +1638,8 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/power/mod.rs:317
 #: crates/glimpse-panel/src/applets/power/render.rs:27
 #: crates/glimpse-widgets/blueprints/power_popover.blp:12
-#: crates/glimpse-widgets/blueprints/status_island.blp:34
-#: crates/glimpse-widgets/blueprints/status_island.blp:37
+#: crates/glimpse-widgets/blueprints/status_island.blp:18
+#: crates/glimpse-widgets/blueprints/status_island.blp:21
 msgid "Power"
 msgstr ""
 
@@ -2548,7 +2547,7 @@ msgid "Previous"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:66
-#: crates/glimpse-widgets/blueprints/track_card.blp:63
+#: crates/glimpse-widgets/blueprints/track_card.blp:75
 #: crates/glimpse-widgets/blueprints/transport.blp:53
 msgid "Next"
 msgstr ""
@@ -2700,9 +2699,9 @@ msgid "Empty the trash"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
-#: crates/glimpse-widgets/blueprints/track_card.blp:52
+#: crates/glimpse-widgets/blueprints/track_card.blp:64
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:323
+#: crates/glimpse-widgets/src/lib.rs:321
 msgid "Play"
 msgstr ""
 
@@ -2747,7 +2746,7 @@ msgid "Lock"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/session_popover.blp:17
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:110
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
 msgid "Suspend"
 msgstr ""
@@ -2756,40 +2755,40 @@ msgstr ""
 msgid "Shut down"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:41
 msgid "Suspend…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:40
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:47
 msgid "Restart…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:46
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:53
 msgid "Power Off…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:75
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:82
 msgid "Suspend now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:84
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:91
 msgid "The screen stays locked when it wakes."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:125
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:132
 msgid "Restart now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:134
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:184
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:141
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:191
 msgid "Open sessions may lose unsaved work."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:175
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:182
 msgid "Power off now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:203
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:210
 msgid "Power Off"
 msgstr ""
 
@@ -3448,7 +3447,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:322
+#: crates/glimpse-widgets/src/lib.rs:320
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Pause"
 msgstr ""
@@ -3459,10 +3458,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/notification_card/imp.rs:181
 msgid "Dismiss {notification}"
-msgstr ""
-
-#: crates/glimpse-widgets/src/notification_chips/mod.rs:114
-msgid "{app}: {notifications}"
 msgstr ""
 
 #: crates/glimpse-widgets/src/notification_stack/mod.rs:236
@@ -3525,6 +3520,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/shot_window_list/mod.rs:140
 msgid "captured when picked"
+msgstr ""
+
+#: crates/glimpse-widgets/src/status_island/mod.rs:110
+msgid "{app}: {notifications}"
 msgstr ""
 
 #: crates/glimpse-widgets/src/workspace_section/mod.rs:73

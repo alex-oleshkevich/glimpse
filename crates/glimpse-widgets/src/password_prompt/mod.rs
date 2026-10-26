@@ -7,7 +7,7 @@ use zeroize::Zeroizing;
 
 use crate::{set_css_class, set_text_capped};
 
-const USER_MAX_CHARS: usize = 64;
+pub(crate) const USER_MAX_CHARS: usize = 64;
 const MESSAGE_MAX_CHARS: usize = 120;
 const ERROR: &str = "password-prompt__message--error";
 const SHAKE: &str = "password-prompt--shake";
@@ -18,6 +18,7 @@ pub enum MessageKind {
     #[default]
     Info,
     Error,
+    Lasting,
 }
 
 glib::wrapper! {
@@ -35,6 +36,39 @@ impl Default for PasswordPrompt {
 impl PasswordPrompt {
     pub fn new() -> Self {
         glib::Object::new()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.imp().text().is_none_or(|text| text.text_length() == 0)
+    }
+
+    pub fn is_available(&self) -> bool {
+        !self.imp().unavailable.get()
+    }
+
+    pub fn is_busy(&self) -> bool {
+        self.imp().busy.get()
+    }
+
+    pub fn clear(&self) {
+        self.imp().entry.set_text("");
+        self.imp().conceal();
+    }
+
+    pub fn forward_key(&self, keys: &gtk4::EventControllerKey) -> bool {
+        self.imp().text().is_some_and(|text| keys.forward(&text))
+    }
+
+    pub fn preempt(&self, typed: char) {
+        let imp = self.imp();
+        if !imp.entry.is_editable() || typed.is_control() {
+            return;
+        }
+        let mut bytes = Zeroizing::new([0u8; 4]);
+        let mut position = imp.entry.position();
+        imp.entry
+            .insert_text(typed.encode_utf8(&mut *bytes), &mut position);
+        imp.entry.set_position(position);
     }
 
     pub fn set_user(&self, user: Option<&str>) {
@@ -56,11 +90,12 @@ impl PasswordPrompt {
         imp.sync_editable();
     }
 
-    pub fn set_message(&self, text: Option<&str>, kind: MessageKind) {
+    pub fn set_message(&self, text: Option<&str>, kind: MessageKind) -> bool {
         let message = &self.imp().message;
         let text = glimpse_utils::clean(text.unwrap_or_default(), MESSAGE_MAX_CHARS);
-        let error = kind == MessageKind::Error && !text.is_empty();
-        if message.text().as_str() != text {
+        let error = kind != MessageKind::Info && !text.is_empty();
+        let changed = message.text().as_str() != text;
+        if changed {
             message.set_text(&text);
             if error {
                 self.announce(&text, gtk4::AccessibleAnnouncementPriority::High);
@@ -69,6 +104,7 @@ impl PasswordPrompt {
         if message.has_css_class(ERROR) != error {
             set_css_class(&**message, ERROR, error);
         }
+        changed
     }
 
     pub fn set_caps_lock(&self, on: bool) {
