@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev libheif-dev \
             libpam0g-dev libglib2.0-dev libclang-dev libpulse-dev libpipewire-0.3-dev libudev-dev \
-            libsystemd-dev pkg-config desktop-file-utils gettext python3-venv python3-gi python3-dbus
+            libsystemd-dev pkg-config desktop-file-utils gettext ripgrep python3-venv python3-gi python3-dbus
       - name: Install blueprint-compiler
         run: |
           python3 -m venv --system-site-packages "$RUNNER_TEMP/blueprint-compiler"

@@ -79,7 +79,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y $BUILD_DEPS desktop-file-utils gettext python3-venv python3-gi python3-dbus
+          sudo apt-get install -y $BUILD_DEPS desktop-file-utils gettext ripgrep python3-venv python3-gi python3-dbus
       - name: Install blueprint-compiler
         run: |
           python3 -m venv --system-site-packages "$RUNNER_TEMP/blueprint-compiler"
