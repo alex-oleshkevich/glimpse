@@ -47,7 +47,12 @@ pub enum Phase {
 
 #[derive(Debug)]
 pub enum Input {
-    Start { locked_hint: bool },
+    Start,
+    BackendLost,
+    BackendReady {
+        initial_hint: Option<bool>,
+        preparing_for_sleep: bool,
+    },
     LockRequested,
     UnlockRequested,
     PrepareForSleep(bool),
@@ -58,7 +63,10 @@ pub enum Input {
     Unpainted(u64),
     SleepDeadline(u64),
     Submit,
-    AuthFinished { attempt: u64, verdict: Verdict },
+    AuthFinished {
+        attempt: u64,
+        verdict: Verdict,
+    },
     AuthTimedOut(u64),
 }
 
@@ -95,9 +103,11 @@ pub struct Lifecycle {
     phase: Phase,
     generation: u64,
     relock: bool,
-    hint_set: bool,
+    hint_set: Option<bool>,
+    hint_replay: bool,
     painted: bool,
     sleeping: bool,
+    backend_available: bool,
     sleep: Option<u64>,
     sleeps: u64,
     attempts: u64,
@@ -119,9 +129,11 @@ impl Lifecycle {
             phase: Phase::Idle,
             generation: 0,
             relock: false,
-            hint_set: false,
+            hint_set: None,
+            hint_replay: false,
             painted: false,
             sleeping: false,
+            backend_available: settings.standalone,
             sleep: None,
             sleeps: 0,
             attempts: 0,
@@ -142,7 +154,9 @@ impl Lifecycle {
     pub fn prompt(&self) -> PromptView {
         PromptView {
             available: self.settings.refusal.is_none(),
-            busy: self.current.is_some() || self.in_flight.len() >= MAX_THREADS,
+            busy: !self.backend_available
+                || self.current.is_some()
+                || self.in_flight.len() >= MAX_THREADS,
             message: self.message.clone(),
         }
     }
@@ -150,7 +164,17 @@ impl Lifecycle {
     pub fn handle(&mut self, input: Input) -> Vec<Effect> {
         let mut effects = Vec::new();
         match input {
-            Input::Start { locked_hint } => self.start(locked_hint, &mut effects),
+            Input::Start => self.start(false, &mut effects),
+            Input::BackendLost => {
+                if !self.settings.standalone {
+                    self.backend_available = false;
+                    self.current = None;
+                }
+            }
+            Input::BackendReady {
+                initial_hint,
+                preparing_for_sleep,
+            } => self.backend_ready(initial_hint, preparing_for_sleep, &mut effects),
             Input::LockRequested => self.lock_requested(&mut effects),
             Input::UnlockRequested => {
                 tracing::info!("ignoring logind Unlock: only local authentication ends a lock");
@@ -190,6 +214,9 @@ impl Lifecycle {
 
     fn start(&mut self, locked_hint: bool, effects: &mut Vec<Effect>) {
         if self.settings.standalone {
+            if self.phase != Phase::Idle {
+                return;
+            }
             match self.settings.refusal {
                 Some(refusal) => {
                     effects.push(Effect::Notify(Notice::NotLocked(refusal.into())));
@@ -202,9 +229,49 @@ impl Lifecycle {
         if self.inhibits() {
             effects.push(Effect::TakeInhibitor);
         }
-        if locked_hint && self.settings.refusal != Some(Refusal::NoSessionLock) {
+        if locked_hint
+            && self.phase == Phase::Idle
+            && self.settings.refusal != Some(Refusal::NoSessionLock)
+        {
             tracing::warn!("LockedHint is set at start; re-acquiring the lock");
             self.lock(effects);
+        }
+    }
+
+    fn backend_ready(
+        &mut self,
+        initial_hint: Option<bool>,
+        preparing: bool,
+        effects: &mut Vec<Effect>,
+    ) {
+        self.backend_available = true;
+        if let Some(hint) = initial_hint {
+            self.start(hint, effects);
+        }
+        let was_sleeping = self.sleeping;
+        if preparing {
+            if !self.sleeping {
+                self.prepare_for_sleep(effects);
+            }
+            if initial_hint.is_none() && self.inhibits() {
+                if self.sleep.is_some() {
+                    effects.push(Effect::TakeInhibitor);
+                } else if was_sleeping {
+                    effects.push(Effect::ReleaseInhibitor);
+                }
+            }
+        } else if initial_hint.is_none() || self.sleeping {
+            self.resumed(effects);
+        }
+        if !self.settings.standalone
+            && let Some(locked) = self.hint_set
+        {
+            if self.phase == Phase::Acquiring {
+                self.hint_replay = locked;
+            } else {
+                self.hint_replay = false;
+                effects.push(Effect::SetLockedHint(locked));
+            }
         }
     }
 
@@ -234,6 +301,7 @@ impl Lifecycle {
             return;
         }
         self.sleeping = true;
+        self.current = None;
         match self.phase {
             Phase::Locked if self.painted => {
                 effects.push(Effect::ReleaseInhibitor);
@@ -320,7 +388,7 @@ impl Lifecycle {
 
     fn submit(&mut self, effects: &mut Vec<Effect>) {
         let prompt = self.prompt();
-        if self.phase != Phase::Locked || !prompt.available || prompt.busy {
+        if self.phase != Phase::Locked || self.sleeping || !prompt.available || prompt.busy {
             effects.push(Effect::DiscardSubmit);
             return;
         }
@@ -333,7 +401,7 @@ impl Lifecycle {
 
     fn finished(&mut self, attempt: u64, verdict: Verdict, effects: &mut Vec<Effect>) {
         self.in_flight.remove(&attempt);
-        if self.current != Some(attempt) {
+        if self.current != Some(attempt) || !self.backend_available {
             tracing::debug!(attempt, "discarding the result of a stale attempt");
             return;
         }
@@ -373,10 +441,13 @@ impl Lifecycle {
     }
 
     fn set_hint(&mut self, locked: bool, effects: &mut Vec<Effect>) {
-        if self.settings.standalone || self.hint_set == locked {
+        if self.settings.standalone
+            || (!self.hint_replay && self.hint_set.unwrap_or(false) == locked)
+        {
             return;
         }
-        self.hint_set = locked;
+        self.hint_replay = false;
+        self.hint_set = Some(locked);
         effects.push(Effect::SetLockedHint(locked));
     }
 

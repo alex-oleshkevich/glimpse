@@ -193,6 +193,40 @@ pub async fn report_failure<E: Display>(
     }
 }
 
+impl Report {
+    pub fn open_failure(
+        notifications: NotificationsProviderHandle,
+        app_name: String,
+        icon: &str,
+    ) -> Self {
+        Self {
+            notifications,
+            app_name,
+            icon: icon.to_owned(),
+            summary: gettext("Could not open that location"),
+        }
+    }
+}
+
+pub fn open_location(uri: String, report: Report) {
+    relm4::spawn_local(async move {
+        if let Err(error) = gtk4::gio::AppInfo::launch_default_for_uri_future(
+            &uri,
+            gtk4::gio::AppLaunchContext::NONE,
+        )
+        .await
+        {
+            report_failure(
+                "open_location",
+                report,
+                Some(gettext("No app is installed to open it.")),
+                error,
+            )
+            .await;
+        }
+    });
+}
+
 pub struct Ctx {
     name: String,
     output: Option<String>,

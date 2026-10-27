@@ -13,7 +13,7 @@ use gtk4::prelude::*;
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
-use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
+use crate::applet::{Applet, Ctx, Input, Report, open_location, spawn_reported};
 
 use super::render;
 
@@ -60,13 +60,17 @@ impl Applet for Places {
 
         shown.connect_activated({
             let places_state = Rc::clone(&self.places_state);
+            let report =
+                Report::open_failure(self.notifications.clone(), gettext("Places"), render::ICON);
             let opener = seat.opener();
             move |_, id| {
                 match render::activation(&places_state.borrow(), id) {
                     Some(render::Activation::Open(path)) => {
-                        open(gio::File::for_path(&path).uri().to_string())
+                        open_location(gio::File::for_path(&path).uri().to_string(), report.clone())
                     }
-                    Some(render::Activation::OpenUri(uri)) => open(uri.to_owned()),
+                    Some(render::Activation::OpenUri(uri)) => {
+                        open_location(uri.to_owned(), report.clone())
+                    }
                     None => return,
                 }
                 opener.close_popover();
@@ -109,16 +113,6 @@ fn wording(error: &CommandError) -> Option<String> {
         CommandError::LimitExceeded(_) => None,
         _ => Some(gettext("Some items could not be deleted.")),
     }
-}
-
-fn open(uri: String) {
-    relm4::spawn_local(async move {
-        if let Err(error) =
-            gio::AppInfo::launch_default_for_uri_future(&uri, gio::AppLaunchContext::NONE).await
-        {
-            tracing::warn!(uri, %error, "could not open that location");
-        }
-    });
 }
 
 impl Places {

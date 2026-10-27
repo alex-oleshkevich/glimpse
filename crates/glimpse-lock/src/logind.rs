@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
+use futures_util::stream::BoxStream;
 use futures_util::{StreamExt, TryFutureExt};
+use glimpse_dbus::Delivery;
 use glimpse_dbus::login1::{Login1ManagerProxy, Login1SessionProxy, session_path};
 use tokio::sync::mpsc;
 use zbus::zvariant::OwnedFd;
@@ -10,6 +12,8 @@ use crate::lifecycle::{Input, sleep_wait};
 use crate::session::{self, Action};
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(5);
+const RETRY_MIN: Duration = Duration::from_secs(1);
+const RETRY_MAX: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
 pub enum Request {
@@ -20,11 +24,15 @@ pub enum Request {
     PerformSessionAction(Action, u64),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Ready {
+    pub initial_hint: Option<bool>,
+    pub sleep_wait: Duration,
+    pub preparing_for_sleep: bool,
+}
+
 pub enum Event {
-    Start {
-        locked_hint: bool,
-        sleep_wait: Duration,
-    },
+    Ready(Ready),
     Lifecycle(Input),
     SessionAnswers(session::Answers),
     SessionActionResult(Action, u64, session::Outcome),
@@ -34,150 +42,266 @@ pub enum Event {
 pub fn spawn(
     events: impl Fn(Event) + Send + Sync + Clone + 'static,
 ) -> mpsc::UnboundedSender<Request> {
-    let (requests, receiver) = mpsc::unbounded_channel();
+    let (requests, mut receiver) = mpsc::unbounded_channel();
     relm4::spawn(async move {
-        match connect().await {
-            Ok(logind) => logind.follow(receiver, events).await,
-            Err(error) => {
-                tracing::error!("logind is unreachable, so nothing can request a lock: {error:#}");
-                events(Event::Start {
-                    locked_hint: false,
-                    sleep_wait: sleep_wait(None),
-                });
+        let mut delay = RETRY_MIN;
+        let mut initial = true;
+        loop {
+            match connect(initial).await {
+                Ok((logind, ready)) => {
+                    delay = RETRY_MIN;
+                    events(Event::Ready(ready));
+                    initial = false;
+                    match logind.follow(&mut receiver, events.clone()).await {
+                        Ended::Stop => return,
+                        Ended::OwnerChanged => {}
+                        Ended::Lost => {
+                            tokio::time::sleep(delay).await;
+                            delay = (delay * 2).min(RETRY_MAX);
+                        }
+                    }
+                }
+                Err(error) => {
+                    tracing::error!(
+                        retry = ?delay,
+                        "logind is unreachable, so nothing can request a lock: {error:#}"
+                    );
+                    tokio::time::sleep(delay).await;
+                    delay = (delay * 2).min(RETRY_MAX);
+                }
             }
         }
     });
     requests
 }
 
+enum Ended {
+    Stop,
+    OwnerChanged,
+    Lost,
+}
+
 struct Logind {
     manager: Login1ManagerProxy<'static>,
     session: Login1SessionProxy<'static>,
+    locks: BoxStream<'static, ()>,
+    unlocks: BoxStream<'static, ()>,
+    sleeps: BoxStream<'static, Delivery<bool>>,
+    owners: BoxStream<'static, ()>,
 }
 
-async fn connect() -> Result<Logind> {
-    tokio::time::timeout(CALL_TIMEOUT, async {
+async fn connect(initial: bool) -> Result<(Logind, Ready)> {
+    let logind = tokio::time::timeout(CALL_TIMEOUT, async {
         let bus = zbus::Connection::system()
             .await
             .context("connect to the system bus")?;
-        let manager = Login1ManagerProxy::new(&bus).await?;
+        let dbus = zbus::fdo::DBusProxy::new(&bus).await?;
+        let owners = glimpse_dbus::wake(
+            dbus.receive_name_owner_changed_with_args(&[(0, "org.freedesktop.login1")])
+                .await?
+                .filter_map(|signal| async move {
+                    signal.args().ok()?.old_owner().is_some().then_some(())
+                }),
+        );
+        let name = zbus::names::WellKnownName::try_from("org.freedesktop.login1")?;
+        let owner = match dbus.get_name_owner(name.clone().into()).await {
+            Ok(owner) => owner,
+            Err(zbus::fdo::Error::NameHasNoOwner(_)) => {
+                dbus.start_service_by_name(name.clone(), 0).await?;
+                dbus.get_name_owner(name.into()).await?
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let manager = Login1ManagerProxy::builder(&bus)
+            .destination(owner.clone())?
+            .build()
+            .await?;
         let path = session_path(&bus).await.map_err(anyhow::Error::msg)?;
         tracing::info!(session = %path, "following the login session");
         let session = Login1SessionProxy::builder(&bus)
+            .destination(owner)?
             .path(path)?
             .build()
             .await?;
-        Ok(Logind { manager, session })
-    })
-    .await
-    .context("logind did not answer in time")?
-}
-
-impl Logind {
-    async fn follow(
-        self,
-        requests: mpsc::UnboundedReceiver<Request>,
-        events: impl Fn(Event) + Clone + Send + Sync + 'static,
-    ) {
-        let streams = tokio::time::timeout(CALL_TIMEOUT, async {
+        let (locks, unlocks, sleeps) =
             tokio::try_join!(
-                self.session.receive_lock().map_ok(glimpse_dbus::wake),
-                self.session.receive_unlock().map_ok(glimpse_dbus::wake),
-                self.manager.receive_prepare_for_sleep().map_ok(|stream| {
+                session.receive_lock().map_ok(glimpse_dbus::wake),
+                session.receive_unlock().map_ok(glimpse_dbus::wake),
+                manager.receive_prepare_for_sleep().map_ok(|stream| {
                     glimpse_dbus::events(stream.filter_map(|signal| async move {
                         signal.args().ok().map(|args| args.start)
                     }))
                 }),
             )
+            .context("subscribe to logind signals")?;
+        Ok::<_, anyhow::Error>(Logind {
+            manager,
+            session,
+            locks,
+            unlocks,
+            sleeps,
+            owners,
         })
-        .await
-        .context("logind did not answer in time")
-        .and_then(|streams| streams.map_err(anyhow::Error::from));
-        let (mut locks, mut unlocks, mut sleeps) = match streams {
-            Ok(streams) => streams,
-            Err(error) => {
-                tracing::error!("cannot follow logind signals: {error:#}");
-                events(Event::Start {
-                    locked_hint: false,
-                    sleep_wait: sleep_wait(None),
-                });
-                return;
-            }
+    })
+    .await
+    .context("logind did not answer in time")??;
+    let mandatory = async {
+        let initial_hint = if initial {
+            Some(
+                logind
+                    .session
+                    .locked_hint()
+                    .await
+                    .context("read LockedHint")?,
+            )
+        } else {
+            None
         };
-        let (locked_hint, delay) = tokio::join!(
-            bounded("LockedHint", self.session.locked_hint()),
-            bounded(
-                "InhibitDelayMaxUSec",
-                self.manager
-                    .inner()
-                    .get_property::<u64>("InhibitDelayMaxUSec"),
-            ),
-        );
-        let locked_hint = match locked_hint {
-            Some(Ok(hint)) => hint,
-            Some(Err(error)) => {
-                tracing::warn!(%error, "cannot read LockedHint");
-                false
-            }
-            None => false,
-        };
-        let delay = delay.and_then(|reply| {
-            reply
-                .inspect_err(|error| tracing::warn!(%error, "cannot read InhibitDelayMaxUSec"))
-                .ok()
-        });
-        events(Event::Start {
-            locked_hint,
+        let preparing = preparing_for_sleep(&logind.manager)
+            .await
+            .context("read PreparingForSleep")?;
+        Ok::<_, anyhow::Error>((initial_hint, preparing))
+    };
+    let (mandatory, delay) = tokio::join!(
+        tokio::time::timeout(CALL_TIMEOUT, mandatory),
+        bounded(
+            "InhibitDelayMaxUSec",
+            logind
+                .manager
+                .inner()
+                .get_property::<u64>("InhibitDelayMaxUSec"),
+        ),
+    );
+    let (initial_hint, preparing_for_sleep) =
+        mandatory.context("mandatory logind state did not answer in time")??;
+    let delay = delay.and_then(|reply| {
+        reply
+            .inspect_err(|error| tracing::warn!(%error, "cannot read InhibitDelayMaxUSec"))
+            .ok()
+    });
+    Ok((
+        logind,
+        Ready {
+            initial_hint,
             sleep_wait: sleep_wait(delay),
-        });
+            preparing_for_sleep,
+        },
+    ))
+}
 
-        let mut blocks = self.manager.receive_block_inhibited_changed().await;
-
-        let manager = self.manager.clone();
-        let mut worker = relm4::spawn(serve(self.manager, self.session, requests, events.clone()));
-
-        let (mut locking, mut unlocking, mut sleeping, mut serving, mut watching_blocks) =
-            (true, true, true, true, true);
+impl Logind {
+    async fn follow(
+        self,
+        requests: &mut mpsc::UnboundedReceiver<Request>,
+        events: impl Fn(Event) + Clone + Send + Sync + 'static,
+    ) -> Ended {
+        let Logind {
+            manager,
+            session,
+            mut locks,
+            mut unlocks,
+            mut sleeps,
+            mut owners,
+        } = self;
+        let mut blocks = manager.receive_block_inhibited_changed().await;
+        let mut worker = std::pin::pin!(serve(manager.clone(), session, requests, events.clone()));
+        let mut resync = std::pin::pin!(None);
         loop {
             tokio::select! {
-                outcome = &mut worker, if serving => match outcome {
-                    Ok(()) => return,
-                    Err(error) => {
-                        tracing::error!(%error, "the logind worker died; LockedHint and the sleep inhibitor are no longer followed");
-                        serving = false;
+                () = &mut worker => return Ended::Stop,
+                signal = locks.next() => match signal {
+                    Some(()) => events(Event::Lifecycle(Input::LockRequested)),
+                    None => {
+                        events(Event::Lifecycle(Input::BackendLost));
+                        ended("Session.Lock");
+                        return Ended::Lost;
                     }
                 },
-                signal = locks.next(), if locking => match signal {
-                    Some(_) => events(Event::Lifecycle(Input::LockRequested)),
-                    None => locking = ended("Session.Lock"),
+                signal = unlocks.next() => match signal {
+                    Some(()) => events(Event::Lifecycle(Input::UnlockRequested)),
+                    None => {
+                        events(Event::Lifecycle(Input::BackendLost));
+                        ended("Session.Unlock");
+                        return Ended::Lost;
+                    }
                 },
-                signal = unlocks.next(), if unlocking => match signal {
-                    Some(_) => events(Event::Lifecycle(Input::UnlockRequested)),
-                    None => unlocking = ended("Session.Unlock"),
-                },
-                signal = sleeps.next(), if sleeping => match signal {
-                    Some(glimpse_dbus::Delivery::Item(start)) => events(Event::Lifecycle(Input::PrepareForSleep(start))),
-                    Some(glimpse_dbus::Delivery::Missed) => {
-                        let preparing = bounded(
-                            "PreparingForSleep",
-                            manager.inner().get_property::<bool>("PreparingForSleep"),
-                        )
-                        .await;
-                        match preparing {
-                            Some(Ok(start)) => events(Event::Lifecycle(Input::PrepareForSleep(start))),
-                            Some(Err(error)) => tracing::warn!(%error, "cannot read PreparingForSleep"),
-                            None => {}
+                signal = sleeps.next() => match signal {
+                    Some(Delivery::Item(start)) => {
+                        if resync.as_ref().get_ref().is_some() {
+                            resync.set(Some(resync_preparing(manager.clone())));
                         }
+                        events(Event::Lifecycle(Input::PrepareForSleep(start)));
                     }
-                    None => sleeping = ended("PrepareForSleep"),
+                    Some(Delivery::Missed) => {
+                        events(Event::Lifecycle(Input::BackendLost));
+                        resync.set(Some(resync_preparing(manager.clone())));
+                    }
+                    None => {
+                        events(Event::Lifecycle(Input::BackendLost));
+                        ended("PrepareForSleep");
+                        return Ended::Lost;
+                    }
                 },
-                change = blocks.next(), if watching_blocks => match change {
+                preparing = async {
+                    match resync.as_mut().as_pin_mut() {
+                        Some(resync) => resync.await,
+                        None => std::future::pending().await,
+                    }
+                }, if resync.as_ref().get_ref().is_some() => {
+                    resync.set(None);
+                    events(Event::Lifecycle(Input::BackendReady {
+                        initial_hint: None,
+                        preparing_for_sleep: preparing,
+                    }));
+                },
+                change = blocks.next() => match change {
                     Some(_) => events(Event::BlockInhibitedChanged),
-                    None => watching_blocks = ended("BlockInhibited"),
+                    None => {
+                        events(Event::Lifecycle(Input::BackendLost));
+                        ended("BlockInhibited");
+                        return Ended::Lost;
+                    }
                 },
-                else => return,
+                owner = owners.next() => {
+                    events(Event::Lifecycle(Input::BackendLost));
+                    if owner.is_some() {
+                        tracing::warn!("the logind owner changed; reconnecting");
+                        return Ended::OwnerChanged;
+                    }
+                    ended("NameOwnerChanged");
+                    return Ended::Lost;
+                },
             }
         }
+    }
+}
+
+async fn preparing_for_sleep(manager: &Login1ManagerProxy<'_>) -> zbus::Result<bool> {
+    let proxy = manager.inner();
+    let reply = proxy
+        .connection()
+        .call_method(
+            Some(proxy.destination().as_str()),
+            proxy.path().as_str(),
+            Some("org.freedesktop.DBus.Properties"),
+            "Get",
+            &(proxy.interface().as_str(), "PreparingForSleep"),
+        )
+        .await?;
+    let value: zbus::zvariant::OwnedValue = reply.body().deserialize()?;
+    Ok(bool::try_from(value)?)
+}
+
+async fn resync_preparing(manager: Login1ManagerProxy<'static>) -> bool {
+    let mut delay = RETRY_MIN;
+    loop {
+        match bounded("PreparingForSleep", preparing_for_sleep(&manager)).await {
+            Some(Ok(preparing)) => return preparing,
+            Some(Err(error)) => tracing::warn!(%error, "cannot read PreparingForSleep"),
+            None => {}
+        }
+        tokio::time::sleep(delay).await;
+        delay = (delay * 2).min(RETRY_MAX);
     }
 }
 
@@ -208,7 +332,7 @@ fn step<F>(inhibitor: &mut Option<F>, request: Request) -> Option<Call> {
 async fn serve(
     manager: Login1ManagerProxy<'static>,
     session: Login1SessionProxy<'static>,
-    mut requests: mpsc::UnboundedReceiver<Request>,
+    requests: &mut mpsc::UnboundedReceiver<Request>,
     events: impl Fn(Event) + Clone + Send + Sync + 'static,
 ) {
     let mut inhibitor: Option<OwnedFd> = None;
@@ -270,12 +394,11 @@ async fn bounded<T>(method: &str, reply: impl Future<Output = T>) -> Option<T> {
     reply
 }
 
-fn ended(signal: &str) -> bool {
+fn ended(signal: &str) {
     tracing::error!(
         signal,
         "the logind signal stream ended; the system bus is gone"
     );
-    false
 }
 
 async fn fetch_session_answers(manager: &Login1ManagerProxy<'static>) -> Option<session::Answers> {

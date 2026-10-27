@@ -10,6 +10,7 @@ mod logind;
 mod media;
 mod notify;
 mod probe;
+mod readiness;
 mod session;
 mod status;
 mod surface;

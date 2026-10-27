@@ -20,9 +20,11 @@ failure, not a cosmetic one.
 
 ## What it does
 
-Locks on logind `Session.Lock`, before sleep, and at start when `LockedHint` is already true. Creates one lock
-surface per monitor, including one hotplugged while locked, before it can show anything, and treats
-the session as locked — setting `LockedHint` — only once the compositor sends `locked`.
+Locks on logind `Session.Lock`, before sleep, and at start when `LockedHint` is already true. Marks the
+generation unpainted and dispatches a display roundtrip after requesting the lock, before assigning any
+windows, so an immediate refusal creates no protocol surfaces. Accepted requests get one lock surface
+per monitor, including one hotplugged while locked; `LockedHint` is set only after the compositor sends
+`locked`. Lifecycle reports enqueue events, so reentrant dispatch never tears down the active call stack.
 Authenticates through PAM service `[lock] pam-service` off the UI thread. Every surface carries a
 `LockStage` sharing the same prompt state, but exactly one is interactive and only it submits and
 wakes; the others stay on their cover. A lock never has zero interactive prompts while any surface
@@ -69,10 +71,16 @@ only `app_id`, `app_name`, `icon` and `urgency`.
 ## Rules
 
 The lock mirrors the compositor provider; with no owner, the lock stays up and sends no restore
-notice; `notify.rs` sends "Lock restore is off" once when the provider reports the setting false.
-**If the process dies after `locked`, the compositor keeps the session locked with a blank screen —
-that is correct and must not be worked around.** `LockedHint` stays true, so a restarted locker
-re-acquires the lock where the compositor allows it.
+notice; `notify.rs` sends "Lock restore is off" once when the provider reports the setting false. A
+logind it cannot reach, subscribe to, or read mandatory initial `LockedHint` and sleep state from is
+retried from 1s, doubling to 30s. The service reports startup ready only after those subscriptions
+and mandatory reads complete; it has no startup timeout that could kill an acquired lock. The unit
+sets `DefaultDependencies=no`, so `glimpse-session.target` never orders itself after that readiness:
+the portal backends start after the target, and GTK startup waits on the portal. Connection
+loss or a change of logind owner reconnects through the same loop, without replacing an acquired
+lock or its surfaces. **If the process dies after `locked`, the compositor keeps the session locked
+with a blank screen — that is correct and must not be worked around.** `LockedHint` stays true, so a
+restarted locker re-acquires the lock where the compositor allows it.
 
 The lifecycle is one state machine in `lifecycle.rs`; GTK, zbus and PAM only feed it and carry out
 its effects, and a stale-generation signal is always ignored. **An `unlocked` this process didn't
@@ -83,10 +91,12 @@ locker's own `Instance::unlock`, or on a `failed` after this process set it — 
 
 Every PAM attempt carries its own id, and a result whose id isn't current is discarded. Each
 attempt runs on its own thread with a 30s timeout, since a PAM call can't be cancelled; at most two
-threads exist (one abandoned, one in flight), and a further submit is refused. A submit records the
-monitor it came from; the attempt reads the password only if that monitor is still interactive and
-the entry isn't empty, so interactivity moving in between fails closed rather than spending a
-faillock try on an empty password.
+threads exist, including abandoned attempts, and a further submit is refused. A gap in logind
+observation retires the current attempt and blocks new submissions until authoritative sleep
+state is known, even if the snapshot reports no sleep. A submit records the monitor it came from;
+the attempt reads the password only if that monitor is still interactive and the entry isn't
+empty, so interactivity moving in between fails closed rather than spending a faillock try on an
+empty password.
 
 **The username reaching PAM is `/etc/passwd`'s name for the uid, else `$USER`, validated against
 the POSIX portable set (no leading `-`, never `.` or `..`)** — a later
@@ -135,17 +145,19 @@ against.**
 
 ## The sleep handshake
 
-A `sleep` delay inhibitor is held from start and re-taken on resume; an unlock finishing between
-`PrepareForSleep(true)` and `(false)` locks again. On `PrepareForSleep(true)`: already locked and
+A `sleep` delay inhibitor is held from start and re-taken on resume; an unlock already under way at
+`PrepareForSleep(true)` locks again once it ends, and an attempt still in PAM is retired so its
+result never unlocks, with every submit refused until `(false)`. On `PrepareForSleep(true)`: already locked and
 painted releases it at once; acquiring or locked but unpainted waits for both; idle locks first,
 then waits the same way. Painted means every lock window of the current generation has drawn a
 frame; the wait is capped at logind's `InhibitDelayMaxUSec` minus 500ms so a slow compositor lets
-suspend proceed rather than hold it.
+suspend proceed rather than hold it. Reconnection preserves a pending deadline and reconciles
+the inhibitor with the current lock and sleep state.
 **No unit relationship may stop this service while it holds the lock — releasing the inhibitor on
-any other path suspends an unlocked machine.** A failed inhibitor is retried at the next resume and
-after the next successful unlock, not on a timer; every logind call is capped at 5s, so a wedged
-reply delays only calls queued behind it, and the inhibitor fd is dropped only on a release or at
-exit, never by a timeout.
+any other path suspends an unlocked machine.** A failed inhibitor is retried at the next resume,
+successful unlock, or backend reconnection, not on a timer. Every logind call is capped at 5s.
+The inhibitor fd is dropped on release, backend connection or owner loss, or exit, never by a
+timeout; a missed signal observation resynchronizes sleep state without dropping a valid fd.
 
 ## Configuration
 

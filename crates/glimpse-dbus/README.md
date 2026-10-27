@@ -73,8 +73,10 @@ re-emitting the interface's snapshot property on every state or health change, a
 `Exported::start`; neither helper interprets service state or depends on `glimpse-services`.
 
 **Backend proxies carry no policy** — a system-service module decodes what it answers, and what to
-do about it belongs to the service. A Glimpse-owned provider's client may additionally own its
-availability state and `NameOwnerChanged` follower, so every consumer shares one lifecycle.
+do about it belongs to the service. A Glimpse-owned provider's client owns its availability and
+`NameOwnerChanged` lifecycle. Initial demand may activate an absent provider once. Every cached
+proxy and command targets its resolved unique owner; after owner loss, followers wait for a new
+owner instead of activating the provider again.
 
 **Both connections are opened once and shared**, since a service that needs one bus usually needs
 the other. **A bus that will not connect is a degraded service, not a dead daemon** —
@@ -130,10 +132,10 @@ their state instead, since a stale list could dismiss against a gone provider an
 temperature would claim what the screen no longer shows. Idle keeps `health` while discarding
 `inhibitors`, since a disconnect says nothing about which backend degraded.
 
-**A follower reads an unowned name only if the bus can activate it.** Weather and calendar start
-by D-Bus activation alone, so the follower's read is what starts them. A name nothing can activate,
-such as the compositor provider, gets no proxy and parks on "provider has no bus owner" until an
-owner appears.
+**A follower activates an unowned name once, and only if the bus can activate it.** Weather and
+calendar start by D-Bus activation alone, so the follower's first request is what starts them. A name
+nothing can activate, such as the compositor provider, gets no proxy and parks on "provider has no
+bus owner" until an owner appears; after an owner is lost no follower activates again.
 
 **`NightLightProviderHandle::set_temperature(0)` clears the override, not 0 kelvin** — that sentinel
 belongs to `glimpse-sunset` and is documented only in its README.

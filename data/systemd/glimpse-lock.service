@@ -2,11 +2,13 @@
 Description=Glimpse lock screen
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=graphical-session.target
-After=graphical-session.target
+After=graphical-session.target basic.target
+DefaultDependencies=no
 StartLimitIntervalSec=0
 
 [Service]
-Type=exec
+Type=notify
+TimeoutStartSec=infinity
 ExecCondition=/usr/bin/test -S ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}
 ExecStart=/usr/bin/glimpse-lock
 ExecReload=/bin/kill -HUP $MAINPID

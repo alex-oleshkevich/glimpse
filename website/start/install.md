@@ -55,13 +55,21 @@ and features need extra packages:
 
 ### Debian, Ubuntu, Fedora and openSUSE
 
-The packages target Debian 14 (forky), Ubuntu 26.04, Fedora 44 and openSUSE Tumbleweed. The install
-script downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums
-and installs it with your package manager, so it asks for your `sudo` password.
+The packages target Debian 14 (forky, still in testing), Ubuntu 26.04, Fedora 44 and openSUSE
+Tumbleweed. The install script downloads the latest release as a `.deb` or `.rpm`, checks it against
+the published checksums and installs it with your package manager, so it asks for your `sudo`
+password. On an older release, such as Debian 13, Ubuntu 25.10, Fedora 43 or openSUSE Leap, it stops
+with an error instead.
 
 On other distributions the script unpacks the binary tarball into `/` as root, asking for `sudo`.
-The `.deb` and `.rpm` packages are the supported route. On Arch Linux it prints the AUR command
-without installing; on NixOS it refuses and points you to the flake module.
+It preserves existing PAM, GeoClue and portal configuration files, including symlinks, except for
+the unchanged published 0.15 GeoClue default, which it replaces so the new client has permission.
+For other existing files, a differing packaged default is saved beside the original with a `.new`
+suffix and a review message. The old `glimpse-shell` binary, its user service and idle portal
+activation file are removed only when absent from the selected archive. Custom themes
+and SDK files are left alone. The `.deb` and `.rpm`
+packages are the supported route. On Arch Linux the script prints the AUR command without
+installing; on NixOS it refuses and points you to the flake module.
 
 If you would rather not pipe a script into a shell, download the package for your distribution from
 the [releases page](https://github.com/alex-oleshkevich/glimpse/releases) and install it yourself.
@@ -76,8 +84,8 @@ below instead of enabling it.
 
 ### From source
 
-You need Rust 1.95 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`, gettext,
-clang, ripgrep and python3, plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PipeWire,
+You need Rust 1.95 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`, gettext
+and clang, plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PipeWire,
 PAM and udev. The install copies files under `/usr` and `/etc`, so it needs root.
 [Build glimpse from source](/contribute/build) lists the packages for Debian, Ubuntu and Arch and the exact
 commands.
@@ -85,7 +93,9 @@ commands.
 ## Start the shell
 
 glimpse runs as systemd user services grouped under `glimpse-session.target`, which starts and stops
-with `graphical-session.target`.
+with `graphical-session.target`. An explicit stop uses `--job-mode=replace-irreversibly` so a
+concurrent app request cannot cancel it. The lock screen stays with the graphical session; stopping
+the shell target does not stop it.
 
 If your session starts `graphical-session.target`, as a uwsm session does, enable the target once
 from a terminal inside your Wayland session. It then starts and stops with every graphical session:
@@ -105,13 +115,13 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("systemctl --user start glimpse-session.target")
 end)
 hl.on("hyprland.shutdown", function()
-    hl.exec_cmd("systemctl --user stop glimpse-session.target")
+    hl.exec_cmd("systemctl --user --job-mode=replace-irreversibly stop glimpse-session.target")
 end)
 ```
 
 ```ini [hyprland.conf]
 exec-once = systemctl --user start glimpse-session.target
-exec-shutdown = systemctl --user stop glimpse-session.target
+exec-shutdown = systemctl --user --job-mode=replace-irreversibly stop glimpse-session.target
 ```
 
 :::

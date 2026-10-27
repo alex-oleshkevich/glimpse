@@ -10,12 +10,12 @@ use tokio_util::task::AbortOnDropHandle;
 use zbus::proxy::PropertyStream;
 use zbus::zvariant::OwnedValue;
 
-use super::{DEADLINE, RetryDelay, retry_after_failure};
+use super::{DEADLINE, RetryDelay, provider_owner};
 use crate::Delivery;
 
 pub const REASON: usize = 240;
 pub const PENDING: &str = "waiting for the provider";
-const NO_OWNER: &str = "provider has no bus owner";
+pub(crate) const NO_OWNER: &str = "provider has no bus owner";
 
 pub type Changes<T> = BoxStream<'static, BoxFuture<'static, zbus::Result<T>>>;
 
@@ -73,6 +73,7 @@ pub trait Snapshots: Follow {
 
     fn build(
         connection: &zbus::Connection,
+        owner: zbus::names::OwnedUniqueName,
     ) -> impl Future<Output = zbus::Result<Self::Proxy>> + Send;
     fn read(proxy: &Self::Proxy) -> impl Future<Output = zbus::Result<Self::Snapshot>> + Send;
     fn changes(proxy: &Self::Proxy) -> impl Future<Output = Changes<Self::Snapshot>> + Send;
@@ -195,17 +196,19 @@ pub async fn follow_snapshots<S: Snapshots>(
     };
 
     let mut retry_delay = RetryDelay::default();
+    let mut initial = true;
     let mut connected = false;
 
     loop {
-        if waits_for_owner(&dbus, S::BUS_NAME).await {
-            replace_unavailable(&updates, NO_OWNER);
-            if !retry_after_failure(&dbus, &mut owners, S::BUS_NAME, &mut retry_delay).await {
-                return;
-            }
-            continue;
-        }
-        let proxy = match S::build(&connection).await {
+        let proxy = match provider_owner(&dbus, &mut owners, S::BUS_NAME, initial, &mut retry_delay)
+            .await
+        {
+            Ok(Some(owner)) => S::build(&connection, owner).await,
+            Ok(None) => return,
+            Err(error) => Err(error),
+        };
+        initial = false;
+        let proxy = match proxy {
             Ok(proxy) => {
                 retry_delay.reset();
                 proxy
@@ -218,9 +221,6 @@ pub async fn follow_snapshots<S: Snapshots>(
                     reason = clean(&error.to_string(), REASON),
                     "provider property cache is unavailable"
                 );
-                if !retry_after_failure(&dbus, &mut owners, S::BUS_NAME, &mut retry_delay).await {
-                    return;
-                }
                 continue;
             }
         };
@@ -313,17 +313,4 @@ pub async fn follow_snapshots<S: Snapshots>(
             tracing::debug!(provider = name, reason, "provider rebuilding its proxy");
         }
     }
-}
-
-async fn waits_for_owner(dbus: &zbus::fdo::DBusProxy<'_>, bus_name: &str) -> bool {
-    let Ok(name) = zbus::names::BusName::try_from(bus_name) else {
-        return false;
-    };
-    if !matches!(dbus.name_has_owner(name).await, Ok(false)) {
-        return false;
-    }
-    !dbus
-        .list_activatable_names()
-        .await
-        .is_ok_and(|names| names.iter().any(|name| name.as_str() == bus_name))
 }

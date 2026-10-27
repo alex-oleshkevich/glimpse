@@ -63,8 +63,9 @@ impl KeyboardPopover {
     }
 
     fn build_row(&self, index: u32) -> ToggleRow {
-        let row = ToggleRow::new();
-        row.set_control(ToggleControl::Check);
+        let row: ToggleRow = glib::Object::builder()
+            .property("control", ToggleControl::Check)
+            .build();
         row.connect_toggled(glib::clone!(
             #[weak(rename_to = popover)]
             self,

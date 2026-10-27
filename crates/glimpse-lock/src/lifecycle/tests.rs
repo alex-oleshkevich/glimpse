@@ -11,7 +11,14 @@ const DAEMON: Settings = Settings {
 
 fn started(settings: Settings, locked_hint: bool) -> (Lifecycle, Vec<Effect>) {
     let mut machine = Lifecycle::new(settings);
-    let effects = machine.handle(Input::Start { locked_hint });
+    let effects = machine.handle(if settings.standalone {
+        Input::Start
+    } else {
+        Input::BackendReady {
+            initial_hint: Some(locked_hint),
+            preparing_for_sleep: false,
+        }
+    });
     (machine, effects)
 }
 
@@ -41,6 +48,7 @@ fn is_logind(effect: &Effect) -> bool {
     )
 }
 
+mod backend;
 mod lock;
 mod probe;
 mod sleep;

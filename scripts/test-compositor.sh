@@ -18,6 +18,7 @@ else
 fi
 
 manual=(
+    "glimpse-lock :: surface::tests::a_lock_window_reports_painted_once_it_draws"
     "glimpse-services :: services::brightness::tests::a_real_drm_change_event_reaches_the_hotplug_stream"
 )
 failed=()

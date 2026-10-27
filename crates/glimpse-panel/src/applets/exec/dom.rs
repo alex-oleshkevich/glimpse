@@ -65,7 +65,8 @@ pub struct Dom {
     popover_class: Option<&'static str>,
     body: gtk4::Box,
     nodes: HashMap<Key, Mounted>,
-    held: HashMap<Key, Vec<(Key, gtk4::Widget)>>,
+    held: HashMap<Key, Vec<(gtk4::Widget, gtk4::Widget)>>,
+    refocus: Option<Key>,
     seq: Rc<RefCell<HashMap<Key, u64>>>,
     dispatch: Dispatch,
     slot: u64,
@@ -112,6 +113,7 @@ impl Dom {
             body,
             nodes: HashMap::new(),
             held: HashMap::new(),
+            refocus: None,
             seq,
             dispatch,
             slot,
@@ -176,6 +178,7 @@ impl Dom {
             self.generation = Some(generation);
         }
         let mut live = HashSet::new();
+        self.refocus = None;
         let Some(popover) =
             render::first_child_of_kind(tree, 0, |element| matches!(element, Element::Popover(_)))
         else {
@@ -220,6 +223,11 @@ impl Dom {
         self.nodes.retain(|key, _| live.contains(key));
         self.held
             .retain(|key, _| key.0 == generation && (live.contains(key) || *key == root_key));
+        if let Some(key) = self.refocus.take()
+            && let Some(mounted) = self.nodes.get(&key)
+        {
+            mounted.widget.grab_focus();
+        }
         true
     }
 
@@ -294,16 +302,11 @@ impl Dom {
             }
         }
         let held = self.held.entry(parent).or_default();
-        held.retain(|(key, widget)| {
-            !wanted
-                .iter()
-                .any(|(next_key, next_widget)| key == next_key && widget != next_widget)
-        });
         by_key(
             inner,
             held,
             &wanted,
-            |(key, _)| *key,
+            |(_, widget)| widget.clone(),
             |(_, widget)| widget.clone(),
             |_, _| {},
         );
@@ -320,8 +323,34 @@ impl Dom {
         let node = tree.node(id)?.clone();
         let key = (generation, id, node.element.kind());
         live.insert(key);
+        let replace = self.nodes.get(&key).is_some_and(|mounted| {
+            matches!(
+                (&mounted.node.element, &node.element),
+                (Element::ToggleRow(previous), Element::ToggleRow(next))
+                    if previous.control != next.control
+            )
+        });
+        let local_active = if replace {
+            let mounted = self.nodes.remove(&key)?;
+            let active =
+                render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
+                    .then(|| mounted.widget.property::<bool>("active"));
+            for handler in mounted.handlers {
+                mounted.widget.disconnect(handler);
+            }
+            if mounted.widget.has_focus() || mounted.widget.focus_child().is_some() {
+                self.refocus = Some(key);
+            }
+            mounted.widget.set_visible(false);
+            active
+        } else {
+            None
+        };
         if !self.nodes.contains_key(&key) {
             let (widget, inner, handlers) = self.build(&node, key);
+            if let Some(active) = local_active {
+                widget.set_property("active", active);
+            }
             self.nodes.insert(
                 key,
                 Mounted {
@@ -425,7 +454,11 @@ impl Dom {
             return;
         };
         let held = self.held.entry(key).or_default();
-        if *held != wanted {
+        if held
+            .iter()
+            .map(|(widget, _)| widget)
+            .ne(wanted.iter().map(|(_, widget)| widget))
+        {
             for (_, widget) in held.drain(..) {
                 if widget.parent().as_ref() == Some(stack.upcast_ref()) {
                     stack.remove(&widget);
@@ -437,7 +470,10 @@ impl Dom {
                 }
                 stack.add_named(widget, Some(&index.to_string()));
             }
-            *held = wanted;
+            *held = wanted
+                .into_iter()
+                .map(|(_, widget)| (widget.clone(), widget))
+                .collect();
         }
         let name = visible.to_string();
         if stack.child_by_name(&name).is_some()
@@ -477,8 +513,10 @@ impl Dom {
                 }));
                 row.upcast()
             }
-            Element::ToggleRow(_) => {
-                let row = ToggleRow::new();
+            Element::ToggleRow(p) => {
+                let row: ToggleRow = glib::Object::builder()
+                    .property("control", control(p.control))
+                    .build();
                 let dispatch = self.dispatch.clone();
                 let seq = self.seq.clone();
                 let slot = self.slot;
@@ -873,7 +911,6 @@ impl Dom {
             }
             Element::ToggleRow(p) => {
                 dress_row_base!(widget, p);
-                widget.set_property("control", control(p.control));
                 if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
                 {
                     widget.set_property("active", p.active);

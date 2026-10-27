@@ -71,6 +71,10 @@ impl PasswordPrompt {
         imp.entry.set_position(position);
     }
 
+    pub fn submit(&self) {
+        self.imp().submit();
+    }
+
     pub fn set_user(&self, user: Option<&str>) {
         set_text_capped(&self.imp().user, user, USER_MAX_CHARS);
     }

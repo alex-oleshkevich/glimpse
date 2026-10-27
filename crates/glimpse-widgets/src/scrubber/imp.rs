@@ -23,6 +23,7 @@ pub struct Scrubber {
     pub remaining: TemplateChild<gtk4::Label>,
 
     pub(crate) held: Cell<Option<f64>>,
+    quiet: Cell<bool>,
 
     #[property(name = "position", get = Self::position, set = Self::set_position)]
     position: PhantomData<f64>,
@@ -44,7 +45,9 @@ impl Scrubber {
         if self.position() == seconds {
             return;
         }
+        let quiet = self.quiet.replace(true);
         self.track.set_value(seconds);
+        self.quiet.set(quiet);
     }
 
     fn duration(&self) -> f64 {
@@ -56,9 +59,15 @@ impl Scrubber {
         if self.duration() == seconds {
             return;
         }
-        self.track.adjustment().set_upper(seconds);
+        let position = self.position();
+        let quiet = self.quiet.replace(true);
+        self.track.set_range(0.0, seconds);
+        if self.held.get() == Some(position) {
+            self.held.set(Some(self.position()));
+        }
         self.track.set_visible(seconds > 0.0);
         self.sync_times();
+        self.quiet.set(quiet);
     }
 
     fn seekable(&self) -> bool {
@@ -89,8 +98,17 @@ impl Scrubber {
         );
     }
 
+    pub(crate) fn release(&self) {
+        match self.held.take() {
+            Some(start) if start != self.position() => self.emit_seek(),
+            _ => {}
+        }
+    }
+
     fn emit_seek(&self) {
-        self.obj().emit_by_name::<()>("seek", &[&self.position()]);
+        if self.seekable.get() && !self.quiet.get() {
+            self.obj().emit_by_name::<()>("seek", &[&self.position()]);
+        }
     }
 }
 
@@ -142,10 +160,7 @@ impl ObjectImpl for Scrubber {
                 let imp = obj.imp();
                 match event.event_type() {
                     gdk::EventType::ButtonPress => imp.held.set(Some(imp.position())),
-                    gdk::EventType::ButtonRelease => match imp.held.take() {
-                        Some(start) if start != imp.position() => imp.emit_seek(),
-                        _ => {}
-                    },
+                    gdk::EventType::ButtonRelease => imp.release(),
                     _ => {}
                 }
                 glib::Propagation::Proceed
@@ -158,21 +173,12 @@ impl ObjectImpl for Scrubber {
         self.track.connect_value_changed(glib::clone!(
             #[weak]
             obj,
-            move |_| obj.imp().sync_times()
-        ));
-
-        self.track.connect_change_value(glib::clone!(
-            #[weak]
-            obj,
-            #[upgrade_or]
-            glib::Propagation::Proceed,
-            move |_, _, value| {
+            move |_| {
                 let imp = obj.imp();
-                if imp.held.get().is_none() && value != imp.position() {
-                    imp.track.set_value(value);
+                imp.sync_times();
+                if imp.held.get().is_none() {
                     imp.emit_seek();
                 }
-                glib::Propagation::Proceed
             }
         ));
 

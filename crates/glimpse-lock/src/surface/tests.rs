@@ -1,15 +1,18 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use gtk4::glib;
+use gtk4::{gdk, glib};
 
 use zeroize::Zeroizing;
 
 use super::{
-    FOCUSED, Timer, accepts, carried_awake, next_minute, prompt_output, prompt_stage,
-    session_result_target, submitted,
+    FOCUSED, Look, Surfaces, Timer, accepts, carried_awake, next_minute, prompt_output,
+    prompt_stage, session_result_target, submitted,
 };
+use crate::lifecycle::Input;
+use crate::status::Status;
 
 #[test]
 fn the_prompt_goes_to_the_focused_output_else_the_first() {
@@ -247,4 +250,122 @@ fn an_action_or_a_wake_is_carried_only_from_the_stage_that_was_interactive() {
         !carried_awake(None),
         "a stage with no predecessor starts on the cover"
     );
+}
+
+fn reported(reports: &RefCell<Vec<Input>>, wanted: impl Fn(&Input) -> bool) -> bool {
+    reports.borrow().iter().any(wanted)
+}
+
+fn pump(limit: Duration, mut done: impl FnMut() -> bool) {
+    let deadline = Instant::now() + limit;
+    let context = glib::MainContext::default();
+    while !done() && Instant::now() < deadline {
+        if !context.iteration(false) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+}
+
+#[test]
+#[ignore = "locks the session it runs in: run alone in the test VM, never on a desktop"]
+fn a_lock_window_reports_painted_once_it_draws() {
+    gtk4::init().expect("display");
+    glimpse_widgets::register_resources().expect("resources");
+    let look = Look {
+        backgrounds: HashMap::new(),
+        color: gdk::RGBA::BLACK,
+        fit: gtk4::ContentFit::Cover,
+        dim: 0.0,
+        clock: None,
+        user: None,
+        avatar: None,
+        prompt_output: FOCUSED.to_owned(),
+        session: HashMap::new(),
+        track: None,
+        notifications: Vec::new(),
+        status: Status::default(),
+    };
+    let reports: Rc<RefCell<Vec<Input>>> = Rc::default();
+    let surfaces = Surfaces::lock(
+        1,
+        look,
+        None,
+        Rc::default(),
+        {
+            let reports = reports.clone();
+            move |input| reports.borrow_mut().push(input)
+        },
+        |_, _| {},
+        |_| {},
+    );
+    if std::env::var_os("GLIMPSE_LOCK_TEST_REFUSAL").is_some() {
+        pump(Duration::from_secs(5), || {
+            reported(&reports, |input| matches!(input, Input::Failed(1)))
+        });
+        let failed = reported(&reports, |input| matches!(input, Input::Failed(1)));
+        let assigned = !surfaces.shared.stages.borrow().is_empty();
+        surfaces.unlock();
+        assert!(
+            failed,
+            "the second lock must be refused by the test compositor"
+        );
+        assert!(!assigned, "a refused lock must never assign a window");
+        return;
+    }
+    let locked = |input: &Input| matches!(input, Input::Locked(1));
+    let painted = |input: &Input| matches!(input, Input::Painted(1));
+    pump(Duration::from_secs(10), || {
+        reported(&reports, locked) && reported(&reports, painted)
+    });
+    let was_painted = reported(&reports, painted);
+    let was_locked = reported(&reports, locked);
+    let mut child_result = None;
+    let mut duplicate_refused = false;
+    if was_locked && was_painted {
+        let duplicate = gtk4_session_lock::Instance::new();
+        let rejected = Rc::new(Cell::new(false));
+        duplicate.connect_failed({
+            let rejected = rejected.clone();
+            move |_| rejected.set(true)
+        });
+        duplicate_refused = !duplicate.lock() && rejected.get();
+        let child = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--include-ignored",
+                "--exact",
+                "surface::tests::a_lock_window_reports_painted_once_it_draws",
+            ])
+            .env("GLIMPSE_LOCK_TEST_REFUSAL", "1")
+            .spawn();
+        child_result = Some(match child {
+            Ok(mut child) => {
+                let mut status = None;
+                pump(Duration::from_secs(10), || {
+                    status = child.try_wait().ok().flatten();
+                    status.is_some()
+                });
+                if status.is_none() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+                status.is_some_and(|status| status.success())
+            }
+            Err(_) => false,
+        });
+    }
+    surfaces.unlock();
+    pump(Duration::from_secs(5), || {
+        reported(&reports, |input| matches!(input, Input::Unlocked(1)))
+    });
+    assert!(was_locked, "the compositor never locked");
+    assert!(
+        duplicate_refused,
+        "Instance::lock false must report failure"
+    );
+    assert_eq!(
+        child_result,
+        Some(true),
+        "a refused lock crashed or assigned a window"
+    );
+    assert!(was_painted, "the lock window drew without reporting it");
 }

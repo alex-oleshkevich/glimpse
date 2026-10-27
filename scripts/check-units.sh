@@ -18,7 +18,7 @@ for f in data/systemd/*.service; do
 done
 
 for key in $(sed -n '/^\[Service\]/,/^\[/p' "$lock" | grep -oE '^[A-Za-z]+=' | tr -d '='); do
-    case " Type ExecCondition ExecStart ExecReload Restart RestartSec " in
+    case " Type TimeoutStartSec ExecCondition ExecStart ExecReload Restart RestartSec " in
         *" $key "*) ;;
         *) echo "$lock: [Service] carries $key= — sandboxing breaks PAM, see README"; exit 1 ;;
     esac

@@ -60,8 +60,6 @@ applet table changes only that applet.
 
 <AppletShot name="printing" />
 
-<ConfigTable path="printing" describe />
-
 ## removable
 
 <ConfigTable path="applets.removable" describe />

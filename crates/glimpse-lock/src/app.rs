@@ -69,10 +69,8 @@ pub enum AppInput {
     ConfigChanged(Config),
     ConfigVerdict(Result<(), String>),
     Theme(Reload<Theme>),
-    Start {
-        locked_hint: bool,
-        sleep_wait: Duration,
-    },
+    Start,
+    BackendReady(logind::Ready),
     Lifecycle(Input),
     FocusedOutput(Option<String>),
     Outputs,
@@ -105,7 +103,8 @@ impl std::fmt::Debug for AppInput {
             Self::ConfigChanged(_) => "ConfigChanged",
             Self::ConfigVerdict(_) => "ConfigVerdict",
             Self::Theme(_) => "Theme",
-            Self::Start { .. } => "Start",
+            Self::Start => "Start",
+            Self::BackendReady(_) => "BackendReady",
             Self::Lifecycle(_) => "Lifecycle",
             Self::FocusedOutput(_) => "FocusedOutput",
             Self::Outputs => "Outputs",
@@ -223,22 +222,13 @@ impl SimpleComponent for App {
 
         let (logind, notices) = if init.standalone {
             tracing::warn!("standalone: logind is not consulted and nothing is notified");
-            sender.input(AppInput::Start {
-                locked_hint: false,
-                sleep_wait: sleep_wait(None),
-            });
+            sender.input(AppInput::Start);
             (None, None)
         } else {
             let events = sender.clone();
             let logind = logind::spawn(move |event| {
                 events.input(match event {
-                    logind::Event::Start {
-                        locked_hint,
-                        sleep_wait,
-                    } => AppInput::Start {
-                        locked_hint,
-                        sleep_wait,
-                    },
+                    logind::Event::Ready(ready) => AppInput::BackendReady(ready),
                     logind::Event::Lifecycle(input) => AppInput::Lifecycle(input),
                     logind::Event::SessionAnswers(answers) => AppInput::SessionAnswers(answers),
                     logind::Event::SessionActionResult(action, id, outcome) => {
@@ -363,15 +353,39 @@ impl SimpleComponent for App {
             AppInput::Theme(Reload::Rejected(reason)) => {
                 tracing::warn!(%reason, "theme rejected");
             }
-            AppInput::Start {
-                locked_hint,
-                sleep_wait,
-            } => {
-                self.sleep_wait = sleep_wait;
-                self.step(Input::Start { locked_hint }, &sender);
+            AppInput::Start => {
+                self.step(Input::Start, &sender);
+                if !self.machine.is_idle() {
+                    crate::readiness::ready();
+                }
+            }
+            AppInput::BackendReady(ready) => {
+                self.sleep_wait = ready.sleep_wait;
+                self.step(
+                    Input::BackendReady {
+                        initial_hint: ready.initial_hint,
+                        preparing_for_sleep: ready.preparing_for_sleep,
+                    },
+                    &sender,
+                );
+                if ready.initial_hint.is_some() {
+                    crate::readiness::ready();
+                }
+                if !ready.preparing_for_sleep
+                    && let Some(surfaces) = &self.surfaces
+                {
+                    surfaces.resumed();
+                }
             }
             AppInput::Lifecycle(input) => {
-                let resumed = matches!(input, Input::PrepareForSleep(false));
+                let resumed = matches!(
+                    input,
+                    Input::PrepareForSleep(false)
+                        | Input::BackendReady {
+                            preparing_for_sleep: false,
+                            ..
+                        }
+                );
                 self.step(input, &sender);
                 if resumed && let Some(surfaces) = &self.surfaces {
                     surfaces.resumed();

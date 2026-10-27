@@ -14,10 +14,10 @@ use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
 use glimpse_widgets::{
     IndicatorSpec, MprisPopover, Repeat as TransportRepeat, Row, TransportAction,
 };
-use gtk4::{gdk, glib, prelude::*};
+use gtk4::{gdk, gio, glib, prelude::*};
 
 use crate::applet::popover::Seat;
-use crate::applet::{Applet, Ctx, Input, spawn_command};
+use crate::applet::{Applet, Ctx, Input, Opener, spawn_command};
 
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
@@ -34,7 +34,8 @@ pub struct Mpris {
     tooltip_format: Option<String>,
     players: Vec<PlayerStatus>,
     ticking: Option<bool>,
-    art: Option<(String, gdk::Texture)>,
+    art: Rc<RefCell<Art<gdk::Texture>>>,
+    opener: Option<Opener>,
     icons: HashMap<String, ResolvedIcon>,
     /// The player the popover's own controls act on. A signal closure cannot reach `&mut self`,
     /// and which player is current changes under it.
@@ -54,6 +55,7 @@ impl Applet for Mpris {
             return;
         };
         self.settings = settings.clone();
+        self.opener = Some(ctx.opener());
         self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
         self.pace(ctx);
         self.refresh();
@@ -149,7 +151,8 @@ impl Mpris {
             tooltip_format: None,
             players,
             ticking: None,
-            art: None,
+            art: Rc::default(),
+            opener: None,
             icons: HashMap::new(),
             aimed: Rc::new(RefCell::new(String::new())),
             pressed: Rc::new(RefCell::new(Vec::new())),
@@ -264,24 +267,30 @@ impl Mpris {
         }
     }
 
-    /// Decoded once per path rather than once per tick, and only while the popover is the thing
-    /// that would show it.
     fn load(&mut self) {
-        let wanted = self.current().and_then(|player| player.art.clone());
-
-        let Some(path) = wanted else {
-            self.art = None;
+        let Some(opener) = self.opener.clone() else {
             return;
         };
-        if self.art.as_ref().is_some_and(|(held, _)| *held == path) {
+        let wanted = self.current().and_then(|player| player.art.clone());
+        let Some((generation, path)) = self.art.borrow_mut().want(wanted.as_deref()) else {
             return;
-        }
-        self.art = glimpse_widgets::artwork(
-            std::path::Path::new(&path),
-            ART,
-            glimpse_widgets::Formats::Any,
-        )
-        .map(|texture| (path, texture));
+        };
+        let art = self.art.clone();
+        glib::spawn_future_local(async move {
+            let texture = gio::spawn_blocking(move || {
+                glimpse_widgets::artwork(
+                    std::path::Path::new(&path),
+                    ART,
+                    glimpse_widgets::Formats::Any,
+                )
+            })
+            .await
+            .ok()
+            .flatten();
+            if art.borrow_mut().land(generation, texture) {
+                opener.wake();
+            }
+        });
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {
@@ -324,7 +333,7 @@ impl Mpris {
         playing.set_artist(player.artist.clone());
         playing.set_album(player.album.clone());
         playing.set_icon_name(self.icons.get(&player.id).map(|held| held.name.clone()));
-        playing.set_art(self.art.as_ref().map(|(_, texture)| texture));
+        playing.set_art(self.art.borrow().texture());
 
         let scrubber = playing.scrubber();
         scrubber.set_duration(render::seconds(player.length_us.unwrap_or_default()));
@@ -351,6 +360,54 @@ impl Mpris {
                 .as_str(),
         ));
         open_player.set_visible(player.can.raise);
+    }
+}
+
+struct Art<T> {
+    path: Option<String>,
+    texture: Option<T>,
+    loading: bool,
+    generation: u64,
+}
+
+impl<T> Default for Art<T> {
+    fn default() -> Self {
+        Self {
+            path: None,
+            texture: None,
+            loading: false,
+            generation: 0,
+        }
+    }
+}
+
+impl<T> Art<T> {
+    fn want(&mut self, wanted: Option<&str>) -> Option<(u64, String)> {
+        if self.path.as_deref() != wanted {
+            self.path = wanted.map(str::to_owned);
+            self.texture = None;
+            self.loading = false;
+            self.generation = self.generation.wrapping_add(1);
+        }
+        if self.loading || self.texture.is_some() {
+            return None;
+        }
+        let path = self.path.clone()?;
+        self.loading = true;
+        Some((self.generation, path))
+    }
+
+    fn land(&mut self, generation: u64, texture: Option<T>) -> bool {
+        if !self.loading || self.generation != generation {
+            return false;
+        }
+        self.loading = false;
+        self.texture = texture;
+        self.texture.is_some()
+    }
+
+    fn texture(&self) -> Option<&T> {
+        self.texture.as_ref()
     }
 }
 

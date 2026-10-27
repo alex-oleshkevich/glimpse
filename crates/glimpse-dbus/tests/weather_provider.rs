@@ -198,3 +198,111 @@ async fn connected_client_observes_snapshot_changes() {
     assert!(updates.borrow().owner);
     provider.shutdown().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn lazy_activation_does_not_restart_a_stopped_provider() {
+    use futures_util::StreamExt;
+    use std::io::Write;
+
+    const ACTIVATED: &str = "GLIMPSE_TEST_WEATHER_ACTIVATION";
+    if let Ok(counter) = std::env::var(ACTIVATED) {
+        writeln!(
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(counter)
+                .unwrap(),
+            "{}",
+            std::process::id()
+        )
+        .unwrap();
+        let address = std::env::var("DBUS_STARTER_ADDRESS").unwrap();
+        let connection = zbus::connection::Builder::address(address.as_str())
+            .unwrap()
+            .build()
+            .await
+            .unwrap();
+        connection
+            .object_server()
+            .at(
+                GLIMPSE_WEATHER_OBJECT_PATH,
+                TestProvider {
+                    calls: Arc::new(Mutex::new(Vec::new())),
+                    city: "Vilnius".to_owned(),
+                },
+            )
+            .await
+            .unwrap();
+        glimpse_dbus::own_name(&connection, GLIMPSE_WEATHER_BUS_NAME)
+            .await
+            .unwrap();
+        let mut messages = zbus::MessageStream::from(&connection);
+        while messages.next().await.is_some() {}
+        return;
+    }
+
+    let bus = PrivateBus::start();
+    let socket = bus
+        .address()
+        .split(',')
+        .next()
+        .unwrap()
+        .strip_prefix("unix:path=")
+        .unwrap();
+    let scratch = std::path::Path::new(socket).parent().unwrap();
+    let counter = scratch.join("activations");
+    let executable = std::env::current_exe().unwrap();
+    std::fs::write(
+        scratch.join("services/me.aresa.Glimpse.Weather.service"),
+        format!(
+            "[D-BUS Service]\nName={GLIMPSE_WEATHER_BUS_NAME}\nExec=/usr/bin/env {ACTIVATED}={} {} --exact lazy_activation_does_not_restart_a_stopped_provider --nocapture\n",
+            counter.display(),
+            executable.display()
+        ),
+    )
+    .unwrap();
+    let connection = bus.connection().await;
+    zbus::fdo::DBusProxy::new(&connection)
+        .await
+        .unwrap()
+        .reload_config()
+        .await
+        .unwrap();
+    let mut provider = WeatherProvider::start(connection);
+    let handle = provider.handle();
+    let mut updates = handle.subscribe();
+    wait_until(&mut updates, |state| state.owner).await;
+    handle.watch(WatchedPlace::Here).await.unwrap();
+    assert_eq!(
+        handle.snapshot().status.unwrap().places[0].city.as_deref(),
+        Some("Vilnius")
+    );
+    let activations = std::fs::read_to_string(&counter).unwrap();
+    assert_eq!(activations.lines().count(), 1);
+    let pid = activations.trim();
+    assert!(
+        std::process::Command::new("kill")
+            .args(["-TERM", pid])
+            .status()
+            .unwrap()
+            .success()
+    );
+    wait_until(&mut updates, |state| !state.owner).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        std::fs::read_to_string(&counter).unwrap().lines().count(),
+        1,
+        "owner loss must not activate another provider"
+    );
+    assert!(handle.watch(WatchedPlace::Here).await.is_err());
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let server = serve(&bus, calls.clone()).await;
+    wait_until(&mut updates, |state| state.owner).await;
+    handle.watch(WatchedPlace::Here).await.unwrap();
+    assert_eq!(
+        calls.lock().unwrap().as_slice(),
+        &[(0, 0.0, 0.0, String::new())]
+    );
+    provider.shutdown().await;
+    drop(server);
+}

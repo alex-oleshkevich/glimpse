@@ -111,3 +111,14 @@ fn a_pointer_button_keeps_its_gdk_code_when_it_has_no_name() {
     assert_eq!(Button::from_code(3), Button::Right);
     assert_eq!(Button::from_code(8), Button::Other(8));
 }
+
+#[test]
+fn an_open_failure_report_names_the_applet_and_the_location() {
+    let notifications =
+        glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests").handle();
+    let report = Report::open_failure(notifications, "Places".to_owned(), "folder-symbolic");
+
+    assert_eq!(report.app_name, "Places");
+    assert_eq!(report.icon, "folder-symbolic");
+    assert_eq!(report.summary, "Could not open that location");
+}

@@ -136,7 +136,7 @@ impl LockStage {
             let settling = self
                 .woke_by_key
                 .get()
-                .is_some_and(|at| at.elapsed() < INPUT_SETTLE);
+                .is_some_and(|at| !self.prompt.is_mapped() || at.elapsed() < INPUT_SETTLE);
             if settling && !modifier(key) && !state.intersects(CHORD) {
                 self.type_waking(keys, key, state);
                 return glib::Propagation::Stop;
@@ -160,8 +160,15 @@ impl LockStage {
         key: gdk::Key,
         state: gdk::ModifierType,
     ) {
-        if !state.intersects(CHORD)
-            && !self.prompt.forward_key(keys)
+        if state.intersects(CHORD) {
+            return;
+        }
+        if matches!(
+            key,
+            gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::ISO_Enter
+        ) {
+            self.prompt.submit();
+        } else if !self.prompt.forward_key(keys)
             && let Some(typed) = key.to_unicode().filter(|typed| !typed.is_control())
         {
             self.prompt.preempt(typed);

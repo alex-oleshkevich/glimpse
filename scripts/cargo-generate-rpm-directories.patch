@@ -1,0 +1,15 @@
+--- a/src/config/mod.rs
++++ b/src/config/mod.rs
+@@ -177,6 +177,10 @@
+             for (file_source, options) in entries {
+-                expanded_file_paths.push(file_source.clone());
+-                builder.with_file(file_source, options)?;
++                if file_source.as_os_str().is_empty() {
++                    builder.with_dir_entry(options)?;
++                } else {
++                    expanded_file_paths.push(file_source.clone());
++                    builder.with_file(file_source, options)?;
++                }
+             }
+         }
+ 

@@ -13,7 +13,7 @@ use gtk4::prelude::*;
 
 use crate::applet::popover::Seat;
 use crate::applet::themed;
-use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
+use crate::applet::{Applet, Ctx, Input, Report, open_location, spawn_reported};
 
 use super::render;
 
@@ -62,15 +62,21 @@ impl Applet for Removable {
             let state = Rc::clone(&self.state);
             let removable = self.removable.clone();
             let notifications = self.notifications.clone();
+            let report = Report::open_failure(
+                self.notifications.clone(),
+                gettext("Removable"),
+                render::ICON,
+            );
             let opener = seat.opener();
             move |_, id| match render::activation(&state.borrow(), id) {
                 Some(render::Activation::Open(path)) => {
-                    open(gio::File::for_path(&path).uri().to_string());
+                    open_location(gio::File::for_path(&path).uri().to_string(), report.clone());
                     opener.close_popover();
                 }
                 Some(render::Activation::Mount(id)) => {
                     let removable = removable.clone();
                     let notifications = notifications.clone();
+                    let report = report.clone();
                     let opener = opener.clone();
                     relm4::spawn_local(async move {
                         let mut states = removable.subscribe();
@@ -95,7 +101,7 @@ impl Applet for Removable {
                                 state.volume(&id)?.mount.as_ref().map(|m| m.at.clone())
                             });
                         if let Some(at) = mounted {
-                            open(gio::File::for_path(&at).uri().to_string());
+                            open_location(gio::File::for_path(&at).uri().to_string(), report);
                             opener.close_popover();
                         }
                     });
@@ -132,16 +138,6 @@ impl Applet for Removable {
         self.refresh();
         Some(shown.upcast())
     }
-}
-
-fn open(uri: String) {
-    relm4::spawn_local(async move {
-        if let Err(error) =
-            gio::AppInfo::launch_default_for_uri_future(&uri, gio::AppLaunchContext::NONE).await
-        {
-            tracing::warn!(uri, %error, "could not open that location");
-        }
-    });
 }
 
 fn tell<F, T>(

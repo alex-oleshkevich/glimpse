@@ -29,7 +29,8 @@ const EXCERPT_CHARS: usize = 200;
 type Decoded = (Thumbnail, Option<gio::File>);
 use crate::applet::popover::Seat;
 use crate::applet::{
-    Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, tell, wording,
+    Applet, Ctx, Input, Opener, Report, open_location, report_failure, spawn_reported, tell,
+    wording,
 };
 
 pub struct Clipboard {
@@ -496,19 +497,6 @@ fn open_with(path: PathBuf) {
     );
 }
 
-fn open(uri: String) {
-    relm4::spawn_local(async move {
-        if let Err(error) = gtk4::gio::AppInfo::launch_default_for_uri_future(
-            &uri,
-            gtk4::gio::AppLaunchContext::NONE,
-        )
-        .await
-        {
-            tracing::warn!(uri, %error, "could not open that location");
-        }
-    });
-}
-
 /// A command the viewer asked for answers in words they can read. `spawn_command` only logs, and a
 /// row that does nothing when pressed is exactly the failure a person needs told about.
 fn wording_for(error: &CommandError, unavailable: &str) -> Option<String> {
@@ -591,7 +579,14 @@ impl Applet for Clipboard {
                     return;
                 };
                 match acting {
-                    Acting::Open(uri) => open(uri),
+                    Acting::Open(uri) => open_location(
+                        uri,
+                        Report::open_failure(
+                            notifications.clone(),
+                            gettext("Clipboard"),
+                            render::ICON,
+                        ),
+                    ),
                     Acting::Save(entry) => save(entry, notifications.clone()),
                     Acting::OpenWith(path) => open_with(path),
                     Acting::SendFile(device, uri) => {

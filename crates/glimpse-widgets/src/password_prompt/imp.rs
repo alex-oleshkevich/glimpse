@@ -62,7 +62,7 @@ impl PasswordPrompt {
         }
     }
 
-    fn submit(&self) {
+    pub(super) fn submit(&self) {
         let empty = self.text().is_none_or(|text| text.text_length() == 0);
         if self.refused() || empty {
             return;

@@ -158,7 +158,7 @@ jobs:
       - run: |
           docker run --rm --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/src" -w /src \
             fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80 \
-            bash -lc 'dnf install -y rust cargo just gcc pkgconf-pkg-config gtk4-devel libadwaita-devel gtk4-layer-shell-devel libheif-devel pam-devel pulseaudio-libs-devel pipewire-devel systemd-devel libudev-devel clang-devel blueprint-compiler gettext zstd && cargo install cargo-generate-rpm --version 0.21.0 --locked && export PATH="/root/.cargo/bin:$PATH" && CARGO_BUILD_JOBS=2 just package-rpm-fedora && mkdir -p dist && cp target/generate-rpm/*.rpm dist/'
+            bash -lc 'dnf install -y rust cargo just gcc rpm-build pkgconf-pkg-config gtk4-devel libadwaita-devel gtk4-layer-shell-devel libheif-devel pam-devel pulseaudio-libs-devel pipewire-devel systemd-devel libudev-devel clang-devel blueprint-compiler gettext zstd curl patch && CARGO_BUILD_JOBS=2 just package-rpm-fedora && mkdir -p dist && cp target/generate-rpm/*.rpm dist/'
       - uses: actions/upload-artifact@v4
         with:
           name: packages-fedora
@@ -177,7 +177,7 @@ jobs:
       - run: |
           docker run --rm --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/src" -w /src \
             opensuse/tumbleweed@sha256:007fde2c1e6b3de48681c765b3d6905d4e59d2f7a26f4585ec49dd11305c3fe7 \
-            bash -lc 'zypper --non-interactive install --no-recommends rust cargo just gcc gawk make pkgconf-pkg-config gtk4-devel libadwaita-devel gtk4-layer-shell-devel libheif-devel pam-devel libpulse-devel pipewire-devel systemd-devel libudev-devel clang-devel blueprint-compiler gettext-tools zstd && cargo install cargo-generate-rpm --version 0.21.0 --locked && export PATH="/root/.cargo/bin:$PATH" && CARGO_BUILD_JOBS=2 just package-rpm-opensuse && mkdir -p dist && cp target/generate-rpm/*.rpm dist/'
+            bash -lc 'zypper --non-interactive install --no-recommends rust cargo just gcc rpm-build gawk make pkgconf-pkg-config gtk4-devel libadwaita-devel gtk4-layer-shell-devel libheif-devel pam-devel libpulse-devel pipewire-devel systemd-devel libudev-devel clang-devel blueprint-compiler gettext-tools zstd curl patch && CARGO_BUILD_JOBS=2 just package-rpm-opensuse && mkdir -p dist && cp target/generate-rpm/*.rpm dist/'
       - uses: actions/upload-artifact@v4
         with:
           name: packages-opensuse

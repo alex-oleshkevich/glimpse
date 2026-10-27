@@ -1089,6 +1089,178 @@ fn row_family_mounts_props_and_end_in_the_head() {
 
 #[test]
 #[ignore = "needs a display"]
+fn togglerow_control_changes_preserve_accessibility_and_local_intent() {
+    init();
+    let first = tree(vec![
+        node(3, "actionrow", json!({"title":"Before"}), vec![]),
+        node(
+            2,
+            "togglerow",
+            json!({"title":"Enabled","active":false,"onToggle":true}),
+            vec![],
+        ),
+        node(4, "actionrow", json!({"title":"After"}), vec![]),
+    ]);
+    let (shell, mut dom, events) = setup(&first);
+    let window = gtk4::Window::new();
+    window.set_child(Some(&shell));
+    window.present();
+    while glib::MainContext::default().iteration(false) {}
+    let before = widget(&dom, 1, 3, ElementKind::ActionRow);
+    let after = widget(&dom, 1, 4, ElementKind::ActionRow);
+    let original = widget(&dom, 1, 2, ElementKind::ToggleRow)
+        .downcast::<ToggleRow>()
+        .expect("switch row");
+    assert_eq!(original.accessible_role(), gtk4::AccessibleRole::Switch);
+    assert!(original.grab_focus());
+    original.emit_by_name::<()>("activate", &[]);
+    assert!(original.active());
+    assert_eq!(events.borrow().len(), 1);
+    let changed = first
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"control":"check","active":false}))
+                .expect("props"),
+            seq: Some(0),
+        }])
+        .expect("changed control with stale active");
+    assert!(dom.reconcile(&changed, 1));
+    let check = widget(&dom, 1, 2, ElementKind::ToggleRow)
+        .downcast::<ToggleRow>()
+        .expect("checkbox row");
+    assert_ne!(check, original);
+    assert!(original.parent().is_none());
+    assert_eq!(check.accessible_role(), gtk4::AccessibleRole::Checkbox);
+    assert!(check.active());
+    assert!(gtk4::test_accessible_has_property(
+        &check,
+        gtk4::AccessibleProperty::Label
+    ));
+    assert!(gtk4::test_accessible_has_state(
+        &check,
+        gtk4::AccessibleState::Checked
+    ));
+    assert_eq!(
+        gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
+        Some(check.upcast_ref())
+    );
+    assert_eq!(events.borrow().len(), 1);
+    let renamed = changed
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"title":"Renamed","active":false}))
+                .expect("props"),
+            seq: Some(1),
+        }])
+        .expect("acknowledged state and ordinary property");
+    assert!(dom.reconcile(&renamed, 1));
+    assert_eq!(widget(&dom, 1, 2, ElementKind::ToggleRow), check);
+    assert!(!check.active());
+    assert!(descendant_label(check.upcast_ref(), "Renamed").is_some());
+    let switched = renamed
+        .apply(vec![set(2, json!({"control":"switch"}))])
+        .expect("switch control again");
+    assert!(dom.reconcile(&switched, 1));
+    let latest = widget(&dom, 1, 2, ElementKind::ToggleRow)
+        .downcast::<ToggleRow>()
+        .expect("latest switch row");
+    assert!(check.parent().is_none());
+    assert_eq!(latest.accessible_role(), gtk4::AccessibleRole::Switch);
+    assert!(!latest.active());
+    assert!(descendant_label(latest.upcast_ref(), "Renamed").is_some());
+    assert_eq!(
+        gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
+        Some(latest.upcast_ref())
+    );
+    assert_eq!(shell.body().first_child(), Some(before.clone()));
+    assert_eq!(before.next_sibling(), Some(latest.clone().upcast()));
+    assert_eq!(latest.next_sibling(), Some(after.clone()));
+    assert!(after.next_sibling().is_none());
+    assert_eq!(events.borrow().len(), 1);
+    let controllers = latest.observe_controllers();
+    let key = (0..controllers.n_items())
+        .filter_map(|index| controllers.item(index))
+        .find_map(|controller| controller.downcast::<gtk4::EventControllerKey>().ok())
+        .expect("row key controller");
+    key.emit_by_name::<bool>(
+        "key-pressed",
+        &[&gdk::Key::space, &0u32, &gdk::ModifierType::empty()],
+    );
+    assert!(latest.active());
+    let events = events.borrow();
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[1].id, 2);
+    assert_eq!(events[1].name, "onToggle");
+    assert_eq!(events[1].args, vec![json!(true)]);
+    assert_eq!(events[1].seq, Some(2));
+    window.destroy();
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn togglerow_control_changes_keep_the_selected_stack_page_and_focus() {
+    init();
+    let mut current = tree(vec![node(
+        2,
+        "stack",
+        json!({"visible":0}),
+        vec![
+            node(
+                3,
+                "togglerow",
+                json!({"title":"Choice","onToggle":true}),
+                vec![],
+            ),
+            node(4, "label", json!({"text":"Other page"}), vec![]),
+        ],
+    )]);
+    let (shell, mut dom, events) = setup(&current);
+    let window = gtk4::Window::new();
+    window.set_child(Some(&shell));
+    window.present();
+    while glib::MainContext::default().iteration(false) {}
+    let stack = widget(&dom, 1, 2, ElementKind::Stack)
+        .downcast::<gtk4::Stack>()
+        .expect("stack");
+    let other = widget(&dom, 1, 4, ElementKind::Label);
+    let mut previous = widget(&dom, 1, 3, ElementKind::ToggleRow);
+    assert!(previous.grab_focus());
+    for (control, role) in [
+        ("check", gtk4::AccessibleRole::Checkbox),
+        ("switch", gtk4::AccessibleRole::Switch),
+    ] {
+        current = current
+            .apply(vec![set(3, json!({"control":control}))])
+            .expect("changed control");
+        assert!(dom.reconcile(&current, 1));
+        let replacement = widget(&dom, 1, 3, ElementKind::ToggleRow);
+        assert_eq!(stack.pages().n_items(), 2);
+        assert_eq!(stack.child_by_name("0").as_ref(), Some(&replacement));
+        assert_eq!(stack.child_by_name("1").as_ref(), Some(&other));
+        assert_eq!(stack.visible_child().as_ref(), Some(&replacement));
+        assert!(previous.parent().is_none());
+        assert_eq!(
+            gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
+            Some(&replacement)
+        );
+        assert_eq!(replacement.accessible_role(), role);
+        assert!(descendant_label(&replacement, "Choice").is_some());
+        assert!(gtk4::test_accessible_has_property(
+            &replacement,
+            gtk4::AccessibleProperty::Label
+        ));
+        assert!(gtk4::test_accessible_has_state(
+            &replacement,
+            gtk4::AccessibleState::Checked
+        ));
+        assert!(events.borrow().is_empty());
+        previous = replacement;
+    }
+    window.destroy();
+}
+
+#[test]
+#[ignore = "needs a display"]
 fn row_family_keeps_local_values_and_reports_shell_close() {
     init();
     let first = tree(vec![

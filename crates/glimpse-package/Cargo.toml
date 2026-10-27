@@ -18,14 +18,14 @@ A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, an
 
 depends = [
   "$auto",
-  "libadwaita-1-0 (>= 1.8~alpha)",
+  "libadwaita-1-0 (>= 1.9)",
   "libc6 (>= 2.43)",
   "libcairo2 (>= 1.10.0)",
   "libgcc-s1 (>= 4.2)",
   "libgdk-pixbuf-2.0-0 (>= 2.31.1)",
   "libglib2.0-0t64 (>= 2.80.0)",
   "libgraphene-1.0-0 (>= 1.5.4)",
-  "libgtk-4-1 (>= 4.19.3)",
+  "libgtk-4-1 (>= 4.22)",
   "libgtk4-layer-shell0 (>= 1.2.0)",
   "libpam0g (>= 0.99.7.1)",
   "libpango-1.0-0 (>= 1.14.0)",
@@ -177,9 +177,20 @@ assets = [
   { source = "data/portals/niri-portals.conf", dest = "/etc/xdg-desktop-portal/niri-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/hyprland-portals.conf", dest = "/etc/xdg-desktop-portal/hyprland-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/*-portals.conf", dest = "/usr/share/glimpse/portals/", mode = "644" },
-  { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
-  { source = "data/pam.d/fedora/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
+  { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = "noreplace" },
+  { source = "data/pam.d/fedora/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = "noreplace" },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
+  { dir = true, dest = "/usr/share/glimpse", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/portals", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/themes", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/themes/adwaita", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/go", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/py", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/rs", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/rs/src", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/ts", mode = "755" },
   # One line per language here too, so the two lists stay comparable — see README.
   { source = "target/locale/be/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/be/LC_MESSAGES/glimpse.mo", mode = "644" },
   { source = "target/locale/cs/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/cs/LC_MESSAGES/glimpse.mo", mode = "644" },
@@ -256,9 +267,20 @@ assets = [
   { source = "data/portals/niri-portals.conf", dest = "/etc/xdg-desktop-portal/niri-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/hyprland-portals.conf", dest = "/etc/xdg-desktop-portal/hyprland-portals.conf", mode = "644", config = "noreplace" },
   { source = "data/portals/*-portals.conf", dest = "/usr/share/glimpse/portals/", mode = "644" },
-  { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
-  { source = "data/pam.d/debian/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
+  { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = "noreplace" },
+  { source = "data/pam.d/debian/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = "noreplace" },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
+  { dir = true, dest = "/usr/share/glimpse", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/portals", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/themes", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/themes/adwaita", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/go", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/py", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/rs", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/rs/src", mode = "755" },
+  { dir = true, dest = "/usr/share/glimpse/sdk/templates/ts", mode = "755" },
   { source = "target/locale/be/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/be/LC_MESSAGES/glimpse.mo", mode = "644" },
   { source = "target/locale/cs/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/cs/LC_MESSAGES/glimpse.mo", mode = "644" },
   { source = "target/locale/da/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/da/LC_MESSAGES/glimpse.mo", mode = "644" },
@@ -279,11 +301,11 @@ assets = [
   { source = "target/locale/zh_CN/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/zh_CN/LC_MESSAGES/glimpse.mo", mode = "644" },
 ]
 
-# auto-req (default) scans every asset under the RPM, so it should cover all bundled
-# binaries, but these are listed explicitly too as a safety net against a partial scan.
+# auto-req (default) scans every asset under the RPM, but it requires each library by soname only,
+# so the GTK and libadwaita floors live here; the rest is a safety net against a partial scan.
 [package.metadata.generate-rpm.requires]
-gtk4 = "*"
-libadwaita = "*"
+gtk4 = ">= 4.22"
+libadwaita = ">= 1.9"
 gtk4-layer-shell = "*"
 geoclue2 = "*"
 pulseaudio-libs = "*"
@@ -292,9 +314,12 @@ ddcutil = "*"
 pam = "*"
 
 # Replaces the table above rather than merging into it. Those are Fedora names; openSUSE's differ for
-# every linked library, which auto-req already requires by soname, so only names that match stay.
+# every linked library, which auto-req already requires by soname, so only names that match stay,
+# plus the GTK and libadwaita floors under openSUSE's package names.
 # openSUSE splits ddcutil's udev rule into its own package, and the rule is all glimpse wants.
 [package.metadata.generate-rpm.variants.opensuse.requires]
+libgtk-4-1 = ">= 4.22"
+libadwaita-1-0 = ">= 1.9"
 geoclue2 = "*"
 pam = "*"
 ddcutil-i2c-udev-rules = "*"

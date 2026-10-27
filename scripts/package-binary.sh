@@ -108,7 +108,7 @@ for f in target/locale/*/LC_MESSAGES/glimpse.mo; do
     install -Dm644 "$f" "$pkgroot/usr/share/locale/$lang/LC_MESSAGES/glimpse.mo"
 done
 
-tar --zstd -cf "dist/$asset" -C "$pkgroot" .
+tar --zstd --owner=0 --group=0 --numeric-owner -cf "dist/$asset" -C "$pkgroot" .
 b2sum "dist/$asset" > "dist/$asset.b2"
 sha256sum "dist/$asset" > "dist/$asset.sha256"
 

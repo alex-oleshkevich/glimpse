@@ -626,3 +626,37 @@ fn an_error_does_not_outlive_the_cover_but_a_lockout_does() {
 
     window.destroy();
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn keys_typed_before_the_prompt_is_shown_reach_it() {
+    gtk4::init().expect("display");
+    crate::register_resources().expect("resources");
+
+    let stage = LockStage::new();
+    let window = gtk4::Window::new();
+    window.set_child(Some(&stage));
+    stage.set_interactive(true);
+    let submitted = Rc::new(Cell::new(0));
+    stage.prompt().connect_submitted({
+        let submitted = submitted.clone();
+        move |_| submitted.set(submitted.get() + 1)
+    });
+
+    assert!(press(&stage, gdk::Key::a));
+    assert!(!stage.prompt().is_mapped(), "the window is never presented");
+    std::thread::sleep(std::time::Duration::from_millis(350));
+    assert!(
+        press(&stage, gdk::Key::b),
+        "a key past the settle window is still typed while the prompt is not shown"
+    );
+    assert!(press(&stage, gdk::Key::Return));
+    assert_eq!(
+        submitted.get(),
+        1,
+        "Enter submits even though the hidden entry cannot activate"
+    );
+    assert_eq!(stage.prompt().take_text().as_str(), "ab");
+
+    window.destroy();
+}

@@ -53,13 +53,28 @@ verify() {
     fi
 }
 
-id="" id_like=""
+id="" id_like="" version=""
 if [[ -r /etc/os-release ]]; then
     # shellcheck disable=SC1091
     . /etc/os-release
     id="${ID:-}"
     id_like="${ID_LIKE:-}"
+    version="${VERSION_ID:-}"
 fi
+
+at_least() {
+    [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" == "$2" ]]
+}
+
+case "$id" in
+    debian) [[ -z "$version" ]] || at_least "$version" 14 ;;
+    ubuntu) at_least "$version" 26.04 ;;
+    fedora) at_least "$version" 44 ;;
+    opensuse-leap|sles) false ;;
+esac || {
+    echo "error: ${PRETTY_NAME:-$id $version} is not supported: glimpse needs GTK 4.22 and libadwaita 1.9, first shipped in Debian 14 (testing), Ubuntu 26.04, Fedora 44 and openSUSE Tumbleweed" >&2
+    exit 1
+}
 
 case " $id $id_like " in
     *" nixos "*)
@@ -94,7 +109,54 @@ case " $id $id_like " in
         download_matching 'SHA256SUMS$' >/dev/null
         tarball="$(download_matching 'x86_64\.tar\.zst$')"
         verify "$tarball"
-        as_root tar --zstd -xf "$tmpdir/$tarball" -C /
+        tar --zstd -tf "$tmpdir/$tarball" > "$tmpdir/members"
+        touch "$tmpdir/preserved"
+        excludes=()
+        while IFS= read -r member; do
+            config="${member#./}"
+            case "$config" in
+                etc/pam.d/glimpse-lock|etc/geoclue/conf.d/glimpse.conf|etc/xdg-desktop-portal/glimpse-portals.conf|etc/xdg-desktop-portal/niri-portals.conf|etc/xdg-desktop-portal/hyprland-portals.conf)
+                    if [[ -e "/$config" || -L "/$config" ]]; then
+                        if [[ "$config" == etc/geoclue/conf.d/glimpse.conf && -f "/$config" && ! -L "/$config" ]]; then
+                            existing="$(as_root sha256sum -- "/$config")"
+                            if [[ "${existing%% *}" == db86a0fe5a71457f26f5175d97992e7d2405dc42ae977c50cdac8bdbc840e6e7 ]]; then
+                                echo "Installing the packaged GeoClue policy over the unchanged 0.15 default."
+                                continue
+                            fi
+                        fi
+                        printf '%s\n' "$member" >> "$tmpdir/preserved"
+                        excludes+=("--exclude=$member")
+                    fi
+                    ;;
+            esac
+        done < "$tmpdir/members"
+        if [[ -s "$tmpdir/preserved" ]]; then
+            mkdir "$tmpdir/defaults"
+            tar --zstd --no-same-owner -xf "$tmpdir/$tarball" -C "$tmpdir/defaults" -T "$tmpdir/preserved"
+        fi
+        as_root tar --zstd --no-same-owner --no-overwrite-dir "${excludes[@]}" -xf "$tmpdir/$tarball" -C /
+        while IFS= read -r member; do
+            config="${member#./}"
+            incoming="$tmpdir/defaults/$config"
+            if ! as_root cmp -s -- "/$config" "$incoming"; then
+                as_root install -m 644 -- "$incoming" "/$config.new"
+                echo "Kept /$config; review the new packaged default at /$config.new."
+            fi
+        done < "$tmpdir/preserved"
+        for obsolete in usr/bin/glimpse-shell \
+            usr/lib/systemd/user/glimpse-shell.service \
+            usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service \
+            usr/share/glimpse/scripts/monitors; do
+            if ! grep -Fxq -e "$obsolete" -e "./$obsolete" "$tmpdir/members"; then
+                as_root rm -f -- "/$obsolete"
+            fi
+        done
+        if [[ -f /LICENSE && ! -L /LICENSE ]] && ! grep -Fxq -e LICENSE -e ./LICENSE "$tmpdir/members"; then
+            existing="$(as_root sha256sum -- /LICENSE)"
+            if [[ "${existing%% *}" == 2b44ad7005d10c7e4cae1318a26b7ce11a7eecd83997a2d722283e44d588a68f ]]; then
+                as_root rm -f -- /LICENSE
+            fi
+        fi
         ;;
 esac
 

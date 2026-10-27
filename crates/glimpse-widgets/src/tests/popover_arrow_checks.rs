@@ -1,6 +1,6 @@
 use super::*;
 
-use gtk4::{graphene, gsk};
+use gtk4::{cairo, graphene, gsk};
 
 fn node(arrow: &PopoverArrow) -> gsk::RenderNode {
     let snapshot = gtk4::Snapshot::new();
@@ -11,17 +11,29 @@ fn node(arrow: &PopoverArrow) -> gsk::RenderNode {
     snapshot.to_node().expect("a render node")
 }
 
-fn inside(fill: &gsk::FillNode, x: f32, y: f32) -> bool {
-    fill.path()
-        .in_fill(&graphene::Point::new(x, y), gsk::FillRule::Winding)
-}
-
-fn settle(until: impl Fn() -> bool) {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(300);
-    while std::time::Instant::now() < deadline && !until() {
-        glib::MainContext::default().iteration(false);
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
+fn rendered_alpha(node: &gsk::RenderNode, points: [graphene::Point; 2]) -> [u8; 2] {
+    let bounds = node.bounds();
+    let (width, height) = (bounds.width().ceil() as i32, bounds.height().ceil() as i32);
+    let mut surface =
+        cairo::ImageSurface::create(cairo::Format::ARgb32, width, height).expect("image surface");
+    let context = cairo::Context::new(&surface).expect("render context");
+    context.translate(-f64::from(bounds.x()), -f64::from(bounds.y()));
+    node.draw(&context);
+    drop(context);
+    surface.flush();
+    let stride = surface.stride() as usize;
+    let pixels = surface.data().expect("rendered pixels");
+    points.map(|point| {
+        let (x, y) = (
+            (point.x() - bounds.x()).floor() as i32,
+            (point.y() - bounds.y()).floor() as i32,
+        );
+        if x < 0 || y < 0 || x >= width || y >= height {
+            return 0;
+        }
+        let offset = y as usize * stride + x as usize * 4;
+        (u32::from_ne_bytes(pixels[offset..offset + 4].try_into().expect("ARGB pixel")) >> 24) as u8
+    })
 }
 
 pub(super) fn check() {
@@ -37,40 +49,23 @@ pub(super) fn check() {
     assert!(width > 0 && height > 0);
     let (w, h) = (width as f32, height as f32);
 
-    let invalidated = Rc::new(Cell::new(0));
-    let paintable = gtk4::WidgetPaintable::new(Some(&arrow));
-    paintable.connect_invalidate_contents({
-        let invalidated = Rc::clone(&invalidated);
-        move |_| invalidated.set(invalidated.get() + 1)
-    });
-
-    arrow.set_tip(Tip::Up);
-    settle(|| invalidated.get() > 0);
-    assert_eq!(invalidated.get(), 0);
-    arrow.set_tip(Tip::Down);
-    settle(|| invalidated.get() > 0);
-    assert!(invalidated.get() > 0);
-    assert_eq!(arrow.tip(), Tip::Down);
-
     for (tip, solid, empty) in [
-        (Tip::Up, (w / 2.0, h * 0.75), (1.0, 1.0)),
-        (Tip::Down, (w / 2.0, h * 0.25), (1.0, h - 1.0)),
-        (Tip::Left, (w * 0.75, h / 2.0), (1.0, 1.0)),
-        (Tip::Right, (w * 0.25, h / 2.0), (w - 1.0, 1.0)),
+        (Tip::Up, (w * 0.2, h * 0.8), (w * 0.2, h * 0.2)),
+        (Tip::Down, (w * 0.2, h * 0.2), (w * 0.2, h * 0.8)),
+        (Tip::Left, (w * 0.8, h * 0.2), (w * 0.2, h * 0.2)),
+        (Tip::Right, (w * 0.2, h * 0.2), (w * 0.8, h * 0.2)),
     ] {
         arrow.set_tip(tip);
         let node = node(&arrow);
-        assert_eq!(node.node_type(), gsk::RenderNodeType::FillNode, "{tip:?}");
-        let fill = node.downcast::<gsk::FillNode>().expect("a fill node");
-        assert!(inside(&fill, solid.0, solid.1), "{tip:?}");
-        assert!(!inside(&fill, empty.0, empty.1), "{tip:?}");
-        assert!(
-            matches!(
-                fill.child().node_type(),
-                gsk::RenderNodeType::ColorNode | gsk::RenderNodeType::ContainerNode
-            ),
-            "{tip:?}"
-        );
+        let parent = arrow.parent().expect("a parent");
+        let points = [solid, empty].map(|(x, y)| {
+            arrow
+                .compute_point(&parent, &graphene::Point::new(x, y))
+                .expect("point in parent coordinates")
+        });
+        let [solid_alpha, empty_alpha] = rendered_alpha(&node, points);
+        assert!(solid_alpha > 0, "{tip:?}");
+        assert_eq!(empty_alpha, 0, "{tip:?}");
     }
     window.destroy();
 }

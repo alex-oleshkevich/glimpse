@@ -386,8 +386,9 @@ impl AudioPopover {
 }
 
 fn choice_row(chosen: impl Fn() + 'static) -> ToggleRow {
-    let row = ToggleRow::new();
-    row.set_control(ToggleControl::Check);
+    let row: ToggleRow = glib::Object::builder()
+        .property("control", ToggleControl::Check)
+        .build();
     row.connect_toggled(move |row, active| match active {
         true => chosen(),
         false => row.set_active(true),

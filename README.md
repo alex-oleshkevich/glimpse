@@ -48,9 +48,9 @@ On Arch Linux, install the package from the AUR:
 yay -S glimpse-desktop-bin
 ```
 
-On Debian 14 (forky), Ubuntu 26.04, Fedora 44 or openSUSE Tumbleweed and newer, the install script
-downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums and
-installs it (older releases lack GTK 4.22 and libadwaita 1.9):
+On Debian 14 (forky, still in testing), Ubuntu 26.04, Fedora 44 or openSUSE Tumbleweed and newer, the
+install script downloads the latest release as a `.deb` or `.rpm`, checks it against the published
+checksums and installs it (older releases lack GTK 4.22 and libadwaita 1.9, so it refuses them):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/install.sh | bash
@@ -70,18 +70,20 @@ under [Start the shell](#start-the-shell):
 }
 ```
 
-To build from source you need Rust 1.95 or newer, `just`, `blueprint-compiler` and gettext, plus the
-development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PAM and udev. Then:
+To build from source you need Rust 1.95 or newer, `just`, `blueprint-compiler`, gettext and clang,
+plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PipeWire, PAM and udev. Then:
 
 ```sh
-just install
+just build-release-binaries build-translations
+sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 
 ### Start the shell
 
-glimpse runs as a set of systemd user services under `glimpse-session.target`, which follows
-`graphical-session.target`. If your session starts that target (niri's `niri-session`, uwsm), enable
-it once from inside your Wayland session:
+glimpse runs as systemd user services under `glimpse-session.target`, which follows
+`graphical-session.target`. Explicit shell stops use `--job-mode=replace-irreversibly` so concurrent
+D-Bus activation cannot cancel them; the lock service stays with the graphical session. If your
+session starts `graphical-session.target` (niri's `niri-session`, uwsm), enable the shell target once:
 
 ```sh
 systemctl --user enable --now glimpse-session.target
@@ -94,7 +96,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("systemctl --user start glimpse-session.target")
 end)
 hl.on("hyprland.shutdown", function()
-    hl.exec_cmd("systemctl --user stop glimpse-session.target")
+    hl.exec_cmd("systemctl --user --job-mode=replace-irreversibly stop glimpse-session.target")
 end)
 ```
 
@@ -102,7 +104,7 @@ In a legacy `hyprland.conf`:
 
 ```ini
 exec-once = systemctl --user start glimpse-session.target
-exec-shutdown = systemctl --user stop glimpse-session.target
+exec-shutdown = systemctl --user --job-mode=replace-irreversibly stop glimpse-session.target
 ```
 
 The configuration lives in `~/.config/glimpse/`: `config.toml` for settings and `panel.toml` for the

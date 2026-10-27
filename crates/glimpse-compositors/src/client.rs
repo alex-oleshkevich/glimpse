@@ -108,8 +108,12 @@ impl Snapshots for CompositorState {
 
     const BUS_NAME: &'static str = BUS_NAME;
 
-    async fn build(connection: &zbus::Connection) -> zbus::Result<Self::Proxy> {
+    async fn build(
+        connection: &zbus::Connection,
+        owner: zbus::names::OwnedUniqueName,
+    ) -> zbus::Result<Self::Proxy> {
         Compositor1Proxy::builder(connection)
+            .destination(owner)?
             .cache_properties(CacheProperties::Yes)
             .build()
             .await

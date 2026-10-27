@@ -235,60 +235,72 @@ fn action() {
 }
 
 fn toggle() {
-    let row = ToggleRow::new();
-    let window = gtk4::Window::new();
-    window.set_child(Some(&row));
-    window.present();
-    while gtk4::glib::MainContext::default().iteration(false) {}
-    assert_eq!(row.css_name().as_str(), "listrow");
-    assert!(!row.imp().knob.get().can_target());
-    assert!(!row.imp().knob.get().can_focus());
-    let end = row.upcast_ref::<Row>().imp().end();
-    assert_eq!(
-        row.imp().knob.get().parent().as_ref(),
-        Some(end.upcast_ref())
-    );
-    let hits = Rc::new(RefCell::new(Vec::new()));
-    row.connect_toggled({
-        let hits = hits.clone();
-        move |_, active| hits.borrow_mut().push(active)
-    });
-    key(&row, gtk4::gdk::Key::Return);
-    key(&row, gtk4::gdk::Key::Return);
-    assert_eq!(hits.borrow().as_slice(), &[true]);
-    key_release(&row, gtk4::gdk::Key::Return);
-    key(&row, gtk4::gdk::Key::KP_Enter);
-    key(&row, gtk4::gdk::Key::space);
-    click(
-        &row,
-        f64::from(row.width()) - 2.0,
-        f64::from(row.height()) / 2.0,
-    );
-    assert_eq!(hits.borrow().as_slice(), &[true, false, true, false]);
-    assert!(!row.active());
+    for control in [ToggleControl::Switch, ToggleControl::Check] {
+        let row: ToggleRow = gtk4::glib::Object::builder()
+            .property("control", control)
+            .build();
+        let window = gtk4::Window::new();
+        window.set_child(Some(&row));
+        window.present();
+        while gtk4::glib::MainContext::default().iteration(false) {}
+        assert_eq!(row.css_name().as_str(), "listrow");
+        assert!(!row.imp().knob.get().can_target());
+        assert!(!row.imp().knob.get().can_focus());
+        let end = row.upcast_ref::<Row>().imp().end();
+        match control {
+            ToggleControl::Switch => assert_eq!(
+                row.imp().knob.get().parent().as_ref(),
+                Some(end.upcast_ref())
+            ),
+            ToggleControl::Check => assert!(row.imp().knob.get().parent().is_none()),
+        }
+        let hits = Rc::new(RefCell::new(Vec::new()));
+        row.connect_toggled({
+            let hits = hits.clone();
+            move |_, active| hits.borrow_mut().push(active)
+        });
+        key(&row, gtk4::gdk::Key::Return);
+        key(&row, gtk4::gdk::Key::Return);
+        assert_eq!(hits.borrow().as_slice(), &[true]);
+        key_release(&row, gtk4::gdk::Key::Return);
+        key(&row, gtk4::gdk::Key::KP_Enter);
+        key(&row, gtk4::gdk::Key::space);
+        click(
+            &row,
+            f64::from(row.width()) - 2.0,
+            f64::from(row.height()) / 2.0,
+        );
+        assert_eq!(hits.borrow().as_slice(), &[true, false, true, false]);
+        assert!(!row.active());
 
-    hits.borrow_mut().clear();
-    row.upcast_ref::<Row>().set_inactive(true);
-    assert!(!row.is_sensitive());
-    key(&row, gtk4::gdk::Key::space);
-    assert!(!row.active());
-    assert!(hits.borrow().is_empty());
+        hits.borrow_mut().clear();
+        row.upcast_ref::<Row>().set_inactive(true);
+        assert!(!row.is_sensitive());
+        key(&row, gtk4::gdk::Key::space);
+        assert!(!row.active());
+        assert!(hits.borrow().is_empty());
 
-    row.upcast_ref::<Row>().set_inactive(false);
-    assert!(row.has_css_class("row--interactive"));
-    row.set_active(true);
-    assert!(row.active());
-    assert!(hits.borrow().is_empty());
+        row.upcast_ref::<Row>().set_inactive(false);
+        assert!(row.has_css_class("row--interactive"));
+        row.set_active(true);
+        assert!(row.active());
+        assert!(hits.borrow().is_empty());
 
-    row.set_control(ToggleControl::Check);
-    let check = child_named::<gtk4::Image>(&row, "row__check");
-    assert!(check.get_visible());
-    assert!(row.has_css_class("row--on"));
-    assert!(!row.imp().knob.get().get_visible());
-    row.set_active(false);
-    assert!(!check.get_visible());
-    assert!(!row.has_css_class("row--on"));
-    window.close();
+        let check = child_named::<gtk4::Image>(&row, "row__check");
+        assert_eq!(check.get_visible(), control == ToggleControl::Check);
+        assert_eq!(
+            row.has_css_class("row--on"),
+            control == ToggleControl::Check
+        );
+        assert_eq!(
+            row.imp().knob.get().get_visible(),
+            control == ToggleControl::Switch
+        );
+        row.set_active(false);
+        assert!(!check.get_visible());
+        assert!(!row.has_css_class("row--on"));
+        window.close();
+    }
 }
 
 fn meter() {
@@ -330,10 +342,14 @@ fn roles() {
         ActionRow::new().accessible_role(),
         gtk4::AccessibleRole::Button
     );
-    let toggle = ToggleRow::new();
+    assert_eq!(
+        ToggleRow::new().accessible_role(),
+        gtk4::AccessibleRole::Switch
+    );
+    let toggle: ToggleRow = gtk4::glib::Object::builder()
+        .property("control", ToggleControl::Check)
+        .build();
     toggle.set_property("title", Some("Enabled"));
-    assert_eq!(toggle.accessible_role(), gtk4::AccessibleRole::Switch);
-    toggle.set_control(ToggleControl::Check);
     assert_eq!(toggle.accessible_role(), gtk4::AccessibleRole::Checkbox);
     key(&toggle, gtk4::gdk::Key::space);
     assert!(toggle.active());

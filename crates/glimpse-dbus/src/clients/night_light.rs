@@ -194,8 +194,12 @@ impl Snapshots for NightLightProviderState {
 
     const BUS_NAME: &'static str = GLIMPSE_NIGHT_LIGHT_BUS_NAME;
 
-    async fn build(connection: &zbus::Connection) -> zbus::Result<Self::Proxy> {
+    async fn build(
+        connection: &zbus::Connection,
+        owner: zbus::names::OwnedUniqueName,
+    ) -> zbus::Result<Self::Proxy> {
         NightLight1Proxy::builder(connection)
+            .destination(owner)?
             .cache_properties(CacheProperties::Yes)
             .build()
             .await

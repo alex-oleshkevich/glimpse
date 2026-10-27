@@ -10,7 +10,7 @@ let
     xdg.portal.enable = true;
     xdg.portal.config.common.default = "gtk";
     xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-    environment.systemPackages = [ pkgs.pamtester pkgs.wtype ];
+    environment.systemPackages = [ pkgs.pamtester ];
     users.users.glimpse = {
       isNormalUser = true;
       uid = 1000;
@@ -57,21 +57,23 @@ let
         assert "${package}/share/glimpse/themes/adwaita/default.jpg" in shown, shown
         assert 'color-scheme = "dark"' in shown, shown
         machine.succeed(f"{user} systemctl --user stop glimpse-lock.service")
-        machine.succeed(f"{user} glimpse-lock --standalone >/tmp/lock.log 2>&1 &")
+        machine.succeed(f"{user} WAYLAND_DEBUG=1 glimpse-lock --standalone >/tmp/lock.log 2>&1 &")
         machine.wait_until_succeeds("grep -q 'locking generation' /tmp/lock.log", timeout=30)
         try:
-            machine.succeed(f"{user} wtype wrong-password -k Return")
-            machine.succeed("sleep 2")
+            machine.wait_until_succeeds("grep -Eq 'wl_keyboard[#@][0-9]+[.]enter' /tmp/lock.log", timeout=30)
+            machine.send_chars("wrong-password\n")
+            machine.wait_until_succeeds("test $(journalctl -b --no-pager | grep -c 'glimpse-lock:auth.*authentication failure.*uid=1000') -eq 1", timeout=30)
+            machine.wait_until_fails("grep -qx pam /proc/$(pgrep -u glimpse glimpse-lock)/task/*/comm", timeout=30)
             machine.succeed("pgrep -u glimpse glimpse-lock")
             machine.fail("grep -q 'authenticated; unlocking' /tmp/lock.log")
-            machine.succeed(f"{user} wtype test-password -k Return")
+            machine.send_chars("test-password\n")
             machine.wait_until_succeeds("grep -q 'authenticated; unlocking' /tmp/lock.log", timeout=30)
             machine.wait_until_fails("pgrep -u glimpse glimpse-lock", timeout=30)
         except Exception:
             print(machine.execute("cat /tmp/lock.log"))
             raise
         machine.succeed(f"{user} systemctl --user start glimpse-lock.service")
-        machine.succeed(f"{user} systemctl --user stop glimpse-session.target")
+        machine.succeed(f"{user} systemctl --user --job-mode=replace-irreversibly stop glimpse-session.target")
         machine.wait_until_fails(f"{user} systemctl --user is-active glimpse-panel.service")
         machine.succeed(f"{user} systemctl --user is-active glimpse-lock.service")
         machine.succeed(f"{user} systemctl --user start glimpse-session.target")
@@ -95,6 +97,12 @@ in {
     nodes.machine = {
       imports = [ common ];
       environment.systemPackages = [ pkgs.weston pkgs.niri ];
+      services.getty.autologinUser = "glimpse";
+      programs.bash.loginShellInit = ''
+        if [ "$(tty)" = /dev/tty1 ]; then
+          weston --backend=drm --renderer=pixman --shell=kiosk --socket=wayland-parent --no-config >/tmp/weston.log 2>&1
+        fi
+      '';
     };
     testScript = ''
       ${checks}
@@ -102,9 +110,7 @@ in {
       machine.wait_for_unit("multi-user.target")
       system_checks()
       seed_user_config()
-      machine.succeed("loginctl enable-linger glimpse")
       machine.wait_until_succeeds("test -S /run/user/1000/bus")
-      machine.succeed("runuser -u glimpse -- env XDG_RUNTIME_DIR=/run/user/1000 LIBGL_ALWAYS_SOFTWARE=1 weston --backend=headless --renderer=gl --width=1024 --height=768 --socket=wayland-parent --no-config >/tmp/weston.log 2>&1 &")
       machine.wait_until_succeeds("test -S /run/user/1000/wayland-parent")
       machine.succeed("runuser -u glimpse -- env XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-parent LIBGL_ALWAYS_SOFTWARE=1 niri >/tmp/niri.log 2>&1 &")
       machine.wait_until_succeeds("test -S /run/user/1000/wayland-1", timeout=45)

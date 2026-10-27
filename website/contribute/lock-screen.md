@@ -1,7 +1,9 @@
 # How the lock screen works
 
-A bug in the lock screen is a security failure, so `glimpse-lock` depends on no other glimpse process.
-It reads its own configuration and talks to logind and the compositor directly. Settings live in
+A bug in the lock screen is a security failure, so locking, blanking and the password prompt depend on
+no other glimpse process. The mirrors it hosts (compositor, media, battery, notifications) are
+optional: with none of them present the lock still locks and prompts. It reads its own configuration
+and reaches logind directly. Settings live in
 [Lock screen](/config/services/lock); this page is about the mechanics.
 
 ## Locking is a compositor state, not a window

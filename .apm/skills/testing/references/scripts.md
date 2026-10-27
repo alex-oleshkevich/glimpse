@@ -63,7 +63,7 @@ header before running it; the notes here are the traps that header does not cove
 
 - **`printing-mock-cups.py [--auto N]`** — replaces CUPS with an IPP server on port 16631
   (`GLIMPSE_MOCK_PORT`) that steps through printer and job states on Enter. Point a test panel at it
-  with `[printing] server-url = "http://localhost:16631/"`. Use it for widget states.
+  with `CUPS_SERVER=localhost:16631` in the test panel's environment. Use it for widget states.
 - **`printing-network-printer.sh run | up | jobs [N] | status | down`** — publishes a real IPP
   Everywhere printer that CUPS discovers through cups-browsed. Use it for discovery, job control
   and anything that must hold for real CUPS. Low toner and out-of-paper cannot reach the applet.

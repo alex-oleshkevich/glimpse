@@ -22,6 +22,7 @@ Commands:
   status         Show running glimpse components
   panel          Inspect and control the panel
   doctor         Check the configuration and every provider
+  session        Restart, power off or suspend the system
   help           Print this message or the help of the given subcommand(s)
 
 Options:
@@ -950,6 +951,56 @@ Check the configuration and every provider
 
 ```text
 Usage: glimpsectl doctor [OPTIONS]
+
+Options:
+  -h, --help                 Print help
+```
+
+## `glimpsectl session`
+
+Restart, power off or suspend the system
+
+```text
+Usage: glimpsectl session [OPTIONS] <COMMAND>
+
+Commands:
+  reboot     Restart the system after confirmation
+  power-off  Power off the system after confirmation
+  suspend    Suspend the system immediately
+  help       Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl session reboot`
+
+Restart the system after confirmation
+
+```text
+Usage: glimpsectl session reboot [OPTIONS]
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl session power-off`
+
+Power off the system after confirmation
+
+```text
+Usage: glimpsectl session power-off [OPTIONS]
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl session suspend`
+
+Suspend the system immediately
+
+```text
+Usage: glimpsectl session suspend [OPTIONS]
 
 Options:
   -h, --help                 Print help

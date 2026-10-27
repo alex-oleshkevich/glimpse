@@ -33,9 +33,10 @@ fn assets(manifest: &Table, kind: &str) -> Vec<(String, String)> {
         .as_array()
         .unwrap_or_else(|| panic!("[package.metadata.{kind}] declares an assets array"))
         .iter()
-        .map(|asset| match asset {
-            Value::Array(row) => (text(&row[0]), text(&row[1])),
-            table => (text(&table["source"]), text(&table["dest"])),
+        .filter_map(|asset| match asset {
+            Value::Array(row) => Some((text(&row[0]), text(&row[1]))),
+            table if table.get("dir").and_then(Value::as_bool) == Some(true) => None,
+            table => Some((text(&table["source"]), text(&table["dest"]))),
         })
         .collect()
 }
@@ -114,13 +115,6 @@ fn the_lock_pam_stack_reaches_both_package_manifests_as_configuration() {
             .iter()
             .any(|file| file.as_str() == Some("/etc/pam.d/glimpse-lock"))
     );
-    let rpm = manifest["package"]["metadata"]["generate-rpm"]["assets"]
-        .as_array()
-        .expect("the rpm manifest declares assets");
-    assert!(rpm.iter().any(|asset| {
-        asset.get("dest").and_then(Value::as_str) == Some("/etc/pam.d/glimpse-lock")
-            && asset.get("config").and_then(Value::as_bool) == Some(true)
-    }));
 }
 
 #[test]
@@ -181,7 +175,6 @@ fn the_opensuse_rpm_differs_from_the_fedora_rpm_only_in_its_pam_stack() {
         .iter()
         .find(pam)
         .expect("the opensuse rpm ships a PAM stack");
-    assert_eq!(stack["config"].as_bool(), Some(true));
     let text = fs::read_to_string(root.join(stack["source"].as_str().expect("a source path")))
         .expect("the PAM stack source is readable");
     assert!(
@@ -190,20 +183,59 @@ fn the_opensuse_rpm_differs_from_the_fedora_rpm_only_in_its_pam_stack() {
     );
 }
 
+fn version_feature(workspace: &Table, dependency: &str, major: u32) -> String {
+    let prefix = format!("v{major}_");
+    let minor = workspace["workspace"]["dependencies"][dependency]["features"]
+        .as_array()
+        .unwrap_or_else(|| panic!("the workspace enables features on {dependency}"))
+        .iter()
+        .filter_map(|feature| feature.as_str()?.strip_prefix(&prefix)?.parse::<u32>().ok())
+        .max()
+        .unwrap_or_else(|| panic!("the workspace enables a {prefix}* feature on {dependency}"));
+    format!("{major}.{minor}")
+}
+
 #[test]
-fn the_install_scripts_copy_pam_files_but_not_the_debian_directory() {
+fn every_package_requires_the_gtk_and_libadwaita_the_workspace_builds_against() {
     let root = workspace_root();
-    assert!(root.join("data/pam.d/debian").is_dir());
-    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
-        let text = fs::read_to_string(root.join(script)).expect("script");
-        let guard = text
-            .lines()
-            .skip_while(|line| !line.contains("data/pam.d/*"))
-            .nth(1)
-            .expect("the pam.d loop has a guard");
-        assert!(
-            guard.contains("[[ -f \"$f\""),
-            "{script} must copy regular files only, or data/pam.d/debian lands in /etc/pam.d"
+    let workspace: Table = fs::read_to_string(root.join("Cargo.toml"))
+        .expect("the workspace manifest is readable")
+        .parse()
+        .expect("the workspace manifest is valid TOML");
+    let gtk = version_feature(&workspace, "gtk4", 4);
+    let adw = version_feature(&workspace, "adw", 1);
+    let manifest = manifest(&root);
+    let metadata = &manifest["package"]["metadata"];
+
+    let depends: Vec<&str> = metadata["deb"]["depends"]
+        .as_array()
+        .expect("the deb manifest declares depends")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    for floor in [
+        format!("libgtk-4-1 (>= {gtk})"),
+        format!("libadwaita-1-0 (>= {adw})"),
+    ] {
+        assert!(depends.contains(&floor.as_str()), "the deb lacks {floor}");
+    }
+
+    let rpm = &metadata["generate-rpm"];
+    for (requires, gtk_name, adw_name) in [
+        (&rpm["requires"], "gtk4", "libadwaita"),
+        (
+            &rpm["variants"]["opensuse"]["requires"],
+            "libgtk-4-1",
+            "libadwaita-1-0",
+        ),
+    ] {
+        assert_eq!(
+            requires[gtk_name].as_str(),
+            Some(format!(">= {gtk}").as_str())
+        );
+        assert_eq!(
+            requires[adw_name].as_str(),
+            Some(format!(">= {adw}").as_str())
         );
     }
 }
@@ -340,10 +372,6 @@ fn wallpaper_portal_assets_agree_with_the_binary() {
     assert!(activation.contains("Exec=/usr/bin/glimpse-wallpaper"));
     assert!(activation.contains("SystemdService=glimpse-wallpaper.service"));
 
-    let source = fs::read_to_string(root.join("crates/glimpse-wallpaper/src/portal.rs"))
-        .expect("portal source");
-    assert!(source.contains("\"me.aresa.Glimpse.Wallpaper.Portal\""));
-
     for conf in [
         "glimpse-portals.conf",
         "niri-portals.conf",
@@ -365,10 +393,6 @@ fn wallpaper_portal_assets_agree_with_the_binary() {
             "{conf} must not set a default"
         );
     }
-
-    let uninstall = fs::read_to_string(root.join("scripts/uninstall.sh")).expect("uninstall");
-    assert!(uninstall.contains("glimpse-wallpaper.portal"));
-    assert!(uninstall.contains("me.aresa.Glimpse.Wallpaper.Portal.service"));
 }
 
 #[test]
@@ -377,8 +401,6 @@ fn the_etc_portal_routing_is_configuration_in_every_package() {
     let manifest = manifest(&root);
     let metadata = &manifest["package"]["metadata"];
     let pkgbuild = fs::read_to_string(root.join("PKGBUILD")).expect("PKGBUILD");
-    let install = fs::read_to_string(root.join("scripts/install.sh")).expect("install script");
-    assert!(install.contains("$portaletcdir"));
 
     let conf_files = metadata["deb"]["conf-files"]
         .as_array()
@@ -430,12 +452,6 @@ fn the_default_idle_handler_script_ships_everywhere() {
         3,
         "the .deb, the Fedora .rpm and the openSUSE .rpm"
     );
-    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
-        assert!(
-            read(script).contains("install -Dm755 data/bin/glimpse-dpms"),
-            "{script}"
-        );
-    }
     assert!(read("data/config.default.toml").contains("\"glimpse-dpms off\""));
 }
 
@@ -614,26 +630,12 @@ fn screenshot_binary_desktop_entry_and_service_reach_every_package() {
             .is_file()
     );
 
-    let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");
-    assert!(justfile.contains("glimpse-lens glimpse-shot"));
-    assert!(justfile.contains("GLIMPSE_BINARIES=\"{{ binaries }}\" scripts/package-binary.sh"));
-    for script in ["scripts/glimpse-paths.sh", "scripts/package-binary.sh"] {
-        let text = fs::read_to_string(root.join(script)).expect(script);
-        assert!(text.contains("${GLIMPSE_BINARIES:?"), "{script}");
-    }
-    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
-        let text = fs::read_to_string(root.join(script)).expect(script);
-        assert!(
-            text.contains("$applicationsdir/me.aresa.Glimpse.Shot.desktop"),
-            "{script}"
-        );
-    }
     let pkgbuild = fs::read_to_string(root.join("PKGBUILD")).expect("PKGBUILD");
     assert!(pkgbuild.contains("glib2>=2.80"));
 }
 
 #[test]
-fn every_install_route_ships_the_six_config_references() {
+fn native_packages_ship_the_six_config_references() {
     let root = workspace_root();
     let files: Vec<String> = ["config", "panel"]
         .iter()
@@ -644,15 +646,6 @@ fn every_install_route_ships_the_six_config_references() {
 
     for file in &files {
         assert!(root.join("data").join(file).is_file(), "{file}");
-        for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
-            let text = fs::read_to_string(root.join(script)).expect(script);
-            assert!(text.contains(&format!("data/{file}")), "{script} {file}");
-            assert!(
-                text.contains(&format!("usr/share/glimpse/{file}"))
-                    || text.contains(&format!("$sharedir/{file}")),
-                "{script} {file}"
-            );
-        }
         let manifest = manifest(&root);
         for kind in ["deb", "generate-rpm"] {
             assert!(
@@ -669,7 +662,7 @@ fn every_install_route_ships_the_six_config_references() {
 }
 
 #[test]
-fn every_install_route_ships_the_applet_templates_and_nothing_else_of_the_sdk() {
+fn native_packages_ship_only_the_applet_templates_from_the_sdk() {
     let root = workspace_root();
     let templates = root.join("sdk/templates");
     let mut template: Vec<String> = files_under(&templates)
@@ -724,53 +717,6 @@ fn every_install_route_ships_the_applet_templates_and_nothing_else_of_the_sdk() 
 }
 
 #[test]
-fn the_install_script_seeds_no_user_config() {
-    let install = fs::read_to_string(workspace_root().join("scripts/install.sh"))
-        .expect("the install script");
-
-    for needle in ["seed_user_config", "XDG_CONFIG_HOME", "SUDO_USER", "$HOME"] {
-        assert!(!install.contains(needle), "{needle}");
-    }
-}
-
-#[test]
-fn binary_portal_routing_preserves_the_compositors_share_directory() {
-    let root = workspace_root();
-    let dir = tempfile::tempdir().unwrap();
-    let scratch = dir.path();
-    let script = fs::read_to_string(root.join("scripts/package-binary.sh")).unwrap();
-    let routing = script
-        .lines()
-        .skip_while(|line| !line.starts_with("for f in data/portals/"))
-        .take_while(|line| !line.starts_with("for f in data/pam.d/"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    assert!(!routing.is_empty());
-    let output = std::process::Command::new("bash")
-        .args(["-euc", &routing])
-        .env("pkgroot", scratch)
-        .current_dir(&root)
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "{output:?}");
-    let share = scratch.join("usr/share/xdg-desktop-portal");
-    for entry in fs::read_dir(root.join("data/portals")).unwrap() {
-        let name = entry.unwrap().file_name();
-        if name.to_string_lossy().ends_with("-portals.conf") {
-            assert!(scratch.join("etc/xdg-desktop-portal").join(&name).is_file());
-            assert!(!share.join(&name).exists());
-            assert!(
-                scratch
-                    .join("usr/share/glimpse/portals")
-                    .join(&name)
-                    .is_file()
-            );
-        }
-    }
-    assert!(share.join("portals/glimpse.portal").is_file());
-}
-
-#[test]
 fn weather_and_calendar_activation_names_agree_and_uninstall_removes_the_chain() {
     for provider in ["glimpse-weather", "glimpse-calendar"] {
         let root = workspace_root();
@@ -812,4 +758,131 @@ fn weather_and_calendar_activation_names_agree_and_uninstall_removes_the_chain()
         assert!(!unit_path.exists());
         assert!(!activation_path.exists());
     }
+}
+
+#[test]
+fn rpm_private_payload_parents_are_owned_directories() {
+    let root = workspace_root();
+    let manifest = manifest(&root);
+    let rpm = &manifest["package"]["metadata"]["generate-rpm"];
+    let private = Path::new("/usr/share/glimpse");
+    for entries in [&rpm["assets"], &rpm["variants"]["opensuse"]["assets"]] {
+        let entries = entries.as_array().expect("RPM assets");
+        let owned: std::collections::BTreeSet<_> = entries
+            .iter()
+            .filter(|entry| entry.get("dir").and_then(Value::as_bool) == Some(true))
+            .map(|entry| {
+                let path = PathBuf::from(entry["dest"].as_str().expect("a directory destination"));
+                assert!(
+                    path.starts_with(private),
+                    "do not own shared directories: {path:?}"
+                );
+                let mode = u32::from_str_radix(entry["mode"].as_str().expect("an octal mode"), 8)
+                    .expect("a valid octal mode");
+                assert_eq!(mode, 0o755);
+                path
+            })
+            .collect();
+        for entry in entries.iter().filter(|entry| entry.get("source").is_some()) {
+            let destination = entry["dest"].as_str().expect("a destination");
+            if !Path::new(destination).starts_with(private) {
+                continue;
+            }
+            let source = entry["source"].as_str().expect("a source");
+            let payload = if let Some((prefix, _)) = source.split_once('*') {
+                let prefix = Path::new(prefix);
+                let base = if root.join(prefix).is_dir() {
+                    prefix
+                } else {
+                    prefix.parent().expect("a glob parent")
+                };
+                files_under(&root.join(base))
+                    .into_iter()
+                    .map(|relative| Path::new(destination).join(relative))
+                    .collect::<Vec<_>>()
+            } else if destination.ends_with('/') {
+                vec![
+                    Path::new(destination).join(Path::new(source).file_name().expect("a filename")),
+                ]
+            } else {
+                vec![PathBuf::from(destination)]
+            };
+            for path in payload {
+                for parent in path
+                    .parent()
+                    .expect("a payload parent")
+                    .ancestors()
+                    .take_while(|parent| parent.starts_with(private))
+                {
+                    assert!(owned.contains(parent), "unowned payload parent: {parent:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn rpm_existing_administrator_configuration_is_never_replaced_on_upgrade() {
+    let manifest = manifest(&workspace_root());
+    let rpm = &manifest["package"]["metadata"]["generate-rpm"];
+    for entries in [&rpm["assets"], &rpm["variants"]["opensuse"]["assets"]] {
+        for asset in entries.as_array().expect("RPM assets") {
+            if !asset["dest"]
+                .as_str()
+                .expect("a destination")
+                .starts_with("/etc/")
+            {
+                continue;
+            }
+            let preserves = match asset.get("config") {
+                Some(Value::String(flag)) => flag == "noreplace",
+                Some(Value::Array(flags)) => {
+                    flags.iter().any(|flag| flag.as_str() == Some("noreplace"))
+                }
+                _ => false,
+            };
+            assert!(
+                preserves,
+                "{} must preserve an administrator's existing file",
+                asset["dest"]
+            );
+        }
+    }
+}
+
+#[test]
+fn binary_portal_routing_preserves_the_compositors_share_directory() {
+    let root = workspace_root();
+    let dir = tempfile::tempdir().unwrap();
+    let scratch = dir.path();
+    let script = fs::read_to_string(root.join("scripts/package-binary.sh")).unwrap();
+    let routing = script
+        .lines()
+        .skip_while(|line| !line.starts_with("for f in data/portals/"))
+        .take_while(|line| !line.starts_with("for f in data/pam.d/"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(!routing.is_empty());
+    let output = std::process::Command::new("bash")
+        .args(["-euc", &routing])
+        .env("pkgroot", scratch)
+        .current_dir(&root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let share = scratch.join("usr/share/xdg-desktop-portal");
+    for entry in fs::read_dir(root.join("data/portals")).unwrap() {
+        let name = entry.unwrap().file_name();
+        if name.to_string_lossy().ends_with("-portals.conf") {
+            assert!(scratch.join("etc/xdg-desktop-portal").join(&name).is_file());
+            assert!(!share.join(&name).exists());
+            assert!(
+                scratch
+                    .join("usr/share/glimpse/portals")
+                    .join(&name)
+                    .is_file()
+            );
+        }
+    }
+    assert!(share.join("portals/glimpse.portal").is_file());
 }

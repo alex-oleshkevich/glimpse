@@ -204,25 +204,22 @@ impl Surfaces {
             on_track_action: Rc::new(on_track_action),
         });
 
+        let failed = Rc::new(Cell::new(false));
         instance.connect_locked({
             let report = report.clone();
             move |_| report(Input::Locked(generation))
         });
         instance.connect_failed({
             let report = report.clone();
-            move |_| report(Input::Failed(generation))
+            let failed = failed.clone();
+            move |_| {
+                failed.set(true);
+                report(Input::Failed(generation));
+            }
         });
         instance.connect_unlocked({
             let report = report.clone();
             move |_| report(Input::Unlocked(generation))
-        });
-        instance.connect_monitor({
-            let shared = Rc::downgrade(&shared);
-            move |instance, monitor| {
-                if let Some(shared) = shared.upgrade() {
-                    Shared::add(&shared, instance, monitor);
-                }
-            }
         });
 
         let caps = shared.keyboard.as_ref().map(|keyboard| {
@@ -233,8 +230,27 @@ impl Surfaces {
                 }
             })
         });
+        report(Input::Unpainted(generation));
         if !instance.lock() {
             report(Input::Failed(generation));
+        } else if let Some(display) = gdk::Display::default() {
+            display.sync();
+            if !failed.get() {
+                instance.connect_monitor({
+                    let shared = Rc::downgrade(&shared);
+                    move |instance, monitor| {
+                        if let Some(shared) = shared.upgrade() {
+                            Shared::add(&shared, instance, monitor);
+                        }
+                    }
+                });
+                let monitors = display.monitors();
+                for index in 0..monitors.n_items() {
+                    if let Some(monitor) = monitors.item(index).and_downcast::<gdk::Monitor>() {
+                        Shared::add(&shared, &instance, &monitor);
+                    }
+                }
+            }
         }
         shared.ensure_interactive();
         arm_clock(&shared);
@@ -367,8 +383,6 @@ impl Drop for Surfaces {
 impl Shared {
     fn add(shared: &Rc<Self>, instance: &Instance, monitor: &gdk::Monitor) {
         let (window, stage) = build();
-        instance.assign_window_to_monitor(&window, monitor);
-
         let painted = Rc::new(Cell::new(false));
         let unpainted = shared.unpainted.get();
         shared.unpainted.set(unpainted + 1);
@@ -380,6 +394,10 @@ impl Shared {
             let painted = painted.clone();
             move |window| on_first_paint(window, shared.clone(), painted.clone())
         });
+        instance.assign_window_to_monitor(&window, monitor);
+        if window.is_mapped() {
+            on_first_paint(&window, Rc::downgrade(shared), painted.clone());
+        }
         let invalidate = monitor.connect_invalidate({
             let shared = Rc::downgrade(shared);
             move |monitor| {
@@ -471,7 +489,6 @@ impl Shared {
         shared.stages.borrow_mut().push(added);
         shared.place(false);
         shared.ensure_interactive();
-        window.present();
     }
 
     fn remove(&self, monitor: &gdk::Monitor) {

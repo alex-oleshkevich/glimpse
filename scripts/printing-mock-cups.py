@@ -54,7 +54,8 @@ OP_GET_JOBS          = 0x000a
 OP_CANCEL_JOB        = 0x0008
 OP_HOLD_JOB          = 0x000c
 OP_RELEASE_JOB       = 0x000d
-OP_CUPS_GET_PRINTERS = 0x4001
+OP_CUPS_GET_DEFAULT = 0x4001
+OP_CUPS_GET_PRINTERS = 0x4002
 OP_CREATE_SUBSCRIPTION = 0x0016
 OP_RENEW_SUBSCRIPTION = 0x001a
 OP_CANCEL_SUBSCRIPTION = 0x001b
@@ -355,6 +356,7 @@ class IppHandler(BaseHTTPRequestHandler):
 
         op_labels = {
             OP_CUPS_GET_PRINTERS: "get-printers",
+            OP_CUPS_GET_DEFAULT:  "get-default",
             OP_GET_JOBS:          "get-jobs",
             OP_CANCEL_JOB:        "cancel-job",
             OP_HOLD_JOB:          "hold-job",
@@ -364,6 +366,8 @@ class IppHandler(BaseHTTPRequestHandler):
 
         if operation == OP_CUPS_GET_PRINTERS:
             resp = build_get_printers(request_id, s, port)
+        elif operation == OP_CUPS_GET_DEFAULT:
+            resp = build_ok(request_id)
         elif operation == OP_GET_JOBS:
             resp = build_get_jobs(request_id, s, port)
         elif operation == OP_CREATE_SUBSCRIPTION:

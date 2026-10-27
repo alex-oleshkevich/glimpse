@@ -13,11 +13,13 @@ cargo-generate-rpm each need one crate to invoke against.
 ## Rules
 
 Packaging lives in its own crate so it is never tied to a binary that might be renamed or deleted.
-**The build is invoked as `cargo deb -p glimpse-package` and `cargo generate-rpm -p
-crates/glimpse-package`** — cargo-deb takes a package *name* and resolves `assets` relative to this
-manifest, so `../../data/...` prefixes count from here; cargo-generate-rpm takes a *path* and runs
-from the workspace root, so its `source` fields have no prefix. Two spellings of one list is why
-`tests/packaging.rs` compares them rather than trusting either. **The `.deb` names every direct
+**Build packages through `just package-deb`, `just package-rpm-fedora` and
+`just package-rpm-opensuse`.** The RPM recipes use `just setup-rpm` to build the checksum-pinned
+packaging tool with the checked-in directory-dispatch patch under `target/tools/rpm`; local and
+CI builds use that same binary. Cargo-deb resolves `assets` relative to this manifest, so
+`../../data/...` prefixes count from here. The RPM tool runs from the workspace root, so its
+`source` fields have no prefix. `tests/packaging.rs` keeps the native asset lists aligned.
+**The `.deb` names every direct
 library dependency explicitly** because an Arch build cannot derive Debian shlibs metadata.
 `$auto` adds dependencies when `dpkg-shlibdeps` is available. Scan all shipped binaries on Debian
 when the binaries or build environment change, then update the manifest's version floors; older

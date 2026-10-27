@@ -109,7 +109,10 @@ Cards have at most one destructive action, so Forget outranks Disconnect.
 `init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `card` into
 `body` and panics. **A switch driven from state never reports it back** — `set_dnd` and the
 bluetooth power switch raise a guard flag while writing, and `ToggleRow::set_active` applies the
-state without emitting `toggled`. **A detail unfolds in place, never beside the list**: every detail is an
+state without emitting `toggled`. Set `ToggleRow`'s `control` through its object builder before
+construction completes: its checkbox or switch accessible role is fixed for its lifetime. Exec
+applets can still change `control`; their renderer replaces the native row and retains newer local
+state and keyboard focus. **A detail unfolds in place, never beside the list**: every detail is an
 `ExpanderRow` whose open state makes the whole of it one `.card`, so the head never moves. **Focus
 belongs to `PopoverShell`**: opening one detail closes every unrelated `Expandable` in the shell, and
 a press on anything else dimmed closes the detail instead of acting, claimed in the capture phase.
@@ -121,6 +124,10 @@ clears the box whenever the key changes.
 Artwork is a `Gtk.Image`, the only one that can be told how big to be, since `Gtk.Picture` reports
 the paintable's natural width. `artwork` streams a file opened once and refuses a header over its
 bound: `Formats::Strict` (PNG, JPEG, WebP, 8 MiB, 2048 px) or `Formats::Any` (64 MiB, 4096 px).
+
+`Scrubber` emits seek requests for keyboard and accessible range changes, and once on a changed
+pointer release, only while seekable. Backend position and duration updates never issue a command,
+including duration clamps during a held pointer. Disabling seeking still permits backend updates.
 
 `SourceList` has no template: a row and its `SliderRow` are parented as
 siblings, never nested, so the row's `activatable: false` cannot reach the slider beneath it.

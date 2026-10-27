@@ -91,29 +91,49 @@ fn a_failed_lock_during_a_sleep_wait_releases_the_inhibitor() {
 }
 
 #[test]
-fn an_unlock_finishing_after_a_painted_sleep_release_locks_again() {
+fn a_success_finishing_during_sleep_preparation_never_unlocks() {
     let mut machine = locked(DAEMON);
     machine.handle(Input::Submit);
     assert_eq!(
         machine.handle(Input::PrepareForSleep(true)),
         vec![Effect::ReleaseInhibitor]
     );
-    machine.handle(Input::AuthFinished {
-        attempt: 1,
-        verdict: UNLOCKED,
-    });
     assert_eq!(
-        machine.handle(Input::Unlocked(1)),
-        vec![
-            Effect::SetLockedHint(false),
-            Effect::TakeInhibitor,
-            Effect::Lock(2)
-        ]
+        machine.handle(Input::AuthFinished {
+            attempt: 1,
+            verdict: UNLOCKED,
+        }),
+        vec![]
+    );
+    assert_eq!(machine.phase, Phase::Locked);
+}
+
+#[test]
+fn a_success_submitted_before_sleep_never_unlocks_after_resume() {
+    let mut machine = locked(DAEMON);
+    machine.handle(Input::Submit);
+    machine.handle(Input::PrepareForSleep(true));
+    machine.handle(Input::PrepareForSleep(false));
+    assert_eq!(
+        machine.handle(Input::AuthFinished {
+            attempt: 1,
+            verdict: UNLOCKED,
+        }),
+        vec![]
+    );
+    assert_eq!(machine.phase, Phase::Locked);
+    assert_eq!(machine.handle(Input::Submit), vec![Effect::StartAttempt(2)]);
+    assert_eq!(
+        machine.handle(Input::AuthFinished {
+            attempt: 2,
+            verdict: UNLOCKED,
+        }),
+        vec![Effect::Unlock]
     );
 }
 
 #[test]
-fn an_unlock_during_an_unpainted_sleep_wait_never_releases_the_inhibitor_unlocked() {
+fn a_submit_while_preparing_for_sleep_is_discarded() {
     let (mut machine, _) = started(DAEMON, false);
     machine.handle(Input::LockRequested);
     machine.handle(Input::Locked(1));
@@ -121,24 +141,12 @@ fn an_unlock_during_an_unpainted_sleep_wait_never_releases_the_inhibitor_unlocke
         machine.handle(Input::PrepareForSleep(true)),
         vec![Effect::ArmSleepDeadline(1)]
     );
-    machine.handle(Input::Submit);
-    machine.handle(Input::AuthFinished {
-        attempt: 1,
-        verdict: UNLOCKED,
-    });
-    assert_eq!(
-        machine.handle(Input::Unlocked(1)),
-        vec![
-            Effect::SetLockedHint(false),
-            Effect::TakeInhibitor,
-            Effect::Lock(2)
-        ]
-    );
-    assert_eq!(machine.phase, Phase::Acquiring);
+    assert_eq!(machine.handle(Input::Submit), vec![Effect::DiscardSubmit]);
     assert_eq!(
         machine.handle(Input::SleepDeadline(1)),
         vec![Effect::ReleaseInhibitor]
     );
+    assert_eq!(machine.phase, Phase::Locked);
 }
 
 #[test]

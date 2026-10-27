@@ -33,5 +33,9 @@ tracing.workspace = true
 zbus.workspace = true
 zeroize.workspace = true
 
+[dev-dependencies]
+glimpse-dbus = { workspace = true, features = ["testing"] }
+tempfile.workspace = true
+
 [build-dependencies]
 shadow-rs.workspace = true

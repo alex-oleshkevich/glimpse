@@ -35,7 +35,10 @@ impl Destination {
             None if no_save => Self::Nowhere,
             None => Self::Directory(match &config.directory {
                 Some(directory) => directory.clone(),
-                None => pictures()?,
+                None => pictures_in(
+                    glib::user_special_dir(glib::UserDirectory::Pictures),
+                    &glib::home_dir(),
+                ),
             }),
         })
     }
@@ -50,13 +53,10 @@ impl Destination {
     }
 }
 
-fn pictures() -> Result<PathBuf> {
-    match glib::user_special_dir(glib::UserDirectory::Pictures) {
-        Some(pictures) => Ok(pictures.join("Screenshots")),
-        None => bail!(
-            "there is no Pictures directory to save into; set [screenshot] directory or pass -o FILE"
-        ),
-    }
+fn pictures_in(special: Option<PathBuf>, home: &Path) -> PathBuf {
+    special
+        .unwrap_or_else(|| home.join("Pictures"))
+        .join("Screenshots")
 }
 
 pub fn write(

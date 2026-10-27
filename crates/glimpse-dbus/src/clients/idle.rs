@@ -435,13 +435,33 @@ async fn follow_provider(
     let mut last_health: Option<InhibitorsHealth> = None;
 
     let mut retry_delay = super::RetryDelay::default();
+    let mut initial = true;
 
     loop {
-        let proxy = match Idle1Proxy::builder(&connection)
-            .cache_properties(CacheProperties::Yes)
-            .build()
-            .await
+        let proxy = match super::provider_owner(
+            &dbus,
+            &mut owners,
+            GLIMPSE_IDLE_BUS_NAME,
+            initial,
+            &mut retry_delay,
+        )
+        .await
         {
+            Ok(Some(owner)) => {
+                async {
+                    Idle1Proxy::builder(&connection)
+                        .destination(owner)?
+                        .cache_properties(CacheProperties::Yes)
+                        .build()
+                        .await
+                }
+                .await
+            }
+            Ok(None) => return,
+            Err(error) => Err(error),
+        };
+        initial = false;
+        let proxy = match proxy {
             Ok(proxy) => {
                 retry_delay.reset();
                 proxy
@@ -453,16 +473,6 @@ async fn follow_provider(
                     reason = clean(&error.to_string(), REASON),
                     "idle provider property cache is unavailable"
                 );
-                if !super::retry_after_failure(
-                    &dbus,
-                    &mut owners,
-                    GLIMPSE_IDLE_BUS_NAME,
-                    &mut retry_delay,
-                )
-                .await
-                {
-                    return;
-                }
                 continue;
             }
         };

@@ -19,7 +19,7 @@ pub enum ToggleControl {
 pub struct ToggleRow {
     #[template_child]
     pub knob: TemplateChild<gtk4::Switch>,
-    #[property(name = "control", get, set = Self::set_control, builder(ToggleControl::Switch).explicit_notify())]
+    #[property(name = "control", get, set = Self::construct_control, construct_only, builder(ToggleControl::Switch).explicit_notify())]
     control: Cell<ToggleControl>,
     #[property(name = "active", get, set = Self::set_active, explicit_notify)]
     active: Cell<bool>,
@@ -81,7 +81,6 @@ impl ObjectImpl for ToggleRow {
             ),
         );
         self.sync_check();
-        self.sync_role();
         self.sync_state();
         self.obj()
             .connect_sensitive_notify(|row| row.imp().sync_disabled());
@@ -114,13 +113,17 @@ impl ToggleRow {
         self.obj().emit_by_name::<()>("toggled", &[&next]);
     }
 
-    fn set_control(&self, control: ToggleControl) {
+    fn construct_control(&self, control: ToggleControl) {
         if self.control.replace(control) == control {
             return;
         }
+        let role = match control {
+            ToggleControl::Check => gtk4::AccessibleRole::Checkbox,
+            ToggleControl::Switch => gtk4::AccessibleRole::Switch,
+        };
+        self.obj().set_accessible_role(role);
         self.place_knob(control == ToggleControl::Switch);
         self.sync_check();
-        self.sync_role();
         self.obj().notify_control();
     }
 
@@ -176,16 +179,6 @@ impl ToggleRow {
             check.set_visible(on);
         }
         set_css_class(&*self.obj(), ON, on);
-    }
-
-    fn sync_role(&self) {
-        let role = match self.control.get() {
-            ToggleControl::Check => gtk4::AccessibleRole::Checkbox,
-            ToggleControl::Switch => gtk4::AccessibleRole::Switch,
-        };
-        if self.obj().accessible_role() != role {
-            self.obj().set_accessible_role(role);
-        }
     }
 
     fn sync_state(&self) {

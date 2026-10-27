@@ -27,43 +27,72 @@ pub(crate) async fn owners(
         })
 }
 
-pub(crate) async fn retry_after_failure(
+pub(crate) async fn provider_owner(
     dbus: &zbus::fdo::DBusProxy<'_>,
     owners: &mut Owners,
     name: &'static str,
+    initial: bool,
     delay: &mut RetryDelay,
-) -> bool {
-    let name = match zbus::names::BusName::try_from(name) {
+) -> zbus::Result<Option<zbus::names::OwnedUniqueName>> {
+    let name = match zbus::names::WellKnownName::try_from(name) {
         Ok(name) => name,
         Err(error) => {
             tracing::warn!(%error, "invalid provider bus name");
-            return false;
+            return Ok(None);
         }
     };
-    match dbus.name_has_owner(name.clone()).await {
-        Ok(false) => {
-            while let Some(owner) = owners.next().await {
-                if matches!(owner, Delivery::Item((_, false))) {
+    let mut activate = initial;
+    let mut waited = initial || !delay.1;
+    loop {
+        let owned = tokio::time::timeout(DEADLINE, dbus.get_name_owner(name.clone().into())).await;
+        match owned {
+            Ok(Ok(owner)) if waited => {
+                delay.1 = true;
+                return Ok(Some(owner));
+            }
+            Ok(Err(zbus::fdo::Error::NameHasNoOwner(_))) => {
+                if activate {
+                    activate = false;
+                    let activatable = tokio::time::timeout(DEADLINE, dbus.list_activatable_names())
+                        .await
+                        .is_ok_and(|names| {
+                            names.is_ok_and(|names| {
+                                names.iter().any(|n| n.as_str() == name.as_str())
+                            })
+                        });
+                    if !activatable {
+                        return Err(zbus::Error::Failure(follower::NO_OWNER.to_owned()));
+                    }
+                    tokio::time::timeout(DEADLINE, dbus.start_service_by_name(name.clone(), 0))
+                        .await
+                        .map_err(|_| {
+                            zbus::Error::Failure("provider activation timed out".to_owned())
+                        })??;
+                    waited = true;
                     continue;
                 }
-                return true;
+                if owners.next().await.is_none() {
+                    return Ok(None);
+                }
             }
-            false
-        }
-        owned => {
-            if let Err(error) = owned {
-                tracing::warn!(%error, %name, "cannot observe provider ownership");
+            owned => {
+                if !matches!(owned, Ok(Ok(_))) {
+                    tracing::warn!(?owned, %name, "cannot observe provider ownership");
+                }
+                if !delay.wait(owners).await {
+                    return Ok(None);
+                }
             }
-            delay.wait(owners).await
         }
+        waited = true;
     }
 }
 
-pub(crate) struct RetryDelay(Duration);
+pub(crate) struct RetryDelay(Duration, bool);
 
 impl Default for RetryDelay {
     fn default() -> Self {
-        Self(Duration::from_millis(250))
+        Self(Duration::from_millis(250), false)
     }
 }
 
