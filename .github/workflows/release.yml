@@ -118,7 +118,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y $BUILD_DEPS blueprint-compiler zstd
+          sudo apt-get install -y $BUILD_DEPS blueprint-compiler gettext zstd
       - id: cache-tools
         uses: actions/cache@v4
         with:
