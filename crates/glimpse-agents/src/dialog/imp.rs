@@ -7,7 +7,9 @@ use glimpse_utils::clean;
 use gtk4::{CompositeTemplate, TemplateChild, gdk, glib, glib::subclass::Signal};
 use zeroize::Zeroizing;
 
-use super::{ACCOUNT_MAX, BODY_MAX, DETAIL_MAX, Field, Note, Response, TITLE_MAX, View};
+use super::{
+    ACCOUNT_MAX, BODY_MAX, DETAIL_MAX, Field, Note, PROMPT_BODY_MAX, Response, TITLE_MAX, View,
+};
 
 const ARM_DELAY: Duration = Duration::from_millis(1000);
 const GUARD: Duration = Duration::from_millis(400);
@@ -185,6 +187,23 @@ impl WidgetImpl for AgentDialog {
 }
 
 impl AgentDialog {
+    pub fn body_label(&self) -> Option<gtk4::Label> {
+        let mut pending = vec![self.status.get().upcast::<gtk4::Widget>()];
+        while let Some(widget) = pending.pop() {
+            if let Some(label) = widget.downcast_ref::<gtk4::Label>()
+                && label.has_css_class("body")
+            {
+                return Some(label.clone());
+            }
+            let mut child = widget.first_child();
+            while let Some(next) = child {
+                child = next.next_sibling();
+                pending.push(next);
+            }
+        }
+        None
+    }
+
     pub fn show(&self, view: &View) {
         let shown = self.shown.take();
         let before = shown.as_ref();
@@ -201,7 +220,7 @@ impl AgentDialog {
         if self.status.title() != title {
             self.status.set_title(&title);
         }
-        let body = clean(&view.body, BODY_MAX);
+        let body = clean(&view.body, PROMPT_BODY_MAX);
         let description = (!body.is_empty()).then(|| {
             let accent = adw::StyleManager::default().accent_color_rgba();
             let tint = format!(
@@ -214,6 +233,12 @@ impl AgentDialog {
         });
         if self.status.description().as_deref() != description.as_deref() {
             self.status.set_description(description.as_deref());
+        }
+        if let Some(label) = self.body_label() {
+            label.set_wrap(true);
+            label.set_wrap_mode(gtk4::pango::WrapMode::WordChar);
+            label.set_ellipsize(gtk4::pango::EllipsizeMode::None);
+            label.set_lines(0);
         }
 
         if before.map(|shown| &shown.accounts) != Some(&view.accounts) {

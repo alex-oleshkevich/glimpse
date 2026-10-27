@@ -104,7 +104,7 @@ async fn drive(
             return;
         }
     };
-    glimpse_agents::agents::spawn_agents(system.clone(), input, cancelled).await;
+    glimpse_agents::agents::spawn_agents(session.clone(), system.clone(), input, cancelled).await;
     if let Err(error) = watch_shutdown().await {
         let _ = ready.send(Err(error));
         return;

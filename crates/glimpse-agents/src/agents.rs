@@ -9,6 +9,7 @@ use relm4::Sender;
 use crate::ask::Input;
 
 pub async fn spawn_agents(
+    session: zbus::Connection,
     system: zbus::Connection,
     input: Sender<Input>,
     cancelled: Arc<Mutex<HashSet<String>>>,
@@ -21,6 +22,10 @@ pub async fn spawn_agents(
     drop(tokio::spawn(crate::bluetooth::spawn(
         system.clone(),
         input.clone(),
+    )));
+    drop(tokio::spawn(crate::obex::spawn(
+        session.clone(),
+        system.clone(),
     )));
     drop(tokio::spawn(crate::network::start(system, input)));
 }
@@ -60,7 +65,7 @@ where
     }
 }
 
-async fn has_owner(dbus: &zbus::fdo::DBusProxy<'_>, name: &'static str) -> bool {
+pub(crate) async fn has_owner(dbus: &zbus::fdo::DBusProxy<'_>, name: &'static str) -> bool {
     let Ok(name) = zbus::names::BusName::try_from(name) else {
         return false;
     };

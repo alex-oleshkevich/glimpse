@@ -11,6 +11,7 @@ optdepends=(
     'power-profiles-daemon: power modes in the battery popover'
     'networkmanager: the network applet'
     'bluez: the bluetooth applet'
+    'bluez-obex: receiving files over bluetooth'
     'udisks2: the removable-media applet'
     'cups: the printing applet'
     'kdeconnect: the phone applet'

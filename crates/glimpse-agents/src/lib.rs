@@ -5,6 +5,7 @@ pub mod bluetooth;
 pub mod dialog;
 pub mod lock;
 pub mod network;
+pub mod obex;
 pub mod polkit;
 pub mod queue;
 pub mod session;

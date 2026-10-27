@@ -519,6 +519,28 @@ fn changing_the_account_row_emits_the_selected_account() {
 
 #[test]
 #[ignore = "needs a display"]
+fn a_long_command_in_the_body_is_shown_complete_and_wraps() {
+    let _styles = init();
+    let dialog = AgentDialog::new();
+    let _window = present(&dialog);
+    let command = format!("/usr/bin/env ARG={}", "p".repeat(600));
+    let body = format!("Authentication is needed to run `{command}' as the super user");
+    dialog.show(&View {
+        body: body.clone(),
+        ..view()
+    });
+    pump();
+    let label = dialog.imp().body_label().expect("the body label");
+    assert!(label.text().contains(&command));
+    assert_eq!(label.text(), body.replace(['`', '\''], ""));
+    assert!(label.wraps());
+    assert_eq!(label.wrap_mode(), gtk4::pango::WrapMode::WordChar);
+    assert_eq!(label.ellipsize(), gtk4::pango::EllipsizeMode::None);
+    assert!(label.lines() <= 0);
+}
+
+#[test]
+#[ignore = "needs a display"]
 fn hostile_names_stay_one_plain_line() {
     let _styles = init();
     let dialog = AgentDialog::new();

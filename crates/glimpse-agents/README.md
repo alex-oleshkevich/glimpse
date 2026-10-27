@@ -41,6 +41,14 @@ true, when the user cancels, or 60 s after it opened. `Cancel` and `Release` wit
 Bluetooth request. A dropped reply is
 `org.bluez.Error.Canceled`; a denial is `org.bluez.Error.Rejected`.
 
+**The OBEX agent receives pushed files only from paired devices.** `AuthorizePush` refuses while
+logind's `LockedHint` is true or unreadable, and a missing or unpaired sender. Names are hostile
+text: cleaned, last path component only, leading dots dropped, 128 characters. obexd writes only in
+its own root, so the agent answers a bare name and moves a finished file to the XDG Downloads
+directory (`$HOME/Downloads` when unset). Every refusal answers `Rejected`, because obexd accepts
+on any other error. The prompt times out at 55 s (obexd waits 60 s). Registration repeats on every
+new `org.bluez.obex` owner; 2 s after the owner is lost a call re-activates obexd.
+
 **A locked session never shows a prompt.** The app follows logind's `LockedHint`. While locked there
 is no surface: polkit requests wait and reopen fresh after unlock, with no conversation and no typed
 text carried over; NetworkManager requests are refused and BlueZ requests denied at once, queued or

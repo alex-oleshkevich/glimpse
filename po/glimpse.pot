@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-26 21:27+0100\n"
+"POT-Creation-Date: 2026-10-27 16:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -167,6 +167,7 @@ msgid "Sign in to “{name}”"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:118
+#: crates/glimpse-agents/src/obex/mod.rs:132
 msgid "this device"
 msgstr ""
 
@@ -233,25 +234,64 @@ msgstr ""
 msgid "It has never been paired with this computer"
 msgstr ""
 
+#: crates/glimpse-agents/src/obex/notify.rs:52
+msgid "Incoming file"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:53
+msgid "“{device}” wants to send you “{file}”"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:56
+msgid "Accept"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:57
+msgid "Decline"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:63
+msgid "Receiving “{file}”"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:68
+msgid "Received “{file}”"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:69
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:220
+#: crates/glimpse-panel/src/applets/network/render.rs:103
+#: crates/glimpse-widgets/blueprints/removable_device.blp:30
+msgid "Open"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:70
+msgid "Open Folder"
+msgstr ""
+
+#: crates/glimpse-agents/src/obex/notify.rs:76
+msgid "Could not receive “{file}”"
+msgstr ""
+
 #: crates/glimpse-agents/src/polkit/agent.rs:158
 msgid ""
 "Another authentication agent is running; glimpse can't ask for admin "
 "passwords"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/mod.rs:132
+#: crates/glimpse-agents/src/polkit/mod.rs:223
 #: crates/glimpse-panel/src/applets/command.rs:87
 msgid "Command"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/mod.rs:227
+#: crates/glimpse-agents/src/polkit/mod.rs:323
 #: crates/glimpse-lock/src/auth.rs:27
 msgid "Wrong password"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/mod.rs:238
-#: crates/glimpse-agents/src/polkit/mod.rs:239
-#: crates/glimpse-agents/src/polkit/mod.rs:400
+#: crates/glimpse-agents/src/polkit/mod.rs:334
+#: crates/glimpse-agents/src/polkit/mod.rs:335
+#: crates/glimpse-agents/src/polkit/mod.rs:496
 msgid "Can't verify passwords"
 msgstr ""
 
@@ -952,12 +992,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:218
 msgid "Path"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:220
-#: crates/glimpse-panel/src/applets/network/render.rs:103
-#: crates/glimpse-widgets/blueprints/removable_device.blp:30
-msgid "Open"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:224

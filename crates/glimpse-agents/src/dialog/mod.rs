@@ -9,6 +9,7 @@ use gtk4::glib::subclass::prelude::*;
 pub const TITLE_MAX: usize = 120;
 pub const BODY_MAX: usize = 240;
 pub const DETAIL_MAX: usize = 2000;
+pub const PROMPT_BODY_MAX: usize = BODY_MAX + DETAIL_MAX;
 pub const ACCOUNT_MAX: usize = 64;
 pub const PIN_MAX: usize = 16;
 pub const PASSKEY_MAX: u32 = 999_999;

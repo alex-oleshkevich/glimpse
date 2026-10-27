@@ -166,6 +166,7 @@ pub mod mpris;
 pub mod network_manager;
 pub mod night_light;
 pub mod notifications;
+pub mod obex;
 pub mod polkit;
 pub mod power_profiles;
 pub mod session;

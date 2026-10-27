@@ -49,7 +49,9 @@ use tokio::runtime::Handle;
 use zbus::zvariant::OwnedValue;
 
 use crate::ask::{Input, Prompt, Reply, Source};
-use crate::dialog::{ACCOUNT_MAX, BODY_MAX, DETAIL_MAX, Note, Response, TITLE_MAX};
+use crate::dialog::{
+    ACCOUNT_MAX, BODY_MAX, DETAIL_MAX, Note, PROMPT_BODY_MAX, Response, TITLE_MAX,
+};
 use crate::queue::Queue;
 
 pub struct Conversation {
@@ -109,6 +111,87 @@ fn command_line(bytes: &[u8]) -> String {
     )
 }
 
+fn argv(bytes: &[u8]) -> Vec<String> {
+    let text = String::from_utf8_lossy(bytes);
+    text.strip_suffix('\0')
+        .unwrap_or(&text)
+        .split('\0')
+        .map(str::to_owned)
+        .collect()
+}
+
+const SHORT_HEAD: usize = 38;
+const SHORT_TAIL: usize = 37;
+const SHORT_GAP: &str = " ... ";
+const SHORT_LIMIT: usize = 80;
+
+fn pkexec_command(argv: &[String]) -> Option<&[String]> {
+    let program = argv.first()?;
+    if program.rsplit('/').next() != Some("pkexec") {
+        return None;
+    }
+    let mut rest = &argv[1..];
+    while let Some(option) = rest.first() {
+        match option.as_str() {
+            "--" => {
+                rest = &rest[1..];
+                break;
+            }
+            "--user" | "-u" => rest = rest.get(2..)?,
+            "--disable-internal-agent" | "--keep-cwd" => rest = &rest[1..],
+            other if other.starts_with("--user=") => rest = &rest[1..],
+            _ => break,
+        }
+    }
+    (!rest.is_empty()).then_some(rest)
+}
+
+fn expand_short_command(message: &str, argv: &[String]) -> String {
+    let Some(command) = pkexec_command(argv) else {
+        return message.to_owned();
+    };
+    let mut from = 0;
+    while let Some(offset) = message[from..].find('`') {
+        let open = from + offset;
+        from = open + 1;
+        let head_end = open + 1 + SHORT_HEAD;
+        let tail_start = head_end + SHORT_GAP.len();
+        let tail_end = tail_start + SHORT_TAIL;
+        let (Some(head), Some(gap), Some(tail), Some("'")) = (
+            message.get(open + 1..head_end),
+            message.get(head_end..tail_start),
+            message.get(tail_start..tail_end),
+            message.get(tail_end..tail_end + 1),
+        ) else {
+            continue;
+        };
+        if gap != SHORT_GAP {
+            continue;
+        }
+        let program = &command[0];
+        let program = match program.starts_with('/') {
+            true => program.as_str(),
+            false => {
+                let name = program.rsplit('/').next().unwrap_or(program);
+                let token = head.split(' ').next().unwrap_or_default();
+                match token.ends_with(&format!("/{name}")) {
+                    true => token,
+                    false => program.as_str(),
+                }
+            }
+        };
+        let mut full = program.to_owned();
+        for argument in &command[1..] {
+            full.push(' ');
+            full.push_str(argument);
+        }
+        if full.len() > SHORT_LIMIT && full.starts_with(head) && full.ends_with(tail) {
+            return format!("{}`{full}'{}", &message[..open], &message[tail_end + 1..]);
+        }
+    }
+    message.to_owned()
+}
+
 pub async fn request(
     action_id: &str,
     message: &str,
@@ -116,28 +199,41 @@ pub async fn request(
     cookie: String,
     identities: Vec<Identity>,
 ) -> Request {
-    let command = async {
-        let pid = details
-            .get("polkit.subject-pid")
-            .or_else(|| details.get("polkit.caller-pid"))?
-            .parse::<u32>()
-            .ok()?;
-        let bytes = tokio::fs::read(format!("/proc/{pid}/cmdline")).await.ok()?;
-        let command = command_line(&bytes);
-        (!command.is_empty()).then_some(command)
+    let subject = cmdline(&details, "polkit.subject-pid").await;
+    let bytes = match subject {
+        Some(bytes) => Some(bytes),
+        None => cmdline(&details, "polkit.caller-pid").await,
+    };
+    let command = bytes
+        .as_deref()
+        .map(command_line)
+        .filter(|command| !command.is_empty());
+    let mut expanded = message.to_owned();
+    for key in ["polkit.caller-pid", "polkit.subject-pid"] {
+        if let Some(bytes) = cmdline(&details, key).await {
+            expanded = expand_short_command(message, &argv(&bytes));
+            if expanded != message {
+                break;
+            }
+        }
     }
-    .await;
+    let message = expanded;
     let mut details = detail_rows(details);
     if let Some(command) = command {
         details.insert(0, (gettext("Command"), command));
     }
     Request {
         action_id: clean(action_id, DETAIL_MAX),
-        message: clean(message, BODY_MAX),
+        message: clean(&message, PROMPT_BODY_MAX),
         details,
         cookie,
         identities,
     }
+}
+
+async fn cmdline(details: &HashMap<String, String>, key: &str) -> Option<Vec<u8>> {
+    let pid = details.get(key)?.parse::<u32>().ok()?;
+    tokio::fs::read(format!("/proc/{pid}/cmdline")).await.ok()
 }
 
 pub fn unix_users(identities: &[(String, HashMap<String, OwnedValue>)]) -> Vec<u32> {

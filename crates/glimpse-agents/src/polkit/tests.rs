@@ -86,6 +86,130 @@ fn command_lines_are_joined_cleaned_and_capped() {
     assert!(!command.chars().any(char::is_control));
 }
 
+fn pkexec_short(command: &str) -> String {
+    match command.len() > 80 {
+        true => format!("{} ... {}", &command[..38], &command[command.len() - 37..]),
+        false => command.to_owned(),
+    }
+}
+
+fn pkexec_message(command: &str) -> String {
+    format!(
+        "Authentication is needed to run `{}' as the super user",
+        pkexec_short(command)
+    )
+}
+
+fn argv(items: &[&str]) -> Vec<String> {
+    items.iter().map(|item| (*item).to_owned()).collect()
+}
+
+fn long_argument() -> String {
+    format!("X=/very/long/{}", "segment/".repeat(12))
+}
+
+fn full_command() -> String {
+    format!("/usr/bin/env {} --flag /usr/bin/true", long_argument())
+}
+
+#[test]
+fn a_shortened_command_in_the_message_is_replaced_by_the_full_one() {
+    let command = full_command();
+    let message = pkexec_message(&command);
+    assert!(message.contains(" ... "));
+    let argument = long_argument();
+    let argv = argv(&[
+        "pkexec",
+        "/usr/bin/env",
+        &argument,
+        "--flag",
+        "/usr/bin/true",
+    ]);
+    let expanded = super::expand_short_command(&message, &argv);
+    assert_eq!(
+        expanded,
+        format!("Authentication is needed to run `{command}' as the super user")
+    );
+}
+
+#[test]
+fn pkexec_options_are_skipped() {
+    let command = full_command();
+    let message = pkexec_message(&command);
+    let argument = long_argument();
+    let expected = format!("Authentication is needed to run `{command}' as the super user");
+    for options in [
+        vec!["--user", "root"],
+        vec!["-u", "root"],
+        vec!["--user=root"],
+        vec!["--keep-cwd"],
+        vec!["--disable-internal-agent", "--keep-cwd", "--"],
+    ] {
+        let mut items = vec!["/usr/bin/pkexec"];
+        items.extend(options.iter().copied());
+        items.extend(["/usr/bin/env", &argument, "--flag", "/usr/bin/true"]);
+        assert_eq!(
+            super::expand_short_command(&message, &argv(&items)),
+            expected
+        );
+    }
+}
+
+#[test]
+fn a_relative_program_takes_the_resolved_path_from_the_message() {
+    let command = full_command();
+    let message = pkexec_message(&command);
+    let argument = long_argument();
+    let argv = argv(&["pkexec", "env", &argument, "--flag", "/usr/bin/true"]);
+    assert_eq!(
+        super::expand_short_command(&message, &argv),
+        format!("Authentication is needed to run `{command}' as the super user")
+    );
+}
+
+#[test]
+fn a_mismatch_leaves_the_message_unchanged() {
+    let command = full_command();
+    let message = pkexec_message(&command);
+    let argument = long_argument();
+    let other = argv(&["sudo", "/usr/bin/env", &argument, "--flag", "/usr/bin/true"]);
+    assert_eq!(super::expand_short_command(&message, &other), message);
+    let suffix = argv(&[
+        "pkexec",
+        "/usr/bin/env",
+        &argument,
+        "--flag",
+        "/usr/bin/false",
+    ]);
+    assert_eq!(super::expand_short_command(&message, &suffix), message);
+    let bare = argv(&["pkexec"]);
+    assert_eq!(super::expand_short_command(&message, &bare), message);
+    let short = "Authentication is needed to run `/usr/bin/true' as the super user";
+    let true_argv = argv(&["pkexec", "/usr/bin/true"]);
+    assert_eq!(super::expand_short_command(short, &true_argv), short);
+}
+
+#[test]
+fn a_hostile_argument_is_cleaned_after_the_expansion() {
+    let command = format!(
+        "/usr/bin/env <b>\u{1b}[31m\u{202e}evil\n{}",
+        "y".repeat(100)
+    );
+    let message = pkexec_message(&command);
+    let argv = argv(&[
+        "pkexec",
+        "/usr/bin/env",
+        &format!("<b>\u{1b}[31m\u{202e}evil\n{}", "y".repeat(100)),
+    ]);
+    let expanded = super::expand_short_command(&message, &argv);
+    let cleaned = glimpse_utils::clean(&expanded, crate::dialog::PROMPT_BODY_MAX);
+    assert!(cleaned.contains("<b>"));
+    assert!(!cleaned.chars().any(char::is_control));
+    assert!(!cleaned.contains('\u{202e}'));
+    assert!(!cleaned.contains(" ... "));
+    assert!(cleaned.contains(&"y".repeat(100)));
+}
+
 #[tokio::test]
 async fn a_request_fills_the_dialog_from_the_action() {
     let mut details = HashMap::new();
