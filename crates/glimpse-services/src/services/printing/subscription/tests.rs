@@ -6,7 +6,9 @@ const GONE: &str = "020004060000000201470012617474726962757465732d63686172736574
 
 fn unhex(text: &str) -> Vec<u8> {
     text.as_bytes()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).expect("hex"), 16).expect("byte"))
         .collect()
 }

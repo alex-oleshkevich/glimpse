@@ -101,8 +101,10 @@ fn server_with_behavior(reply: u32, applies: bool, delay: bool, defer: bool) -> 
             let mut body = vec![0; (size_op >> 16) as usize - 8];
             server.read_exact(&mut body).unwrap();
             let args: Vec<u32> = body
-                .chunks_exact(4)
-                .map(|bytes| u32::from_ne_bytes(bytes.try_into().unwrap()))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|bytes| u32::from_ne_bytes(*bytes))
                 .collect();
             match (id, opcode) {
                 (1, 1) => {
