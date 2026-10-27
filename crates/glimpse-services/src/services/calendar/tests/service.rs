@@ -629,7 +629,15 @@ async fn an_events_query_does_not_mark_the_snapshot_changed() {
         }
     }
     assert!(loaded, "the near event is published before the query");
-    watched.borrow_and_update();
+    loop {
+        watched.borrow_and_update();
+        if tokio::time::timeout(Duration::from_millis(300), watched.changed())
+            .await
+            .is_err()
+        {
+            break;
+        }
+    }
 
     let range = month(2027, 3);
     let events = running
