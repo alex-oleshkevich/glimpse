@@ -2,7 +2,7 @@ use super::*;
 use gtk4::gdk_pixbuf::Colorspace;
 
 fn write(path: &Path, format: &str, width: i32, height: i32) {
-    Pixbuf::new(Colorspace::Rgb, true, 8, width, height)
+    Pixbuf::new(Colorspace::Rgb, false, 8, width, height)
         .expect("a pixbuf")
         .savev(path, format, &[])
         .expect("saves");

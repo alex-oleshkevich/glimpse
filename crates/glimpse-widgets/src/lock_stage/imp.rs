@@ -47,7 +47,7 @@ pub struct LockStage {
     #[template_child]
     pub prompt: TemplateChild<PasswordPrompt>,
     #[template_child]
-    pub bottom: TemplateChild<gtk4::Box>,
+    pub bottom: TemplateChild<adw::Bin>,
     #[template_child]
     pub track: TemplateChild<TrackCard>,
     #[template_child]

@@ -31,6 +31,10 @@ template $AudioPopover: Gtk.Widget {
             Gtk.Button output_mute {
               valign: center;
 
+              accessibility {
+                label: _("Mute");
+              }
+
               styles [
                 "flat",
               ]
@@ -56,6 +60,10 @@ template $AudioPopover: Gtk.Widget {
             [start]
             Gtk.Button input_mute {
               valign: center;
+
+              accessibility {
+                label: _("Mute");
+              }
 
               styles [
                 "flat",

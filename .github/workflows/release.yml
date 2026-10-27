@@ -33,7 +33,7 @@ env:
   BUILD_DEPS: >-
     libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev libheif-dev
     libpam0g-dev libglib2.0-dev libclang-dev libpulse-dev libpipewire-0.3-dev
-    libudev-dev libsystemd-dev pkg-config blueprint-compiler
+    libudev-dev libsystemd-dev pkg-config
 
 jobs:
   verify:
@@ -79,7 +79,12 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y $BUILD_DEPS desktop-file-utils gettext
+          sudo apt-get install -y $BUILD_DEPS desktop-file-utils gettext python3-venv python3-gi python3-dbus
+      - name: Install blueprint-compiler
+        run: |
+          python3 -m venv --system-site-packages "$RUNNER_TEMP/blueprint-compiler"
+          "$RUNNER_TEMP/blueprint-compiler/bin/pip" install blueprint-compiler==0.22.2
+          echo "$RUNNER_TEMP/blueprint-compiler/bin" >> "$GITHUB_PATH"
       - run: just verify
 
   nixos-integration:
@@ -113,7 +118,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y $BUILD_DEPS zstd
+          sudo apt-get install -y $BUILD_DEPS blueprint-compiler zstd
       - id: cache-tools
         uses: actions/cache@v4
         with:

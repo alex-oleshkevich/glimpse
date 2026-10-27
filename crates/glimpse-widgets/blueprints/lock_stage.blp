@@ -1,4 +1,5 @@
 using Gtk 4.0;
+using Adw 1;
 
 template $LockStage: Gtk.Widget {
   layout-manager: BinLayout {};
@@ -159,11 +160,8 @@ template $LockStage: Gtk.Widget {
       }
 
       [end]
-      Gtk.Box {
-        spacing: 12;
-
-        Gtk.Box bottom {
-          spacing: 12;
+      Adw.Bin {
+        Adw.Bin bottom {
           hexpand: true;
           can-target: false;
 

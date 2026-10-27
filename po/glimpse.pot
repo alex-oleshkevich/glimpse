@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-27 16:07+0100\n"
+"POT-Creation-Date: 2026-10-27 21:58+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -56,9 +56,9 @@ msgstr ""
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
 #: crates/glimpse-widgets/blueprints/network_popover.blp:160
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:106
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:156
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:206
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:107
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:157
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:207
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:125
 #: docs/plans/glimpse-agents/agents_bt_1.blp:45
 #: docs/plans/glimpse-agents/agents_bt_2.blp:50
@@ -302,7 +302,7 @@ msgstr ""
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:160
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:161
 #: docs/plans/glimpse-agents/agents_session_2.blp:43
 msgid "Restart"
 msgstr ""
@@ -671,7 +671,7 @@ msgid "Output"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:314
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:54
 msgid "Input"
 msgstr ""
 
@@ -1971,7 +1971,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:67
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:154
 #: crates/glimpse-panel/src/applets/removable/render.rs:27
-#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:13
 msgid "Removable"
 msgstr ""
 
@@ -2485,7 +2485,7 @@ msgstr ""
 
 #: crates/glimpse-shot/src/gui/result.rs:964
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:505
 msgid "Save"
 msgstr ""
 
@@ -2574,7 +2574,15 @@ msgstr ""
 msgid "The file cannot be read."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:35
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:65
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:215
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:84
 msgid "Applications"
 msgstr ""
 
@@ -2598,7 +2606,7 @@ msgid "Next"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
-msgid "Some events on this day aren't shown."
+msgid "Some events on this day aren’t shown."
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
@@ -2791,7 +2799,7 @@ msgid "Lock"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/session_popover.blp:17
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:110
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:111
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
 msgid "Suspend"
 msgstr ""
@@ -2800,40 +2808,40 @@ msgstr ""
 msgid "Shut down"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:41
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:42
 msgid "Suspend…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:47
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:48
 msgid "Restart…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:53
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:54
 msgid "Power Off…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:82
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:83
 msgid "Suspend now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:91
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:92
 msgid "The screen stays locked when it wakes."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:132
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:133
 msgid "Restart now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:141
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:191
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:142
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:192
 msgid "Open sessions may lose unsaved work."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:182
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:183
 msgid "Power off now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:210
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:211
 msgid "Power Off"
 msgstr ""
 
@@ -2915,6 +2923,11 @@ msgstr ""
 msgid "File Name"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:44
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:83
+msgid ".png"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
 msgid "Behavior"
 msgstr ""
@@ -2953,31 +2966,31 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:255
 msgid "Red"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:275
 msgid "Yellow"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:295
 msgid "Green"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:315
 msgid "Blue"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:335
 msgid "White"
 msgstr ""
 
@@ -3059,25 +3072,25 @@ msgstr ""
 msgid "Save or Open"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:161
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:162
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:441
 msgid "Undo (Ctrl+Z)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:171
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:172
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:455
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:195
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:196
 msgid "Pan (hold Space)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:213
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:214
 msgid "Best Fit (Ctrl+0)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:219
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:220
 msgid "Actual Size (Ctrl+1)"
 msgstr ""
 
@@ -3187,7 +3200,7 @@ msgid "Save As"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:525
 msgid "Open in Window"
 msgstr ""
 
@@ -3236,122 +3249,123 @@ msgid "Quit"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:24
 msgid "Move Toolbar"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:36
 msgid "Screen (S)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:50
 msgid "Window (W)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:72
 msgid "Crop (C)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:85
 msgid "Arrow (A)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
 msgid "Line (L)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
 msgid "Freehand (P)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
 msgid "Highlighter (H)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:150
 msgid "Filled Rectangle (F)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
 msgid "Oval (O)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
 msgid "Number (N)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:206
 msgid "Pixelate (B)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
-msgid "Color (1–5)"
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:225
+msgid "Color (1 –5)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
 msgid "Red (1)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
 msgid "Yellow (2)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
 msgid "Green (3)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
 msgid "Blue (4)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
 msgid "White (5)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
 msgid "Thin line ([ and ])"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
 msgid "Medium line ([ and ])"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
 msgid "Thick line ([ and ])"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
 msgid "Apply Crop (Enter)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
 msgid "Copy and close (Enter)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:487
 msgid "Cancel (Esc)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:512
 msgid "Save As…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:519
 msgid "Open With…"
 msgstr ""
 
@@ -3371,6 +3385,22 @@ msgstr ""
 msgid "Repeat"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:14
+msgid "Wide"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:25
+msgid "body 1"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:36
+msgid "body 2"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:47
+msgid "body 3"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
 msgid "Inactive warning row"
 msgstr ""
@@ -3383,15 +3413,13 @@ msgstr ""
 msgid "Locked by the hardware switch"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
-#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
-msgid "Mute"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:234
 msgid ""
 "Storm warning: strong wind gusts up to 90 km/h expected across the region"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:250
+msgid "tall"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28

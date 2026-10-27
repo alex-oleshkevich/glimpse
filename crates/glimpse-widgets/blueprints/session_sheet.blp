@@ -1,4 +1,5 @@
 using Gtk 4.0;
+using Adw 1;
 
 template $SessionSheet: Gtk.Widget {
   layout-manager: BinLayout {};
@@ -12,7 +13,7 @@ template $SessionSheet: Gtk.Widget {
     transition-type: crossfade;
     transition-duration: 180;
 
-    Gtk.Box {
+    Adw.Bin {
       styles [
         "session-sheet__frame",
       ]

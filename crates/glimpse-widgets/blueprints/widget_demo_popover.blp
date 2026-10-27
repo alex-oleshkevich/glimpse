@@ -11,7 +11,7 @@ template $WidgetDemoPopover: Gtk.Widget {
     [addon]
     Gtk.Switch {
       valign: center;
-      tooltip-text: "Wide";
+      tooltip-text: _("Wide");
       notify::active => $on_wide_toggled() swapped;
     }
 
@@ -22,7 +22,7 @@ template $WidgetDemoPopover: Gtk.Widget {
       align: center;
 
       Gtk.Label {
-        label: "body 1";
+        label: _("body 1");
       }
     }
 
@@ -33,7 +33,7 @@ template $WidgetDemoPopover: Gtk.Widget {
       align: center;
 
       Gtk.Label {
-        label: "body 2";
+        label: _("body 2");
       }
     }
 
@@ -44,7 +44,7 @@ template $WidgetDemoPopover: Gtk.Widget {
       align: center;
 
       Gtk.Label {
-        label: "body 3";
+        label: _("body 3");
       }
     }
 
@@ -161,6 +161,7 @@ template $WidgetDemoPopover: Gtk.Widget {
           [end]
           Gtk.Image {
             icon-name: "object-select-symbolic";
+            accessible-role: presentation;
           }
 
           $ActionRow {
@@ -246,7 +247,7 @@ template $WidgetDemoPopover: Gtk.Widget {
       align: center;
 
       Gtk.Label {
-        label: "tall";
+        label: _("tall");
       }
     }
   }

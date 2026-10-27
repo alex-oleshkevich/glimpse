@@ -406,10 +406,12 @@ fn dress_level(
     slider.set_value(volume);
     slider.set_inactive(muted);
     mute.set_icon_name(icon.unwrap_or_default());
-    mute.set_tooltip_text(Some(&match muted {
+    let action = match muted {
         true => gettext("Unmute"),
         false => gettext("Mute"),
-    }));
+    };
+    mute.set_tooltip_text(Some(&action));
+    mute.update_property(&[gtk4::accessible::Property::Label(&action)]);
 }
 
 fn heading_of(container: &gtk4::Box) -> gtk4::Label {

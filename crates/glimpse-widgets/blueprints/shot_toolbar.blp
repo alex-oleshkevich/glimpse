@@ -20,6 +20,10 @@ template $ShotToolbar: Gtk.Widget {
       tooltip-text: _("Move Toolbar");
       visible: false;
 
+      accessibility {
+        label: _("Move Toolbar");
+      }
+
       styles [
         "shot-handle",
       ]
@@ -218,7 +222,7 @@ template $ShotToolbar: Gtk.Widget {
     }
 
     Gtk.MenuButton color_menu {
-      tooltip-text: _("Color (1–5)");
+      tooltip-text: _("Color (1 –5)");
 
       styles [
         "flat",

@@ -80,7 +80,7 @@ template $ShotResultPage: Gtk.Widget {
 
                   [suffix]
                   Gtk.Label {
-                    label: ".png";
+                    label: _(".png");
 
                     styles [
                       "dimmed",
@@ -140,6 +140,7 @@ template $ShotResultPage: Gtk.Widget {
               vexpand: true;
               content-fit: scale_down;
               can-shrink: true;
+              accessible-role: presentation;
               margin-top: 24;
               margin-bottom: 24;
               margin-start: 24;
