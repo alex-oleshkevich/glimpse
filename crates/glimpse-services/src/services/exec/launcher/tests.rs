@@ -400,14 +400,36 @@ async fn sweep_matches_escaped_panel_ids_and_preserves_other_panels() {
     assert!(preserved, "another panel's unit must remain running");
 }
 
-struct FakeManager;
+#[derive(zbus::DBusError, Debug)]
+#[zbus(prefix = "org.freedesktop.systemd1")]
+enum FakeError {
+    #[zbus(error)]
+    ZBus(zbus::Error),
+    NoSuchUnit(String),
+    Unavailable(String),
+}
+
+#[derive(Clone, Default)]
+struct FakeManager {
+    removed: std::sync::Arc<AtomicBool>,
+    unavailable: std::sync::Arc<AtomicBool>,
+}
 
 #[zbus::interface(name = "org.freedesktop.systemd1.Manager")]
 impl FakeManager {
     fn subscribe(&self) {}
 
-    fn get_unit(&self, _name: &str) -> zbus::zvariant::OwnedObjectPath {
-        zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/applet").unwrap()
+    fn get_unit(&self, name: &str) -> Result<zbus::zvariant::OwnedObjectPath, FakeError> {
+        if self.unavailable.load(Ordering::SeqCst) {
+            return Err(FakeError::Unavailable("reexecuting".to_owned()));
+        }
+        if self.removed.load(Ordering::SeqCst) {
+            return Err(FakeError::NoSuchUnit(format!("Unit {name} not loaded.")));
+        }
+        Ok(
+            zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/applet")
+                .unwrap(),
+        )
     }
 
     #[zbus(signal)]
@@ -433,17 +455,14 @@ impl FakeUnit {
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn an_unpolled_watch_never_stalls_the_connection() {
-    use futures_util::StreamExt;
-    use glimpse_dbus::testing::PrivateBus;
-    use std::time::Duration;
-
-    let bus = PrivateBus::start();
+async fn fake_systemd(
+    bus: &glimpse_dbus::testing::PrivateBus,
+    manager: FakeManager,
+) -> zbus::Connection {
     let systemd = bus.connection().await;
     systemd
         .object_server()
-        .at("/org/freedesktop/systemd1", FakeManager)
+        .at("/org/freedesktop/systemd1", manager)
         .await
         .unwrap();
     systemd
@@ -454,6 +473,30 @@ async fn an_unpolled_watch_never_stalls_the_connection() {
     glimpse_dbus::own_name(&systemd, "org.freedesktop.systemd1")
         .await
         .unwrap();
+    systemd
+}
+
+async fn remove_applet(systemd: &zbus::Connection) {
+    let emitter =
+        zbus::object_server::SignalEmitter::new(systemd, "/org/freedesktop/systemd1").unwrap();
+    FakeManager::unit_removed(
+        &emitter,
+        "applet.service".to_owned(),
+        zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/applet").unwrap(),
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_unpolled_watch_never_stalls_the_connection() {
+    use futures_util::StreamExt;
+    use glimpse_dbus::testing::PrivateBus;
+    use std::time::Duration;
+
+    let bus = PrivateBus::start();
+    let manager = FakeManager::default();
+    let systemd = fake_systemd(&bus, manager.clone()).await;
 
     let panel = bus.connection().await;
     let launcher = SystemdLauncher::new(Some(panel.clone()));
@@ -483,15 +526,47 @@ async fn an_unpolled_watch_never_stalls_the_connection() {
     .await;
     assert!(answered.is_ok(), "the connection stopped being read");
 
-    FakeManager::unit_removed(
-        &emitter,
-        "applet.service".to_owned(),
-        zbus::zvariant::OwnedObjectPath::try_from("/org/freedesktop/systemd1/unit/applet").unwrap(),
-    )
-    .await
-    .unwrap();
+    manager.removed.store(true, Ordering::SeqCst);
+    remove_applet(&systemd).await;
     let state = tokio::time::timeout(Duration::from_secs(3), watch.next())
         .await
         .expect("the watch never reported the removal");
+    assert!(matches!(state, Some(UnitState::Gone)), "{state:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_removal_signal_for_a_unit_that_still_exists_is_not_gone() {
+    use futures_util::StreamExt;
+    use glimpse_dbus::testing::PrivateBus;
+    use std::time::Duration;
+
+    let bus = PrivateBus::start();
+    let manager = FakeManager::default();
+    let systemd = fake_systemd(&bus, manager.clone()).await;
+
+    let panel = bus.connection().await;
+    let launcher = SystemdLauncher::new(Some(panel.clone()));
+    let mut watch = launcher.watch("applet.service");
+    let _ = tokio::time::timeout(Duration::from_millis(500), watch.next()).await;
+
+    manager.unavailable.store(true, Ordering::SeqCst);
+    remove_applet(&systemd).await;
+    let early = tokio::time::timeout(Duration::from_secs(1), watch.next()).await;
+    assert!(
+        early.is_err(),
+        "a manager reexec reported the unit gone: {early:?}"
+    );
+    manager.unavailable.store(false, Ordering::SeqCst);
+    let recovered = tokio::time::timeout(Duration::from_secs(1), watch.next()).await;
+    assert!(
+        recovered.is_err(),
+        "the unit was reported gone once the manager answered: {recovered:?}"
+    );
+
+    manager.removed.store(true, Ordering::SeqCst);
+    remove_applet(&systemd).await;
+    let state = tokio::time::timeout(Duration::from_secs(3), watch.next())
+        .await
+        .expect("the watch never reported the real removal");
     assert!(matches!(state, Some(UnitState::Gone)), "{state:?}");
 }

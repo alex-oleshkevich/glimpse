@@ -12,6 +12,9 @@ pub const NEEDS_SYSTEMD: &str = "needs the systemd user manager";
 
 pub const EXIT_UNAVAILABLE: i32 = 69;
 
+const NO_SUCH_UNIT: &str = "org.freedesktop.systemd1.NoSuchUnit";
+const RECHECK_RETRY: std::time::Duration = std::time::Duration::from_millis(250);
+
 pub struct UnitSpec {
     pub name: String,
     pub description: String,
@@ -423,17 +426,9 @@ impl Watch {
         }
         loop {
             match self.changes.as_mut()?.next().await? {
-                Change::Removed => {
-                    self.done = true;
-                    return Some(UnitState::Gone);
-                }
-                Change::Missed => {
-                    let manager = Systemd1ManagerProxy::new(self.connection.as_ref()?)
-                        .await
-                        .ok()?;
-                    if manager.get_unit(&self.name).await.is_err() {
-                        self.done = true;
-                        return Some(UnitState::Gone);
+                Change::Removed | Change::Missed => {
+                    if let Some(state) = self.recheck().await {
+                        return Some(state);
                     }
                 }
                 Change::Sub(value) => {
@@ -465,6 +460,63 @@ impl Watch {
                 Change::Active(_) => {}
             }
         }
+    }
+
+    async fn exists(connection: zbus::Connection, unit: String) -> Option<bool> {
+        let manager = Systemd1ManagerProxy::new(&connection).await.ok()?;
+        match manager.get_unit(&unit).await {
+            Ok(_) => Some(true),
+            Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == NO_SUCH_UNIT => {
+                Some(false)
+            }
+            Err(_) => None,
+        }
+    }
+
+    async fn recheck(&mut self) -> Option<UnitState> {
+        if let Some(connection) = self.connection.clone() {
+            loop {
+                match Self::exists(connection.clone(), self.name.clone()).await {
+                    Some(false) => break,
+                    Some(true) => {
+                        self.changes = None;
+                        if self.subscribe().await.is_some() {
+                            return self.current().await;
+                        }
+                    }
+                    None => {}
+                }
+                tokio::time::sleep(RECHECK_RETRY).await;
+            }
+        }
+        self.done = true;
+        Some(UnitState::Gone)
+    }
+
+    async fn current(&mut self) -> Option<UnitState> {
+        let unit = self.unit.as_ref()?;
+        let service = self.service.as_ref()?;
+        let sub = unit.sub_state().await.ok()?;
+        let restarting = sub.contains("auto-restart");
+        let entered = restarting && !self.restarting;
+        self.restarting = restarting;
+        if entered {
+            let restarts = service.n_restarts().await.unwrap_or_default();
+            return Some(UnitState::Restarting { restarts });
+        }
+        if !restarting
+            && unit
+                .active_state()
+                .await
+                .is_ok_and(|state| state == "failed")
+        {
+            let result = service
+                .result()
+                .await
+                .unwrap_or_else(|_| "failed".to_owned());
+            return Some(UnitState::Failed { result });
+        }
+        None
     }
 }
 

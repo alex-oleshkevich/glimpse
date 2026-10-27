@@ -135,22 +135,31 @@ impl Manager {
         self.spawn_client().await
     }
 
-    async fn delete_client(&self, client: OwnedObjectPath) -> zbus::fdo::Result<()> {
+    async fn delete_client(
+        &self,
+        client: OwnedObjectPath,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
         self.calls
             .lock()
             .expect("lock poisoned")
             .push(Call::DeleteClient(client.clone()));
-        {
+        let changed = {
             let mut registry = self.registry.lock().expect("lock poisoned");
+            let was = !registry.started.is_empty();
             registry.started.remove(&client);
             registry.states.remove(&client);
             registry.peers.retain(|_, path| path != &client);
-        }
+            was && registry.started.is_empty()
+        };
         let _ = self
             .connection
             .object_server()
             .remove::<Client, _>(client.as_ref())
             .await;
+        if changed {
+            let _ = self.in_use_changed(&emitter).await;
+        }
         Ok(())
     }
 
@@ -165,6 +174,20 @@ impl Manager {
     }
 }
 
+async fn notify_in_use(connection: &Connection) {
+    if let Ok(manager) = connection
+        .object_server()
+        .interface::<_, Manager>(MANAGER_PATH)
+        .await
+    {
+        let _ = manager
+            .get()
+            .await
+            .in_use_changed(manager.signal_emitter())
+            .await;
+    }
+}
+
 struct Client {
     path: OwnedObjectPath,
     registry: Arc<Mutex<Registry>>,
@@ -174,29 +197,35 @@ struct Client {
 
 #[zbus::interface(name = "org.freedesktop.GeoClue2.Client")]
 impl Client {
-    async fn start(&self) -> zbus::fdo::Result<()> {
+    async fn start(&self, #[zbus(connection)] connection: &Connection) -> zbus::fdo::Result<()> {
         self.calls
             .lock()
             .expect("lock poisoned")
             .push(Call::Start(self.path.clone()));
-        self.registry
-            .lock()
-            .expect("lock poisoned")
-            .started
-            .insert(self.path.clone());
+        let changed = {
+            let mut registry = self.registry.lock().expect("lock poisoned");
+            let was = !registry.started.is_empty();
+            registry.started.insert(self.path.clone());
+            !was
+        };
+        if changed {
+            notify_in_use(connection).await;
+        }
         Ok(())
     }
 
-    async fn stop(&self) -> zbus::fdo::Result<()> {
+    async fn stop(&self, #[zbus(connection)] connection: &Connection) -> zbus::fdo::Result<()> {
         self.calls
             .lock()
             .expect("lock poisoned")
             .push(Call::Stop(self.path.clone()));
-        self.registry
-            .lock()
-            .expect("lock poisoned")
-            .started
-            .remove(&self.path);
+        let changed = {
+            let mut registry = self.registry.lock().expect("lock poisoned");
+            registry.started.remove(&self.path) && registry.started.is_empty()
+        };
+        if changed {
+            notify_in_use(connection).await;
+        }
         Ok(())
     }
 

@@ -376,19 +376,44 @@ pub async fn location(ctx: Ctx<Privacy>) -> Events {
     let Ok(bus) = ctx.system_bus().cloned() else {
         return location_unavailable("location: no system bus");
     };
-    let manager = match GeoClueManagerProxy::new(&bus).await {
+    let manager = match GeoClueManagerProxy::builder(&bus)
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
+    {
         Ok(manager) => manager,
         Err(_) => return location_unavailable("location: GeoClue is unavailable"),
     };
+    let properties = match zbus::fdo::PropertiesProxy::builder(&bus)
+        .destination(manager.inner().destination().to_owned())
+        .and_then(|builder| builder.path(manager.inner().path().to_owned()))
+    {
+        Ok(builder) => builder.build().await,
+        Err(error) => Err(error),
+    };
+    let Ok(properties) = properties else {
+        return location_unavailable("location: GeoClue is unavailable");
+    };
+    let (Ok(owners), Ok(changes)) = (
+        manager
+            .inner()
+            .receive_owner_changed()
+            .await
+            .map(glimpse_dbus::wake),
+        properties
+            .receive_properties_changed()
+            .await
+            .map(glimpse_dbus::wake),
+    ) else {
+        return location_unavailable("location: GeoClue is unavailable");
+    };
 
-    let changes = manager.receive_in_use_changed().await;
-    let known = manager.in_use().await.unwrap_or(false);
-
-    let first = stream::once(async move { Event::Location(known) });
-    let following =
-        changes.then(|change| async move { Event::Location(change.get().await.unwrap_or(false)) });
-
-    Box::pin(first.chain(following))
+    let wakes = stream::select(owners, changes);
+    let reads = stream::once(async {}).chain(wakes);
+    Box::pin(reads.then(move |()| {
+        let manager = manager.clone();
+        async move { Event::Location(manager.in_use().await.unwrap_or(false)) }
+    }))
 }
 
 #[cfg(test)]
