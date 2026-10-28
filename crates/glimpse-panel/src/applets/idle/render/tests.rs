@@ -220,20 +220,6 @@ fn the_deadline_picks_the_newest_manual_hold() {
 }
 
 #[test]
-fn presets_use_the_duration_recorded_by_the_provider() {
-    use super::super::keep_awake::deadline;
-
-    for seconds in [900, 1_800, 3_600, 7_200, 14_400] {
-        let records = [IdleInhibitorRecord {
-            added_at_unix: 1_000,
-            ..manual_hold_record(9)
-        }];
-        let expiries = std::collections::BTreeMap::from([(9, 1_000 + u64::from(seconds))]);
-        assert_eq!(deadline(&records, &expiries).unwrap().1, seconds);
-    }
-}
-
-#[test]
 fn a_replacement_in_the_same_second_uses_the_newer_id() {
     use super::super::keep_awake::deadline;
 

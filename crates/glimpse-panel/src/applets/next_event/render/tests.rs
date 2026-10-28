@@ -607,16 +607,3 @@ fn a_clash_reaches_the_tooltip_with_and_without_a_format() {
         "a quiet calendar leaves the token empty rather than printing an empty clause"
     );
 }
-
-#[test]
-fn an_event_outside_the_bar_window_leaves_no_applet_at_all() {
-    let events = vec![event("Standup", at(4, 14, 0), at(4, 15, 0))];
-    let now = at(4, 9, 0);
-
-    assert!(
-        next(now, &events, TimeDelta::hours(1), false).is_none(),
-        "the applet shows one event's details; five hours out it has none to show"
-    );
-    assert!(next(now, &events, TimeDelta::hours(12), false).is_some());
-    assert!(next(now, &[], TimeDelta::hours(12), false).is_none());
-}

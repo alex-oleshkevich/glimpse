@@ -158,6 +158,10 @@ impl IdleServices {
         }
     }
 
+    pub fn bus_closed(&self) -> impl Future<Output = ()> + Send + 'static {
+        self.idle1.closed()
+    }
+
     pub async fn shutdown(self) {
         tracing::info!("idle shutting down");
         self.idle1.shutdown().await;

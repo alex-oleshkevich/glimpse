@@ -84,25 +84,6 @@ fn a_page_timeout_says_the_device_is_away_rather_than_naming_the_token() {
 }
 
 #[test]
-fn every_token_classifies_into_a_variant_that_has_its_own_wording() {
-    for token in [
-        "br-connection-profile-unavailable",
-        "br-connection-refused",
-        "br-connection-busy",
-        "br-connection-canceled",
-        "le-connection-timeout",
-        "something-bluez-invents-next-year",
-    ] {
-        let failure =
-            classify(Action::Connect, &method("Failed", Some(token))).expect_err("a failure");
-        assert!(
-            !format!("{failure:?}").contains(token),
-            "{token} survived classification"
-        );
-    }
-}
-
-#[test]
 fn a_named_pairing_error_outranks_its_token() {
     assert_eq!(
         classify(

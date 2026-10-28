@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-27 21:58+0100\n"
+"POT-Creation-Date: 2026-10-28 14:00+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,12 +19,10 @@ msgstr ""
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:39
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:37
 msgid "Account"
 msgstr ""
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:47
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:36
 msgid "Username"
 msgstr ""
 
@@ -32,20 +30,12 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
 #: crates/glimpse-panel/src/applets/network/render.rs:278
 #: crates/glimpse-widgets/blueprints/network_row.blp:25
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:41
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:45
 msgid "Connect automatically"
 msgstr ""
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:41
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:41
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:54
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:47
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:41
 msgid "Details"
 msgstr ""
 
@@ -60,21 +50,6 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:157
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:207
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:125
-#: docs/plans/glimpse-agents/agents_bt_1.blp:45
-#: docs/plans/glimpse-agents/agents_bt_2.blp:50
-#: docs/plans/glimpse-agents/agents_bt_3.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:71
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:71
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:84
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:77
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:85
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:81
-#: docs/plans/glimpse-agents/agents_session_1.blp:35
-#: docs/plans/glimpse-agents/agents_session_2.blp:35
-#: docs/plans/glimpse-agents/agents_session_3.blp:35
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:54
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:58
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:53
 msgid "Cancel"
 msgstr ""
 
@@ -87,60 +62,30 @@ msgstr ""
 #: crates/glimpse-agents/src/app/view.rs:86
 #: crates/glimpse-agents/src/app/view.rs:106
 #: crates/glimpse-widgets/blueprints/password_prompt.blp:27
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:50
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:37
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:37
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:37
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:41
 msgid "Password"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:61
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:58
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:51
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:49
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:45
 msgid "Action"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:75
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:79
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:79
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:92
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:85
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:93
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:89
 msgid "Authorize"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:78
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:17
 msgid "Authentication needed"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:90
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:18
 msgid "That password didn't work"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:92
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:66
 msgid "Try again"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:93
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:62
 msgid "Join"
 msgstr ""
 
@@ -149,7 +94,6 @@ msgid "Join “{name}”"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:98
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:18
 msgid "The network needs a password"
 msgstr ""
 
@@ -158,7 +102,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/network/indicator.rs:192
 #: crates/glimpse-panel/src/applets/network/render.rs:250
 #: crates/glimpse-widgets/blueprints/network_popover.blp:164
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:61
 msgid "Connect"
 msgstr ""
 
@@ -179,8 +122,6 @@ msgstr ""
 #: crates/glimpse-agents/src/app/view.rs:134
 #: crates/glimpse-agents/src/app/view.rs:142
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:250
-#: docs/plans/glimpse-agents/agents_bt_1.blp:53
-#: docs/plans/glimpse-agents/agents_bt_2.blp:58
 msgid "Pair"
 msgstr ""
 
@@ -193,12 +134,10 @@ msgid "Check that the device shows the same code"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:133
-#: docs/plans/glimpse-agents/agents_bt_2.blp:37
 msgid "PIN"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:137
-#: docs/plans/glimpse-agents/agents_bt_2.blp:18
 msgid "Enter the PIN from the device's manual — often 0000"
 msgstr ""
 
@@ -216,12 +155,10 @@ msgid "Type this code on the device, then press Enter"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:160
-#: docs/plans/glimpse-agents/agents_bt_4.blp:43
 msgid "Allow"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:161
-#: docs/plans/glimpse-agents/agents_bt_4.blp:35
 msgid "Deny"
 msgstr ""
 
@@ -230,7 +167,6 @@ msgid "“{name}” wants to connect"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:164
-#: docs/plans/glimpse-agents/agents_bt_4.blp:18
 msgid "It has never been paired with this computer"
 msgstr ""
 
@@ -303,29 +239,22 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:161
-#: docs/plans/glimpse-agents/agents_session_2.blp:43
 msgid "Restart"
 msgstr ""
 
 #: crates/glimpse-agents/src/session.rs:53
-#: docs/plans/glimpse-agents/agents_session_2.blp:17
 msgid "Restart?"
 msgstr ""
 
 #: crates/glimpse-agents/src/session.rs:54
-#: docs/plans/glimpse-agents/agents_session_1.blp:43
 msgid "Power off"
 msgstr ""
 
 #: crates/glimpse-agents/src/session.rs:54
-#: docs/plans/glimpse-agents/agents_session_1.blp:17
 msgid "Power off?"
 msgstr ""
 
 #: crates/glimpse-agents/src/session.rs:59
-#: docs/plans/glimpse-agents/agents_session_1.blp:18
-#: docs/plans/glimpse-agents/agents_session_2.blp:18
-#: docs/plans/glimpse-agents/agents_session_3.blp:18
 msgid "Unsaved work in open apps may be lost"
 msgstr ""
 
@@ -474,25 +403,25 @@ msgstr ""
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:163
+#: crates/glimpse-panel/src/applet/mod.rs:159
 msgid "That change was refused."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:164
+#: crates/glimpse-panel/src/applet/mod.rs:160
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:290
 #: crates/glimpse-panel/src/applets/display/indicator.rs:386
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:167
 msgid "That is not supported."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:165
+#: crates/glimpse-panel/src/applet/mod.rs:161
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:291
 #: crates/glimpse-panel/src/applets/display/indicator.rs:387
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:168
 msgid "That could not be completed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:166
+#: crates/glimpse-panel/src/applet/mod.rs:162
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:292
 #: crates/glimpse-panel/src/applets/display/indicator.rs:388
 #: crates/glimpse-panel/src/applets/display/indicator.rs:399
@@ -502,11 +431,11 @@ msgstr ""
 msgid "That did not work."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:206
+#: crates/glimpse-panel/src/applet/mod.rs:202
 msgid "Could not open that location"
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:222
+#: crates/glimpse-panel/src/applet/mod.rs:218
 msgid "No app is installed to open it."
 msgstr ""
 
@@ -577,7 +506,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/agenda.rs:190
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:240
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr ""
@@ -1340,7 +1269,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/mpris/render.rs:34
 #: crates/glimpse-panel/src/applets/printing/render.rs:133
 #: crates/glimpse-panel/src/applets/printing/render.rs:191
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:288
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
 msgid "Stopped"
 msgstr ""
 
@@ -1448,7 +1377,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:56
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:64
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:77
-#: crates/glimpse-panel/src/applets/network/render/tests.rs:238
 msgid "Metered connection"
 msgstr ""
 
@@ -1505,7 +1433,7 @@ msgid "Open, encrypted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:206
-#: crates/glimpse-panel/src/applets/network/render/tests.rs:291
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:281
 msgid "{count} more network"
 msgid_plural "{count} more networks"
 msgstr[0] ""
@@ -1514,7 +1442,7 @@ msgstr[1] ""
 #: crates/glimpse-panel/src/applets/network/render.rs:232
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/printing/render.rs:163
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:250
 #: crates/glimpse-widgets/src/display_list/mod.rs:157
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:155
 msgid "Status"
@@ -1730,7 +1658,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/power/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render.rs:160
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:234
 #: crates/glimpse-widgets/src/display_list/mod.rs:167
 msgid "Model"
 msgstr ""
@@ -1873,7 +1801,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:112
 #: crates/glimpse-panel/src/applets/printing/render.rs:132
 #: crates/glimpse-panel/src/applets/printing/render.rs:165
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:250
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:12
 msgid "Printing"
 msgstr ""
@@ -1922,7 +1850,7 @@ msgid "Aborted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:182
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:278
 msgid "Not accepting jobs"
 msgstr ""
 
@@ -2061,7 +1989,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/session/render.rs:65
 #: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:33
-#: docs/plans/glimpse-agents/agents_session_3.blp:43
 msgid "Log out"
 msgstr ""
 
@@ -2356,65 +2283,65 @@ msgstr ""
 msgid "a screenshot is already being taken"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:214
+#: crates/glimpse-shot/src/gui/app.rs:216
 msgid "_Open Image…"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:216
+#: crates/glimpse-shot/src/gui/app.rs:218
 msgid "_Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:217
+#: crates/glimpse-shot/src/gui/app.rs:219
 msgid "_Keyboard Shortcuts"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:218
+#: crates/glimpse-shot/src/gui/app.rs:220
 msgid "_About Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:367
+#: crates/glimpse-shot/src/gui/app.rs:369
 msgid "--portal needs a screen target"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:520
-#: crates/glimpse-shot/src/gui/app.rs:650
-#: crates/glimpse-shot/src/gui/app.rs:934 crates/glimpse-shot/src/notify.rs:288
+#: crates/glimpse-shot/src/gui/app.rs:522
+#: crates/glimpse-shot/src/gui/app.rs:652
+#: crates/glimpse-shot/src/gui/app.rs:936 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:567
+#: crates/glimpse-shot/src/gui/app.rs:569
 msgid "The clipboard holds no image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:773
+#: crates/glimpse-shot/src/gui/app.rs:775
 msgid "There is no window to capture"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:842
+#: crates/glimpse-shot/src/gui/app.rs:844
 msgid "That window has closed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:859
+#: crates/glimpse-shot/src/gui/app.rs:861
 msgid "Images"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:869
+#: crates/glimpse-shot/src/gui/app.rs:871
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:894
+#: crates/glimpse-shot/src/gui/app.rs:896
 msgid "The image must be a local file"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1010
+#: crates/glimpse-shot/src/gui/app.rs:1012
 msgid "Untitled window"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1102
+#: crates/glimpse-shot/src/gui/app.rs:1104
 msgid "Screenshot failed"
 msgstr ""
 
@@ -2515,7 +2442,7 @@ msgctxt "notification action"
 msgid "Open"
 msgstr ""
 
-#: crates/glimpse-shot/src/portal.rs:162
+#: crates/glimpse-shot/src/portal.rs:166
 #: crates/glimpse-shot/src/portal/tests.rs:53
 #: crates/glimpse-shot/src/portal/tests.rs:54
 #: crates/glimpse-shot/src/portal/tests.rs:611
@@ -3661,50 +3588,4 @@ msgstr ""
 
 #: data/me.aresa.Glimpse.Shot.desktop:12
 msgid "screenshot;capture;annotate;print screen;snip;grab;"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_1.blp:17
-msgid "Pair with “Pixel 9”?"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_1.blp:18
-msgid "Check that the phone shows the same code"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_2.blp:17
-msgid "Pair with “Old Headset”"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_3.blp:17
-msgid "Pair with “MX Keys”"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_3.blp:18
-msgid "Type this code on the keyboard, then press Enter"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_4.blp:17
-msgid "“JBL Flip” wants to connect"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:55
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:55
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:68
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:61
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:59
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:55
-msgid "Vendor"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_session_3.blp:17
-msgid "Log out?"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:17
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:17
-msgid "Join “Café Central”"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:17
-msgid "Sign in to “Work VPN”"
 msgstr ""

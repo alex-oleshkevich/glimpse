@@ -126,21 +126,6 @@ async fn a_lost_owner_degrades_keeps_the_last_state_and_a_new_owner_recovers() {
 }
 
 #[tokio::test]
-async fn the_first_snapshot_publishes_the_sections() {
-    let rig = Rig::start(snapshot_of(vec![workspace(1, Some(1), "DP-2")], Vec::new())).await;
-
-    assert_eq!(
-        rig.mirror
-            .handle
-            .snapshot()
-            .workspaces
-            .map(|shown| shown.workspaces.len()),
-        Some(1)
-    );
-    assert_eq!(health_of(&rig.mirror), ServiceState::Running);
-}
-
-#[tokio::test]
 async fn privacy_stays_unpublished_until_the_provider_ownership_resolves() {
     let cancel = tokio_util::sync::CancellationToken::new();
     let (events, _inbox) = mpsc::channel(8);

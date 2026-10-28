@@ -133,14 +133,6 @@ pub struct Access {
 }
 
 impl Access {
-    pub fn known(&self) -> bool {
-        self.saved.is_some()
-    }
-
-    pub fn band_of(&self) -> nm::Strength {
-        nm::Strength::band(self.strength)
-    }
-
     pub fn icon_name(&self) -> &'static str {
         band_icon(self.strength)
     }

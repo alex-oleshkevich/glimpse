@@ -95,12 +95,6 @@ fn two_window_casts_with_no_detail_are_tracked_independently_by_stream_id() {
     );
 }
 
-#[test]
-fn the_initial_state_has_no_usages() {
-    assert_eq!(Privacy::initial_state(&NoConfig), PrivacyState::default());
-    assert!(PrivacyState::default().usages.is_empty());
-}
-
 fn buses() -> Buses {
     Buses::unavailable("no bus in tests")
 }

@@ -17,23 +17,8 @@ fn yes_is_visible_and_enabled() {
 }
 
 #[test]
-fn no_hides() {
-    assert_eq!(state("no", &[], Action::Suspend), hidden());
-}
-
-#[test]
-fn na_hides() {
-    assert_eq!(state("na", &[], Action::Suspend), hidden());
-}
-
-#[test]
 fn challenge_hides_because_polkit_cannot_prompt_through_a_lock() {
     assert_eq!(state("challenge", &[], Action::Suspend), hidden());
-}
-
-#[test]
-fn an_unknown_answer_hides() {
-    assert_eq!(state("some-future-answer", &[], Action::Suspend), hidden());
 }
 
 #[test]

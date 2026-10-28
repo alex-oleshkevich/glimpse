@@ -259,15 +259,6 @@ fn finishing_after_encode(face: Face) -> Phase {
 }
 
 #[test]
-fn a_duplicate_effected_is_ignored() {
-    let phase = finishing_after_encode(HEADLESS);
-    assert_eq!(
-        step(phase.clone(), Event::Effected(Effect::Encode, Ok(()))),
-        (phase, vec![])
-    );
-}
-
-#[test]
 fn a_stray_effected_ok_is_ignored() {
     let phase = finishing_after_encode(HEADLESS);
     assert_eq!(

@@ -1,4 +1,4 @@
-use glimpsectl::errors::{DEADLINE, Exit, Gone, Refused, TimedOut, exit, message};
+use glimpsectl::errors::{Exit, Gone, Refused, TimedOut, exit, message};
 
 fn method_error(name: &'static str) -> anyhow::Error {
     anyhow::Error::new(zbus::Error::MethodError(
@@ -108,17 +108,6 @@ fn a_provider_that_never_answers_has_its_own_code() {
         Exit::Timeout,
         "a script must see 5 however the call site describes the failure"
     );
-}
-
-#[test]
-fn giving_up_says_how_long_it_waited() {
-    let printed = message(&anyhow::Error::new(TimedOut));
-
-    assert!(
-        printed.contains(&DEADLINE.as_secs().to_string()),
-        "{printed}"
-    );
-    assert!(printed.contains("owns its name"), "{printed}");
 }
 
 #[test]

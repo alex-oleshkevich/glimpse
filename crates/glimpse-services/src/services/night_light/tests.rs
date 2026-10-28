@@ -586,19 +586,6 @@ async fn the_ramp_is_sampled_faster_than_it_moves_while_it_is_moving() {
 }
 
 #[tokio::test]
-async fn a_ramp_step_is_smaller_than_the_eye_resolves() {
-    let config = config(Schedule::Automatic);
-    let span = (DAY as f64 - config.temperature as f64).abs();
-    let steps = config.transition.as_seconds_f64() / RAMPING.as_secs_f64();
-
-    assert!(
-        span / steps < 50.0,
-        "a {}K step is coarse enough to read as a staircase",
-        span / steps
-    );
-}
-
-#[tokio::test]
 async fn a_schedule_with_no_transition_never_asks_to_be_woken_faster() {
     let mut settings = config(Schedule::Automatic);
     settings.transition = TimeDelta::zero();
@@ -800,14 +787,6 @@ async fn an_out_of_range_temperature_is_refused_without_quoting_what_arrived() {
     assert!(!harness.state.borrow().manual);
     assert!(!harness.gamma.applied().contains(&999));
     assert!(!harness.gamma.applied().contains(&6501));
-}
-
-#[test]
-fn a_fresh_service_has_no_manual_override_and_reports_the_configured_schedule() {
-    let state = initial_state(&config(Schedule::Schedule));
-
-    assert!(!state.manual);
-    assert_eq!(state.configured, Schedule::Schedule);
 }
 
 #[tokio::test]

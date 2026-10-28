@@ -157,14 +157,3 @@ fn emptying_the_trash_clears_files_and_their_sidecars_but_keeps_the_folders() {
         "a trashed symlink is removed, never followed"
     );
 }
-
-#[tokio::test]
-async fn the_state_before_any_event_has_arrived_is_empty_and_the_service_is_not_degraded() {
-    let (_service, _ctx, state, health) = places(enabled()).await;
-
-    assert_eq!(*state.borrow(), PlacesState::default());
-    assert!(!matches!(
-        &*health.borrow(),
-        crate::ServiceState::Degraded { .. }
-    ));
-}

@@ -88,14 +88,6 @@ fn microseconds_become_the_seconds_a_scrubber_takes() {
 }
 
 #[test]
-fn a_clock_gains_an_hours_place_only_when_it_needs_one() {
-    assert_eq!(clock(0), "0:00");
-    assert_eq!(clock(61_000_000), "1:01");
-    assert_eq!(clock(3_600_000_000), "1:00:00");
-    assert_eq!(clock(-5), "0:00");
-}
-
-#[test]
 fn every_placeholder_is_replaced_by_name() {
     let rendered = label(
         "{artist} — {title} ({state} {position}/{duration}, {remaining} left) on {player}",

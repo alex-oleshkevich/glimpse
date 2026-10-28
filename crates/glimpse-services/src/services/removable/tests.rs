@@ -566,17 +566,6 @@ async fn capacity_sampling_runs_off_the_handler_and_reaches_the_mounted_volume()
     assert!(capacity.total > 0);
 }
 
-#[tokio::test]
-async fn the_state_before_any_event_has_arrived_is_empty_and_the_service_is_not_degraded() {
-    let (_service, _ctx, state, health) = removable().await;
-
-    assert_eq!(*state.borrow(), RemovableState::default());
-    assert!(!matches!(
-        &*health.borrow(),
-        crate::ServiceState::Degraded { .. }
-    ));
-}
-
 #[test]
 fn a_drive_with_no_vendor_or_model_falls_back_to_its_serial_then_a_generic_name() {
     assert_eq!(

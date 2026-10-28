@@ -134,13 +134,6 @@ fn invalid_exec_applet_names_the_table_and_key() {
 }
 
 #[test]
-fn built_in_table_name_remains_its_kind() {
-    let config: crate::Config =
-        toml::from_str("[applets.clock]\n").expect("the built-in table loads");
-    assert!(matches!(config.applets["clock"].kind, Kind::Clock(_)));
-}
-
-#[test]
 fn places_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
     let bare = super::Applet::from_name("places").expect("a known applet name");
     assert_eq!(bare.kind, Kind::Places(super::Places::default()));
@@ -245,35 +238,6 @@ fn power_defaults_to_icon_only_and_reads_every_style() {
         .expect_err("an undocumented spelling is refused");
     toml::from_str::<crate::Config>("[applets.power]\nunknown = 1\n")
         .expect_err("a struct variant refuses keys that are not its own");
-}
-
-#[test]
-fn power_instances_load_with_defaults() {
-    let document: crate::Config =
-        toml::from_str("[applets.power]\n[applets.laptop]\nextends = \"power\"\n")
-            .expect("power and a custom instance load");
-    for name in ["power", "laptop"] {
-        assert_eq!(
-            document.applets[name].kind,
-            Kind::Power(super::Power::default())
-        );
-    }
-    assert_eq!(
-        super::Applet::from_name("power").map(|applet| applet.kind),
-        Some(Kind::Power(super::Power::default()))
-    );
-    assert!(
-        crate::Panel::default()
-            .right
-            .iter()
-            .any(|name| name == "power")
-    );
-    assert!(
-        crate::Panel::default()
-            .right
-            .iter()
-            .any(|name| name == "idle")
-    );
 }
 
 #[test]

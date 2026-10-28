@@ -99,13 +99,6 @@ pub enum Action {
 }
 
 impl Action {
-    pub fn confirm(&self) -> bool {
-        matches!(
-            self,
-            Self::Hibernate | Self::LogOut | Self::Reboot | Self::PowerOff
-        )
-    }
-
     pub fn inhibits(&self) -> Option<&'static str> {
         match self {
             Self::Suspend | Self::Hibernate => Some("sleep"),

@@ -160,17 +160,6 @@ pub enum GeolocationCommand {
     Status,
 }
 
-pub fn temperature(raw: &str) -> Result<u32, String> {
-    match raw {
-        "clear" => Ok(0),
-        _ => raw
-            .parse()
-            .ok()
-            .filter(|kelvin| *kelvin > 0)
-            .ok_or_else(|| format!("expected a temperature in Kelvin or `clear`, got {raw:?}")),
-    }
-}
-
 #[derive(Debug, Subcommand)]
 pub enum IdleCommand {
     #[command(about = "Print every inhibitor and the health of each source")]

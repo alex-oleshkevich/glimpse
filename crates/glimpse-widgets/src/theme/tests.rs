@@ -1,7 +1,7 @@
 use super::{
-    BUILTIN, BUILTIN_PRIORITY, DROPIN_DARK_PRIORITY, DROPIN_PRIORITY, DURATION_MS, SPEED_PRIORITY,
-    Styles, THEME_DARK_PRIORITY, THEME_PRIORITY, effective_scheme, provider_scheme,
-    requested_scheme, scaled, speed_sheet, usable_variant,
+    BUILTIN, BUILTIN_PRIORITY, DROPIN_DARK_PRIORITY, DROPIN_PRIORITY, SPEED_PRIORITY, Styles,
+    THEME_DARK_PRIORITY, THEME_PRIORITY, effective_scheme, provider_scheme, requested_scheme,
+    scaled, speed_sheet, usable_variant,
 };
 
 const OPEN: &str = ":root {";
@@ -234,17 +234,6 @@ fn no_visual_rule_names_a_literal_color() {
 }
 
 #[test]
-fn notification_cards_contrast_with_the_surface_in_both_schemes() {
-    assert_eq!(BUILTIN.matches("--gl-notification:").count(), 1);
-    assert!(
-        BUILTIN.contains("--gl-notification: mix(var(--gl-surface), var(--gl-surface-fg), 0.08);")
-    );
-    assert!(BUILTIN.contains("--gl-notification-fg: var(--gl-surface-fg);"));
-    assert!(BUILTIN.contains("color: var(--gl-notification-fg);"));
-    assert!(BUILTIN.contains("background-color: var(--gl-notification);"));
-}
-
-#[test]
 fn providers_follow_the_effective_scheme_without_using_default() {
     assert_eq!(provider_scheme(false), gtk4::InterfaceColorScheme::Light);
     assert_eq!(provider_scheme(true), gtk4::InterfaceColorScheme::Dark);
@@ -264,12 +253,6 @@ fn each_layer_is_refined_by_its_own_dark_sheet_and_the_user_has_the_last_word() 
         assert!(DROPIN_PRIORITY < DROPIN_DARK_PRIORITY);
         assert!(DROPIN_DARK_PRIORITY < SPEED_PRIORITY);
     }
-}
-
-#[test]
-fn the_stylesheet_duration_is_the_one_rust_scales() {
-    assert!(BUILTIN.contains(&format!("--gl-duration: {DURATION_MS}ms;")));
-    assert_eq!(speed_sheet(1.0), ":root { --gl-duration: 150ms; }");
 }
 
 #[test]

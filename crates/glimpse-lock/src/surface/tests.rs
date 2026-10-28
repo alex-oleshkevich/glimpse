@@ -113,21 +113,6 @@ fn focus_moves_the_prompt_only_onto_an_output_with_a_stage() {
 }
 
 #[test]
-fn a_prompt_that_lost_its_stage_falls_back_to_the_first() {
-    let stages = ["eDP-1".to_owned(), "DP-2".to_owned()];
-    assert_eq!(
-        prompt_stage(&stages, Some("HDMI-A-1"), None, None, true),
-        Some(0)
-    );
-    assert_eq!(prompt_stage(&stages, None, None, None, true), Some(0));
-    assert_eq!(
-        prompt_stage(&stages, Some("DP-2"), None, None, true),
-        Some(1)
-    );
-    assert_eq!(prompt_stage(&[], Some("DP-2"), None, None, true), None);
-}
-
-#[test]
 fn a_connector_pins_the_prompt_and_focused_follows_the_compositor() {
     assert_eq!(prompt_output(FOCUSED, Some("DP-2")), Some("DP-2"));
     assert_eq!(prompt_output(FOCUSED, None), None);

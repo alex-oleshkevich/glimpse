@@ -4,17 +4,6 @@ Screen capture and the data-control clipboard, for the binaries that bind `wl_` 
 the ruler, the panel and the screenshot tool. A leaf library — `glimpse-services` never depends on
 it, because no service crate may bind a Wayland object.
 
-## Contents
-
-- `wire.rs` — the registry listing, `roundtrip` and `settle`: every wait on the compositor polls the
-  socket against a deadline
-- `capture/mod.rs` — `Frame`, `CaptureError`, `choose` and the public entry points
-- `capture/wlr.rs` — `zwlr_screencopy_manager_v1`
-- `capture/ext.rs` — `ext_image_copy_capture_manager_v1` over output and toplevel sources
-- `selection/mod.rs` — `snapshot`, `Changes`, `Owned`, `watch` and their types
-- `selection/backend.rs` — the data-control state, its dispatch and the `watch` and serve loops
-- `selection/protocol.rs` — `ext-data-control-v1` and `wlr-data-control-unstable-v1` wrapped as one
-
 ## Capture
 
 `outputs`, `output` and `toplevel` are synchronous and take one `deadline`. Nothing blocks without

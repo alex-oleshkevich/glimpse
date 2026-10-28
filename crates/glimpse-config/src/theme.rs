@@ -14,11 +14,11 @@ const STYLES_FILE: &str = "styles.css";
 const THEMES_DIR_ENV: &str = "GLIMPSE_THEMES_DIR";
 const THEME_ENV: &str = "GLIMPSE_THEME";
 
-pub const DEFAULT_THEME: &str = "adwaita";
+pub(crate) const DEFAULT_THEME: &str = "adwaita";
 pub const PANEL_STYLESHEET: &str = "panel.css";
 pub const WALLPAPER_STYLESHEET: &str = "wallpaper.css";
 pub const LOCK_STYLESHEET: &str = "lock.css";
-pub const DARK_STYLESHEET: &str = "dark.css";
+const DARK_STYLESHEET: &str = "dark.css";
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Theme {

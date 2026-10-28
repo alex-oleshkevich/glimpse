@@ -80,6 +80,10 @@ impl SettingsServices {
         }
     }
 
+    pub fn bus_closed(&self) -> impl Future<Output = ()> + Send + 'static {
+        self.provider.closed()
+    }
+
     pub async fn shutdown(mut self) {
         self.provider.shutdown().await;
         self.mode.stop().await;

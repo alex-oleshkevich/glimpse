@@ -1,10 +1,10 @@
 use super::*;
 
-fn output(connector: &str, built_in: bool) -> OutputInfo {
+fn output(connector: &str) -> OutputInfo {
     OutputInfo {
         connector: connector.to_owned(),
         label: None,
-        built_in,
+        built_in: false,
         focused: false,
         make: None,
         model: None,
@@ -12,12 +12,6 @@ fn output(connector: &str, built_in: bool) -> OutputInfo {
         logical: None,
         enabled: true,
     }
-}
-
-#[test]
-fn the_widget_display_carries_whether_the_output_is_built_in() {
-    assert!(to_widget_display(&output("eDP-1", true)).built_in);
-    assert!(!to_widget_display(&output("DP-2", false)).built_in);
 }
 
 #[tokio::test]
@@ -32,7 +26,7 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
         services.handles.compositor.clone(),
         services.handles.notifications.clone(),
     );
-    display.outputs = vec![output("DP-1", false)];
+    display.outputs = vec![output("DP-1")];
     display.night_light_seen = true;
     assert_eq!(
         display.indicator().unwrap().tooltip,
@@ -57,23 +51,4 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
         render::tooltip(&display.outputs)
     );
     services.shutdown().await;
-}
-
-#[test]
-fn an_inactive_night_light_has_distinct_wording() {
-    assert_eq!(
-        night_light_wording(&NightLightProviderError::NotActive("off".to_owned())).as_deref(),
-        Some("The night light is off.")
-    );
-    assert_eq!(
-        night_light_wording(&NightLightProviderError::InvalidTemperature(
-            "invalid".to_owned()
-        ))
-        .as_deref(),
-        Some("That was not a valid value.")
-    );
-    assert_eq!(
-        night_light_wording(&NightLightProviderError::Unavailable("gone".to_owned())).as_deref(),
-        Some("The night light is not running.")
-    );
 }

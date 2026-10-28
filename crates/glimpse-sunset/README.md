@@ -1,26 +1,17 @@
 # glimpse-sunset
 
 The night light: it owns `[night-light]`, follows the solar phase, and applies a color temperature
-to every output through `zwlr_gamma_control_unstable_v1`. It exports what it is doing on
-`me.aresa.Glimpse.NightLight1`: `SetSchedule` forces the mode, `SetTemperature` overrides the
-temperature, and `Pause`/`Resume` suppress or restore the current night.
-
-## Contents
-
-- `main.rs` — `run(cli) -> anyhow::Result<()>`, with `main` turning the outcome into an `ExitCode`
-- `errors.rs` — the exit codes and the single `downcast_ref` that maps an error onto one
-- `cli.rs` — the argument surface, flattening the shared structs from `glimpse-utils`
-- `services.rs` — the composition root, where the start order is the whole of the design
-- `gamma.rs` — the Wayland half, the only file here that binds a `wl_` object outside a UI crate
-- `provider.rs` — the `me.aresa.Glimpse.NightLight1` object and the task that signals its changes
+to every output through `zwlr_gamma_control_unstable_v1`.
 
 ## Where the decisions live
 
 The state machine is **not here**: `glimpse-services/src/services/night_light.rs` holds the whole
 schedule and both ramps, testable without a compositor against `FakeGamma`. This crate supplies only
-the implementation of `trait Gamma` that talks to a real compositor, and a composition root. The
-automatic schedule follows the settings daemon's `Solar` property, which publishes `phase` and
-`next_change`; sunset acquires no location and runs no solar calculation.
+the implementation of `trait Gamma` that talks to a real compositor, and a composition root
+(`services.rs`, where the start order is the whole of the design). `gamma.rs` is the only file here
+that binds a `wl_` object outside a UI crate. The automatic schedule follows the settings daemon's
+`Solar` property, which publishes `phase` and `next_change`; sunset acquires no location and runs no
+solar calculation.
 `[night-light] schedule = "schedule"` is the manual alternative, computed from `start-time`/`end-time`
 in the machine's own zone.
 
@@ -81,10 +72,6 @@ in the machine's own zone.
   last value, so a consumer reading `temperature` without `serving` shows a color nothing is applying.
 
 ## Starting it
-
-`Type=dbus` on `me.aresa.Glimpse.NightLight`, started by `glimpse-session.target`. The process exits
-4 if the compositor offers no `zwlr_gamma_control_manager_v1` (`RestartPreventExitStatus=4` stops the
-unit retrying a session that will never support it); a compositor merely not up yet exits 1 and retries.
 
 **There is deliberately no D-Bus activation file** — an activation outside a graphical session would
 exit 1 every time, and enough of those inside `StartLimitIntervalSec` fail the unit until `systemctl

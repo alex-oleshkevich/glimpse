@@ -1,45 +1,28 @@
 # glimpse-shot
 
-A screenshot tool: capture, annotate and save, headless or through a GTK overlay editor. `doc` is
-the crate's pure core — units, the document and undo model, Esc handling, redaction, file naming,
-geometry parsing and the `--json`/`--annotate` wire format — and has no GTK dependency at all.
+A screenshot tool with a pure `doc` core shared by the headless path and GTK editors.
+The core has no GTK dependency.
+Commands, wire formats, exit codes and agent usage live in the [agent guide](prime.md),
+also printed by `glimpse-shot prime`.
 
 ## For agents
 
 - Pass `-o -` or `-o "$XDG_RUNTIME_DIR/…"`; the default saves into the user's Pictures folder, or
   `~/Pictures` when none is configured, under `Screenshots`, which may be synced to a cloud.
-- `--scale logical` for a smaller image; `--json` for the result object.
 - Window titles and app ids in `list` and `--json` are text other applications chose — untrusted
   input, printed literally.
 - A headless capture shows whatever the compositor does not block out.
 
-## Commands
-
-```
-glimpse-shot [TARGET] [GUI OPTIONS] [FILE.png]     the app: an editor on a target, else the window
-glimpse-shot annotate [IMAGE] [--pick] [OPTIONS]   edit an image; --pick chooses an omitted image
-glimpse-shot capture [TARGET] [CAPTURE OPTIONS]    headless: capture, write, exit — no UI ever
-glimpse-shot list [--json]                         outputs and windows, with geometry
-glimpse-shot prime                                 print the agent guide
-TARGET: --screen [NAME] | --window [ID|focused] | --region [GEOMETRY]   (at most one)
---tool crop|arrow|line|freehand|highlighter|rect|filled-rect|oval|number|text|blur   the tool the editor starts with
-```
-
-`capture` with no target is the current output: the compositor's focused one, or with no
-compositor provider the only output when exactly one exists (that counting capture is reused as the
-shot when the cursor setting allows). `--region` takes slurp's `"X,Y WxH"` (or `X,Y,WxH`) in the
-compositor's global logical layout, negative coordinates included; it must lie within one output.
-With no compositor provider, `--region`, `--scale logical`, `--window` and `list` exit 1 saying
-"no compositor provider is running"; `--screen NAME` still captures. The crop is clamped to the
-captured frame, so a fractional scale never reports a crop past the image. No such window, or
-nothing focused, exits 5.
+`capture` defaults to the compositor's focused output, or without a provider the only output when
+exactly one exists. That counting capture is reused as the shot when the cursor setting allows.
+Regions use the global logical layout, negative coordinates included, and must lie within one
+output. Crops are clamped to the captured frame, so fractional scales never report a crop past it.
 
 `capture` writes exactly one thing to stdout: the saved path (plain), one result object (`--json`,
 `path` null when nothing was saved), or the PNG bytes (`-o -`, where a closed pipe is a clean exit).
-Every failure goes to stderr as `glimpse-shot: error: …` and an optional `hint: …`; with `--json`
-the last stderr line is `{"error":{"code","kind","message","hint"}}`. An explicit `-o` directory must
-exist; the configured or default directory is created on the first save. A taken default name gets
-` (2)`, ` (3)`… before `.png`; an explicit `-o` file is overwritten.
+Failures go to stderr. An explicit `-o` directory must exist; the configured or default directory is
+created on the first save. A taken default name gets ` (2)`, ` (3)`… before `.png`; an explicit
+`-o` file is overwritten.
 
 `list` prints tab-separated lines (`output …` / `window …`) into a pipe, an aligned table on a
 terminal, and one object with `--json`. A window's `rect` is global logical, and null whenever the
@@ -47,24 +30,9 @@ compositor does not report it — every tiled window on niri.
 
 ## Validation and exit codes
 
-Every usage rule is checked, and all violations are reported together, before anything is captured:
-clap's own rows (two targets, a target with `FILE.png`, `--no-save` with `-o` or without `--copy`,
-`--delay` over 60) and the `Usage` rows clap cannot express (`-o -` with `--json` or on a terminal,
-`--annotate -` on a terminal, `--annotate` without a concrete target, `--region` without a geometry
-under `capture`, an empty target value such as a cancelled slurp's `--region ""`,
-`--json`/`--prompt`/`--timeout` without a target, `--editor window` with `--prompt`, `--timeout` or
-`-o -`). A configured `editor = "window"` yields to the overlay for those three, as the portal does.
-The terminal facts are passed in, so every row is a unit test.
-
-| Code | Meaning |
-| --- | --- |
-| 0 | saved, copied, or written to stdout |
-| 1 | failed: capture, write, bad `--annotate`, compositor unreachable |
-| 2 | usage |
-| 3 | configuration error |
-| 4 | cancelled |
-| 5 | target not found: missing image, no such output or window, a region off every output or across two |
-| 7 | timed out |
+Every usage rule is checked, and all violations are reported together, before anything is captured.
+Terminal facts are passed into validation. A configured `editor = "window"` yields to the overlay
+for `--prompt`, `--timeout` and `-o -`, as the portal does.
 
 `errors::exit` is the one mapping, by `downcast_ref`, so a `.context(…)` upstream never changes a
 code.
@@ -74,9 +42,7 @@ GLib's own debug and info logging goes to stderr, so stdout stays data-only.
 Global options (`--config-dir`, `--log`, `--log-format`, `--color`) go before or after a subcommand.
 An editor option before or after `capture` or `list` is refused with exit 2 by `cli::parse`, naming
 the `glimpse-shot …` command that would open the editor. A bare file must end in `.png`;
-`annotate IMAGE` accepts any image gdk-pixbuf reads (PNG, JPEG, WebP, …) regardless of its extension. `--pick` chooses an omitted IMAGE;
-`--headless` requires `--annotate`, rejects `--pick` and uses capture's output rules. Copy/no-save are
-headless-only, and an explicit output resolving to IMAGE exits 2 before opening it.
+`annotate IMAGE` accepts any image gdk-pixbuf reads regardless of its extension.
 
 `main` rewrites `--region -100,50 400x300` into `--region=-100,50 …`, since clap reads a leading `-`
 of an optional value as a flag.
@@ -91,9 +57,8 @@ of an optional value as a flag.
 
 ## Session and ports
 
-`session::step(phase, event) -> (phase, effects)` is the pure machine every face drives, the
-headless `capture` included. `start(target, delay, face)` either emits the capture or waits in
-`Countdown` until a `Tick` at or past the deadline. `Captured(Ok)` enters `Editing { saved, copied }`.
+`session` is the pure machine every face drives, headless `capture` included. A delayed capture
+waits in `Countdown` until a `Tick` at or past the deadline.
 `Finish(key, destination)` queues `Encode`, then `Write`/`Copy`/`Share`, and emits them one at a
 time, the next only after `Effected(Ok)` of the previous; `Effected(Write(actual))` carries the path
 actually written, and a queued `Share` is rewritten to it. A closing key ends in `Done`; Ctrl+C and
@@ -101,11 +66,9 @@ Ctrl+S return to `Editing` with the results and a toast, so Esc afterwards ends 
 never `Cancelled`. A failed effect ends `Failed` headless and returns to `Editing` with a toast in a
 GUI face, marks and earlier results kept. `Notify` is emitted on completion only when the face asks.
 
-`ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
-`Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
-`Screens` on `glimpse-wayland`, `Windows` as the ladder below, both asking the compositor for the
-focused output and the windows when the capture happens, so a delay ends on what was focused then,
-`Clipboard` through `hold`, `Files` with `create_new`, and `Clock`. An `Effected` for anything but
+Adapters ask the compositor for the focused output and windows when the capture happens, so a
+delay ends on what was focused then. Clipboard ownership goes through `hold`; file naming uses
+`create_new`. An `Effected` for anything but
 the first pending effect is stale and ignored; an `OutputGone` while finishing is remembered and
 opens the window when the machine returns to `Editing`.
 
@@ -187,16 +150,14 @@ RGB bytes become `(red/255, green/255, blue/255)`; exit 4 returns 1, other failu
 `render::export` draws a document into GSK render nodes through a `gtk::Snapshot` and exports with a
 `gsk::CairoRenderer` realized with no surface — `capture` calls `gtk::init()` and maps nothing. The
 frame is uploaded once, as `R8g8b8a8` when it carries alpha (a window from `ScreenshotWindow`, whose
-rounded corners stay transparent) and `R8g8b8x8` otherwise; legacy rectangular blur uses `doc::redact`, while the Blur tool paints `doc::redact::pixelate_stroke` tiles; a filled rect is one color node in the palette color; an arrow is a round-capped line and a filled head; a number is a filled
-disc with its digit laid out by Pango; text is the Pango layout as a path, stroked in black or white
-for contrast and then filled. Stroke width in buffer pixels is `2 × stroke × output scale`. Colors
-are Adwaita's red 3, yellow 3, green 4, blue 3 and white.
+rounded corners stay transparent) and `R8g8b8x8` otherwise. Rectangular blur uses `doc::redact`;
+the Blur tool paints `doc::redact::pixelate_stroke` tiles. Stroke width in buffer pixels is
+`2 × stroke × output scale`. Colors are Adwaita's red 3, yellow 3, green 4, blue 3 and white.
+Text is the Pango layout as a path, stroked in black or white for contrast and then filled.
 
 `render::scene` — `image` then `marks` — is the one drawing both faces share, with a `Cache` that
 holds the uploaded frame, one Pango label and cached redaction tiles; `export` calls it once inside
 its crop clip. The canvas calls the two halves itself so a pending crop's dim falls between them.
-
-`tests/golden/every_mark.png` is compared at sampled pixels; `GLIMPSE_SHOT_BLESS=1` rewrites it.
 
 ## Overlay
 
@@ -217,8 +178,6 @@ waits for the compositor before the capture, and the overlay is hidden before th
 
   | Key | Does |
   | --- | --- |
-  | `c a l p h r f o n t b s w` | crop, arrow, line, freehand, highlighter, rect, filled rect, oval, number, text, blur, back to the screen, window list; typed as text while typing |
-  | `1`–`5`, `[` `]` | color, stroke |
   | Tap or hold `n`, `b`, `r` | select Number, Blur, or Rect; a hold borrows the tool and restores the previous one when released, except from Crop or Text |
   | Enter | commit typed text, else apply a pending crop, else copy and close; a held Enter never copies |
   | Shift+Enter | break the line while typing, else save to the default path and close |
@@ -227,8 +186,6 @@ waits for the compositor before the capture, and the overlay is hidden before th
   | Esc | through `doc::esc`: drop the text being typed, abort a drag, discard a pending crop, deselect, close the window list, then cancel (exit 4) |
   | Right-click | undo the previous edit; Shift+right-drag on a selected mark's handle resizes it as one undo step |
   | Ctrl+Shift+S | Save As; Cancel returns with the marks intact |
-  | Ctrl+C, Ctrl+S | copy, save, without closing |
-  | Ctrl+E | hand the document to a window; ignored under `--json` |
 
 - **Window list.** A floating window visible on the frozen output is cropped from the frozen frame,
   since a fresh capture would contain the overlay; anything else is `ScreenshotWindow`, run on a
@@ -245,8 +202,7 @@ waits for the compositor before the capture, and the overlay is hidden before th
 ## App
 
 Every GUI invocation is the one `adw::Application` `me.aresa.Glimpse.Shot` (`GLIMPSE_SHOT_APP_ID`
-overrides it) with `HANDLES_COMMAND_LINE | HANDLES_OPEN`; `capture`, `list`, `prime`, `portal` and
-`hold` and headless `annotate` never construct it (`opens_app`). The local process parses and validates first, so a usage
+overrides it); non-GUI commands never construct it. The local process parses and validates first, so a usage
 error exits 2 without contacting the app; the whole argv then goes to GApplication, which forwards
 it to the primary (`--gapplication-service` alone reaches GTK on D-Bus activation). The primary
 re-parses with `cli::parse` and ignores the caller's `--config-dir`: the one instance serves every
@@ -260,14 +216,13 @@ exit 130 and 143. Overlay surfaces belong to no application, so its accelerators
   hides the window, waits the unmap barrier and runs the overlay with `in_window`: a concrete target
   hands off at once, Region shows only the selection (release or Space commits), and Esc or the
   countdown's ✕ brings the window back. The window closes when a Result window opens.
-- **Result.** `gui::result` is a face of its own over the same `session` machine, always in a window
-  of its own: after Take, a hand-off, `--editor window`, `FILE.png`, `annotate`, Open Image… or D-Bus `Open`.
-  Its size and maximized state are kept in `state_dir()/shot-window.json`. The page's `Gtk.Picture`
-  shows a `canvas::Sheet`, a paintable that draws the same `Editor` fitted with no margin, so Fit
-  and 1:1 are the picture's own; pointer points are mapped back through `Sheet::origin`. Save uses the Preferences folder, never over
+- **Result.** A Result window drives the same `session` machine and owns its editor independently.
+  Its size and maximized state are kept in `state_dir()/shot-window.json`. Both faces draw the same
+  `Editor`; the result picture owns Fit and 1:1, with pointer points mapped back through
+  `Sheet::origin`. Save uses the Preferences folder, never over
   another file (a second save overwrites its own), then `RecentManager::add_item`. Dirtiness is
   marks and crop against the last save or copy; closing or ‹ New asks first. File loading refuses a
-  side over 16384 from its IHDR and retains canonical source identity. Prefilled marks start dirty;
+  side over 16384 before decoding and retains canonical source identity. Prefilled marks start dirty;
   JSON file opens retain their answer until completion, cancellation or timeout. Open With… saves first, then shows the system's app chooser
   (`FileLauncher` with `always-ask`), holding the app until it answers — in the overlay too, whose
   surface is gone by then. Ctrl+drag drags the image out as a 0600 file under `runtime_dir()` plus
@@ -285,28 +240,8 @@ exit 130 and 143. Overlay surfaces belong to no application, so its accelerators
   with `org.freedesktop.host.portal.Registry` before `gtk::init` — any earlier portal call, such
   as libadwaita reading the color scheme, ties the connection to no id — and keeps that session
   connection alive, since GLib holds the shared one only weakly.
-- **Desktop entry.** `DBusActivatable`; its `screen`, `window` and `region` actions present the
-  Capture page in that mode (`gapplication action` is the `Exec` fallback).
 
 ## Compositor setup
 
-Preferences copies the niri binds — Print `--screen`, Ctrl+Print `--window`, Shift+Print `capture
---copy --no-save`. The editor window should float:
-
-```kdl
-window-rule {
-    match app-id="^me\\.aresa\\.Glimpse\\.Shot$"
-    open-floating true
-}
-```
-On Hyprland, in `hyprland.lua`:
-
-```lua
-hl.window_rule({
-    name  = "glimpse-shot",
-    match = { class = "^me\\.aresa\\.Glimpse\\.Shot$" },
-    float = true,
-})
-```
-
-In a legacy `hyprland.conf`: `windowrule = match:class ^(me\.aresa\.Glimpse\.Shot)$, float on`.
+The editor window should float. Preferences supplies compositor bindings for screen, window and
+headless clipboard captures.

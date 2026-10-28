@@ -1,6 +1,5 @@
 pub const AGENTS_BUS_NAME: &str = "me.aresa.Glimpse.Agents";
 pub const SESSION_PATH: &str = "/me/aresa/Glimpse/Session";
-pub const SESSION_INTERFACE: &str = "me.aresa.Glimpse.Session";
 
 #[zbus::proxy(
     interface = "me.aresa.Glimpse.Session",

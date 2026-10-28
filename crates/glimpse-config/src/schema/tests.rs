@@ -423,14 +423,6 @@ fn a_common_setting_sits_beside_the_kinds_own() {
 }
 
 #[test]
-fn a_misspelled_common_setting_is_still_a_load_error() {
-    assert!(
-        toml::from_str::<Config>("[applets.clock]\ntooltipformat = \"%A\"\n").is_err(),
-        "the splitter leaves what it does not recognise in the table, so the kind refuses it"
-    );
-}
-
-#[test]
 fn an_unknown_setting_names_the_common_ones_too() {
     let error = toml::from_str::<Config>("[applets.clock]\ntooltipformat = \"%A\"\n")
         .expect_err("a misspelled key is refused")
@@ -615,24 +607,6 @@ fn extends_names_the_applet_so_one_kind_can_have_several_instances() {
     assert_eq!(
         parsed.applets["clock-utc"],
         Applet::from(AppletKind::Clock(applets::Clock::default()))
-    );
-}
-
-#[test]
-fn the_pager_defaults_to_dots_of_windows_on_this_output() {
-    let parsed: Config = toml::from_str("[applets.pager]\n").expect("settings are optional");
-
-    assert_eq!(
-        parsed.applets["pager"],
-        Applet::from(AppletKind::Pager(applets::Pager {
-            mode: PagerMode::Windows,
-            shape: PagerShape::Dots,
-            scope: PagerScope::Output,
-            label: "{index}".to_owned(),
-            focused_label: None,
-            unfocused_label: None,
-            urgent_label: None,
-        }))
     );
 }
 

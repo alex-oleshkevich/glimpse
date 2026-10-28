@@ -10,22 +10,10 @@ uses `Handle::keyboard_updates()` to preserve event order. Consumers never see a
 
 This crate touches no Wayland object.
 
-## Contents
-
-| File | Holds |
-| --- | --- |
-| `model.rs` | `Snapshot` and everything in it, as the provider contract carries it |
-| `event.rs` | `Event` and `Resync`, from a backend to the provider runtime |
-| `sanitize.rs` | the text caps every backend and the client apply |
-| `contract.rs` | bus name, object path, property keys, `Capability`, `Error` |
-| `backend.rs` | `Backend`, the trait a provider binary implements |
-| `merge.rs` | `apply()`, folding one `Event` into a `Snapshot` |
-| `provider.rs` | `run()` and `serve()`, exporting a `Backend` on the session bus |
-| `client.rs` | `CompositorState`, `CompositorProvider` and `Handle`, the consumer mirror |
-
 ## Rules
 
-- **The provider exits when the compositor event stream ends.**
+- **The provider exits when the compositor event stream ends (exit 1) or the session bus closes
+  (exit 0, so `Restart=on-failure` leaves an ending session alone).**
 - **Text from other applications is capped in `sanitize.rs`**, by every backend while decoding
   and again by the client. Text is truncated on a char boundary and stripped of control
   characters and bidi overrides, so no caller can forget to; ellipsizing and markup escaping

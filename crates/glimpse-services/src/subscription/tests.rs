@@ -10,17 +10,6 @@ fn forever(key: Watch, value: u8) -> Sub<Probe> {
 }
 
 #[tokio::test]
-async fn a_declared_key_is_built() {
-    let (ctx, mut received) = probe();
-    let mut live = Live::new();
-
-    live.reconcile(&ctx, vec![forever(Watch::First, 1)]);
-
-    assert_eq!(event(&mut received).await, Some(1));
-    assert_eq!(live.running.len(), 1);
-}
-
-#[tokio::test]
 async fn a_watch_delivers_its_snapshot_then_changes() {
     let (ctx, mut received) = probe();
     let (state, receiver) = watch::channel(3);

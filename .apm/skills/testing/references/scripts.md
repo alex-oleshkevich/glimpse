@@ -22,8 +22,6 @@ header before running it; the notes here are the traps that header does not cove
 
 ## Input and windows
 
-- **`click.py`** (`just click`) — clicks a point on a niri output through a wlr virtual pointer:
-  `just click output=eDP-1 x=40 y=12 [button=right]`. The `live-testing` skill covers it.
 - **`urgency-test.sh [ID] [--clear] [--list]`** — marks a niri window urgent so the workspace pager
   paints it. Mark a window on another workspace: focusing it clears urgency. niri only.
 

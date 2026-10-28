@@ -4,13 +4,6 @@ The Hyprland provider of `me.aresa.Glimpse.Compositor`: it implements `glimpse_c
 over Hyprland's two sockets and hands it to `provider::run`. `--probe` exits 0 when Hyprland
 answers `version` and 1 otherwise; exit 4 means another provider owns the name.
 
-## Contents
-
-- `main.rs` — CLI parse, logging, `provider::run`
-- `cli.rs` — the argument surface
-- `hyprland.rs` — `impl Backend`, the wire structs and the dispatch commands
-- `hyprland/event.rs` — the event-line decoder and the shared cast and urgency state
-
 ## Rules
 
 - **Sockets** live under `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/`: `.socket.sock` takes

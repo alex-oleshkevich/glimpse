@@ -25,16 +25,6 @@ fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
 }
 
 #[test]
-fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
-    assert!(
-        AppletConfig::from_name("removable").is_some(),
-        "`removable` is a real applet, so skipping it is expected rather than a bad document"
-    );
-    assert!(AppletConfig::from_name("nonesuch").is_none());
-    assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
-}
-
-#[test]
 fn an_applet_with_no_table_of_its_own_still_carries_the_document_s_regional() {
     let twelve = Regional {
         hour_format: glimpse_config::HourFormat::Twelve,

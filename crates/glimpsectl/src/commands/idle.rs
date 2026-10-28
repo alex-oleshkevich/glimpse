@@ -86,10 +86,6 @@ pub async fn idle_watch(connection: &Connection, json: bool) -> Result<()> {
     .await
 }
 
-pub async fn idle_inhibit(connection: &Connection, lapse: Option<u32>) -> Result<()> {
-    idle_inhibit_child(connection, lapse, &[], false).await
-}
-
 pub async fn idle_inhibit_child(
     connection: &Connection,
     lapse: Option<u32>,

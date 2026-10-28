@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub const MIN_TEMPERATURE: u32 = 1000;
 pub const MAX_TEMPERATURE: u32 = 6500;
 
-pub const CLOCK: &str = "%H:%M";
+const CLOCK: &str = "%H:%M";
 const CLOCK_PATTERN: &str = r"^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]

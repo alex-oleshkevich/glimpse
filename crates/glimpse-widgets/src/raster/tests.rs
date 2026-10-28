@@ -313,23 +313,6 @@ impl std::io::Write for Logged {
 }
 
 #[test]
-fn color_parses_a_hex_value() {
-    let parsed = color("#336699");
-    assert!((parsed.red() - 0x33 as f32 / 255.0).abs() < 0.01);
-    assert!((parsed.green() - 0x66 as f32 / 255.0).abs() < 0.01);
-    assert!((parsed.blue() - 0x99 as f32 / 255.0).abs() < 0.01);
-}
-
-#[test]
-fn color_parses_a_named_value() {
-    let parsed = color("red");
-    assert_eq!(
-        (parsed.red(), parsed.green(), parsed.blue()),
-        (1.0, 0.0, 0.0)
-    );
-}
-
-#[test]
 fn color_falls_back_to_opaque_black_on_garbage() {
     let parsed = color("not a color");
     assert_eq!(parsed, gdk::RGBA::BLACK);

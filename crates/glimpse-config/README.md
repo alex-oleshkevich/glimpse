@@ -1,23 +1,19 @@
 # glimpse-config
 
-Two TOML documents over one root stack: load, merge, validate and watch. Owns where glimpse files
-live and the one place that asks the environment a regional question.
-
 ## Layers
 
-Two documents make one `Config`. **Each file owns its tables**: `config.toml` holds every table
+**Each file owns its tables**: `config.toml` holds every table
 except `PANEL_TABLES` (`[[panels]]`, `[applets]`), which belong to `panel.toml` and `panel.d/*.toml`.
 A table in the wrong file, and any schema error, fails the load with an error naming the file.
 `Documents::Config` reads `config.toml` only, so a broken `panel.toml` never sends a daemon to
 defaults; `Documents::ConfigAndPanel` (the panel and `glimpsectl`) reads both.
 
 `roots()` is the stack, highest first: `--config-dir`/`GLIMPSE_CONFIG_DIR` (stored once by `init`),
-`$XDG_CONFIG_HOME/glimpse`, `/etc/glimpse`. `DATA_DIR` (`$PREFIX/share/glimpse`, baked by `build.rs`
-from the same `PREFIX` `scripts/glimpse-paths.sh` and `glimpse-utils` read) holds built-in assets
-and is never a config layer. `config_files` lists every root's `config.toml`, then each root's
-`panel.toml` and `panel.d/*.toml` (lexical order), lowest root first; a later file wins and a
-missing one is skipped. `load_files(&[PathBuf])` loads a given list and decides ownership by file
-name, so tests and `glimpsectl config validate PATH` never reach `roots()`.
+`$XDG_CONFIG_HOME/glimpse`, `/etc/glimpse`. `DATA_DIR` (`$PREFIX/share/glimpse`, from the same
+`PREFIX` `scripts/glimpse-paths.sh` reads) holds built-in assets and is never a config layer.
+`config_files` lists every root's `config.toml`, then each root's `panel.toml` and
+`panel.d/*.toml` (lexical order), lowest root first; a later file wins and a missing one is skipped.
+`load_files` decides ownership by file name, so `glimpsectl config validate PATH` never reaches `roots()`.
 
 **Anything needing a glimpse path asks here.** `find(relative)` returns the first hit across the
 roots and then `DATA_DIR`; **`writable_file(name)` is `--config-dir` when given, else the user
@@ -43,7 +39,7 @@ names and returns one message per miss, so the panel starts without it and tells
 
 `default_document`, `json_schema_document` and `commented_document` render
 `data/{config,panel}.{default.toml,commented.toml,schema.json}` from the types, each restricted to
-its file's tables; a test checks them against the tree and none is read at runtime.
+its file's tables; none is read at runtime.
 **A `[table]` header in a commented document stays uncommented only when an empty table means the
 same as no table** — an `[[array]]` header never qualifies, since an empty element replaces rather
 than merges as nothing; `[applets]` is documentation only.
@@ -111,7 +107,7 @@ and yields a `Reload<T>` when the result differs from what it holds:
 - **Watches go on directories, never files** — a per-file watch cannot see a drop-in that does not
   exist yet. Nothing is filtered by extension, which would drop the creation of `panel.d/` itself.
   Events coalesce after 250 ms of quiet, since one editor save is a write, a rename, and sometimes
-  a delete and a create; one inotify instance covers the set and an idle session costs zero wakeups.
+  a delete and a create.
 - **A missing directory is watched through its nearest existing ancestor within the watched set**,
   descending when the component appears; an absent `glimpse/` falls back onto nothing, since
   `$XDG_CONFIG_HOME`/`/etc` churn from unrelated software — creating the config directory needs a

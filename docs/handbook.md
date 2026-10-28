@@ -12,60 +12,11 @@ problem was solved or which edge cases mattered; that knowledge was paid for onc
 a smaller, simpler application than `_old/` — a design that lands at the same size and shape as its
 predecessor is a signal to look again, not a sign of fidelity.
 
-## Structure
-
-```
-glimpse/
-├── crates/       all Rust code, flat, one directory per crate
-├── data/         installed assets: systemd units, D-Bus service files, pam.d, GeoClue policy, default config
-├── scripts/      install, uninstall and packaging scripts, plus development helpers; not installed
-├── docs/         agent reference: known state, live testing, preview host, translations
-├── var/          scratch, not installed; `var/glimpse2` holds third-party design drafts
-└── _old/         the previous implementation, kept for reference only
-```
-
-| Crate                   | Role                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `glimpse-dbus`          | D-Bus proxies and the shared bus connections                                      |
-| `glimpse-config`        | two TOML documents over a root stack: load, merge, validate, watch                |
-| `glimpse-compositors`   | the compositor contract: model, D-Bus contract, provider runtime, client mirror   |
-| `glimpse-services`      | service framework and every service implementation                                |
-| `glimpse-widgets`       | GObject subclasses, Blueprint templates, shared CSS, compositor blur              |
-| `glimpse-utils`         | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
-| `glimpse-panel`         | panel and applets                                                                 |
-| `glimpse-notifications` | notification owner, typed D-Bus provider and transient popup layer surface        |
-| `glimpse-weather`       | weather provider                                                                  |
-| `glimpse-wallpaper`     | background layer surface, decode cache, transitions                               |
-| `glimpse-lock`          | `ext-session-lock-v1` surfaces, PAM                                               |
-| `glimpse-sunset`        | night-light service                                                               |
-| `glimpse-lens`          | frozen magnifier CLI with color picker and ruler modes                         |
-| `glimpsectl`            | typed CLI for providers, panel control and applet development                       |
-| `glimpse-package`       | the suite's `.deb`/`.rpm` manifest; no code                                       |
-
-## Stack
-
-- Rust, edition 2024, `rust-version = "1.93"`, one workspace with `members = ["crates/*"]`
-- tokio; one task per service, handlers run serially on `&mut self`
-- zbus for D-Bus, both client and object-server sides
-- GTK4 + libadwaita + relm4 + gtk4-layer-shell for UI; Blueprint templates compiled by `build.rs`
-- serde and serde_json
-- `just` for task recipes
-
 ## Skills and rules
 
 Path-scoped rules load automatically: `.claude/rules/daemon.md` for `glimpse-services` and the
-standalone providers, `.claude/rules/ui.md` for the GTK crates.
-
-| Skill          | Covers                                                                         |
-| -------------- | ------------------------------------------------------------------------------ |
-| `service`      | the `Service` trait, `Ctx` sources, subscriptions, topics, commands, registration |
-| `applet`       | the `Applet` trait, pull-based indicators, registration match, popovers        |
-| `widget`       | GObject subclasses, Blueprint templates, the three registration points         |
-| `testing`      | which tier a test belongs to, the `#[ignore]`d GTK tests, the mutation check   |
-| `live-testing` | a compositor run: isolated socket, scratch config, a second panel              |
-| `zbus`         | every mirror service and the provider names, with introspected signatures      |
-
-General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills.
+standalone providers, `.claude/rules/ui.md` for the GTK crates. Each skill states what it covers;
+general GTK craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills.
 
 ## Conventions
 
@@ -173,19 +124,11 @@ a pipe, `&&`, a backtick or a second line goes in a `scripts/<recipe>.sh` the re
 justfile variable reaches a script through the environment — `GLIMPSE_BINARIES`,
 `GLIMPSE_LANGUAGES` — and arguments are passed as `"$@"`, never interpolated.
 
-```bash
-just verify          # fmt-check + check + lint + test — what CI runs
-just check           # type-check, fast
-just lint            # rust, systemd units and blueprints, warnings are errors
-just test            # headless tests
-just fmt             # format in place
-just fmt-blueprints  # format blueprints; pass paths, or every one by default
-just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor
-just check-units     # systemd-analyze verify on the shipped units
-just check-examples  # compile every blueprint in var/widget_examples/
-just gen-config-commented config  # regenerate data/config.commented.toml (or panel)
-just net-guard arm   # restore connectivity automatically if a network test strands the machine
-```
+`just verify` is fmt-check, check, lint and test — what CI runs. `just check` alone is the fast
+type-check, `just lint` fails on warnings in Rust, units and blueprints, `just test` runs the headless
+tests, `just fmt` formats, and `just test-compositor` adds the `#[ignore]`d Wayland tests. The rest,
+including `just net-guard arm` — which restores connectivity after a network test strands the
+machine — carry their own description in `just`.
 
 Binaries run through `just run-panel`, `just run-wallpaper`, `just run-locker` and `just ctl <args>`.
 
@@ -197,22 +140,16 @@ current `build.rs` never mentions — the give-away is that the missing name is 
 `touch crates/glimpse-widgets/build.rs` forces the recompile. Read the failing name against
 `build.rs` before believing anything is actually missing.
 
-`just click output=DP-2 x=1200 y=540 button=left` resolves output-relative coordinates through
-`niri msg -j outputs` and injects through a `zwlr_virtual_pointer_v1` bound to that output
-(`glimpse-wayland`'s `click` example); buttons are `left`, `middle`, `right`. `ydotool` is not used:
-its `--absolute` is a relative move under pointer acceleration. The virtual pointer cannot read the
-pointer position, so pass `restore_x`/`restore_y` in virtual-desktop coordinates
-when the caller knows where to put it back.
+Pointer and key input in a live run goes through wayland-mcp (registered in `.mcp.json`) on its
+sandbox target, never the host. `glimpse-wayland`'s `click` example, a `zwlr_virtual_pointer_v1`
+bound to one output, is kept only for the unattended screenshot and video scripts. `ydotool` is not
+used: its `--absolute` is a relative move under pointer acceleration.
 
 ### Live runs
 
-Full account: `docs/live-testing.md`. The three that break the user's session:
-
-- **`direnv` exports `GLIMPSE_CONFIG_DIR`**, which stacks over your real config — pass `--config-dir`
-  and a temporary `XDG_CONFIG_HOME`, and read the `load config path=` log lines.
-- **Give every test panel a fresh `GLIMPSE_PANEL_APP_ID`**, or it hands off to a running one and
-  looks like a hang.
-- **Never `pkill -x glimpse-panel`** — it kills the session bar. Kill the pid you started.
+`docs/live-testing.md` is the full account of the three traps that break the user's session: the
+`GLIMPSE_CONFIG_DIR` that `.envrc` stacks over the real config, the panel application ID that must be
+fresh per run, and `pkill -x glimpse-panel`. Read it before any run against a compositor.
 
 ### Previewing a widget
 
@@ -222,11 +159,9 @@ touching the preview host or a `var/widget_examples/` board.
 
 ## Translations
 
-One gettext domain, `glimpse`, owned by `glimpse-utils`. Mark a string where it is written —
-`_("Text")` in Blueprint, `gettext`/`ngettext` in Rust — with double quotes and named `{placeholders}`
-filled by `.replace`, never `format!` into the msgid. `just check-strings` is part of `just verify`;
-after `just fmt` shifts lines, `just extract-strings` refreshes `po/glimpse.pot`. Locale init order,
-units, adding a language and the extractor's traps: `docs/translations.md`.
+One gettext domain, `glimpse`, owned by `glimpse-utils`. Locale init order, marking a string, units,
+adding a language and the extractor's traps live in `docs/translations.md`; `just check-strings` is
+part of `just verify`, so a string marked wrongly fails the build.
 
 ## Work rules
 

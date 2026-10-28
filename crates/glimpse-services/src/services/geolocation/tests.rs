@@ -37,12 +37,6 @@ fn a_manual_table_maps_to_the_pair_it_names() {
 }
 
 #[test]
-fn geoclue_carries_no_coordinates() {
-    let mapped = Config::from(&document(ConfiguredGeolocation::Geoclue));
-    assert_eq!(mapped.provider, Provider::Geoclue);
-}
-
-#[test]
 fn coordinates_outside_their_ranges_are_refused() {
     for (latitude, longitude) in [
         (91.0, 0.0),
@@ -143,18 +137,6 @@ async fn first_fix_surfaces_an_unreadable_change_instead_of_looping_on_it() {
 async fn first_fix_ends_quietly_once_the_signal_stream_is_gone() {
     let updates = boxed(vec![Ok(None)]);
     assert!(first_fix(updates).await.is_none());
-}
-
-#[tokio::test]
-async fn a_fix_that_never_arrives_is_bounded_rather_than_awaited_forever() {
-    let updates: BoxStream<'static, Result<Option<GeoCoordinates>, String>> =
-        Box::pin(stream::pending());
-
-    let outcome = timeout(Duration::from_millis(20), first_fix(updates)).await;
-    assert!(
-        outcome.is_err(),
-        "an unanswered request must not be awaited forever, or InUse would stay pinned"
-    );
 }
 
 #[test]

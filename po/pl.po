@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-27 16:07+0100\n"
+"POT-Creation-Date: 2026-10-28 14:00+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -18,14 +18,12 @@ msgstr ""
 "|| n%100>=20) ? 1 : 2);\n"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:39
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:37
 #, fuzzy
 #| msgid "{count}m"
 msgid "Account"
 msgstr "{count} min"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:47
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:36
 msgid "Username"
 msgstr ""
 
@@ -33,20 +31,12 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
 #: crates/glimpse-panel/src/applets/network/render.rs:278
 #: crates/glimpse-widgets/blueprints/network_row.blp:25
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:41
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:45
 msgid "Connect automatically"
 msgstr "Łącz automatycznie"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:41
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:41
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:54
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:47
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:41
 msgid "Details"
 msgstr "Szczegóły"
 
@@ -57,25 +47,10 @@ msgstr "Szczegóły"
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
 #: crates/glimpse-widgets/blueprints/network_popover.blp:160
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:106
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:156
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:206
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:107
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:157
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:207
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:125
-#: docs/plans/glimpse-agents/agents_bt_1.blp:45
-#: docs/plans/glimpse-agents/agents_bt_2.blp:50
-#: docs/plans/glimpse-agents/agents_bt_3.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:71
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:71
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:84
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:77
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:85
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:81
-#: docs/plans/glimpse-agents/agents_session_1.blp:35
-#: docs/plans/glimpse-agents/agents_session_2.blp:35
-#: docs/plans/glimpse-agents/agents_session_3.blp:35
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:54
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:58
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:53
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -88,66 +63,36 @@ msgstr "Potwierdź"
 #: crates/glimpse-agents/src/app/view.rs:86
 #: crates/glimpse-agents/src/app/view.rs:106
 #: crates/glimpse-widgets/blueprints/password_prompt.blp:27
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:50
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:37
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:37
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:37
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:37
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:41
 msgid "Password"
 msgstr "Hasło"
 
 #: crates/glimpse-agents/src/app/view.rs:61
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:45
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:58
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:51
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:49
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:45
 #, fuzzy
 #| msgid "Location"
 msgid "Action"
 msgstr "Miejsce"
 
 #: crates/glimpse-agents/src/app/view.rs:75
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:79
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:79
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:92
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:85
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:93
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:89
 msgid "Authorize"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:78
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:17
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:17
 #, fuzzy
 #| msgid "Authentication failed"
 msgid "Authentication needed"
 msgstr "Uwierzytelnianie nie powiodło się"
 
 #: crates/glimpse-agents/src/app/view.rs:90
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:18
 #, fuzzy
 #| msgid "That password did not work"
 msgid "That password didn't work"
 msgstr "Hasło nie zadziałało"
 
 #: crates/glimpse-agents/src/app/view.rs:92
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:66
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
 #: crates/glimpse-agents/src/app/view.rs:93
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:62
 #, fuzzy
 #| msgid "Join Zoom"
 msgid "Join"
@@ -160,7 +105,6 @@ msgid "Join “{name}”"
 msgstr "Zapisano „{name}”"
 
 #: crates/glimpse-agents/src/app/view.rs:98
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:18
 #, fuzzy
 #| msgid "That network needs a password."
 msgid "The network needs a password"
@@ -171,7 +115,6 @@ msgstr "Ta sieć wymaga hasła."
 #: crates/glimpse-panel/src/applets/network/indicator.rs:192
 #: crates/glimpse-panel/src/applets/network/render.rs:250
 #: crates/glimpse-widgets/blueprints/network_popover.blp:164
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:61
 msgid "Connect"
 msgstr "Połącz"
 
@@ -196,8 +139,6 @@ msgstr "Zapisano „{name}”"
 #: crates/glimpse-agents/src/app/view.rs:134
 #: crates/glimpse-agents/src/app/view.rs:142
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:250
-#: docs/plans/glimpse-agents/agents_bt_1.blp:53
-#: docs/plans/glimpse-agents/agents_bt_2.blp:58
 msgid "Pair"
 msgstr "Sparuj"
 
@@ -212,14 +153,12 @@ msgid "Check that the device shows the same code"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:133
-#: docs/plans/glimpse-agents/agents_bt_2.blp:37
 #, fuzzy
 #| msgid "VPN"
 msgid "PIN"
 msgstr "VPN"
 
 #: crates/glimpse-agents/src/app/view.rs:137
-#: docs/plans/glimpse-agents/agents_bt_2.blp:18
 msgid "Enter the PIN from the device's manual — often 0000"
 msgstr ""
 
@@ -249,12 +188,10 @@ msgid "Type this code on the device, then press Enter"
 msgstr "Wpisz PIN wyświetlany na urządzeniu {device} i naciśnij OK."
 
 #: crates/glimpse-agents/src/app/view.rs:160
-#: docs/plans/glimpse-agents/agents_bt_4.blp:43
 msgid "Allow"
 msgstr "Zezwól"
 
 #: crates/glimpse-agents/src/app/view.rs:161
-#: docs/plans/glimpse-agents/agents_bt_4.blp:35
 msgid "Deny"
 msgstr "Odmów"
 
@@ -265,7 +202,6 @@ msgid "“{name}” wants to connect"
 msgstr "{name} chce się sparować"
 
 #: crates/glimpse-agents/src/app/view.rs:164
-#: docs/plans/glimpse-agents/agents_bt_4.blp:18
 #, fuzzy
 #| msgid "{device} wants to pair with this computer."
 msgid "It has never been paired with this computer"
@@ -345,36 +281,29 @@ msgstr ""
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:160
-#: docs/plans/glimpse-agents/agents_session_2.blp:43
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:161
 msgid "Restart"
 msgstr "Uruchom ponownie"
 
 #: crates/glimpse-agents/src/session.rs:53
-#: docs/plans/glimpse-agents/agents_session_2.blp:17
 #, fuzzy
 #| msgid "Restart"
 msgid "Restart?"
 msgstr "Uruchom ponownie"
 
 #: crates/glimpse-agents/src/session.rs:54
-#: docs/plans/glimpse-agents/agents_session_1.blp:43
 #, fuzzy
 #| msgid "Power Off"
 msgid "Power off"
 msgstr "Wyłącz"
 
 #: crates/glimpse-agents/src/session.rs:54
-#: docs/plans/glimpse-agents/agents_session_1.blp:17
 #, fuzzy
 #| msgid "Power Off"
 msgid "Power off?"
 msgstr "Wyłącz"
 
 #: crates/glimpse-agents/src/session.rs:59
-#: docs/plans/glimpse-agents/agents_session_1.blp:18
-#: docs/plans/glimpse-agents/agents_session_2.blp:18
-#: docs/plans/glimpse-agents/agents_session_3.blp:18
 msgid "Unsaved work in open apps may be lost"
 msgstr ""
 
@@ -538,25 +467,25 @@ msgstr "Nie można wykonać tej czynności"
 msgid "The session manager refused that action."
 msgstr "Menedżer sesji odrzucił tę czynność."
 
-#: crates/glimpse-panel/src/applet/mod.rs:163
+#: crates/glimpse-panel/src/applet/mod.rs:159
 msgid "That change was refused."
 msgstr "Zmiana została odrzucona."
 
-#: crates/glimpse-panel/src/applet/mod.rs:164
+#: crates/glimpse-panel/src/applet/mod.rs:160
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:290
 #: crates/glimpse-panel/src/applets/display/indicator.rs:386
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:167
 msgid "That is not supported."
 msgstr "Ta funkcja nie jest obsługiwana."
 
-#: crates/glimpse-panel/src/applet/mod.rs:165
+#: crates/glimpse-panel/src/applet/mod.rs:161
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:291
 #: crates/glimpse-panel/src/applets/display/indicator.rs:387
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:168
 msgid "That could not be completed."
 msgstr "Nie można tego wykonać."
 
-#: crates/glimpse-panel/src/applet/mod.rs:166
+#: crates/glimpse-panel/src/applet/mod.rs:162
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:292
 #: crates/glimpse-panel/src/applets/display/indicator.rs:388
 #: crates/glimpse-panel/src/applets/display/indicator.rs:399
@@ -566,13 +495,13 @@ msgstr "Nie można tego wykonać."
 msgid "That did not work."
 msgstr "Nie zadziałało."
 
-#: crates/glimpse-panel/src/applet/mod.rs:206
+#: crates/glimpse-panel/src/applet/mod.rs:202
 #, fuzzy
 #| msgid "Could not move the application"
 msgid "Could not open that location"
 msgstr "Nie można przenieść aplikacji"
 
-#: crates/glimpse-panel/src/applet/mod.rs:222
+#: crates/glimpse-panel/src/applet/mod.rs:218
 msgid "No app is installed to open it."
 msgstr ""
 
@@ -643,7 +572,7 @@ msgstr "Otwórz wydarzenie"
 
 #: crates/glimpse-panel/src/applets/agenda.rs:190
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:240
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr "Miejsce"
@@ -737,7 +666,7 @@ msgid "Output"
 msgstr "Wyjście"
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:314
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:54
 msgid "Input"
 msgstr "Wejście"
 
@@ -1426,7 +1355,7 @@ msgstr "Wstrzymano"
 #: crates/glimpse-panel/src/applets/mpris/render.rs:34
 #: crates/glimpse-panel/src/applets/printing/render.rs:133
 #: crates/glimpse-panel/src/applets/printing/render.rs:191
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:288
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
 msgid "Stopped"
 msgstr "Zatrzymano"
 
@@ -1536,7 +1465,6 @@ msgstr "Nie połączono"
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:56
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:64
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:77
-#: crates/glimpse-panel/src/applets/network/render/tests.rs:238
 msgid "Metered connection"
 msgstr "Połączenie taryfowe"
 
@@ -1593,7 +1521,7 @@ msgid "Open, encrypted"
 msgstr "Otwarta, szyfrowana"
 
 #: crates/glimpse-panel/src/applets/network/render.rs:206
-#: crates/glimpse-panel/src/applets/network/render/tests.rs:291
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:281
 msgid "{count} more network"
 msgid_plural "{count} more networks"
 msgstr[0] "Jeszcze {count} sieć"
@@ -1603,7 +1531,7 @@ msgstr[2] "Jeszcze {count} sieci"
 #: crates/glimpse-panel/src/applets/network/render.rs:232
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/printing/render.rs:163
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:250
 #: crates/glimpse-widgets/src/display_list/mod.rs:157
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:155
 msgid "Status"
@@ -1822,7 +1750,7 @@ msgstr "Technologia"
 
 #: crates/glimpse-panel/src/applets/power/render.rs:160
 #: crates/glimpse-panel/src/applets/printing/render.rs:160
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:234
 #: crates/glimpse-widgets/src/display_list/mod.rs:167
 msgid "Model"
 msgstr "Model"
@@ -1965,7 +1893,7 @@ msgstr "Nie można ponowić zadania drukowania"
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:112
 #: crates/glimpse-panel/src/applets/printing/render.rs:132
 #: crates/glimpse-panel/src/applets/printing/render.rs:165
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:250
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:12
 msgid "Printing"
 msgstr "Drukowanie"
@@ -2017,7 +1945,7 @@ msgid "Aborted"
 msgstr "Przerwane"
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:182
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:278
 msgid "Not accepting jobs"
 msgstr "Nie przyjmuje zadań"
 
@@ -2066,7 +1994,7 @@ msgstr "okno"
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:67
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:154
 #: crates/glimpse-panel/src/applets/removable/render.rs:27
-#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:13
 msgid "Removable"
 msgstr "Wymienne"
 
@@ -2156,7 +2084,6 @@ msgstr "Zahibernować tę sesję?"
 #: crates/glimpse-panel/src/applets/session/render.rs:65
 #: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:33
-#: docs/plans/glimpse-agents/agents_session_3.blp:43
 msgid "Log out"
 msgstr "Wyloguj"
 
@@ -2470,67 +2397,67 @@ msgstr "Konfiguracja Glimpse zawiera błędy"
 msgid "a screenshot is already being taken"
 msgstr "zrzut ekranu jest już wykonywany"
 
-#: crates/glimpse-shot/src/gui/app.rs:214
+#: crates/glimpse-shot/src/gui/app.rs:216
 msgid "_Open Image…"
 msgstr "_Otwórz obraz…"
 
-#: crates/glimpse-shot/src/gui/app.rs:216
+#: crates/glimpse-shot/src/gui/app.rs:218
 msgid "_Preferences"
 msgstr "_Preferencje"
 
-#: crates/glimpse-shot/src/gui/app.rs:217
+#: crates/glimpse-shot/src/gui/app.rs:219
 msgid "_Keyboard Shortcuts"
 msgstr "_Skróty klawiszowe"
 
-#: crates/glimpse-shot/src/gui/app.rs:218
+#: crates/glimpse-shot/src/gui/app.rs:220
 msgid "_About Screenshot"
 msgstr "_O programie Zrzut ekranu"
 
-#: crates/glimpse-shot/src/gui/app.rs:367
+#: crates/glimpse-shot/src/gui/app.rs:369
 msgid "--portal needs a screen target"
 msgstr "--portal wymaga ekranu jako celu"
 
-#: crates/glimpse-shot/src/gui/app.rs:520
-#: crates/glimpse-shot/src/gui/app.rs:650
-#: crates/glimpse-shot/src/gui/app.rs:934 crates/glimpse-shot/src/notify.rs:288
+#: crates/glimpse-shot/src/gui/app.rs:522
+#: crates/glimpse-shot/src/gui/app.rs:652
+#: crates/glimpse-shot/src/gui/app.rs:936 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr "Zrzut ekranu"
 
-#: crates/glimpse-shot/src/gui/app.rs:567
+#: crates/glimpse-shot/src/gui/app.rs:569
 msgid "The clipboard holds no image"
 msgstr "Schowek nie zawiera obrazu"
 
-#: crates/glimpse-shot/src/gui/app.rs:773
+#: crates/glimpse-shot/src/gui/app.rs:775
 msgid "There is no window to capture"
 msgstr "Brak okna do przechwycenia"
 
-#: crates/glimpse-shot/src/gui/app.rs:842
+#: crates/glimpse-shot/src/gui/app.rs:844
 msgid "That window has closed"
 msgstr "To okno zostało zamknięte"
 
-#: crates/glimpse-shot/src/gui/app.rs:859
+#: crates/glimpse-shot/src/gui/app.rs:861
 #, fuzzy
 #| msgid "PNG Images"
 msgid "Images"
 msgstr "Obrazy PNG"
 
-#: crates/glimpse-shot/src/gui/app.rs:869
+#: crates/glimpse-shot/src/gui/app.rs:871
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr "Otwórz obraz"
 
-#: crates/glimpse-shot/src/gui/app.rs:894
+#: crates/glimpse-shot/src/gui/app.rs:896
 msgid "The image must be a local file"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1010
+#: crates/glimpse-shot/src/gui/app.rs:1012
 msgid "Untitled window"
 msgstr "Okno bez tytułu"
 
-#: crates/glimpse-shot/src/gui/app.rs:1102
+#: crates/glimpse-shot/src/gui/app.rs:1104
 msgid "Screenshot failed"
 msgstr "Nie udało się wykonać zrzutu ekranu"
 
@@ -2601,7 +2528,7 @@ msgstr "Odrzuć"
 
 #: crates/glimpse-shot/src/gui/result.rs:964
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:505
 msgid "Save"
 msgstr "Zapisz"
 
@@ -2631,7 +2558,7 @@ msgctxt "notification action"
 msgid "Open"
 msgstr "Otwórz"
 
-#: crates/glimpse-shot/src/portal.rs:162
+#: crates/glimpse-shot/src/portal.rs:166
 #: crates/glimpse-shot/src/portal/tests.rs:53
 #: crates/glimpse-shot/src/portal/tests.rs:54
 #: crates/glimpse-shot/src/portal/tests.rs:611
@@ -2691,7 +2618,15 @@ msgstr "Plik nie jest obrazem."
 msgid "The file cannot be read."
 msgstr "Nie można odczytać pliku."
 
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:35
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:65
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:215
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr "Wycisz"
+
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:84
 msgid "Applications"
 msgstr "Aplikacje"
 
@@ -2715,7 +2650,9 @@ msgid "Next"
 msgstr "Następny"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
-msgid "Some events on this day aren't shown."
+#, fuzzy
+#| msgid "Some events on this day aren't shown."
+msgid "Some events on this day aren’t shown."
 msgstr "Niektóre wydarzenia tego dnia nie są wyświetlane."
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
@@ -2908,7 +2845,7 @@ msgid "Lock"
 msgstr "Zablokuj"
 
 #: crates/glimpse-widgets/blueprints/session_popover.blp:17
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:110
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:111
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
 msgid "Suspend"
 msgstr "Uśpij"
@@ -2917,40 +2854,40 @@ msgstr "Uśpij"
 msgid "Shut down"
 msgstr "Wyłącz"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:41
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:42
 msgid "Suspend…"
 msgstr "Uśpij…"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:47
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:48
 msgid "Restart…"
 msgstr "Uruchom ponownie…"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:53
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:54
 msgid "Power Off…"
 msgstr "Wyłącz…"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:82
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:83
 msgid "Suspend now?"
 msgstr "Uśpić teraz?"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:91
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:92
 msgid "The screen stays locked when it wakes."
 msgstr "Po wybudzeniu ekran pozostanie zablokowany."
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:132
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:133
 msgid "Restart now?"
 msgstr "Uruchomić ponownie teraz?"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:141
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:191
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:142
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:192
 msgid "Open sessions may lose unsaved work."
 msgstr "Otwarte sesje mogą utracić niezapisane dane."
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:182
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:183
 msgid "Power off now?"
 msgstr "Wyłączyć teraz?"
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:210
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:211
 msgid "Power Off"
 msgstr "Wyłącz"
 
@@ -3034,6 +2971,11 @@ msgstr "Katalog"
 msgid "File Name"
 msgstr "Nazwa pliku"
 
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:44
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:83
+msgid ".png"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
 msgid "Behavior"
 msgstr "Zachowanie"
@@ -3072,31 +3014,31 @@ msgstr "Adnotacje"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:255
 msgid "Red"
 msgstr "Czerwony"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:275
 msgid "Yellow"
 msgstr "Żółty"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:295
 msgid "Green"
 msgstr "Zielony"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:315
 msgid "Blue"
 msgstr "Niebieski"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:335
 msgid "White"
 msgstr "Biały"
 
@@ -3178,25 +3120,25 @@ msgstr "Kopiuj do schowka (Ctrl+C)"
 msgid "Save or Open"
 msgstr "Zapisz lub otwórz"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:161
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:162
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:441
 msgid "Undo (Ctrl+Z)"
 msgstr "Cofnij (Ctrl+Z)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:171
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:172
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:455
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr "Ponów (Ctrl+Shift+Z)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:195
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:196
 msgid "Pan (hold Space)"
 msgstr "Przesuwanie (przytrzymaj spację)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:213
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:214
 msgid "Best Fit (Ctrl+0)"
 msgstr "Dopasuj (Ctrl+0)"
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:219
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:220
 msgid "Actual Size (Ctrl+1)"
 msgstr "Rzeczywisty rozmiar (Ctrl+1)"
 
@@ -3306,7 +3248,7 @@ msgid "Save As"
 msgstr "Zapisz jako"
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:525
 msgid "Open in Window"
 msgstr "Otwórz w oknie"
 
@@ -3355,122 +3297,125 @@ msgid "Quit"
 msgstr "Zakończ"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:24
 msgid "Move Toolbar"
 msgstr "Przenieś pasek narzędzi"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:36
 msgid "Screen (S)"
 msgstr "Ekran (S)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:50
 msgid "Window (W)"
 msgstr "Okno (W)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:72
 msgid "Crop (C)"
 msgstr "Kadrowanie (C)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:85
 msgid "Arrow (A)"
 msgstr "Strzałka (A)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
 msgid "Line (L)"
 msgstr "Linia (L)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
 msgid "Freehand (P)"
 msgstr "Rysowanie odręczne (P)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
 msgid "Highlighter (H)"
 msgstr "Zakreślacz (H)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
 msgstr "Prostokąt (R)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:150
 msgid "Filled Rectangle (F)"
 msgstr "Wypełniony prostokąt (F)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
 msgid "Oval (O)"
 msgstr "Owal (O)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
 msgid "Number (N)"
 msgstr "Numer (N)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
 msgstr "Tekst (T)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:206
 msgid "Pixelate (B)"
 msgstr "Pikselizacja (B)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
-msgid "Color (1–5)"
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:225
+#, fuzzy
+#| msgid "Color (1–5)"
+msgid "Color (1 –5)"
 msgstr "Kolor (1–5)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
 msgid "Red (1)"
 msgstr "Czerwony (1)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
 msgid "Yellow (2)"
 msgstr "Żółty (2)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
 msgid "Green (3)"
 msgstr "Zielony (3)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
 msgid "Blue (4)"
 msgstr "Niebieski (4)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
 msgid "White (5)"
 msgstr "Biały (5)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
 msgid "Thin line ([ and ])"
 msgstr "Cienka linia ([ i ])"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
 msgid "Medium line ([ and ])"
 msgstr "Średnia linia ([ i ])"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
 msgid "Thick line ([ and ])"
 msgstr "Gruba linia ([ i ])"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
 msgid "Apply Crop (Enter)"
 msgstr "Zastosuj kadrowanie (Enter)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr "Zastosuj kadrowanie"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
 msgid "Copy and close (Enter)"
 msgstr "Kopiuj i zamknij (Enter)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"
 msgstr "Inne opcje zakończenia"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:487
 msgid "Cancel (Esc)"
 msgstr "Anuluj (Esc)"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:512
 msgid "Save As…"
 msgstr "Zapisz jako…"
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:519
 msgid "Open With…"
 msgstr "Otwórz za pomocą…"
 
@@ -3490,6 +3435,22 @@ msgstr "Losowo"
 msgid "Repeat"
 msgstr "Powtarzanie"
 
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:14
+msgid "Wide"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:25
+msgid "body 1"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:36
+msgid "body 2"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:47
+msgid "body 3"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
 msgid "Inactive warning row"
 msgstr "Nieaktywny wiersz ostrzeżenia"
@@ -3502,18 +3463,16 @@ msgstr "Urządzenie poza zasięgiem"
 msgid "Locked by the hardware switch"
 msgstr "Zablokowane przełącznikiem sprzętowym"
 
-#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
-#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
-msgid "Mute"
-msgstr "Wycisz"
-
-#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:234
 msgid ""
 "Storm warning: strong wind gusts up to 90 km/h expected across the region"
 msgstr ""
 "Ostrzeżenie przed burzą: w regionie spodziewane silne porywy wiatru do 90 km/"
 "h"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:250
+msgid "tall"
+msgstr ""
 
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
 msgid "Name this workspace"
@@ -3763,55 +3722,15 @@ msgstr ""
 "zrzut ekranu;przechwytywanie;adnotacje;print "
 "screen;wycinek;screenshot;capture;annotate;"
 
-#: docs/plans/glimpse-agents/agents_bt_1.blp:17
-msgid "Pair with “Pixel 9”?"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_1.blp:18
-msgid "Check that the phone shows the same code"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_2.blp:17
-msgid "Pair with “Old Headset”"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_3.blp:17
-msgid "Pair with “MX Keys”"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_3.blp:18
-msgid "Type this code on the keyboard, then press Enter"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_bt_4.blp:17
-msgid "“JBL Flip” wants to connect"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_polkit_1.blp:55
-#: docs/plans/glimpse-agents/agents_polkit_2.blp:55
-#: docs/plans/glimpse-agents/agents_polkit_3.blp:68
-#: docs/plans/glimpse-agents/agents_polkit_4.blp:61
-#: docs/plans/glimpse-agents/agents_polkit_5.blp:59
-#: docs/plans/glimpse-agents/agents_polkit_6.blp:55
 #, fuzzy
-#| msgid "Vendor codec"
-msgid "Vendor"
-msgstr "Kodek producenta"
+#~| msgid "Vendor codec"
+#~ msgid "Vendor"
+#~ msgstr "Kodek producenta"
 
-#: docs/plans/glimpse-agents/agents_session_3.blp:17
 #, fuzzy
-#| msgid "Log out"
-msgid "Log out?"
-msgstr "Wyloguj"
-
-#: docs/plans/glimpse-agents/agents_wifi_1.blp:17
-#: docs/plans/glimpse-agents/agents_wifi_2.blp:17
-msgid "Join “Café Central”"
-msgstr ""
-
-#: docs/plans/glimpse-agents/agents_wifi_3.blp:17
-msgid "Sign in to “Work VPN”"
-msgstr ""
+#~| msgid "Log out"
+#~ msgid "Log out?"
+#~ msgstr "Wyloguj"
 
 #~ msgid "Serial"
 #~ msgstr "Numer seryjny"

@@ -130,14 +130,6 @@ fn the_id_keys_camera_and_microphone_by_app() {
 }
 
 #[test]
-fn location_always_has_the_same_id() {
-    assert_eq!(
-        usage_id(&usage(PrivacyResource::Location)),
-        usage_id(&usage(PrivacyResource::Location))
-    );
-}
-
-#[test]
 fn a_filtered_out_resource_never_reaches_the_popover() {
     let filters = Filters {
         camera: false,
@@ -160,11 +152,6 @@ fn a_filtered_out_resource_never_lights_a_chip() {
     };
     let kinds = kinds_in_use(&state(vec![usage(PrivacyResource::Location)]), filters);
     assert!(kinds.is_empty());
-}
-
-#[test]
-fn no_usages_lights_no_chips() {
-    assert!(kinds_in_use(&state(Vec::new()), Filters::default()).is_empty());
 }
 
 #[test]

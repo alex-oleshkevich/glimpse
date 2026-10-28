@@ -46,6 +46,16 @@ impl CalendarServices {
         self.calendar_service.reconfigure(document);
     }
 
+    pub fn bus_closed(&self) -> impl Future<Output = ()> + Send + 'static {
+        let closed = self.provider.as_ref().map(provider::Runtime::closed);
+        async move {
+            match closed {
+                Some(closed) => closed.await,
+                None => std::future::pending().await,
+            }
+        }
+    }
+
     pub async fn shutdown(mut self) {
         tracing::info!("calendar provider shutting down");
         if let Some(provider) = self.provider.take() {

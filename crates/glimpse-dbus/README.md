@@ -1,39 +1,5 @@
 # glimpse-dbus
 
-The `zbus` proxy traits and typed provider clients used across Glimpse processes, plus the two
-connections they run on.
-
-## Contents
-
-- `dbus.rs` — `Buses`, holding the session and system connections, and `own_name`
-- `provider.rs` — `Exported`, the name-and-object lifecycle providers share
-- `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations; a
-  Glimpse-owned provider's module also carries a typed handle and owned follower lifecycle
-- `testing/` — `PrivateBus` and the tray fakes, compiled only under the `testing` feature
-
-| Module                    | Bus     | What it fronts                          |
-| ------------------------- | ------- | --------------------------------------- |
-| `bluez`                   | system  | BlueZ adapters and devices              |
-| `geoclue`                 | system  | GeoClue2 manager and client             |
-| `login1`                  | system  | logind session, seat and idle hints      |
-| `network_manager`         | system  | NetworkManager devices and connections   |
-| `power_profiles`          | system  | power-profiles-daemon                    |
-| `udisks2`                 | system  | UDisks2 removable media                  |
-| `upower`                  | system  | UPower devices, decoded from one `GetAll`; `EnableChargeThreshold` |
-| `kdeconnect`              | session | `kdeconnectd` devices and their plugin objects; proxies are hand-written, because the daemon's own introspection is invalid |
-| `mpris`                   | session | MPRIS players                            |
-| `status_notifier_item`    | session | StatusNotifierItem tray entries          |
-| `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |
-| `dbusmenu`                | session | a tray item's `com.canonical.dbusmenu`   |
-| `idle`                    | session | the Glimpse idle-inhibitor provider      |
-| `freedesktop_notifications` | session | `Notify` and `CloseNotification`; signals `ActionInvoked`, `ActivationToken`, `NotificationClosed` |
-| `notifications`           | session | the Glimpse notification provider        |
-| `weather`                 | session | the Glimpse weather provider             |
-| `night_light`             | session | the Glimpse night light provider         |
-| `session`                 | session | agents admission of reboot and power-off |
-
-## Rules
-
 **Every bus name is taken through `own_name`, never a raw `request_name`.** The raw call defaults to
 `AllowReplacement | ReplaceExisting | DoNotQueue`, stealing the name from whoever holds it; `own_name`
 requests `DoNotQueue` alone, so a duplicate owner gets `Error::NameTaken` instead.
@@ -71,6 +37,9 @@ re-emitting the interface's snapshot property on every state or health change, a
 **A single-service provider supplies two `watch::Receiver`s and a `Snapshot` impl** —
 `Exported::serve` runs its loop. A provider owning several services supplies its change loop to
 `Exported::start`; neither helper interprets service state or depends on `glimpse-services`.
+`Exported::closed()` resolves when the session connection closes: a zbus provider selects on it
+next to `SIGTERM` and runs the same shutdown, because zbus, unlike GLib, never ends a process
+whose bus died, and one started by D-Bus activation would otherwise outlive its bus.
 
 **Backend proxies carry no policy** — a system-service module decodes what it answers, and what to
 do about it belongs to the service. A Glimpse-owned provider's client owns its availability and
@@ -106,6 +75,8 @@ share; the service merges the partial onto what it already holds.
 **The tray watcher's rules live in `Registry`, a plain struct, not the interface** — which key an
 item lands on and that a repeat registration is idempotent are decided there and tested without a
 bus; the `#[zbus::interface]` is a shell forwarding to it.
+
+**KDE Connect proxies are hand-written because the daemon's own introspection is invalid.**
 
 **Signatures come from introspection, not memory** — a proxy that disagrees with the running service
 fails at the call rather than at compile time; the project-local `zbus` skill carries introspected

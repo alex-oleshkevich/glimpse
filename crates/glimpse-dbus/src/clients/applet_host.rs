@@ -33,6 +33,3 @@ pub trait AppletHost {
 
     fn set_options(&self, handle: &str, options_json: &str) -> zbus::Result<()>;
 }
-
-#[cfg(test)]
-mod tests;

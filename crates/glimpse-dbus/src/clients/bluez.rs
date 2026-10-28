@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::zvariant::Value;
 
 pub const ADAPTER1: &str = "org.bluez.Adapter1";
 pub const DEVICE1: &str = "org.bluez.Device1";
@@ -19,43 +19,9 @@ pub trait Adapter1 {
     fn set_discovery_filter(&self, filter: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
 
     #[zbus(property)]
-    fn pairable(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn address_type(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn class(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
-    fn discoverable_timeout(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
-    fn pairable_timeout(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
-    fn modalias(&self) -> zbus::Result<String>;
-    #[zbus(property, name = "UUIDs")]
-    fn uuids(&self) -> zbus::Result<Vec<String>>;
-    #[zbus(property)]
-    fn roles(&self) -> zbus::Result<Vec<String>>;
-    #[zbus(property)]
-    fn powered(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn power_state(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn connectable(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn set_connectable(&self, value: bool) -> zbus::Result<()>;
-    #[zbus(property)]
-    fn name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
     fn set_powered(&self, value: bool) -> zbus::Result<()>;
     #[zbus(property)]
-    fn discoverable(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
     fn set_discoverable(&self, value: bool) -> zbus::Result<()>;
-    #[zbus(property)]
-    fn discovering(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn alias(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn address(&self) -> zbus::Result<String>;
 }
 
 #[zbus::proxy(interface = "org.bluez.Device1", default_service = "org.bluez")]
@@ -66,39 +32,13 @@ pub trait Device1 {
     fn cancel_pairing(&self) -> zbus::Result<()>;
 
     #[zbus(property)]
-    fn address(&self) -> zbus::Result<String>;
-    #[zbus(property)]
     fn alias(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn icon(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn paired(&self) -> zbus::Result<bool>;
     #[zbus(property)]
     fn bonded(&self) -> zbus::Result<bool>;
     #[zbus(property)]
-    fn connected(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn trusted(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
     fn set_trusted(&self, value: bool) -> zbus::Result<()>;
-    #[zbus(property)]
-    fn blocked(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn set_blocked(&self, value: bool) -> zbus::Result<()>;
-    #[zbus(property, name = "RSSI")]
-    fn rssi(&self) -> zbus::Result<i16>;
-    #[zbus(property, name = "TxPower")]
-    fn tx_power(&self) -> zbus::Result<i16>;
-    #[zbus(property, name = "Class")]
-    fn class(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
-    fn appearance(&self) -> zbus::Result<u16>;
-    #[zbus(property, name = "UUIDs")]
-    fn uuids(&self) -> zbus::Result<Vec<String>>;
-    #[zbus(property)]
-    fn adapter(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
 #[zbus::proxy(
@@ -112,7 +52,6 @@ pub trait AgentManager1 {
         agent: &zbus::zvariant::ObjectPath<'_>,
         capability: &str,
     ) -> zbus::Result<()>;
-    fn unregister_agent(&self, agent: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
     fn request_default_agent(&self, agent: &zbus::zvariant::ObjectPath<'_>) -> zbus::Result<()>;
 }
 

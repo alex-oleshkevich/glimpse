@@ -99,30 +99,3 @@ fn a_row_is_activated_by_the_command_its_own_id_belongs_to() {
     );
     assert_eq!(route(&state, &NetworkId::new("/s/9")), Route::Vpn);
 }
-
-#[test]
-fn an_applet_with_no_device_contributes_no_chips() {
-    let bare = NetworkState {
-        networking: true,
-        ..NetworkState::default()
-    };
-    assert!(bare.icon_name().is_none());
-}
-
-#[test]
-fn a_connected_vpn_adds_a_second_chip_rather_than_changing_the_first() {
-    let mut with_vpn = state(70);
-    with_vpn.vpn = vec![glimpse_services::Vpn {
-        id: glimpse_services::NetworkId::new("/s/1"),
-        name: "Mullvad".to_owned(),
-        kind: "wireguard".to_owned(),
-        state: nm::VpnState::Activated,
-        address: None,
-        active: true,
-        failure: None,
-        busy: None,
-    }];
-
-    assert_eq!(with_vpn.icon_name(), state(70).icon_name());
-    assert!(with_vpn.vpn_icon_name(true).is_some());
-}

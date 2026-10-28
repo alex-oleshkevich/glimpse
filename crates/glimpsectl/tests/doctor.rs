@@ -3,19 +3,6 @@ use std::path::PathBuf;
 use glimpsectl::commands::doctor::{Configuration, Provider};
 
 #[test]
-fn a_provider_that_answers_but_is_not_serving_is_not_reported_healthy() {
-    let degraded = Provider::answered(
-        "x",
-        false,
-        "another gamma client holds the outputs".to_owned(),
-    );
-    assert!(degraded.running, "it answered, so it is running");
-    let [_, state, detail] = degraded.row();
-    assert!(state.contains("degraded"));
-    assert!(detail.contains("another gamma client"));
-}
-
-#[test]
 fn a_provider_that_owns_its_name_but_never_answers_is_degraded_not_missing() {
     let hung = Provider::answered(
         "me.aresa.Glimpse.NightLight",

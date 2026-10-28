@@ -29,10 +29,6 @@ pub async fn clipboard_list(connection: &Connection, json: bool) -> Result<()> {
         .print()
 }
 
-pub async fn clipboard_get(connection: &Connection, id: u64) -> Result<()> {
-    clipboard_get_output(connection, id, false).await
-}
-
 pub async fn clipboard_get_output(connection: &Connection, id: u64, json: bool) -> Result<()> {
     let (mime, bytes) = within(proxy::<Clipboard1Proxy>(connection).await?.get(id))
         .await

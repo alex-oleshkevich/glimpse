@@ -68,17 +68,6 @@ fn field_rules_gate_what_can_be_confirmed() {
 }
 
 #[test]
-fn description_tints_the_pkexec_command_without_quotes() {
-    assert_eq!(
-        super::description(
-            "Authentication is needed to run `/usr/bin/ls' as the super user",
-            "#123456",
-        ),
-        "Authentication is needed to run <span font_family=\"monospace\" foreground=\"#123456\">/usr/bin/ls</span> as the super user",
-    );
-}
-
-#[test]
 fn description_tints_each_quoted_span() {
     assert_eq!(
         super::description("Run `first' then `second'", "#abcdef"),

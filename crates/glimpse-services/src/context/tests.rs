@@ -1,15 +1,5 @@
-use futures_util::stream;
-
 use super::*;
-use crate::testing::{event, probe, wired_probe};
-
-#[tokio::test]
-async fn a_spawned_task_delivers_the_event_it_returns() {
-    let (ctx, mut received) = probe();
-    let _source = ctx.spawn(|_ctx| async { 7 });
-
-    assert_eq!(event(&mut received).await, Some(7));
-}
+use crate::testing::{probe, wired_probe};
 
 #[tokio::test]
 async fn a_detached_task_runs_and_delivers_nothing() {
@@ -24,24 +14,6 @@ async fn a_detached_task_runs_and_delivers_nothing() {
         .await
         .expect("the task ran rather than being aborted by the statement ending");
     assert!(received.try_recv().is_err(), "nothing reached the inbox");
-}
-
-#[tokio::test]
-async fn a_stream_delivers_every_item_it_yields() {
-    let (ctx, mut received) = probe();
-    let _source = ctx.stream(|_ctx| async { stream::iter([1, 2, 3]) });
-
-    assert_eq!(event(&mut received).await, Some(1));
-    assert_eq!(event(&mut received).await, Some(2));
-    assert_eq!(event(&mut received).await, Some(3));
-}
-
-#[tokio::test]
-async fn a_tick_reaches_the_handler_as_an_event() {
-    let (ctx, mut received) = probe();
-    let _source = ctx.interval(time::Duration::from_millis(1), |_ctx| async { 9 });
-
-    assert_eq!(event(&mut received).await, Some(9));
 }
 
 #[tokio::test]

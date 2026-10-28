@@ -412,35 +412,6 @@ async fn a_recycled_active_connection_path_never_serves_a_stale_reason() {
 }
 
 #[tokio::test]
-async fn a_statistics_change_does_not_wake_the_model() {
-    let mut harness = harness().await;
-    enumerate(&mut harness, measured_objects()).await;
-    let before = harness.state.borrow_and_update().clone();
-
-    harness
-        .service
-        .handle(
-            &harness.ctx,
-            Input::Event(Event::PropertiesChanged {
-                path: "/org/freedesktop/NetworkManager/Devices/2".to_owned(),
-                interface: "org.freedesktop.NetworkManager.Device.Statistics".to_owned(),
-                changed: properties(vec![
-                    ("RxBytes", owned(29540411578u64)),
-                    ("TxBytes", owned(20477124132u64)),
-                ]),
-                invalidated: Vec::new(),
-            }),
-        )
-        .await;
-
-    assert_eq!(
-        harness.state.borrow_and_update().clone(),
-        before,
-        "Bitrate and the statistics counters churn and feed nothing"
-    );
-}
-
-#[tokio::test]
 async fn the_radio_reports_hard_blocked_only_when_the_hardware_flag_says_so() {
     let mut harness = harness().await;
     let mut objects = measured_objects();

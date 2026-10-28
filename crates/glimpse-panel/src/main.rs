@@ -49,7 +49,7 @@ fn run(cli: &Cli) -> Result<()> {
     }
 
     register_resources()?;
-    let app_id = crate::applet::app_id();
+    let app_id = glimpse_dbus::panel_app_id();
     let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
     #[cfg(all(debug_assertions, feature = "gtk-mcp"))]
     gtk_mcp_agent::attach(&relm4::main_application());

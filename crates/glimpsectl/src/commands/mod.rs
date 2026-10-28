@@ -20,11 +20,11 @@ pub mod weather;
 pub use applets::{applets_inspect, applets_list, applets_restart};
 pub use applets_author::applets_new;
 pub use clipboard::{
-    clipboard_clear, clipboard_copy, clipboard_forget, clipboard_get, clipboard_list, clipboard_pin,
+    clipboard_clear, clipboard_copy, clipboard_forget, clipboard_list, clipboard_pin,
 };
-pub use config::{config_path, config_show, config_validate};
+pub use config::{config_path, config_show};
 pub use doctor::doctor;
-pub use idle::{idle_inhibit, idle_release, idle_status};
+pub use idle::{idle_release, idle_status};
 pub use notifications::{
     notifications_clear, notifications_dismiss, notifications_dnd, notifications_list,
 };

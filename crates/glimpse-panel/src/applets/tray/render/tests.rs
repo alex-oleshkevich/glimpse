@@ -14,11 +14,6 @@ fn ids(items: &[&TrayItem]) -> Vec<String> {
 }
 
 #[test]
-fn an_empty_tray_arranges_to_nothing() {
-    assert!(arrange(&[], &[], &[]).is_empty());
-}
-
-#[test]
 fn registration_order_is_kept_when_nothing_is_pinned_or_hidden() {
     let items = [
         item("first", TrayStatus::Active),

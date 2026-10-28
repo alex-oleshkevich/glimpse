@@ -3,13 +3,6 @@
 The suite's packaging manifest, and nothing else. `src/lib.rs` is empty on purpose: cargo-deb and
 cargo-generate-rpm each need one crate to invoke against.
 
-## Contents
-
-- `Cargo.toml` — `[package.metadata.deb]`, `[package.metadata.generate-rpm]`, `requires`, the
-  conffile declaration, and the asset lists naming every binary, script, config, wallpaper, theme,
-  unit, D-Bus activation file, the GeoClue policy, the license and one line per language
-- `tests/packaging.rs` — the guard that keeps the two asset lists in step with `po/LINGUAS`
-
 ## Rules
 
 Packaging lives in its own crate so it is never tied to a binary that might be renamed or deleted.

@@ -44,6 +44,7 @@ async fn run(cli: Cli) -> Result<()> {
         failure,
     ));
     let mut watching = true;
+    let mut bus_closed = Box::pin(services.bus_closed());
 
     tracing::info!(config_dir = ?cli.config.config_dir, "glimpse-settings-daemon started");
 
@@ -55,6 +56,10 @@ async fn run(cli: Cli) -> Result<()> {
             }
             _ = interrupt.recv() => {
                 tracing::info!(signal = "SIGINT", "shutdown requested");
+                break;
+            }
+            () = &mut bus_closed => {
+                tracing::info!("the session bus is gone; shutting down");
                 break;
             }
             reloaded = configs.next(), if watching => match reloaded {

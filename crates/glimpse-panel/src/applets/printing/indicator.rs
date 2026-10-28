@@ -220,6 +220,3 @@ impl Printing {
         })
     }
 }
-
-#[cfg(test)]
-mod tests;

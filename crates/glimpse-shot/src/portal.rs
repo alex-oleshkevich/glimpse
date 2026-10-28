@@ -98,6 +98,10 @@ async fn serve(config: Config) -> Result<()> {
                 tracing::info!(signal = "SIGINT", "shutdown requested");
                 break;
             }
+            () = connection.closed() => {
+                tracing::info!("the session bus is gone; shutting down");
+                break;
+            }
             reloaded = configs.next() => match reloaded {
                 Some(reload) => {
                     if let Some(reloaded) = take_changed(reload) {

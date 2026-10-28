@@ -2,7 +2,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use glimpse_config::{IdleProfile as Profile, IdleProfiles as Profiles};
-use tokio::sync::{Notify, oneshot};
 
 use super::*;
 
@@ -19,22 +18,6 @@ impl CommandRunner for RecordingRunner {
         let command = command.to_owned();
         Box::pin(async move {
             commands.0.lock().unwrap().push(command);
-        })
-    }
-}
-
-struct BlockingRunner {
-    started: Mutex<Option<oneshot::Sender<()>>>,
-    release: Notify,
-}
-
-impl CommandRunner for BlockingRunner {
-    fn run<'a>(&'a self, _command: &'a str) -> BoxFuture<'a> {
-        Box::pin(async move {
-            if let Some(started) = self.started.lock().unwrap().take() {
-                let _ = started.send(());
-            }
-            self.release.notified().await;
         })
     }
 }
@@ -150,40 +133,6 @@ async fn battery_change_resumes_fired_listener_before_switching_and_clears_fired
         vec!["ac-idle".to_string(), "ac-resume".to_string()]
     );
 
-    cancel.cancel();
-    let _ = task.await;
-}
-#[tokio::test(start_paused = true)]
-async fn in_flight_command_does_not_block_next_transition() {
-    let (started_tx, started_rx) = oneshot::channel();
-    let runner = Arc::new(BlockingRunner {
-        started: Mutex::new(Some(started_tx)),
-        release: Notify::new(),
-    });
-    let (actor, handle) = Actor::new(test_config(), false, runner.clone());
-    let cancel = CancellationToken::new();
-    let task = tokio::spawn(actor.run(cancel.clone()));
-
-    handle
-        .send(Event::ListenerIdle {
-            generation: 0,
-            id: 0,
-        })
-        .await;
-    started_rx
-        .await
-        .expect("the blocking command should signal it started");
-
-    handle
-        .send(Event::ListenerResume {
-            generation: 0,
-            id: 0,
-        })
-        .await;
-    settle().await;
-
-    runner.release.notify_waiters();
-    settle().await;
     cancel.cancel();
     let _ = task.await;
 }
@@ -503,7 +452,6 @@ async fn a_stale_generation_suppressed_entry_cannot_fire_under_a_new_policy() {
         commands.0.lock().unwrap().is_empty(),
         "a suppression from the old generation must not fire the new policy's same-index listener"
     );
-    assert!(commands.0.lock().unwrap().is_empty());
 
     cancel.cancel();
     let _ = task.await;

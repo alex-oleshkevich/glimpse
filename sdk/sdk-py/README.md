@@ -38,9 +38,7 @@ run(App())
 - Controlled props (`value`, `active`, `open`, `selected`) always come from state. An event's
   `seq` is copied onto the confirming `set`; an event older than the last applied `seq` is
   dropped; a rejected edit still confirms, so the panel restores the state value.
-- `ctx` carries `name`, `state_dir`, `options`, `placement`, `popover_open`, and `entry`, plus
-  the host requests (`open_uri`, `launch`, `close_popover`) and the client-side helpers
-  (`notify`, `copy`), which spawn `notify-send` and `wl-copy` directly.
+- `notify` and `copy` spawn `notify-send` and `wl-copy` from the applet process.
 - Subclass `BaseApplet[YourState]` with a frozen-dataclass `state = YourState()` and `build(ctx)`;
   `Applet.main()` runs it. `set_state(field=value)` replaces the state, rebuilds when it changed,
   and writes the fields listed in `persist` to `state.json` (loaded before `start`). Call it on the
@@ -61,24 +59,14 @@ run(App())
 
 ## Distribution
 
-An exec applet process reads its own directory, not a sibling SDK directory. Ship the
-`glimpse_sdk/` package inside the applet directory (vendored, as in the kitchen sink example
-and the Python `applets new` template) or install it into site-packages. The vendored package
-stays byte-identical to `sdk/sdk-py/glimpse_sdk/`. The example desktop entry runs
-`uv run applet.py`, and the file carries PEP 723 inline metadata with a `uv` shebang, so
-`./applet.py` also runs it directly with no environment to set up.
+An exec applet process reads its own directory, not a sibling SDK directory. The Python
+template declares `glimpse-applet-sdk` in PEP 723 metadata; its desktop entry runs
+`uv run applet.py`. The kitchen sink example resolves that dependency to the local SDK.
 
 ## Example and tests
 
-`examples/kitchen_sink/` exercises every element kind, every handler, host requests and the
-client-side helpers, persistence, a one-second timer, and keyed reordering. Run it against an isolated
-second panel — never the session bar — as described in `docs/live-testing.md`.
+Run `examples/kitchen_sink/` against an isolated second panel, never the session bar;
+see [live-testing rules](../../docs/live-testing.md). `just sdk-test` tests the SDKs.
 
-```
-python3 -m unittest discover -s sdk/sdk-py/tests
-```
-
-The same model maps to Rust (handlers return messages that an `update` method applies, because
-they cannot capture `&mut self`) and to Go (handlers are closures over the app pointer, widgets
-are struct values built by helper functions). All three share the diff, `seq`, and commit rules
-above and the protocol fixtures of the TypeScript SDK as the conformance oracle.
+Python, Rust and Go share the diff, `seq`, and commit rules above and use the TypeScript
+SDK's protocol fixtures as the conformance oracle.

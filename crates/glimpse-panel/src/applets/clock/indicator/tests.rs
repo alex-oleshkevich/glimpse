@@ -1,6 +1,6 @@
 use super::{
-    Applet, Browsed, Clock, MINUTE, SECOND, accept, changed, failed, formatted, invalidate,
-    painted, period, ticks_below_a_minute,
+    Applet, Browsed, Clock, MINUTE, SECOND, accept, failed, formatted, invalidate, painted, period,
+    ticks_below_a_minute,
 };
 use crate::applets::agenda::Occasion;
 use chrono::{DateTime, Local, TimeZone, Utc};
@@ -96,21 +96,6 @@ fn a_browsed_month_other_than_the_one_shown_keeps_the_snapshot() {
     };
     let (events, _) = painted(&matching, shown, &snapshot, None);
     assert_eq!(events[0].summary, "Far");
-}
-
-#[test]
-fn an_availability_flip_with_identical_events_is_a_change() {
-    let events = vec![occasion("Near")];
-    let truncated = instant(9);
-
-    assert!(changed(
-        (&events, &Some(truncated), true),
-        (&events, &Some(truncated), false),
-    ));
-    assert!(!changed(
-        (&events, &Some(truncated), true),
-        (&events, &Some(truncated), true),
-    ));
 }
 
 #[test]

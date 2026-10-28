@@ -43,9 +43,6 @@ pub trait MprisPlayer {
     fn volume(&self) -> zbus::Result<f64>;
 
     #[zbus(property)]
-    fn set_volume(&self, volume: f64) -> zbus::Result<()>;
-
-    #[zbus(property)]
     fn loop_status(&self) -> zbus::Result<String>;
 
     #[zbus(property)]
@@ -81,7 +78,6 @@ pub trait MprisPlayer {
     fn stop(&self) -> zbus::Result<()>;
     fn previous(&self) -> zbus::Result<()>;
     fn next(&self) -> zbus::Result<()>;
-    fn seek(&self, offset_microseconds: i64) -> zbus::Result<()>;
     fn set_position(
         &self,
         track_id: &ObjectPath<'_>,

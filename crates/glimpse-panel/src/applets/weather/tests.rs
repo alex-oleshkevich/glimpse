@@ -270,26 +270,3 @@ fn a_missing_canonical_name_falls_back_to_coordinates() {
     });
     assert_eq!(applet.label(), "54.69, 25.28");
 }
-
-#[test]
-fn a_place_table_becomes_the_place_the_wire_takes() {
-    assert_eq!(watched(&WeatherPlace::Here {}), WatchedPlace::Here);
-    assert_eq!(
-        watched(&WeatherPlace::Coordinates {
-            latitude: 54.6872,
-            longitude: 25.2797
-        }),
-        WatchedPlace::Coordinates {
-            latitude: 54.6872,
-            longitude: 25.2797
-        }
-    );
-    assert_eq!(
-        watched(&WeatherPlace::Location {
-            name: "Vilnius, LT".to_owned(),
-        }),
-        WatchedPlace::Location {
-            name: "Vilnius, LT".to_owned(),
-        }
-    );
-}

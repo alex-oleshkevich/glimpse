@@ -85,6 +85,10 @@ impl SunsetServices {
         }
     }
 
+    pub fn bus_closed(&self) -> impl Future<Output = ()> + Send + 'static {
+        self.provider.closed()
+    }
+
     /// The night light's `Service::stop` hands the outputs back while the compositor connection is
     /// still up. A `SIGKILL` cannot run it and the ramp then outlives the process — that is the
     /// protocol, documented in the crate README rather than guarded against.

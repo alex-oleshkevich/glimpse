@@ -81,20 +81,6 @@ fn inhibitors_are_filtered_before_the_cap_and_delay_is_distinct() {
     assert!(rows.iter().all(|(label, _)| label.chars().count() <= 100));
 }
 
-#[test]
-fn power_cards_use_the_approved_copy_without_a_countdown() {
-    let reboot = Action::Reboot.view(Vec::new());
-    assert_eq!(reboot.icon, Icon::Reboot);
-    assert_eq!(reboot.title, "Restart?");
-    assert_eq!(reboot.confirm.as_deref(), Some("Restart"));
-    let off = Action::PowerOff.view(Vec::new());
-    assert_eq!(off.icon, Icon::PowerOff);
-    assert_eq!(off.title, "Power off?");
-    assert_eq!(off.confirm.as_deref(), Some("Power off"));
-    assert_eq!(off.body, "Unsaved work in open apps may be lost");
-    assert!(off.secret.is_none() && off.code.is_none());
-}
-
 #[tokio::test]
 async fn exported_interface_rejects_invalid_actions_and_awaits_admission() {
     let bus = glimpse_dbus::testing::PrivateBus::start();

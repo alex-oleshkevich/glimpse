@@ -757,8 +757,3 @@ fn login1_what_orders_sleep_then_shutdown() {
     };
     assert_eq!(login1_what(&targets), "sleep:shutdown");
 }
-
-#[test]
-fn login1_what_is_empty_for_idle_only() {
-    assert_eq!(login1_what(&TestTargets::idle_only()), "");
-}

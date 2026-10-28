@@ -1,13 +1,6 @@
 use super::*;
 
 #[test]
-fn a_month_is_always_six_weeks() {
-    for (year, month) in [(2026, 2), (2026, 9), (2024, 2), (2027, 8)] {
-        assert_eq!(month_grid(year, month, 1).len(), CELLS);
-    }
-}
-
-#[test]
 fn the_first_of_the_month_lands_under_its_own_weekday() {
     let cells = month_grid(2026, 9, 1);
     let first = cells

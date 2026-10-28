@@ -40,11 +40,6 @@ fn no_current_player_is_none() {
 }
 
 #[test]
-fn an_empty_player_list_is_none() {
-    assert!(track_of(&MprisPlayers::default(), true, None).is_none());
-}
-
-#[test]
 fn disabled_is_none_even_with_a_current_player() {
     let players = MprisPlayers {
         players: vec![player(true, Playback::Playing, true, true, true)],
@@ -102,14 +97,6 @@ fn can_play_pause_is_true_when_either_capability_is_present() {
             .expect("a track")
             .can_play_pause
     );
-}
-
-#[test]
-fn can_next_follows_the_player_capability_directly() {
-    let players = MprisPlayers {
-        players: vec![player(true, Playback::Playing, true, true, false)],
-    };
-    assert!(!track_of(&players, true, None).expect("a track").can_next);
 }
 
 #[test]

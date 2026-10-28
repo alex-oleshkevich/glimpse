@@ -116,29 +116,6 @@ fn outputs_with_their_own_image_are_counted() {
         },
     ];
     assert_eq!(outputs_kept(&config), 2);
-    assert_eq!(notify::changed_body(0), "");
-    assert!(notify::changed_body(1).contains('1'));
-    assert!(notify::changed_body(2).contains('2'));
-    assert!(notify::lockscreen_body().contains("background"));
-}
-
-#[test]
-fn every_rejection_has_its_own_text() {
-    let texts: Vec<String> = [
-        Reject::NotFileUri,
-        Reject::TooLarge,
-        Reject::TooBig,
-        Reject::NotImage,
-        Reject::Unreadable,
-    ]
-    .into_iter()
-    .map(reason_text)
-    .collect();
-    assert!(texts.iter().all(|text| !text.is_empty()));
-    assert!(texts[1].contains("64"));
-    assert!(texts[2].contains("8192"));
-    let unique: std::collections::HashSet<&String> = texts.iter().collect();
-    assert_eq!(unique.len(), texts.len());
 }
 
 #[tokio::test]

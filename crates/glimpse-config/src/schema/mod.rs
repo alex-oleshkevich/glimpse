@@ -53,7 +53,7 @@ pub use lock::{
 };
 pub use mpris::Mpris as MprisConfig;
 pub use network::Network as NetworkSettings;
-pub use night_light::{CLOCK, MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, parse_clock};
+pub use night_light::{MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;

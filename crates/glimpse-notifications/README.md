@@ -1,7 +1,7 @@
 # glimpse-notifications
 
-The standalone notification owner and popup UI. It runs the existing notification, compositor and
-session services in process and exposes notification state and controls over a typed D-Bus interface.
+The standalone notification owner and popup UI runs notification, compositor and session services
+in process and exposes notification state and controls over a typed D-Bus interface.
 
 **The provider name is what this process is for.** A process that cannot take
 `me.aresa.Glimpse.Notifications` on the session bus exits instead of running on: a popup surface

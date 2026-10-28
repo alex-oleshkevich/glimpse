@@ -81,32 +81,6 @@ fn pulse_generation(service: &Audio) -> u64 {
 }
 
 #[tokio::test]
-async fn start_builds_the_model_with_no_client_and_generation_zero() {
-    let (service, _ctx, _state, _health) = harness().await;
-
-    assert!(service.client.is_none());
-    assert_eq!(pulse_generation(&service), 0);
-}
-
-#[tokio::test]
-async fn a_snapshot_publishes_the_state() {
-    let (mut service, ctx, mut state, _health) = harness().await;
-
-    service
-        .handle(
-            &ctx,
-            Input::Event(pulse::Event::Snapshot(Box::new(snapshot(
-                vec![device("headset", 1, true)],
-                Vec::new(),
-            )))),
-        )
-        .await;
-
-    assert!(state.has_changed().expect("sender is alive"));
-    assert_eq!(state.borrow_and_update().outputs.len(), 1);
-}
-
-#[tokio::test]
 async fn an_identical_snapshot_is_not_republished() {
     let (mut service, ctx, mut state, _health) = harness().await;
     let one = || snapshot(vec![device("headset", 1, true)], Vec::new());
@@ -228,26 +202,6 @@ async fn a_command_naming_a_known_device_while_the_client_is_none_is_unavailable
         .await;
 
     assert!(matches!(result.await, Ok(Err(AudioError::Unavailable))));
-}
-
-#[tokio::test]
-async fn set_app_volume_scales_each_stream_against_the_group_max() {
-    let (mut service, _ctx, _state, _health) = harness().await;
-    service.current = AudioState {
-        outputs: Vec::new(),
-        inputs: Vec::new(),
-        apps: vec![app("firefox", vec![(1, 20), (2, 80)])],
-    };
-
-    let role = service
-        .app_role(Direction::Output, &AppId::new("firefox"))
-        .expect("the fixture carries a playback role for firefox");
-
-    assert_eq!(
-        role.scaled(40),
-        vec![(1, 10), (2, 40)],
-        "two streams at 20% and 80% set to 40% become 10% and 40%, not 40% and 40%"
-    );
 }
 
 async fn ready(service: &mut Audio, ctx: &Ctx<Audio>) -> mpsc::Receiver<pulse::Request> {

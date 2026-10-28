@@ -74,7 +74,7 @@ pub fn spawn(
 ) -> watch::Sender<Option<String>> {
     let (sender, mut bodies) = watch::channel(body);
     let mut providers = notifications.subscribe();
-    let app_id = format!("{}.Config", crate::applet::app_id());
+    let app_id = format!("{}.Config", glimpse_dbus::panel_app_id());
     relm4::spawn(async move {
         let mut serving = false;
         let mut shown: Option<Option<String>> = None;

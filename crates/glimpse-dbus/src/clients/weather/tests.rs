@@ -2,43 +2,6 @@ use super::*;
 use chrono::TimeZone as _;
 use zbus::zvariant::Type;
 
-const EVERY: [Condition; 21] = [
-    Condition::ClearSky,
-    Condition::MainlyClear,
-    Condition::PartlyCloudy,
-    Condition::Overcast,
-    Condition::Fog,
-    Condition::Drizzle,
-    Condition::FreezingDrizzle,
-    Condition::LightRain,
-    Condition::Rain,
-    Condition::HeavyRain,
-    Condition::FreezingRain,
-    Condition::LightSnow,
-    Condition::Snow,
-    Condition::HeavySnow,
-    Condition::SnowGrains,
-    Condition::Sleet,
-    Condition::RainShowers,
-    Condition::SnowShowers,
-    Condition::Thunderstorm,
-    Condition::ThunderstormWithHail,
-    Condition::Unknown,
-];
-
-#[test]
-fn every_condition_maps_to_a_day_and_a_night_icon() {
-    for condition in EVERY {
-        for is_day in [true, false] {
-            let name = condition.icon_name(is_day);
-            assert!(
-                name.ends_with("-symbolic") && name.len() > "-symbolic".len(),
-                "{condition:?} at is_day={is_day} named {name:?}"
-            );
-        }
-    }
-}
-
 #[test]
 fn the_bar_and_the_hero_round_the_same_way() {
     for value in [18.4, 18.5, -0.4, -3.6, 0.0] {

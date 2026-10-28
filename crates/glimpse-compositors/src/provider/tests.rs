@@ -1001,3 +1001,19 @@ async fn serve_returns_ended_and_releases_the_name_when_the_event_stream_ends() 
     let name = zbus::names::BusName::try_from(BUS_NAME).expect("a bus name");
     assert!(!dbus.name_has_owner(name).await.expect("an owner query"));
 }
+
+#[tokio::test]
+async fn serve_returns_a_clean_exit_when_the_session_bus_dies() {
+    let mut bus = PrivateBus::start();
+    let (fake, _events, _) = fake(None);
+    let (_proxy, task) = served(&bus, fake).await;
+
+    bus.kill();
+    let error = tokio::time::timeout(Duration::from_secs(10), task)
+        .await
+        .expect("serve to return once its bus is gone")
+        .expect("serve to finish");
+
+    assert!(matches!(error, ServeError::BusClosed), "{error}");
+    assert_eq!(error.exit_code(), 0);
+}

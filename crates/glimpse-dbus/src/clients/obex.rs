@@ -10,7 +10,6 @@ pub const MANAGER: &str = "/org/bluez/obex";
 )]
 pub trait AgentManager1 {
     fn register_agent(&self, agent: &ObjectPath<'_>) -> zbus::Result<()>;
-    fn unregister_agent(&self, agent: &ObjectPath<'_>) -> zbus::Result<()>;
 }
 
 #[zbus::proxy(
@@ -41,6 +40,4 @@ pub trait Transfer1 {
 pub trait Session1 {
     #[zbus(property)]
     fn destination(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn source(&self) -> zbus::Result<String>;
 }

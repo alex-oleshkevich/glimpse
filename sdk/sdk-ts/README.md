@@ -35,20 +35,16 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
 
 ## API
 
-- Components: `Indicator`, `Popover`, `Addon`, `Container`, `Section`, `Row`, `ActionRow`,
-  `ToggleRow`, `MeterRow`, `ExpanderRow`, `SliderRow`, `Start`, `End`, `Entry`, `EntryRow`, `Placeholder`,
-  `Box`, `Label`, `Image`, `Button`, `Switch`, `Scale`, `Spinner`, `Separator`, `FactList`,
-  `ChoiceList`, `Readout`, `Notice`, `Calendar`, `Dots`, `DropDown`, `ToggleButton`,
-  `CheckButton`, `Revealer`, `Stack`, `RangeBar`, `Bars`, `Sparkline` and `Swatch`.
-- Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopover`,
-  `useAppletName`, `useStateDir` and `usePersistentState`. `useStateDir` returns the applet's
-  private, persistent directory. `usePersistentState(key, initial)` works like `useState`: it
-  loads `key` from `state.json` in that directory on the first render (a missing or corrupt
-  file falls back to `initial`) and writes the whole JSON object back when the value changes,
-  so several keys share one file. It persists nothing when the state dir is empty.
-- Host requests: `openUri`, `launch`, and `close()` from `usePopover()`, which also returns
-  `open`.
-- SDK helpers: `notify` and `copy` run `notify-send` and `wl-copy` from the applet process.
+See the [SDK reference](https://alex-oleshkevich.github.io/glimpse/applets/exec/reference/sdk)
+and [elements](https://alex-oleshkevich.github.io/glimpse/applets/exec/reference/elements).
+
+`usePersistentState(key, initial)` works like `useState`: it
+loads `key` from `state.json` in that directory on the first render (a missing or corrupt
+file falls back to `initial`) and writes the whole JSON object back when the value changes,
+so several keys share one file. It persists nothing when the state dir is empty.
+The directory is the applet's private persistent directory, returned by `useStateDir`.
+
+`notify` and `copy` run `notify-send` and `wl-copy` from the applet process.
 
 An exec applet runs unconfined as a systemd user unit and has the user's full session.
 
@@ -56,8 +52,7 @@ The wire format is specified in [PROTOCOL.md](PROTOCOL.md).
 
 ## Testing
 
-Import `render` from `glimpse-sdk/testing` to run an applet with an in-memory host. Its
-`tree()` returns the current root node and `requests()` lists host requests. `click(id)`
-activates an ActionRow or clicks a Button; `setOptions(options)` and `setPopoverOpen(open)` send
-host messages. Call `close()` before rendering another applet. The test host checks the shape
-of each commit, not the panel's nesting and size rules; `glimpsectl applet run --dev` enforces those.
+Call the in-memory host's `close()` before rendering another applet. The test host checks
+the shape of each commit, not the panel's nesting and size rules;
+`glimpsectl applet run --dev` enforces those. See the
+[testing reference](https://alex-oleshkevich.github.io/glimpse/applets/exec/testing).

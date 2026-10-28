@@ -31,12 +31,15 @@ pub enum ServeError {
     Backend(Error),
     #[error("the compositor event stream ended")]
     Ended,
+    #[error("the session bus closed")]
+    BusClosed,
 }
 
 impl ServeError {
     pub fn exit_code(&self) -> u8 {
         match self {
             Self::NameTaken => 4,
+            Self::BusClosed => 0,
             _ => 1,
         }
     }
@@ -61,7 +64,11 @@ pub async fn run<B: Backend>(probe: bool, backend: Option<B>, missing: &'static 
         }
     };
     let ended = serve(connection, backend).await;
-    tracing::error!(%ended, "provider ended");
+    if matches!(ended, ServeError::BusClosed) {
+        tracing::info!(%ended, "provider stopped");
+    } else {
+        tracing::error!(%ended, "provider ended");
+    }
     ExitCode::from(ended.exit_code())
 }
 
@@ -99,9 +106,12 @@ pub async fn serve<B: Backend>(connection: Connection, backend: B) -> ServeError
         Ok(object) => object,
         Err(error) => return ServeError::Bus(error),
     };
-    follow(&object, &*backend, events, &updates, commands).await;
+    let ended = tokio::select! {
+        () = follow(&object, &*backend, events, &updates, commands) => ServeError::Ended,
+        () = exported.closed() => ServeError::BusClosed,
+    };
     exported.shutdown().await;
-    ServeError::Ended
+    ended
 }
 
 #[derive(Debug, Clone, PartialEq)]

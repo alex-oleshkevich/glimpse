@@ -561,7 +561,6 @@ pub struct FakeItem {
     shape: Shape,
     state: Shared,
     calls: Calls,
-    revision: Arc<Mutex<u32>>,
     status: Arc<Mutex<String>>,
 }
 
@@ -613,7 +612,6 @@ impl FakeItem {
             shape,
             state,
             calls,
-            revision,
             status,
         })
     }
@@ -700,16 +698,6 @@ impl FakeItem {
         AyatanaItem::x_ayatana_new_label(&self.emitter()?, label, "").await
     }
 
-    /// Take the menu away, the way an application that closes its menu does.
-    pub async fn drop_menu(&self) -> zbus::Result<()> {
-        self.state.lock().expect("lock poisoned").menu = false;
-        self.connection
-            .object_server()
-            .remove::<FakeMenu, _>(MENU_PATH)
-            .await?;
-        Ok(())
-    }
-
     pub async fn set_menu_status(&self, status: &str) -> zbus::Result<()> {
         *self.status.lock().expect("lock poisoned") = status.to_owned();
         let reference = self
@@ -722,20 +710,6 @@ impl FakeItem {
             .await
             .status_changed(reference.signal_emitter())
             .await
-    }
-
-    pub async fn bump_menu_revision(&self) -> zbus::Result<()> {
-        let revision = {
-            let mut guard = self.revision.lock().expect("lock poisoned");
-            *guard += 1;
-            *guard
-        };
-        FakeMenu::layout_updated(
-            &SignalEmitter::new(&self.connection, MENU_PATH)?,
-            revision,
-            0,
-        )
-        .await
     }
 
     /// Both shapes export the same interface name, so one emitter serves either: what selects the

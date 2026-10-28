@@ -371,14 +371,6 @@ fn a_secret_never_reaches_the_log_or_a_debug_line() {
     }
 }
 
-#[test]
-fn dialog_blur_follows_the_configured_boolean() {
-    let mut config = glimpse_config::Config::default();
-    assert!(!super::blurred(&config));
-    config.appearance.blur = true;
-    assert!(super::blurred(&config));
-}
-
 fn network_ask(key: &str) -> (Ask, oneshot::Receiver<network::Answer>) {
     let (reply, answer) = oneshot::channel();
     (

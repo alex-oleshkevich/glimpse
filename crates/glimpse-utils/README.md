@@ -1,19 +1,5 @@
 # glimpse-utils
 
-The argument structs and logging setup every binary repeats, written once.
-
-## Contents
-
-- `args.rs` — `LogArgs`, `ConfigArg`, flattened into each binary's clap `Cli`
-- `log.rs` — `LogFormat` and `init_app_tracing`
-- `i18n.rs` — `init_translations`, the one place the gettext domain is bound
-- `text.rs` — `clean`, the gate text from another application passes before it reaches a label
-- `selection.rs` — `is_sensitive`, the password-manager rule every clipboard reader applies before
-  reading content
-- `build.rs` — bakes `PREFIX` into the default catalog directory
-
-## What it holds
-
 Two `clap::Args` structs, both `global = true` so they may follow a subcommand, each carrying the
 environment variable that is its default: `ConfigArg` (`--config-dir`, `GLIMPSE_CONFIG_DIR`, no short flag),
 `LogArgs` (`--log`/`--log-format`, `RUST_LOG`).
@@ -35,9 +21,9 @@ acquire a second spelling elsewhere.
   at class-init — two instances built either side of a `LANGUAGE` change come out in different
   languages, so the domain must be bound before the first widget instance exists.
 - **`init_locale()` is `init_translations()` without the catalog** — `setlocale(LC_ALL, "")` alone,
-  for `glimpse-sunset` and `glimpse-weather`, which have no UI but still need the C library to see
-  `LC_MEASUREMENT`, or `[regional] units = "locale"` silently answers metric for everyone. Never give
-  a provider `init_translations`; its output is a journal, not a UI.
+  for providers, which have no UI but still need the C library to see `LC_MEASUREMENT`, or
+  `[regional] units = "locale"` silently answers metric for everyone. Never give a provider
+  `init_translations`; its output is a journal, not a UI.
 - **`[regional] language` sets `LANGUAGE`, only when the environment has not already set it**, and
   moves messages only — `LC_TIME` and `LC_MEASUREMENT` keep answering for themselves, so a Russian
   interface in Chicago still shows a twelve-hour clock.
@@ -52,10 +38,10 @@ acquire a second spelling elsewhere.
 ## Text, size and markup
 
 `clean(text, cap)` flattens whitespace, turns control characters and bidi overrides into a word
-break, and keeps at most `cap` characters, then `…` when it cut, so the result can be `cap + 1` long; `glimpse-compositors` keeps its
-own copy for window titles rather than take a dependency on this crate to avoid one. `size::bytes(u64)
--> String` formats a byte count SI-style, base 1000, dropping a trailing `.0` — `"1.5 MB"`, never
-`"1.50 MB"`.
+break, and keeps at most `cap` characters, then `…` when it cut, so the result is at most `cap + 1`
+long. `glimpse-compositors` caps window titles with its own `sanitize`, which drops the same
+`hostile` characters without collapsing whitespace. `size::bytes` formats a byte count SI-style,
+base 1000, dropping a trailing `.0` — `"1.5 MB"`, never `"1.50 MB"`.
 
 `sanitize_body(body)` turns a notification body into Pango markup: bounds the input, replaces bidi
 overrides and control characters with spaces (keeping `\n`, which `clean` would flatten), then runs

@@ -1,37 +1,5 @@
 # glimpsectl
 
-The suite's command line. It addresses providers through typed D-Bus interfaces, controls panel
-applets through GTK actions, and reads the configuration stack straight from disk.
-
-```bash
-glimpsectl night-light status
-glimpsectl night-light schedule off
-glimpsectl weather status --json
-glimpsectl weather refresh
-glimpsectl notifications list
-glimpsectl notifications dismiss 7
-glimpsectl notifications clear --app org.mozilla.firefox
-glimpsectl notifications dnd toggle
-glimpsectl notifications dnd on --until 18:00
-glimpsectl clipboard list
-glimpsectl clipboard get 1287236412341234 > copied.png
-glimpsectl config show
-glimpsectl doctor
-glimpsectl applet list
-glimpsectl applet inspect me.example.Clock --installed
-glimpsectl applet restart me.example.Clock
-just dev
-```
-
-## Contents
-
-- `lib.rs` — the modules, public so `tests/` can reach them
-- `main.rs` — flag resolution, the session-bus connection, subcommand dispatch, exit codes
-- `cli.rs` — the grammar and `needs_session_bus`
-- `commands/` — typed provider calls, panel actions and applet development tools
-- `render.rs` — `Table`, `Section`, the `styled` colours, and the one `print` everything leaves through
-- `errors.rs` — the `Exit` table and the one D-Bus-error-name to exit-code mapping
-
 ## Rules
 
 `applet run` asks the panel's `AppletHost` to run an applet as a systemd unit until Ctrl-C, passing
@@ -98,15 +66,13 @@ its name and never replies leaves `Proxy::call` awaiting forever, so each reques
 `within` on the same `glimpse_dbus::DEADLINE` the panel uses, and a timeout maps to `Exit::Timeout`.
 **A `--watch` subscription starts before its first snapshot and exits 3 when its provider loses
 its owner.** JSON watch output is NDJSON. `weather` has no watch mode.
-**`exit` maps D-Bus error names and holds only the codes something returns today**, with an unlisted
+**`exit` maps D-Bus error names to exit codes**, with an unlisted
 name mapping to 1 and 2 reserved for clap; `message` is the display half of the same mapping —
 `zbus::Error::FDO` already exposes its text as `source()`, so a naive print doubles it, and
 `message` walks the chain dropping what the previous link already said.
 
 Color resolution is `anstream`'s, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are
 honored without any detection of our own; errors go to stderr, only requested data to stdout.
-Column width in `render.rs` counts characters, not display columns, so a wide glyph in third-party
-text — CJK, an emoji, as in a notification summary — is measured one short and hangs its row.
 
 `session declare` is the hidden `glimpse-desktop.service` entry point. It changes an inherited
 `XDG_CURRENT_DESKTOP=niri` to `glimpse:niri` in the systemd and D-Bus activation environments,

@@ -6,7 +6,6 @@ use zbus::zvariant::OwnedObjectPath;
     default_path = "/org/freedesktop/GeoClue2/Manager"
 )]
 pub trait GeoClueManager {
-    fn get_client(&self) -> zbus::Result<OwnedObjectPath>;
     fn create_client(&self) -> zbus::Result<OwnedObjectPath>;
     fn delete_client(&self, client: OwnedObjectPath) -> zbus::Result<()>;
 
@@ -30,9 +29,6 @@ pub trait GeoClueClient {
 
     #[zbus(property, name = "Location")]
     fn location(&self) -> zbus::Result<OwnedObjectPath>;
-
-    #[zbus(signal)]
-    fn location_updated(&self, old: OwnedObjectPath, new: OwnedObjectPath) -> zbus::Result<()>;
 }
 
 #[zbus::proxy(

@@ -156,19 +156,9 @@ pub enum Command {
         action: PlayerAction,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    Seek {
-        player: String,
-        offset_us: i64,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
     SetPosition {
         player: String,
         position_us: i64,
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-    SetVolume {
-        player: String,
-        volume: f64,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     SetRepeat {
@@ -186,9 +176,7 @@ pub enum Command {
 #[derive(Debug)]
 pub enum Action {
     Control(PlayerAction),
-    Seek(i64),
     Position(i64),
-    Volume(f64),
     Loop(Repeat),
     Shuffle(bool),
 }
@@ -243,33 +231,11 @@ impl ServiceEndpoint<Mpris> {
         .await?
     }
 
-    pub async fn seek(&self, player: String, offset_us: i64) -> Result<(), CommandError> {
-        self.call("mpris stopped before completing the command", |reply| {
-            Command::Seek {
-                player,
-                offset_us,
-                reply,
-            }
-        })
-        .await?
-    }
-
     pub async fn set_position(&self, player: String, position_us: i64) -> Result<(), CommandError> {
         self.call("mpris stopped before completing the command", |reply| {
             Command::SetPosition {
                 player,
                 position_us,
-                reply,
-            }
-        })
-        .await?
-    }
-
-    pub async fn set_volume(&self, player: String, volume: f64) -> Result<(), CommandError> {
-        self.call("mpris stopped before completing the command", |reply| {
-            Command::SetVolume {
-                player,
-                volume,
                 reply,
             }
         })
@@ -498,21 +464,11 @@ impl Mpris {
                 action,
                 reply,
             } => (player, Action::Control(action), reply),
-            Command::Seek {
-                player,
-                offset_us,
-                reply,
-            } => (player, Action::Seek(offset_us), reply),
             Command::SetPosition {
                 player,
                 position_us,
                 reply,
             } => (player, Action::Position(position_us), reply),
-            Command::SetVolume {
-                player,
-                volume,
-                reply,
-            } => (player, Action::Volume(volume), reply),
             Command::SetRepeat {
                 player,
                 repeat,
@@ -605,7 +561,6 @@ async fn apply(
             PlayerAction::Next => player.next().await.map_err(say),
             PlayerAction::Raise => Ok(()),
         },
-        Action::Seek(offset_us) => player.seek(offset_us).await.map_err(say),
         Action::Position(position_us) => {
             let track = track.ok_or("the player named no track to seek within")?;
             let path = ObjectPath::try_from(track.as_str())
@@ -615,7 +570,6 @@ async fn apply(
                 .await
                 .map_err(say)
         }
-        Action::Volume(volume) => player.set_volume(volume.clamp(0.0, 1.0)).await.map_err(say),
         Action::Loop(repeat) => player.set_loop_status(status(repeat)).await.map_err(say),
         Action::Shuffle(shuffle) => player.set_shuffle(shuffle).await.map_err(say),
     }

@@ -153,25 +153,6 @@ fn a_device_that_lost_its_bond_says_so_on_its_row() {
 }
 
 #[test]
-fn a_busy_device_spins_rather_than_spelling_out_what_it_is_doing() {
-    for doing in [
-        Busy::Connecting,
-        Busy::Disconnecting,
-        Busy::Pairing,
-        Busy::Forgetting,
-    ] {
-        let mut busy = device("Buds", false);
-        busy.busy = Some(doing);
-        busy.battery = Some(80);
-        let state = state(Power::On, false, vec![busy]);
-
-        let row = &entries(&state, 6, 8, (false, false), false).entries[0];
-
-        assert!(row.busy, "{doing:?} must reach the row as a spinner");
-    }
-}
-
-#[test]
 fn a_device_that_is_pairing_spins_on_its_own_row() {
     let mut pairing = device("Buds", false);
     pairing.paired = false;
@@ -286,15 +267,6 @@ fn a_pairing_that_will_not_survive_a_restart_is_said_on_the_row() {
         "a problem is seen without opening anything"
     );
     assert!(calm.iter().all(|entry| entry.problem.is_empty()));
-}
-
-#[test]
-fn a_failure_reaches_the_user_as_a_sentence_and_never_as_a_token() {
-    let told = wording(Failure::Unreachable);
-
-    assert!(!told.is_empty());
-    assert!(!told.contains("br-connection"));
-    assert!(told.ends_with('.'));
 }
 
 #[test]

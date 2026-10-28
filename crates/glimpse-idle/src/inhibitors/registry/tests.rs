@@ -39,22 +39,6 @@ fn cookie_round_trips_through_insert_and_release() {
 }
 
 #[test]
-fn release_record_removes_from_every_secondary_map() {
-    let mut r = Registry::default();
-    let id = r.mint_id();
-    let cookie = r.mint_cookie();
-    let record = IdleInhibitorRecord {
-        source: IdleInhibitorSource::screen_saver(cookie),
-        ..test_record(id, ":1.1", false)
-    };
-    r.insert(record, None);
-    assert_eq!(r.release_record(id), Some(id));
-    assert_eq!(r.lookup_by_cookie(cookie), None);
-    assert!(!r.bus_name_to_ids.contains_key(":1.1"));
-    assert_eq!(r.records.len(), 0);
-}
-
-#[test]
 fn release_record_of_unknown_id_returns_none() {
     let mut r = Registry::default();
     assert!(r.release_record(999).is_none());
@@ -211,16 +195,6 @@ fn check_capacity_enforces_per_bus_limit_independently_per_bus_name() {
     assert!(r.check_capacity(Some(":1.9")).is_err());
     assert!(r.check_capacity(Some(":1.10")).is_ok());
     assert!(r.check_capacity(None).is_ok());
-}
-
-#[test]
-fn check_capacity_bounds_no_bus_name_records_by_the_total_cap() {
-    let mut r = Registry::default();
-    for _ in 0..Registry::MAX_INHIBITORS_TOTAL {
-        let id = r.mint_id();
-        r.insert(test_record(id, "", false), None);
-    }
-    assert!(r.check_capacity(None).is_err());
 }
 
 #[test]

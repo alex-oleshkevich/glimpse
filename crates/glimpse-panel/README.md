@@ -1,35 +1,19 @@
 # glimpse-panel
 
-The panel: layer-shell bars, applets and popovers. Builds the binary named `glimpse-panel`.
+## Bars and program launches
 
-## Contents
+The read-only GTK `bars` action carries `a(uss)` entries of config index, connector and edge for
+every mapped bar, including empty ones.
 
-- `main.rs` — CLI, config load and the GTK application start
-- `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches;
-  the read-only GTK `bars` action carries `a(uss)` entries of config index, connector and edge for
-  every mapped bar, including empty ones
-- `services.rs` — the panel-local composition root and its explicit service dependencies
-- `config_alert.rs` — configuration problems as one notification under `<app id>.Config`
-- `components/panel.rs` — bar window, zones, applet reconciliation
-- `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
-  `popover::launch`, which starts an argv in a transient user service with no shell, from the
-  panel's environment or, when asked, from a clean one built with `env -i`, kept until its cgroup
-  empties so whatever a launcher forks survives it, reports a start job ending other than
-  `done` as an error, and falls back to a direct spawn when the user manager is unavailable; its
-  D-Bus half runs on relm4's tokio runtime, since zbus finds no reactor on the GLib executor
-- `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
-  and next-event applets both need to say about a calendar entry
+`popover::launch` starts an argv in a transient user service with no shell, from the panel's
+environment or, when asked, from a clean one built with `env -i`. The service is kept until its
+cgroup empties so whatever a launcher forks survives it. A start job ending other than `done` is an
+error; an unavailable user manager falls back to a direct spawn. Its D-Bus half runs on relm4's
+tokio runtime, since zbus finds no reactor on the GLib executor.
 
 ## Applets
 
-Most applets own one `IndicatorGroup`, so their view is the same shape and only
-`Vec<IndicatorSpec>` varies. The trait is object-safe; the runtime stores `Box<dyn Applet>`:
-
-```rust
-fn handle(&mut self, ctx: &Ctx, input: &Input)
-fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget>   // None: the runtime supplies the group
-fn indicators(&self) -> Vec<IndicatorSpec>
-```
+The `Applet` trait stays object-safe; the runtime stores `Box<dyn Applet>`.
 
 An applet builder captures its own service handle from `Ctx`: it seeds from `handle.snapshot()`,
 then `Ctx::watch(handle.subscribe())` turns later changes into `Woken` inputs, and `Ctx` owns the
@@ -112,9 +96,9 @@ stays, re-settling whenever the body's measurement changes. **The catcher takes
 assume `set_thickness` is a minimum. **A position or monitor change closes an open popover**, since the
 anchor is one axis's coordinate and reusing it across orientations is arbitrary.
 
-**The animation is `AdwTimedAnimation`, not a CSS transition** — a `transition: opacity` on the
-same node did not animate, and an unmapped widget or `gtk-enable-animations: false` skips to the
-end and emits `done` synchronously, keeping the state machine one path. **The shadow is in `px`**:
+**The animation is `AdwTimedAnimation`, not a CSS transition** — an unmapped widget or
+`gtk-enable-animations: false` skips to the end and emits `done` synchronously, keeping the state
+machine one path. **The shadow is in `px`**:
 `box-shadow` with `rem` lengths renders nothing in GTK4, silently. The arrow is a
 `Gtk.DrawingArea`, not a rotated box, since GTK4 has no triangle and a rotated square overflows its
 allocation into the bar. The slot is a `Gtk.Grid` placing the arrow by cell and drawing it after the
@@ -123,7 +107,7 @@ body on every side: a box draws in layout order, so the body's shadow would cove
 ## The applets
 
 **clock and next-event** — `agenda.rs` owns everything about a calendar event, so a new field lands
-in one place. **The next-event applet has no empty state, which is why it is usually absent** —
+in one place. **The next-event applet has no empty state** —
 nothing inside `within` means no chip, and an event ending under an open popover closes it through
 `Opener::close_popover`, since nothing else would.
 
@@ -172,8 +156,8 @@ does not track output count**, since changing shape on hotplug reads as a differ
 connector (the internal panel), then the first. **The switch reads `schedule != "off"`, never
 `active`** — `active` is `temperature != DAY`, false every daylight hour under Automatic.
 
-**tray** — the second applet supplying its own view, for the pager's reason. **The icon ladder is
-six steps**: an absolute path that exists wins over a themed name, the item's own `IconThemePath`
+**tray** — **The icon ladder is six steps**: an absolute path that exists wins over a themed name,
+the item's own `IconThemePath`
 is probed before the icon theme, and pixels are last. **A dbusmenu separator is an item; a `GMenu`
 separator is a section boundary**, so the transform must leave no empty sections. **`a(iiay)` is
 ARGB32 in network byte order** — GDK's `A8r8g8b8` exactly; a dark halo means premultiplication was

@@ -595,7 +595,7 @@ def open_each(env, ctl, base, bar, shots: Path, tag: str, applets: list[str]):
             rewind(env)
         shot = None
         for attempt in range(3):
-            opened = subprocess.run([BIN / "glimpsectl", "panel", "popover", "open", "winit", applet],
+            opened = subprocess.run([BIN / "glimpsectl", "applet", "open", "--output", "winit", applet],
                                     env=ctl, capture_output=True)
             if opened.returncode != 0:
                 print(f"  {applet}: no popover ({opened.stderr.decode().strip()[:120]})")
@@ -743,7 +743,7 @@ def video(env, config_dir: Path, scratch: Path, work: Path, personal: Path):
             time.sleep(VIDEO_GLIDE / steps)
         pointer[:] = [x, y]
 
-    glimpsectl("settings", "mode", MODES[0])
+    glimpsectl("appearance", "set", MODES[0])
     panel = spawn([BIN / "glimpse-panel", "--config-dir", config_dir], ctl, scratch / "panel-video.log")
     time.sleep(7)
     move(*pointer)
@@ -762,7 +762,7 @@ def video(env, config_dir: Path, scratch: Path, work: Path, personal: Path):
         glimpsectl("panel", "popovers", "close")
         if applet:
             glide(PANEL_X[applet] * pixel, logical[1] - 24 * pixel)
-            glimpsectl("panel", "popover", "open", "winit", applet)
+            glimpsectl("applet", "open", "--output", "winit", applet)
 
     def volume(level: int):
         subprocess.run(["pactl", "set-sink-volume", "headphones", f"{level}%"], env=env,
@@ -791,12 +791,12 @@ def video(env, config_dir: Path, scratch: Path, work: Path, personal: Path):
         popover("notifications")
         at(23.0)
         popover(None)
-        glimpsectl("settings", "mode", MODES[1])
+        glimpsectl("appearance", "set", MODES[1])
         at(24.5)
         popover("weather")
         at(28.0)
         popover(None)
-        glimpsectl("settings", "mode", MODES[0])
+        glimpsectl("appearance", "set", MODES[0])
         at(VIDEO_LENGTH + VIDEO_FADE + 0.5)
     finally:
         recorder.send_signal(signal.SIGINT)
@@ -902,7 +902,7 @@ def ecosystem(env, config_dir, scratch, work, personal):
                       scratch / f"panel-shot-{scheme}.log")
         time.sleep(7)
         try:
-            subprocess.run([BIN / "glimpsectl", "panel", "popover", "open", "winit", "weather"],
+            subprocess.run([BIN / "glimpsectl", "applet", "open", "--output", "winit", "weather"],
                            env=ctl, capture_output=True)
             time.sleep(2)
             ratio = capture(env, shots / f"shot-base-{scheme}.png").width / SCREENSHOT_WINDOW[0]

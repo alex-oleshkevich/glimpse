@@ -35,11 +35,6 @@ fn no_pending() -> HashSet<u32> {
 }
 
 #[test]
-fn no_jobs_and_no_problems_shows_no_chip() {
-    assert!(chip(&PrintingState::default(), PrintingShow::Jobs).is_none());
-}
-
-#[test]
 fn a_processing_job_lights_the_printing_icon() {
     let state = PrintingState {
         printers: vec![printer_at("office", PrinterState::Idle)],

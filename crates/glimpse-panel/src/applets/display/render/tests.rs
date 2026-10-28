@@ -258,12 +258,6 @@ fn a_step_on_a_wide_native_range_is_the_exact_percentage() {
 }
 
 #[test]
-fn coalescer_sends_the_first_request_immediately() {
-    let mut coalescer = Coalescer::new();
-    assert_eq!(coalescer.request(1), Some(1));
-}
-
-#[test]
 fn coalescer_queues_a_request_arriving_while_one_is_in_flight() {
     let mut coalescer = Coalescer::new();
     assert_eq!(coalescer.request(1), Some(1));
@@ -311,11 +305,6 @@ fn focused_output(connector: &str, label: Option<&str>, focused: bool) -> Output
         logical: None,
         enabled: true,
     }
-}
-
-#[test]
-fn the_chip_is_gone_with_no_outputs() {
-    assert_eq!(chip(false, false, &[]), None, "AC-13");
 }
 
 #[test]

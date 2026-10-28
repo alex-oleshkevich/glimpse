@@ -3,9 +3,9 @@
 `just preview <path/to/blueprint.blp>` renders one blueprint with the **real widgets** and
 reloads on save. The path is resolved against the working directory — there is no search of
 `var/widget_examples/`, so a bare `notifications.blp` fails. Compile errors render into the window
-in red. The host is `glimpse_widgets::preview::run`. The `glimpse-widgets` example registers the
-widget types and calls it, so `Builder` resolves `$PopoverShell` and `$Hero`. A blueprint path under
-`crates/glimpse-agents/` runs that crate's example. `Esc` closes it.
+in red. The `glimpse-widgets` example registers the widget types and calls the host, so `Builder`
+resolves `$PopoverShell` and `$Hero`. A blueprint path under `crates/glimpse-agents/` runs that
+crate's example. `Esc` closes it.
 `--scheme dark|light` forces the scheme; a widget is not checked until it has been seen under both.
 
 Four things it must do, each of which fails silently otherwise:
@@ -38,8 +38,7 @@ preview's own slot instead.
 It opens floating through a `window-rule` on `^me\.aresa\.WidgetPreview` in the **user's own** niri
 config — nothing here installs it. `open-on-workspace "glimpse"` is only half the rule: without a
 matching `workspace "glimpse" { open-on-output "eDP-1" }` declaration the workspace is created on
-whichever output is focused and previews scatter between runs. Layer-shell was tried first and
-rendered nothing.
+whichever output is focused and previews scatter between runs. Layer-shell renders nothing here.
 
 **Stylesheets.** The theme's `dark.css` loads at `USER + 1`, and only while the
 scheme is dark — any sheet named `dark.css` is gated that way. `_shared.css` beside the example loads
@@ -61,8 +60,8 @@ into `body` and panics on an unbound `TemplateChild`. The guard is
 `self.body.try_get().is_none()`.
 
 **PyGObject cannot host this.** It cannot override an interface vfunc the parent already implements,
-so a `do_add_child` on a Python subclass is accepted, never called. Measured. Any preview host that
-needs real widgets has to be Rust.
+so a `do_add_child` on a Python subclass is accepted, never called. Any preview host that needs real
+widgets has to be Rust.
 
 **`blueprint-compiler lint` has two false positives.** It reports `scrollable_parent` for any extern
 `$CustomType` inside a container, and rejects a `Gtk.Adjustment` carrying anything besides `lower`,

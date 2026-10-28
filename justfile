@@ -164,10 +164,6 @@ ctl *ARGS:
 net-guard *ARGS:
     scripts/net-guard.sh "$@"
 
-[doc("click a point on a niri output with a wlr virtual pointer")]
-click *ARGS:
-    python3 scripts/click.py "$@"
-
 [doc("the real lock stage in a window with stub data; password is glimpse")]
 preview-lock *ARGS:
     cargo run -q -p glimpse-widgets --features preview --example lock-preview -- {{ ARGS }}

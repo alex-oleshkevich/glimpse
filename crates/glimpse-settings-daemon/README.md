@@ -6,8 +6,8 @@ It acquires the name exclusively before starting its services, so a second insta
 acquiring location or writing desktop preferences. SIGTERM and SIGINT stop its services and release the name.
 
 Solar calculation lives in `glimpse-services`; this binary supplies its configured location input
-and exports read-only `Solar`, `Geolocation` and `Mode` properties. Weather follows geolocation for `Here`.
-GeoClue retries, city accuracy, the last fix kept under `state_dir()` and transient client cleanup belong to the existing
+and exports read-only `Solar`, `Geolocation` and `Mode` properties.
+GeoClue retries, city accuracy, the last fix kept under `state_dir()` and transient client cleanup belong to the
 location service. It reads `config.toml` only, never `panel.toml`; `--config-dir` stacks a directory
 above the user's, file changes and SIGHUP reload it, and a rejected reload keeps the last valid
 configuration. Sunset owns gamma control

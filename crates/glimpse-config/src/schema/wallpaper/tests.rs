@@ -50,12 +50,6 @@ fn fit_accepts_center() {
 }
 
 #[test]
-fn an_absent_outputs_table_is_an_empty_list() {
-    let config = load("").expect("an absent table is fine");
-    assert!(config.wallpaper.outputs.is_empty());
-}
-
-#[test]
 fn an_output_override_reads_its_monitor_and_leaves_the_rest_unset() {
     let config = load("[[wallpaper.outputs]]\nmonitor = \"DP-2\"\n")
         .expect("a bare monitor key is enough")

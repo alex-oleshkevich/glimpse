@@ -5,7 +5,7 @@ use glimpse_dbus::kdeconnect::{
     self, ClipboardProxy, DeviceProxy, FindMyPhoneProxy, PingProxy, SftpProxy, ShareProxy, SmsProxy,
 };
 
-use super::{Action, DeviceId, source};
+use super::{Action, DeviceId};
 
 macro_rules! proxy {
     ($proxy:ty, $connection:expr, $owner:expr, $path:expr) => {
@@ -102,11 +102,4 @@ pub async fn share_text(
     )
     .share_text(text)
     .await
-}
-
-pub async fn discover(connection: &Connection, owner: &str) -> Result<()> {
-    source::daemon(connection, owner)
-        .await?
-        .force_on_network_change()
-        .await
 }

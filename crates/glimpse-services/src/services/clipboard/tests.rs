@@ -92,15 +92,6 @@ async fn harness() -> Harness {
 }
 
 #[tokio::test]
-async fn nothing_is_published_before_the_first_capture_arrives() {
-    let harness = harness().await;
-
-    assert!(harness.state.borrow().entries.is_empty());
-    assert_eq!(harness.state.borrow().total_bytes, 0);
-    assert!(harness.state.borrow().unavailable.is_none());
-}
-
-#[tokio::test]
 async fn a_capture_reaches_the_published_state() {
     let mut harness = harness().await;
 
@@ -266,13 +257,6 @@ async fn a_document_that_turns_the_clipboard_off_forgets_what_was_held() {
         harness.service.subscriptions().is_empty(),
         "a disabled clipboard opens no connection"
     );
-}
-
-#[tokio::test]
-async fn an_enabled_clipboard_declares_exactly_one_source() {
-    let harness = harness().await;
-
-    assert_eq!(harness.service.subscriptions().len(), 1);
 }
 
 #[tokio::test]

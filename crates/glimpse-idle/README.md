@@ -6,35 +6,13 @@ UPower to choose between `profiles.ac` and `profiles.battery`. The default profi
 screens with `glimpse-dpms off` and wake them with `glimpse-dpms on`, which Hyprland needs and niri
 tolerates.
 
-## Contents
-
-- `main.rs` — `run(cli) -> anyhow::Result<()>`; `main` maps the outcome to an `ExitCode`
-- `errors.rs` — `exit` maps every error to `Exit::Failed`; success is `Exit::Ok`
-- `cli.rs` — argument surface, flattening shared structs from `glimpse-utils`
-- `services.rs` — composition root: takes `me.aresa.Glimpse.Idle`, serves `Idle1Server`, starts
-  every other task, wires config reloads into the actor
-- `idle.rs` — listener state machine: resolves `ActiveListener`s from the active profile, tracks
-  fired listeners, runs their commands
-- `wayland_notify.rs` — the `ext-idle-notify-v1` client; reports a stalled compositor as `Degraded`
-- `inhibitors/registry.rs` — `Registry`, the shared capacity-bounded inhibitor store
-- `inhibitors/health.rs` — `Health`, one `InhibitorsHealth` per backend slot, plus the generation
-  behind `Idle1.Health`
-- `inhibitors/shared.rs` — `SharedRegistry`, the `Arc`+`Mutex` wrapper every surface shares
-- `inhibitors/control.rs` — `Idle1Server`, serving `me.aresa.Glimpse.Idle1` (`Hold`/`Release`,
-  `Inhibitors`/`HoldExpiries`/`Health`)
-- `inhibitors/screen_saver.rs` — `ScreenSaverServer`, serving `org.freedesktop.ScreenSaver`
-  (`Inhibit`/`UnInhibit` only) and auto-releasing a departed client's records
-- `inhibitors/login1_observer.rs` — polls `Login1Manager.ListInhibitors`, mirroring external
-  inhibitors into the registry as read-only records
-- `inhibitors/portal.rs` — `PortalInhibit` (`org.freedesktop.impl.portal.Inhibit`), `PortalRequest`
-  (releases its record on `Close()`), `PortalSession` (the monitor session `CreateMonitor` returns)
-
 ## Design
 
 **`org.freedesktop.ScreenSaver` serves only `Inhibit`/`UnInhibit`.** The rest of the interface —
 `GetActive`, `Lock`, `SimulateUserActivity`, etc. — describes a screensaver this daemon doesn't own;
 an app calling one of those gets `UnknownMethod`, since only the two implemented members are what
-browsers and media players actually call.
+browsers and media players actually call. A client that leaves the bus has its records released by
+`watch_disconnects`, matched on the `bus_name` its `Inhibit` came from.
 
 **The portal `Inhibit` interface is served whole, because `glimpse-portals.conf` claims it whole.**
 Declaring `org.freedesktop.impl.portal.Inhibit=glimpse` also routes `CreateMonitor` and
@@ -81,11 +59,12 @@ killed, because a blocking locker as `on_idle` must keep running.
 
 **Health is one value with one slot per backend; the actor holds none of it, and the Wayland slot
 is load-bearing** — a compositor with no `ext-idle-notify-v1` fires no listener ever, and without
-its own health slot that reads exactly like a healthy daemon with nothing to report. Wayland setup
-itself runs on a blocking worker under a timeout, and a stalled attempt is never abandoned for a
-second one: connect/bind/roundtrip can't be cancelled, so a compositor that accepts the socket but
-never answers parks that worker thread; `wayland_notify::run` threads the same `JoinHandle` through
-every retry, re-awaiting it rather than replacing it with a fresh `spawn_blocking`. The backend
+its own health slot that reads exactly like a healthy daemon with nothing to report. Every failed or
+timed-out setup attempt writes `Degraded` to that slot. Wayland setup itself runs on a blocking
+worker under a timeout, and a stalled attempt is never abandoned for a second one:
+connect/bind/roundtrip can't be cancelled, so a compositor that accepts the socket but never answers
+parks that worker thread; `wayland_notify::run` threads the same `JoinHandle` through every retry,
+re-awaiting it rather than replacing it with a fresh `spawn_blocking`. The backend
 still connects and retries even when `[idle] enabled = false`.
 
 **`inhibitors::Registry` is pure logic with no D-Bus surface; `SharedRegistry` is what every

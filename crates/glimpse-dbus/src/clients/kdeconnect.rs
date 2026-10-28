@@ -25,9 +25,6 @@ const NAME: usize = 64;
 pub trait Daemon {
     #[zbus(name = "devices")]
     fn devices(&self, only_reachable: bool, only_paired: bool) -> zbus::Result<Vec<String>>;
-
-    #[zbus(name = "forceOnNetworkChange")]
-    fn force_on_network_change(&self) -> zbus::Result<()>;
 }
 
 #[zbus::proxy(interface = "org.kde.kdeconnect.device")]

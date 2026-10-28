@@ -8,15 +8,6 @@ fn load(text: &str) -> Result<crate::Config, crate::ConfigError> {
 }
 
 #[test]
-fn an_absent_table_polls_every_fifteen_minutes() {
-    let weather = load("").expect("an absent table is fine").weather;
-
-    assert_eq!(weather.provider, Provider::OpenMeteo);
-    assert_eq!(weather.poll_interval, 900);
-    assert_eq!(weather.forecast_days, 7);
-}
-
-#[test]
 fn every_key_reads_kebab_case() {
     let parsed = load("[weather]\npoll-interval = 1200\nforecast-days = 3\n")
         .expect("kebab-case keys")

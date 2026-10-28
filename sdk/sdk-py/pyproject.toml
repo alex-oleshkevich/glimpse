@@ -40,7 +40,6 @@ python_version = "3.14"
 [tool.ruff]
 target-version = "py314"
 line-length = 100
-extend-exclude = ["examples/kitchen_sink/glimpse_sdk.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID", "ANN"]

@@ -39,9 +39,7 @@ func main() { sdk.Run(app{}) }
 - Controlled props (`value`, `active`, `open`, `selected`) always come from state. An event's
   `seq` is copied onto the confirming `set`; an event older than the last applied `seq` is
   dropped; a rejected edit still confirms, so the panel restores the state value.
-- `Context` carries `Name`, `StateDir`, `Options`, `Placement`, `PopoverOpen`, the
-  optional `Entry` (the host's desktop entry `ID`, `Name` and `Icon`), and the host
-  requests `OpenURI`, `Launch` and `ClosePopover`. `Notify` and `Copy` are
+- `Notify` and `Copy` are
   client-side helpers: they spawn `notify-send` and `wl-copy` from the applet
   process and never touch the wire. `Notify` takes its app name from `Entry.Name`,
   falling back to `Name`, maps an unknown urgency to `normal`, and uses `Entry.Icon`
@@ -61,10 +59,5 @@ func main() { sdk.Run(app{}) }
 
 ## Example and tests
 
-`examples/kitchen_sink/` exercises every element kind, every handler, the desktop
-helpers, persistence, a one-second ticker, and keyed reordering. Run it against an
-isolated second panel — never the session bar — as described in `docs/live-testing.md`.
-
-```
-go test ./...
-```
+Run `examples/kitchen_sink/` against an isolated second panel, never the session bar;
+see [live-testing rules](../../docs/live-testing.md). `just sdk-test` tests the SDKs.

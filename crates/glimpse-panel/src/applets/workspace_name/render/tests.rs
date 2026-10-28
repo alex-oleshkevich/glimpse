@@ -101,11 +101,6 @@ fn the_tooltip_reads_its_format_tokens() {
 }
 
 #[test]
-fn the_title_is_the_workspace_ordinal() {
-    assert_eq!(title(&workspace(3, "DP-2", true, true)), "Workspace 3");
-}
-
-#[test]
 fn a_rename_is_trimmed_and_an_empty_one_clears_the_name() {
     assert_eq!(rename(None, "  dev "), Some(Some("dev".to_owned())));
     assert_eq!(rename(Some("dev"), "   "), Some(None));

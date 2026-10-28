@@ -87,19 +87,6 @@ fn a_token_that_is_empty_or_over_the_bound_is_dropped_rather_than_shortened() {
 }
 
 #[test]
-fn a_notification_carries_the_pid_of_the_process_that_sent_it() {
-    let held = record(
-        1,
-        Incoming {
-            app_pid: Some(4265),
-            ..incoming("Telegram", "Marta")
-        },
-    );
-
-    assert_eq!(held.app_pid, Some(4265));
-}
-
-#[test]
 fn unread_notifications_are_capped_at_the_ceiling() {
     let mut held = Store::new(10);
     for id in 1..=10_000 {

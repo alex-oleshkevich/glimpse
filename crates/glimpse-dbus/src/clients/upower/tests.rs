@@ -45,29 +45,6 @@ fn a_document_with_a_child_node_yields_its_name() {
 }
 
 #[test]
-fn a_child_name_resolves_under_the_parent_path() {
-    let path = child_node_names(PARENT_WITH_CHILD_DOCUMENT)
-        .into_iter()
-        .find_map(|name| OwnedObjectPath::try_from(format!("{KBD_BACKLIGHT_PATH}/{name}")).ok())
-        .unwrap_or_else(parent_kbd_backlight_path);
-
-    assert_eq!(
-        path.as_str(),
-        "/org/freedesktop/UPower/KbdBacklight/acme_kbd_backlight"
-    );
-}
-
-#[test]
-fn no_children_falls_back_to_the_parent_path() {
-    let path = child_node_names(PARENT_ONLY_DOCUMENT)
-        .into_iter()
-        .find_map(|name| OwnedObjectPath::try_from(format!("{KBD_BACKLIGHT_PATH}/{name}")).ok())
-        .unwrap_or_else(parent_kbd_backlight_path);
-
-    assert_eq!(path.as_str(), KBD_BACKLIGHT_PATH);
-}
-
-#[test]
 fn a_single_quoted_name_attribute_is_recognised() {
     let document = r#"<node><node name='acme_kbd_backlight'/></node>"#;
 

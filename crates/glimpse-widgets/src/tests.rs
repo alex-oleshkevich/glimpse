@@ -427,7 +427,6 @@ mod inhibitor_list_checks;
 mod keyboard_popover_checks;
 mod mpris_popover_checks;
 mod network_popover_checks;
-mod none_if_empty_checks;
 mod notice_checks;
 mod notification_card_checks;
 mod notification_stack_checks;

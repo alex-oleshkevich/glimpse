@@ -4,14 +4,6 @@ The background layer surface: sources, decoding, transitions and the overview ba
 
 A separate binary from the panel so that restarting the panel does not black the screen.
 
-## What it does
-
-- Per output, a background and (unless disabled) a backdrop surface, redrawn on hotplug and rescale
-- A single image, with an optional dark variant
-- Follows `appearance.color-scheme` to swap between them
-- Serves the wallpaper portal: an accepted image is copied under `state_dir()/wallpaper/`,
-  written as `[wallpaper] image` and `image-dark`, and announced by a notification that can undo it
-
 ## Rules
 
 Every output gets its surfaces when it is announced; one with zero geometry decodes nothing until
@@ -34,6 +26,9 @@ only while its key is still the one the surface wants, so it cannot overwrite a 
 The image and the theme mode come from the configuration it reads itself, so no other process's
 absence leaves a black screen. The overview backdrop follows the compositor provider and stays off
 while no provider serves it.
+
+The wallpaper portal runs in this process: an accepted image is copied under `state_dir()/wallpaper/`,
+written as `[wallpaper] image` and `image-dark`, and announced by a notification that can undo it.
 
 Configuration is the `[wallpaper]` table of the shared `config.toml`, including its nested
 `[wallpaper.backdrop]`. Tables owned by other binaries are ignored, not validated. Schema in

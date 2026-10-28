@@ -1,22 +1,16 @@
 # glimpse-widgets
 
-Shared GTK4 widgets: GObject subclasses, Blueprint templates and the CSS they expect. Used by the
-panel, the notification popup process and the lock screen.
+A widget moves here as soon as a second binary needs it: no copy-paste between panel and lock.
 
-## Layout
+## Templates
 
-- `src/<widget>/` — one directory per widget, `mod.rs` plus `imp.rs`
-- `blueprints/` — `.blp` templates, compiled by `build.rs` through `blueprint-compiler`
-- `resources/widgets/` — generated `.ui`, bundled into `glimpse-widgets.gresource`
+Registration and widget conventions live in the [widget skill](../../.apm/skills/widget/SKILL.md).
+**Every type a template names must be bound as a `TemplateChild`, even one Rust never reads** —
+binding registers the GType before `init_template` resolves the class by name, or `Builder` reports
+`Invalid object type` and the constructor panics.
 
-Adding a template is three edits: the `build.rs` pair, the `gresource.xml` entry, the module in
-`lib.rs`. Resource prefix `/me/aresa/GlimpseShell`. **Every type a template names must be bound as a
-`TemplateChild`, even one Rust never reads** — binding registers the GType before `init_template`
-resolves the class by name, or `Builder` reports `Invalid object type` and the constructor panics.
-
-`preview::run` (feature `preview`) is the preview host. It compiles the blueprint to
-`$TMPDIR/glimpse-preview-{pid}.ui`, so two previews never share a file. The example that calls
-`run` registers the types that blueprint names.
+The preview host compiles to `$TMPDIR/glimpse-preview-{pid}.ui`, so two previews never share a file.
+The calling example registers the types its blueprint names.
 
 ## Recurring rules
 
@@ -37,12 +31,12 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
 
 ## Indicator, IndicatorGroup, Pager, TrayStrip and InhibitorList
 
-The icon is one `Option<gio::Icon>`, sitting in a `Gtk.Overlay` whose `overlay` is an emblem on the
-trailing corner; the slot follows the base icon's presence, so an indicator with neither reserves no
-space. `extension` reparents only on identity change, so an applet keeps one widget and updates it
-in place. **A badge hides the attention dot but must not cancel attention itself** — two marks for
-one fact is noise, so `indicator--attention` keeps colouring the chip while the dot yields. `Pager`
-is a click per slot; an item takes no click of its own, since `GtkButton` restricts its gesture to
+The icon is one `Option<gio::Icon>` in a `Gtk.Overlay`, with its emblem on the trailing corner.
+An indicator's icon slot follows the base icon's presence, so an indicator with neither icon nor
+overlay reserves no space. `extension` reparents only on identity change, so an applet keeps one
+widget and updates it in place. **A badge hides the attention dot but must not cancel attention
+itself** — two marks for one fact is noise, so `indicator--attention` keeps colouring the chip while
+the dot yields. A `Pager` item takes no click of its own, since `GtkButton` restricts its gesture to
 the primary button and acting on a workspace happens in the popover.
 
 `TrayStrip` renders one `Indicator` per `TrayChip`, a remote object `IndicatorGroup` cannot express.
@@ -98,9 +92,7 @@ blurred card is translucent and would show a strip through its own bottom.
 
 ## Popovers
 
-Framed applet popovers use `PopoverShell`: `icon-name`, `title` and `subtitle` describe the header,
-`[addon]` fills its trailing slot, and plain children scroll in the body with the settings link last.
-The shell owns the surface and its regular or wide size. **A row in a list is one line;
+`PopoverShell` owns the surface and its regular or wide size. **A row in a list is one line;
 its second line is only ever a problem**, in `.row--warning` amber, so rows of a kind keep one height.
 **Facts precede actions in every drawer.**
 Cards have at most one destructive action, so Forget outranks Disconnect.
@@ -149,9 +141,8 @@ last-good snapshot rather than collapsing on `None`, since the provider is a sep
 can restart mid-popover — a snapshot that has never arrived is a different state, no section at all.
 
 `PowerPopover`'s Battery drawer shows while it has facts or a charge limit, and closes before it
-hides; History closes before it hides too, and emits `history-opened` only on opening. `SessionPopover`'s other-sessions and
-updates sections hide when empty, and the widget emits `action-requested` and `activate-session`
-without knowing logind.
+hides; History closes before it hides too, and emits `history-opened` only on opening.
+`SessionPopover`'s other-sessions and updates sections hide when empty; it knows nothing about logind.
 
 ## PasswordPrompt, LockClock, SessionSheet, LockStage, StatusIsland and TrackCard
 
@@ -176,16 +167,15 @@ the sheet or the power button close the sheet, both in the capture phase so the 
 
 ## ClipboardPopover, ClipboardList, PlacesPopover and RemovablePopover
 
-`ClipboardList` reconciles by clip id. An image's head is a tile with a badge carrying
-`expandable__opener`, since `Expandable` cannot otherwise find the opener inside a head that is
-not a row. **The card is built on first open and never rebuilt**, since a clip's
-content cannot change under its id — each render only rewrites the pin row's wording.
+`ClipboardList` reconciles by clip id. An image's head carries `expandable__opener`, since
+`Expandable` cannot otherwise find the opener inside a head that is not a row. **The card is built
+on first open and never rebuilt**, since a clip's content cannot change under its id.
 
-`PlacesPopover`'s four independent `$Section`s each hide when they have nothing, with no exception
-and no placeholder. In `RemovablePopover`, **every device is one `ExpanderRow` in a flat list, keyed by id**, whose
-head opens the drawer even when unmounted and carries the accent check while its main volume is
-mounted. A drawer reads the space `MeterRow`, one `ActionRow` per extra volume (its size beside the
-check, since a `Row`'s `[end]` slot no longer hides the value), Open, then the destructive Eject
+`PlacesPopover`'s four sections each hide when they have nothing, with no exception and no
+placeholder. In `RemovablePopover`, **every device is one `ExpanderRow` in a flat list, keyed by id**,
+whose head opens the drawer even when unmounted and carries the accent check while its main volume
+is mounted. A drawer reads the space `MeterRow`, one `ActionRow` per extra volume (its size beside
+the check, since a `Row`'s `[end]` slot does not hide the value), Open, then the destructive Eject
 last; while busy they stay in place and insensitive. The device icon is the only icon in the
 popover, and busy is the head's spinner. Overflow is an `ExpanderRow` "N more" whose drawer holds
 the same row widget, with the applet owning its open state and the `quiet` flag muting the echo.
@@ -199,19 +189,18 @@ count, and there is no hero. Formatting and sanitizing raw CUPS text is the pane
 this widget's.
 
 In `PrivacyPopover`, **a row is one app, and it opens to what it uses and, when it can be stopped,
-Stop sharing.** `Mute
-microphone` is a `ToggleRow` under the list, not an action in an app's card, because it mutes the
-input device rather than that one app. `Swatch` paints its `color` property and nothing else; a
-color is data, so it is never a CSS class per value. `WorkspaceNamePopover::set_name` writes the
-entry only while the user has not touched it, or a compositor event arriving mid-edit would
-replace what is being typed.
+Stop sharing.** `Mute microphone` is a `ToggleRow` under the list, not an action in an app's card,
+because it mutes the input device rather than that one app. `Swatch` paints its `color` property and
+nothing else; a color is data, so it is never a CSS class per value.
+`WorkspaceNamePopover::set_name` writes the entry only while the user has not touched it, or a
+compositor event arriving mid-edit would replace what is being typed.
 
 ## Bars and Sparkline
 
 Both are snapshot-drawn and take their colour from the CSS `color` of the widget; every dim part
 (the older bars, the empty tick, the area fill) is that colour at a lower alpha, so dark and light
 need no second rule. Both have accessible role `img` and a char-capped `label`, take at most 366
-values and keep the newest, and treat a `None` as no data. Setters compare before they write.
+values and keep the newest, and treat a `None` as no data.
 
 `Bars` sizes itself from its allocation and a caller sets no width. `layout` is a pure function
 returning integer widths of at least 1 that never leave `0..width`: the gap shrinks to 0 before a
@@ -274,6 +263,7 @@ only a `Gtk-WARNING` on stderr, so every `var()` in the built-in carries a fallb
 Tokens live in `:root` in three tiers, and a rule may only read the tier below it: libadwaita's
 tokens → `--gl-*` → component rules. **`--gl-muted`, `--gl-dim` and `--gl-faint` resolve lower in
 light than dark**, matching `.dimmed` in every Adwaita application; do not compensate for it.
+Notification cards contrast with the surface in both schemes.
 **`--gl-duration` belongs to `[appearance] animation-speed`, not to a sheet**, since GTK cannot hand
 a CSS value back to code. **Thickness is `[[panels]] size`, not CSS** — `set_size_request` is also a
 minimum, so a CSS floor silently overrides a smaller configured size.
@@ -291,29 +281,17 @@ opacity on the blurred widget itself and a blur, which cannot fade, is gated at 
 
 ## Screenshot
 
-`ShotToolbar`, `ShotWindowList`, `ShotRegion`, `ShotBanner`, `ShotCountdown`, `ShotCapturePage`,
-`ShotResultPage`, `ShotPreferences` and `shot_shortcuts()` are the screenshot surfaces. They take plain values and emit signals; the
-`glimpse-shot` binary owns capture, files and the discard dialog.
+Screenshot widgets take plain values and emit signals; `glimpse-shot` owns capture, files, config
+and the discard dialog.
 
-- **A setter that is handed the value already showing writes nothing and emits nothing.** Toggle
-  buttons report a choice only when the click turns that button on, so pressing the active tool
-  again is silent. Programmatic `set_*` never emits.
-- **Tool ids are `crop`, `arrow`, `rect`, `filled-rect`, `oval`, `number`, `text`, `blur`.** Targets are `screen`
-  and `window`. Palette index `0..=4` is red, yellow, green, blue, white. Stroke `1..=3` is thin,
-  medium, thick. Anything else is ignored.
-- **`action` names** `undo`, `redo`, `apply-crop`, `copy-close`, `cancel` and the copy split
-  button's menu entries `save`, `save-as`, `open-with`, `open-window`. The menu is the `shot` action
-  group; `set_finish_actions` enables only the entries a mode can run, and a disabled entry is
-  hidden. Apply crop shows only while `set_apply_visible(true)`. Undo and redo stay insensitive
-  until `set_can_undo` / `set_can_redo`.
-- **`ShotResultPage` embeds a `ShotToolbar` in its bottom bar with targets, history and finishing hidden**
-  (`toolbar()` reaches it); `picture()` is the page's `Gtk.Picture` and `name-changed` fires on each
-  edit of the name. Bottom undo and redo emit that toolbar's `action`. The header emits copy, save,
-  save-as, open-with and new. The rename popover holds the name; the folder is in Preferences.
-  `set_zoom` is `fit` or `actual`.
-- **`ShotPreferences` supplies the fixed groups and controls; `glimpse-shot` owns the config.**
-  The five color choices carry `shot-color` plus their color class so CSS paints them in either scheme.
-  `shot_shortcuts()` loads the six-section shortcuts dialog from the resource.
+- **Programmatic updates never emit.** Toggle buttons report a choice only when the click turns
+  that button on, so pressing the active tool again is silent. Invalid choices are ignored.
+- Finishing menu entries are enabled only in modes that can run them, and disabled entries are
+  hidden. Apply crop shows only while applicable; undo and redo stay insensitive until available.
+- The result page's embedded toolbar hides targets, history and finishing controls. Bottom undo
+  and redo emit its `action`. The rename popover holds the name; the folder is in Preferences.
+- The five color choices carry `shot-color` plus their color class so CSS paints them in either
+  scheme.
 - **Window titles and prompts are capped by character and set as plain text.** A row's
   first line is `name`, else the title, else the app id; `icon` is used when set. A section with no
   rows is hidden. The focused entry carries `shot-list__row--current`.
@@ -325,6 +303,3 @@ opacity on the blurred widget itself and a blur, which cannot fade, is gated at 
   `/me/aresa/GlimpseShell/icons` to the display's icon theme, which is what lets `icon-name` recolor
   them. A `file:` image does not.
 
-## Rules
-
-A widget moves here as soon as a second binary needs it: no copy-paste between panel and lock.

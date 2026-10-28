@@ -41,7 +41,6 @@ url.workspace = true
 zbus.workspace = true
 
 [build-dependencies]
-glib-build-tools.workspace = true
 shadow-rs.workspace = true
 
 [dev-dependencies]

@@ -19,17 +19,6 @@ fn an_absent_table_keeps_a_hundred() {
 }
 
 #[test]
-fn the_bound_reads_from_the_document() {
-    assert_eq!(
-        load("[notifications]\nkeep = 20\n")
-            .expect("keep is a key of this table")
-            .notifications
-            .keep,
-        20
-    );
-}
-
-#[test]
 fn a_setting_this_table_does_not_have_is_refused() {
     let rendered = load("[notifications]\ngroups = 6\n")
         .expect_err("`groups` belongs to the applet, not to this table")

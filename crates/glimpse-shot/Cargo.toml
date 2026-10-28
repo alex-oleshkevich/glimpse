@@ -45,7 +45,6 @@ zbus.workspace = true
 glib.workspace = true
 glimpse-dbus = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
-tokio = { workspace = true, features = ["test-util"] }
 
 [build-dependencies]
 shadow-rs.workspace = true

@@ -27,14 +27,6 @@ fn put(history: &mut History, body: &str) -> Result<bool, Refused> {
 }
 
 #[test]
-fn a_fresh_history_holds_nothing_before_any_event_arrives() {
-    let history = History::new(limits());
-
-    assert!(history.entries().is_empty());
-    assert_eq!(history.total_bytes(), 0);
-}
-
-#[test]
 fn a_capture_lands_at_the_front() {
     let mut history = History::new(limits());
 

@@ -229,16 +229,6 @@ fn the_popover_marks_a_metered_connection_whatever_the_tooltip_is_told_to_do() {
 }
 
 #[test]
-fn an_unmetered_guess_is_not_marked() {
-    let state = NetworkState {
-        metered: nm::Metered::GuessNo,
-        ..connected(70)
-    };
-    let tip = tooltip(&state, None).expect("a tooltip");
-    assert!(!tip.contains(&gettext("Metered connection")));
-}
-
-#[test]
 fn a_hostile_ssid_is_capped_before_it_reaches_the_bar() {
     let long = "Kaffeehaus Freies WLAN Gäste-Zugang Bitte Registrieren".repeat(3);
     let mut state = connected(70);

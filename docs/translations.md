@@ -37,8 +37,7 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
   C scanner loses its place inside both, costing the rest of that file.
 - **A new file's strings are extracted as soon as the file exists.** `scripts/i18n-extract.sh`
   builds its list with `rg --files`, not `git ls-files`, so an untracked `.rs` or `.blp` is picked up
-  without staging it. `grep -c '^msgid ' po/glimpse.pot` is still the number that tells the truth
-  when the count looks wrong.
+  without staging it.
 - **`var/` is not extracted.** Its examples carry `_()` markers so they read like the real thing,
   but they never ship.
 - **A new language is three edits:** `po/LINGUAS`, a new `po/<lang>.po`, and one asset line in

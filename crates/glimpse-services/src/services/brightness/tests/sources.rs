@@ -10,11 +10,6 @@ fn a_card_symlink_target_yields_the_connector_after_the_first_dash() {
 }
 
 #[test]
-fn a_missing_device_link_has_no_connector() {
-    assert_eq!(connector(None), None);
-}
-
-#[test]
 fn a_backlight_with_no_device_link_still_produces_a_source() {
     let records = sources_from(vec![entry("ddcci1", "raw", 50, 100, None)]);
 
@@ -49,14 +44,6 @@ fn the_floor_never_reaches_zero_through_rounding_on_a_small_max() {
 #[test]
 fn a_zero_max_brightness_floors_to_zero_rather_than_panicking() {
     assert_eq!(floor(0, 3), 0);
-}
-
-#[test]
-fn preference_orders_firmware_before_platform_before_raw() {
-    let mut kinds = vec!["raw", "platform", "firmware"];
-    kinds.sort_by_key(|kind| preference(kind));
-
-    assert_eq!(kinds, vec!["firmware", "platform", "raw"]);
 }
 
 #[test]

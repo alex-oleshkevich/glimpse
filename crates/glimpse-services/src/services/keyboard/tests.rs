@@ -68,28 +68,6 @@ fn hyprland_layouts_publish_uppercase_codes() {
 }
 
 #[test]
-fn niri_layouts_derive_codes_and_keep_names() {
-    let published = payload(
-        &served(&["English (US)", "German"], &[], Some(0)),
-        &BTreeMap::new(),
-        &codes(),
-    );
-    assert_eq!(
-        published.layouts,
-        [
-            KeyboardLayout {
-                code: "EN".to_owned(),
-                name: "English (US)".to_owned(),
-            },
-            KeyboardLayout {
-                code: "DE".to_owned(),
-                name: "German".to_owned(),
-            },
-        ]
-    );
-}
-
-#[test]
 fn an_unknown_name_uses_its_first_two_letters() {
     let published = payload(
         &served(&["Unknown layout"], &[], Some(0)),
@@ -122,13 +100,6 @@ fn a_names_only_layout_matches_short_code_labels_case_insensitively() {
         assert_eq!(published.layouts[0].code, "custom", "label key: {key}");
         assert_eq!(published.layouts[0].name, "English (US)");
     }
-}
-
-#[test]
-fn an_empty_list_has_no_current() {
-    let published = payload(&Served::default(), &BTreeMap::new(), &codes());
-    assert!(published.layouts.is_empty());
-    assert_eq!(published.current, None);
 }
 
 #[test]

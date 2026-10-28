@@ -64,7 +64,7 @@ impl Served {
 async fn missing_clipboard_is_unreachable() {
     let bus = PrivateBus::start();
     let client = bus.connection().await;
-    let error = clipboard_get(&client, 1).await.unwrap_err();
+    let error = clipboard_get_output(&client, 1, false).await.unwrap_err();
     assert_eq!(
         crate::errors::exit(&error),
         crate::errors::Exit::Unreachable
@@ -85,8 +85,10 @@ async fn get_round_trips_and_an_unknown_entry_is_rejected() {
         .unwrap();
     let client = bus.connection().await;
 
-    clipboard_get(&client, STORED).await.unwrap();
+    clipboard_get_output(&client, STORED, false).await.unwrap();
 
-    let error = clipboard_get(&client, MISSING).await.unwrap_err();
+    let error = clipboard_get_output(&client, MISSING, false)
+        .await
+        .unwrap_err();
     assert_eq!(crate::errors::exit(&error), crate::errors::Exit::Rejected);
 }

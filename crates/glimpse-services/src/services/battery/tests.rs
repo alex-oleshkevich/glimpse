@@ -35,11 +35,6 @@ fn history_is_sorted_without_gaps_and_keeps_the_last_duplicate() {
     );
 }
 
-#[test]
-fn empty_history_has_no_points() {
-    assert!(history_points(Vec::new()).is_empty());
-}
-
 #[tokio::test]
 async fn history_without_an_internal_supply_is_unavailable() {
     let cancel = CancellationToken::new();

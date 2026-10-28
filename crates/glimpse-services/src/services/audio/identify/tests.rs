@@ -76,11 +76,6 @@ fn reads_icon_name() {
 }
 
 #[test]
-fn event_sound_is_detected() {
-    assert!(is_event_sound(&props(&[("media.role", "event")])));
-}
-
-#[test]
 fn empty_props_resolve_to_an_empty_name() {
     let identity = identify(&HashMap::new(), None, None, 4);
 

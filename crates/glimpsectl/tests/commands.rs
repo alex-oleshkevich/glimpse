@@ -1,4 +1,4 @@
-use glimpsectl::commands::{ABSENT, reason_or_absent, within, yes_no};
+use glimpsectl::commands::{ABSENT, reason_or_absent, within};
 
 #[tokio::test(start_paused = true)]
 async fn a_request_that_never_answers_is_given_up_on() {
@@ -31,10 +31,4 @@ async fn a_request_that_answers_is_not_disturbed_by_the_bound() {
 fn a_healthy_provider_has_no_reason_to_show() {
     assert_eq!(reason_or_absent(""), ABSENT);
     assert_eq!(reason_or_absent("no location fix"), "no location fix");
-}
-
-#[test]
-fn a_flag_reads_as_a_word() {
-    assert_eq!(yes_no(true), "yes");
-    assert_eq!(yes_no(false), "no");
 }

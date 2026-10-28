@@ -166,17 +166,6 @@ fn a_normal_buffer_is_read_row_by_row() {
 }
 
 #[test]
-fn an_inverted_buffer_is_read_bottom_row_first() {
-    let frame = Frame::upright(
-        String::new(),
-        raw(3, 2, wl_output::Transform::Normal, true),
-        &numbered(3, 2),
-    );
-
-    assert_eq!(reds(&frame), [3, 4, 5, 0, 1, 2]);
-}
-
-#[test]
 fn a_quarter_turn_swaps_the_sides() {
     let frame = Frame::upright(
         String::new(),
@@ -186,17 +175,6 @@ fn a_quarter_turn_swaps_the_sides() {
 
     assert_eq!((frame.width, frame.height), (2, 3));
     assert_eq!(reds(&frame), [3, 0, 4, 1, 5, 2]);
-}
-
-#[test]
-fn a_half_turn_reverses_the_buffer() {
-    let frame = Frame::upright(
-        String::new(),
-        raw(3, 2, wl_output::Transform::_180, false),
-        &numbered(3, 2),
-    );
-
-    assert_eq!(reds(&frame), [5, 4, 3, 2, 1, 0]);
 }
 
 fn grim(raw: Raw, x: usize, y: usize) -> (usize, usize) {

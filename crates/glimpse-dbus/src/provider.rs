@@ -100,6 +100,11 @@ impl<I: Interface> Exported<I> {
         Self::start(connection, name, path, interface, follow).await
     }
 
+    pub fn closed(&self) -> impl Future<Output = ()> + Send + 'static {
+        let connection = self.connection.clone();
+        async move { connection.closed().await }
+    }
+
     pub async fn shutdown(self) {
         let Self {
             connection,

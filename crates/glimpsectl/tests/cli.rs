@@ -1,7 +1,7 @@
 use clap::CommandFactory;
 use glimpsectl::cli::{
     AppletCommand, AppletLanguage, Cli, Command, ConfigCommand, NightLightCommand, SessionCommand,
-    duration, temperature,
+    duration,
 };
 
 #[test]
@@ -148,14 +148,6 @@ fn zero_scroll_steps_are_a_usage_error() {
     ])
     .expect_err("scrolling must have at least one step");
     assert_eq!(error.exit_code(), 2);
-}
-
-#[test]
-fn a_temperature_is_kelvin_or_clear_and_never_zero() {
-    assert_eq!(temperature("4000"), Ok(4000));
-    assert_eq!(temperature("clear"), Ok(0));
-    assert!(temperature("0").is_err());
-    assert!(temperature("warm").is_err());
 }
 
 #[test]

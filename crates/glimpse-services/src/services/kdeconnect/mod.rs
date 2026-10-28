@@ -157,9 +157,6 @@ pub enum Command {
         text: String,
         reply: Reply,
     },
-    Discover {
-        reply: Reply,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,14 +238,6 @@ impl crate::ServiceEndpoint<Kdeconnect> {
         self.call(
             "kdeconnect stopped before completing the command",
             |reply| Command::ShareText { id, text, reply },
-        )
-        .await?
-    }
-
-    pub async fn discover(&self) -> Result<(), CommandError> {
-        self.call(
-            "kdeconnect stopped before completing the command",
-            |reply| Command::Discover { reply },
         )
         .await?
     }
@@ -437,12 +426,6 @@ impl Kdeconnect {
                     let _ = reply.send(outcome.map_err(failed));
                 });
             }
-            Command::Discover { reply } => {
-                ctx.spawn_detached(move |_| async move {
-                    let outcome = call::discover(&connection, &owner).await;
-                    let _ = reply.send(outcome.map_err(failed));
-                });
-            }
         }
     }
 }
@@ -451,8 +434,7 @@ fn refuse(command: Command, reason: &str) {
     let reply = match command {
         Command::Act { reply, .. }
         | Command::Share { reply, .. }
-        | Command::ShareText { reply, .. }
-        | Command::Discover { reply } => reply,
+        | Command::ShareText { reply, .. } => reply,
     };
     let _ = reply.send(Err(CommandError::Unavailable(reason.to_owned())));
 }

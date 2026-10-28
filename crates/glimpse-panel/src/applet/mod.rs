@@ -127,10 +127,6 @@ pub fn themed(name: &str) -> gtk4::gio::Icon {
     gtk4::gio::ThemedIcon::new(name).upcast()
 }
 
-pub fn app_id() -> String {
-    glimpse_dbus::panel_app_id()
-}
-
 #[derive(Clone)]
 pub struct Report {
     pub notifications: NotificationsProviderHandle,
@@ -181,7 +177,7 @@ pub async fn report_failure<E: Display>(
         .notifications
         .post(
             &report.app_name,
-            &app_id(),
+            &glimpse_dbus::panel_app_id(),
             &report.icon,
             &report.summary,
             &body,

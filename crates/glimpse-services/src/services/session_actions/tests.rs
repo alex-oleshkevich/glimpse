@@ -30,16 +30,6 @@ fn unsupported_capability_is_absent() {
 }
 
 #[test]
-fn suspend_and_lock_do_not_confirm_and_power_actions_do() {
-    assert!(!Action::Lock.confirm());
-    assert!(!Action::Suspend.confirm());
-    assert!(Action::Hibernate.confirm());
-    assert!(Action::LogOut.confirm());
-    assert!(Action::Reboot.confirm());
-    assert!(Action::PowerOff.confirm());
-}
-
-#[test]
 fn inhibitors_are_limited_and_text_is_bounded() {
     let entries = (0..10)
         .map(|_| {

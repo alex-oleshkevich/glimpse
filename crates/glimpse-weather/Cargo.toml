@@ -17,7 +17,6 @@ glimpse-services.workspace = true
 glimpse-utils.workspace = true
 shadow-rs.workspace = true
 tokio.workspace = true
-tokio-util.workspace = true
 tracing.workspace = true
 zbus.workspace = true
 
@@ -26,3 +25,4 @@ shadow-rs.workspace = true
 
 [dev-dependencies]
 glimpse-dbus = { workspace = true, features = ["testing"] }
+tokio-util.workspace = true

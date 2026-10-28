@@ -18,8 +18,6 @@ pub trait StatusNotifierWatcher {
     fn registered_status_notifier_items(&self) -> zbus::Result<Vec<String>>;
     #[zbus(property)]
     fn is_status_notifier_host_registered(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn protocol_version(&self) -> zbus::Result<i32>;
 
     #[zbus(signal)]
     fn status_notifier_item_registered(&self, service: String) -> zbus::Result<()>;
@@ -27,8 +25,6 @@ pub trait StatusNotifierWatcher {
     fn status_notifier_item_unregistered(&self, service: String) -> zbus::Result<()>;
     #[zbus(signal)]
     fn status_notifier_host_registered(&self) -> zbus::Result<()>;
-    #[zbus(signal)]
-    fn status_notifier_host_unregistered(&self) -> zbus::Result<()>;
 }
 
 /// An item registers with either a bus name or an object path, and some send neither usefully, so

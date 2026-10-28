@@ -1,30 +1,21 @@
-use std::f64::consts::TAU;
+use std::{convert::Infallible, f64::consts::TAU};
 
 use crate::services::GeolocationStatus;
 use chrono::{DateTime, Datelike, NaiveDate, TimeDelta, Utc};
 use futures_util::{StreamExt as _, future, stream, stream::BoxStream};
 use glimpse_dbus::login1::Login1ManagerProxy;
 use glimpse_dbus::weather::GeoCoordinates;
-use tokio::{
-    sync::{oneshot, watch},
-    time,
-};
+use tokio::{sync::watch, time};
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint},
+    service::{Input, NoConfig, Service, ServiceEndpoint},
     subscription::Sub,
 };
 pub use glimpse_dbus::settings::{SolarPhase, SolarStatus};
 
 const TICK: time::Duration = time::Duration::from_secs(60);
-
-pub enum Command {
-    Refresh {
-        reply: oneshot::Sender<Result<(), CommandError>>,
-    },
-}
 
 pub enum Event {
     Tick,
@@ -44,15 +35,6 @@ pub struct SolarDependencies {
 
 pub type SolarHandle = ServiceEndpoint<Solar>;
 
-impl ServiceEndpoint<Solar> {
-    pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call("`solar` stopped before refreshing", |reply| {
-            Command::Refresh { reply }
-        })
-        .await?
-    }
-}
-
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
     Tick,
@@ -66,7 +48,7 @@ impl Service for Solar {
 
     type Config = NoConfig;
     type State = Option<SolarStatus>;
-    type Command = Command;
+    type Command = Infallible;
     type Event = Event;
     type Dependencies = SolarDependencies;
     type SubKey = Watch;
@@ -127,10 +109,7 @@ impl Service for Solar {
                 self.refresh();
             }
             Input::Event(Event::Tick) => self.refresh(),
-            Input::Command(Command::Refresh { reply }) => {
-                self.refresh();
-                let _ = reply.send(Ok(()));
-            }
+            Input::Command(command) => match command {},
             Input::Config(NoConfig) => {}
         }
     }

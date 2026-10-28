@@ -39,3 +39,4 @@ website/.vitepress/dist/
 /.claude/skills
 /.agents/skills
 apm_modules/
+.codegraph/

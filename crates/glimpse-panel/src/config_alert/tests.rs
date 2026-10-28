@@ -1,36 +1,12 @@
 use super::*;
 
 #[test]
-fn failure_is_the_verdict() {
-    let problems = Problems {
-        failure: Some("failed".to_owned()),
-        rejected: Some("rejected".to_owned()),
-        ..Problems::default()
-    };
-    assert_eq!(problems.verdict(), Err("failed".to_owned()));
-}
-
-#[test]
-fn rejection_is_the_verdict_without_failure() {
-    let problems = Problems {
-        rejected: Some("rejected".to_owned()),
-        ..Problems::default()
-    };
-    assert_eq!(problems.verdict(), Err("rejected".to_owned()));
-}
-
-#[test]
 fn unknown_applets_do_not_fail_the_verdict() {
     let problems = Problems {
         unknown_applets: vec!["unknown".to_owned()],
         ..Problems::default()
     };
     assert_eq!(problems.verdict(), Ok(()));
-}
-
-#[test]
-fn empty_problems_have_an_ok_verdict() {
-    assert_eq!(Problems::default().verdict(), Ok(()));
 }
 
 #[test]

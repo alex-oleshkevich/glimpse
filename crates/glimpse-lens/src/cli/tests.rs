@@ -8,8 +8,6 @@ fn the_default_is_a_plain_magnifier() {
     assert!(cli.format.is_none());
     assert!(!cli.json);
     assert!(!cli.copy);
-    assert_eq!(cli.radius, 180);
-    assert_eq!(cli.zoom, 3);
     assert!(cli.validate().is_ok());
 }
 

@@ -182,30 +182,6 @@ fn no_records_since_the_lock_produce_no_groups() {
 }
 
 #[test]
-fn an_icon_reaches_the_group_from_the_most_recent_record() {
-    let records = vec![
-        record(
-            1,
-            "app",
-            "App",
-            at(1),
-            NotificationUrgency::Normal,
-            Some("older-icon"),
-        ),
-        record(
-            2,
-            "app",
-            "App",
-            at(2),
-            NotificationUrgency::Normal,
-            Some("newer-icon"),
-        ),
-    ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
-    assert!(groups[0].icon.is_some());
-}
-
-#[test]
 fn a_missing_icon_on_the_most_recent_record_falls_back_to_an_older_one_in_the_group() {
     let records = vec![
         record(

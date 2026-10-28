@@ -6,8 +6,6 @@ use std::sync::Mutex;
 use futures_util::Stream;
 #[cfg(feature = "testing")]
 use futures_util::stream;
-#[cfg(feature = "testing")]
-use tokio::sync::mpsc;
 
 /// Watching the compositor's clipboard and taking it back.
 /// Synchronous on purpose, like `Gamma`: `set_selection` carries no reply, so the only failure
@@ -79,51 +77,18 @@ pub struct FakeSelection {
 #[cfg(feature = "testing")]
 #[derive(Default)]
 struct Record {
-    /// One per live `events()` call. A dropped stream's sender is swept on the next send, so a
-    /// source the runtime tore down costs nothing.
-    feeds: Vec<mpsc::UnboundedSender<SelectionEvent>>,
     offered: Vec<Offer>,
-    subscriptions: usize,
     failure: Option<String>,
 }
 
 #[cfg(feature = "testing")]
 impl FakeSelection {
-    pub fn capture(&self, mime: &str, data: &[u8]) {
-        self.push(mime, data);
-    }
-
-    pub fn unavailable(&self, reason: &str) {
-        self.emit(SelectionEvent::Unavailable(reason.to_owned()));
-    }
-
     pub fn offered(&self) -> Vec<Offer> {
         self.record().offered.clone()
     }
 
-    /// How many times the source has been built. The runtime rebuilds it whenever the declared
-    /// set changes, so a backend that can only be subscribed once is a defect this can catch.
-    pub fn subscriptions(&self) -> usize {
-        self.record().subscriptions
-    }
-
     pub fn fail(&self, reason: Option<&str>) {
         self.record().failure = reason.map(str::to_owned);
-    }
-
-    fn push(&self, mime: &str, data: &[u8]) {
-        self.emit(SelectionEvent::Captured(Capture {
-            mime: mime.to_owned(),
-            data: Arc::from(data),
-        }));
-    }
-
-    fn emit(&self, event: SelectionEvent) {
-        let mut record = self.record();
-        record.feeds.retain(|feed| !feed.is_closed());
-        for feed in &record.feeds {
-            let _ = feed.send(event.clone());
-        }
     }
 
     /// Poisoning only means a test panicked while holding this; the record is still readable and
@@ -136,13 +101,7 @@ impl FakeSelection {
 #[cfg(feature = "testing")]
 impl Selection for FakeSelection {
     fn events(&self) -> Pin<Box<dyn Stream<Item = SelectionEvent> + Send>> {
-        let (feed, events) = mpsc::unbounded_channel();
-        let mut record = self.record();
-        record.feeds.push(feed);
-        record.subscriptions += 1;
-        Box::pin(stream::unfold(events, |mut events| async move {
-            events.recv().await.map(|event| (event, events))
-        }))
+        Box::pin(stream::pending())
     }
 
     fn offer(&self, offer: Offer) -> Result<(), String> {

@@ -564,7 +564,6 @@ pub fn decode_profile(settings: &Settings) -> Profile {
     default_path = "/org/freedesktop/NetworkManager"
 )]
 pub trait NetworkManager {
-    fn get_devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn activate_connection(
         &self,
         connection: &ObjectPath<'_>,
@@ -584,10 +583,7 @@ pub trait NetworkManager {
     )>;
     fn deactivate_connection(&self, active_connection: &ObjectPath<'_>) -> zbus::Result<()>;
     fn enable(&self, enable: bool) -> zbus::Result<()>;
-    fn check_connectivity(&self) -> zbus::Result<u32>;
 
-    #[zbus(property)]
-    fn wireless_enabled(&self) -> zbus::Result<bool>;
     #[zbus(property)]
     fn set_wireless_enabled(&self, value: bool) -> zbus::Result<()>;
 }
@@ -605,7 +601,6 @@ pub trait Device {
     default_service = "org.freedesktop.NetworkManager"
 )]
 pub trait DeviceWireless {
-    fn get_all_access_points(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn request_scan(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
 }
 
@@ -615,15 +610,12 @@ pub trait DeviceWireless {
 )]
 pub trait SettingsConnection {
     fn get_settings(&self) -> zbus::Result<Settings>;
-    fn get_secrets(&self, setting_name: &str) -> zbus::Result<Settings>;
-    fn update(&self, settings: HashMap<&str, HashMap<&str, Value<'_>>>) -> zbus::Result<()>;
     fn update2(
         &self,
         settings: HashMap<&str, HashMap<&str, Value<'_>>>,
         flags: u32,
         args: HashMap<&str, Value<'_>>,
     ) -> zbus::Result<HashMap<String, OwnedValue>>;
-    fn save(&self) -> zbus::Result<()>;
     fn delete(&self) -> zbus::Result<()>;
 }
 

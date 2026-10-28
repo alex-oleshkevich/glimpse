@@ -18,10 +18,6 @@ pub fn config_show(json: bool) -> Result<()> {
     }
 }
 
-pub fn config_validate(path: Option<PathBuf>) -> Result<()> {
-    config_validate_output(path, false)
-}
-
 pub fn config_validate_output(path: Option<PathBuf>, json: bool) -> Result<()> {
     let config = match path {
         Some(path) => {

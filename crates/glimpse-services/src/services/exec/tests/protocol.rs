@@ -245,37 +245,6 @@ async fn an_unknown_message_and_a_flood_do_not_stop_the_child() {
 }
 
 #[tokio::test]
-async fn removed_service_requests_do_not_stop_the_child() {
-    let (_dir, entry, _output) = script(
-        "import json, time\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend('{\"t\":\"notify\",\"summary\":\"x\"}')\nsend('{\"t\":\"copy\",\"text\":\"x\"}')\nsend('{\"t\":\"mpris\",\"player\":\"p\",\"op\":\"control\",\"action\":\"play\"}')\nsend('{\"t\":\"compositor\",\"op\":\"close-window\",\"id\":1}')\nsend(json.dumps({'t':'commit','ops':[{'op':'insert','parent':0,'node':{'id':1,'type':'indicator'}}]}))\ntime.sleep(30)\n",
-    );
-    let ((handle, _sender, cancel, task, launcher), _config) =
-        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
-    handle.attach(1, "test", placement()).await.expect("attach");
-    let state = tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(state) = handle
-                .snapshot()
-                .slots
-                .get(&1)
-                .filter(|s| s.tree.children(ROOT) == [1])
-            {
-                return state.clone();
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("commit after removed requests");
-    assert_eq!(state.status, Status::Running);
-    assert_eq!(launcher.kill_count(), 0);
-    assert_eq!(launcher.started().len(), 1);
-    handle.detach(1).await.expect("detach");
-    cancel.cancel();
-    let _ = task.await;
-}
-
-#[tokio::test]
 async fn a_sixth_hello_within_ten_seconds_kills_the_unit() {
     let (_dir, entry, _output) = script(
         "import time\nfor _ in range(6):\n    send('{\"t\":\"hello\",\"v\":1}')\n    time.sleep(0.05)\ntime.sleep(30)\n",

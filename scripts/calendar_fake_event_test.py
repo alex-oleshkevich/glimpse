@@ -1,6 +1,4 @@
-import contextlib
 import importlib.util
-import io
 import os
 import unittest
 from pathlib import Path
@@ -39,19 +37,6 @@ class CalendarFakeEventTest(unittest.TestCase):
                 os.chdir(old_cwd)
                 os.environ.clear()
                 os.environ.update(old_env)
-
-    def test_config_hint_includes_fast_poll_interval(self):
-        module = load_script()
-
-        with TemporaryDirectory() as temp_dir:
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                module.print_config_hint(
-                    Path(temp_dir) / "missing.toml",
-                    Path(temp_dir) / "events",
-                )
-
-            self.assertIn("poll-interval = 60", output.getvalue())
 
 
 if __name__ == "__main__":

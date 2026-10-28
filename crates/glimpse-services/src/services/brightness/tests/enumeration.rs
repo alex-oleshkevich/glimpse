@@ -1,36 +1,6 @@
 use super::*;
 
 #[tokio::test]
-async fn a_fresh_service_before_enumeration_is_empty_and_not_degraded() {
-    let harness = started(Vec::new(), 3).await;
-
-    assert!(harness.state.borrow().sources.is_empty());
-    assert!(!matches!(
-        &*harness.health.borrow(),
-        ServiceState::Degraded { .. }
-    ));
-}
-
-#[tokio::test]
-async fn enumeration_runs_through_the_declared_subscription() {
-    let harness = harness(vec![entry("panel", "raw", 50, 100, None)], 3).await;
-
-    assert_eq!(harness.state.borrow().sources.len(), 1);
-    assert_eq!(harness.state.borrow().sources[0].id, "panel");
-}
-
-#[tokio::test]
-async fn the_declared_subscriptions_include_a_live_udev_source() {
-    let harness = harness(vec![entry("panel", "raw", 50, 100, None)], 3).await;
-    let subs = harness.service.subscriptions();
-
-    assert!(subs.iter().any(|sub| *sub.key() == Watch::Enumerate));
-    assert!(subs.iter().any(|sub| *sub.key() == Watch::Udev));
-    assert!(subs.iter().any(|sub| *sub.key() == Watch::DrmHotplug));
-    assert!(subs.iter().any(|sub| *sub.key() == Watch::Keyboard));
-}
-
-#[tokio::test]
 async fn a_rescan_touches_only_the_device_it_names() {
     let mut harness = harness(
         vec![

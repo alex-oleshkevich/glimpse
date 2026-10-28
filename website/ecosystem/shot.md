@@ -25,6 +25,31 @@ under [`[screenshot]`](/config/services/screenshots).
 The screen freezes the moment the screenshot is taken, so a video or a closing menu stays put while
 you work. The delay goes up to 60 seconds.
 
+The screenshot app's window should float. A window rule in your compositor's configuration does it
+(the syntax is your compositor's):
+
+```kdl
+// ~/.config/niri/config.kdl
+window-rule {
+    match app-id="^me\\.aresa\\.Glimpse\\.Shot$"
+    open-floating true
+}
+```
+
+```lua
+-- ~/.config/hypr/hyprland.lua
+hl.window_rule({
+    name  = "glimpse-shot",
+    match = { class = "^me\\.aresa\\.Glimpse\\.Shot$" },
+    float = true,
+})
+```
+
+```ini
+# ~/.config/hypr/hyprland.conf
+windowrule = match:class ^(me\.aresa\.Glimpse\.Shot)$, float on
+```
+
 ## Mark it up
 
 Pick a tool from the bar at the top, or press the letter shown in its tooltip: arrows, boxes,

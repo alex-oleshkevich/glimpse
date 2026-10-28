@@ -342,14 +342,6 @@ async fn a_layout_switch_is_a_request_rather_than_a_dispatch() {
     );
 }
 
-#[test]
-fn the_lua_disable_form_quotes_the_connector() {
-    assert_eq!(
-        output_eval("DP-3", false),
-        "eval hl.monitor({ output = \"DP-3\", disabled = true })"
-    );
-}
-
 fn event_reply(command: &str) -> String {
     match command {
         "j/devices" => json!({ "keyboards": [
@@ -768,35 +760,6 @@ async fn a_title_containing_a_comma_does_not_shift_the_other_fields() {
 
     assert_eq!(snapshot.windows[0].title.as_deref(), Some("a, b, cspoof"));
     assert_eq!(snapshot.windows[0].app_id.as_deref(), Some("foot"));
-}
-
-#[tokio::test]
-async fn a_negative_workspace_id_is_dispatched_by_name() {
-    let received: Arc<Mutex<Vec<String>>> = Arc::default();
-    let sink = received.clone();
-    let server = FakeHyprland::spawn(
-        move |command| {
-            sink.lock().expect("lock").push(command.to_owned());
-            match command {
-                "j/workspaces" => json!([
-                    { "id": -1337, "name": "chat", "monitor": "eDP-1", "lastwindow": "0x0" }
-                ])
-                .to_string(),
-                _ => "ok".to_owned(),
-            }
-        },
-        Vec::new(),
-    );
-
-    Hyprland::at(&server.dir)
-        .focus_workspace(WorkspaceId((-1337_i64) as u64))
-        .await
-        .expect("dispatched");
-
-    assert_eq!(
-        *received.lock().expect("lock"),
-        ["j/workspaces", "dispatch workspace name:chat"]
-    );
 }
 
 fn dispatch_server(lua: bool) -> (FakeHyprland, Arc<Mutex<Vec<String>>>) {

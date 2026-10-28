@@ -50,23 +50,6 @@ fn name_or_index_prefers_the_name_and_never_renders_empty() {
 }
 
 #[test]
-fn a_window_numbers_itself_by_position_without_losing_the_text_around_it() {
-    let window = Facts {
-        index: Some(2),
-        id: 94_388_234_684_768,
-        name: Some("ghostty"),
-        workspace: Some("work"),
-    };
-
-    assert_eq!(
-        render("w{index}", &window),
-        "w2",
-        "a window has no compositor index, so the applet passes its position as one; \
-             resolving it outside the template would drop everything around the token"
-    );
-}
-
-#[test]
 fn an_unnamed_workspace_falls_back_to_its_index() {
     let unnamed = Facts {
         index: Some(4),

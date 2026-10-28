@@ -1,4 +1,4 @@
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
+use zbus::zvariant::{OwnedValue, Value};
 
 pub type IconPixmap = Vec<(i32, i32, Vec<u8>)>;
 
@@ -10,7 +10,6 @@ pub trait StatusNotifierItem {
     fn context_menu(&self, x: i32, y: i32) -> zbus::Result<()>;
     fn secondary_activate(&self, x: i32, y: i32) -> zbus::Result<()>;
     fn scroll(&self, delta: i32, orientation: &str) -> zbus::Result<()>;
-    fn provide_xdg_activation_token(&self, token: &str) -> zbus::Result<()>;
 
     /// The Ayatana middle-click, which takes a timestamp where `SecondaryActivate` takes
     /// coordinates. An item offers one, the other, or both.
@@ -20,45 +19,7 @@ pub trait StatusNotifierItem {
     #[zbus(property)]
     fn id(&self) -> zbus::Result<String>;
     #[zbus(property)]
-    fn title(&self) -> zbus::Result<String>;
-    #[zbus(property)]
     fn status(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn category(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn icon_name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn icon_pixmap(&self) -> zbus::Result<IconPixmap>;
-    #[zbus(property)]
-    fn overlay_icon_name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn overlay_icon_pixmap(&self) -> zbus::Result<IconPixmap>;
-    #[zbus(property)]
-    fn attention_icon_name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn attention_icon_pixmap(&self) -> zbus::Result<IconPixmap>;
-    #[zbus(property)]
-    fn icon_theme_path(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn item_is_menu(&self) -> zbus::Result<bool>;
-    #[zbus(property)]
-    fn menu(&self) -> zbus::Result<OwnedObjectPath>;
-    #[zbus(property)]
-    fn tool_tip(&self) -> zbus::Result<ToolTip>;
-    #[zbus(property)]
-    fn window_id(&self) -> zbus::Result<i32>;
-    #[zbus(property)]
-    fn attention_movie_name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn icon_accessible_desc(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn attention_accessible_desc(&self) -> zbus::Result<String>;
-    #[zbus(property, name = "XAyatanaLabel")]
-    fn x_ayatana_label(&self) -> zbus::Result<String>;
-    #[zbus(property, name = "XAyatanaLabelGuide")]
-    fn x_ayatana_label_guide(&self) -> zbus::Result<String>;
-    #[zbus(property, name = "XAyatanaOrderingIndex")]
-    fn x_ayatana_ordering_index(&self) -> zbus::Result<u32>;
 
     #[zbus(signal)]
     fn new_title(&self) -> zbus::Result<()>;

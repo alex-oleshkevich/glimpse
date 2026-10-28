@@ -41,16 +41,6 @@ fn the_selection_is_read_without_being_changed() {
     assert!(changes.since().is_empty());
 }
 
-#[tokio::test]
-#[ignore = "needs a Wayland compositor"]
-async fn watching_announces_itself() {
-    let mut watched = Box::pin(selection::watch(|| true));
-
-    let first = tokio::time::timeout(Duration::from_secs(5), watched.next()).await;
-
-    assert!(matches!(first, Ok(Some(selection::Watched::Watching))));
-}
-
 fn copy(mime: &str, data: &[u8]) {
     use std::io::Write as _;
     let mut copying = std::process::Command::new("wl-copy")

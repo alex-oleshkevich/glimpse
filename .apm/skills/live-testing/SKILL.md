@@ -36,7 +36,7 @@ user's bus and display.
 The nested window opens on the session; move it at once with the **session** `niri msg`:
 `niri msg --json windows` gives its id (app id `niri`), then `niri msg action move-window-to-monitor --id <id>
 eDP-1`. Never DP-2. Diff `$XDG_RUNTIME_DIR` against `$S/before` for the nested `wayland-N` and
-`niri.wayland-N.*.sock`; every glimpse command, `grim`, `wtype` and `just click` from here on runs
+`niri.wayland-N.*.sock`; every glimpse command, `grim` and `wtype` from here on runs
 with `WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock>` in the same command and
 `HYPRLAND_INSTANCE_SIGNATURE` unset. Without that prefix input lands in the user's terminal.
 
@@ -125,22 +125,15 @@ not would lose the whole session to that command.
   bottom strip with `grim -g` and read the PNG. A tester that cannot read images says so and
   checks pixels with `magick "$S/shot.png" txt:` or the log instead.
 - A layout/volume/window command hits the compositor it is pointed at. Point it at the nested one.
-- Pointer clicks use the standalone helper with the nested prefix; the nested niri's one output is
-  `winit` (`NIRI_SOCKET=<nested sock> niri msg outputs`):
-
-  ```bash
-  WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock> just click output=winit x=600 y=380 button=left
-  ```
-
-  `x` and `y` are logical coordinates relative to the named niri output. Run the same command
-  with `--dry-run` first to verify the output lookup and the generated virtual-pointer command
-  without moving the pointer. The click goes through a `zwlr_virtual_pointer_v1` bound to the named
-  output, so it needs no daemon. The helper cannot query the previous pointer position, so use
-  explicit virtual-desktop coordinates when a test must move the pointer back:
-
-  ```bash
-  WAYLAND_DISPLAY=<nested> NIRI_SOCKET=<nested sock> just click output=winit x=600 y=380 button=left restore_x=10 restore_y=10
-  ```
+- Pointer, key, clipboard and screenshots go through wayland-mcp: `sandbox_start`, move its window to
+  eDP-1, `target_select` the sandbox, then `click`/`drag`/`key`/`screenshot` in its logical
+  coordinates. gtk-mcp (`list_apps`, `snapshot`, `audit_layout`) reads a debug build's widget tree;
+  set `GTK_MCP_DIR=$XDG_RUNTIME_DIR/gtk-mcp` so the broker finds a process started by hand.
+- **The wayland-mcp sandbox bus activates installed services onto the host display.** Its
+  `dbus-daemon --session` hands its own environment, the session's `WAYLAND_DISPLAY`, to everything
+  it activates: a portal call on it started `/usr/bin/glimpse-wallpaper` on the user's session.
+  Run glimpse on the private bus above, with `WAYLAND_DISPLAY` set to the sandbox's absolute socket
+  path, and use the sandbox only as the compositor.
 
 ## Stop
 

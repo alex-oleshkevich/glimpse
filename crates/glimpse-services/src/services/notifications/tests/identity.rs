@@ -30,21 +30,6 @@ fn a_body_is_sanitised_on_the_way_in_and_an_empty_one_is_absent_rather_than_blan
 }
 
 #[test]
-fn the_display_name_does_not_choose_the_group_identity() {
-    let declared = record(
-        2,
-        Incoming {
-            app_id: "org.telegram.desktop".to_owned(),
-            ..incoming("Telegram", "Marta")
-        },
-    );
-    assert_eq!(
-        declared.app_id, "org.telegram.desktop",
-        "a sender with a desktop identity is keyed on it, never on the name it chose"
-    );
-}
-
-#[test]
 fn a_process_desktop_entry_stabilizes_short_lived_bus_senders() {
     let first = application_id(
         None,

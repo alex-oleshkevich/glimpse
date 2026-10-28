@@ -40,9 +40,6 @@ pub trait UPowerKbdBacklight {
     fn get_max_brightness(&self) -> zbus::Result<i32>;
     fn set_brightness(&self, value: i32) -> zbus::Result<()>;
 
-    #[zbus(property)]
-    fn native_path(&self) -> zbus::Result<String>;
-
     #[zbus(signal)]
     fn brightness_changed_with_source(&self, value: i32, source: String) -> zbus::Result<()>;
 }
@@ -143,24 +140,6 @@ fn node_name(tag: &str) -> Option<String> {
     default_service = "org.freedesktop.UPower"
 )]
 pub trait UPowerDevice {
-    #[zbus(property, name = "Type")]
-    fn device_type(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
-    fn model(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn percentage(&self) -> zbus::Result<f64>;
-    #[zbus(property)]
-    fn state(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
-    fn icon_name(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn time_to_empty(&self) -> zbus::Result<i64>;
-    #[zbus(property)]
-    fn time_to_full(&self) -> zbus::Result<i64>;
-    #[zbus(property)]
-    fn energy_rate(&self) -> zbus::Result<f64>;
-    #[zbus(property)]
-    fn capacity(&self) -> zbus::Result<f64>;
     fn enable_charge_threshold(&self, enable: bool) -> zbus::Result<()>;
     fn get_history(
         &self,

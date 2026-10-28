@@ -44,17 +44,9 @@ fn main() -> ExitCode {
 
 ## Model
 
-- `build(ctx)` returns a fresh widget tree on every rebuild. Each element kind has a typed
-  builder (`Indicator`, `ToggleRow`, …) from its constructor (`indicator()`, `toggle_row()`, …),
-  with one method per prop taking a real type: strings, `bool`, `i64`/`f64`, `Option` where the
-  wire value is nullable, and enums (`Severity`, `Tone`, `ClassName`, …) for the string unions.
-  Structured props take small structs (`Fact`, `Choice`, `CalendarEvent`). Unset props are
-  omitted, strings are capped as the host caps them, and `.key`, `.child` and `.children` work
-  on every builder (`.text` on `label`, `indicator` and `button`). `build` still returns `Vec<Widget<Msg>>`; each builder
-  converts with `.into()`. Handlers are typed per element (`on_toggle(bool)`, `on_press(u64)`,
-  `on_select(usize)`, `on_change`, …) and return a message that `update` applies, because a
-  handler cannot capture `&mut self`. `Urgency` names the `notify` levels: pass
-  `Urgency::Low.as_str()` where `notify` takes an urgency.
+- `build(ctx)` returns a fresh widget tree on every rebuild. Unset props are omitted,
+  and strings are capped as the host caps them. Handlers return a message that `update`
+  applies because a handler cannot capture `&mut self`.
 - The runtime rebuilds after every host message and diffs the new tree against the mounted
   one, emitting one protocol commit per rebuild.
 - A widget keeps its identity across rebuilds when its kind and key match in the same parent.
@@ -63,9 +55,7 @@ fn main() -> ExitCode {
 - Controlled props (`value`, `active`, `open`, `selected`) always come from state. An event's
   `seq` is copied onto the confirming `set`; an event older than the last applied `seq` is
   dropped; a rejected edit still confirms, so the panel restores the state value.
-- `Ctx` carries `name`, `state_dir`, `options`, `placement`, `popover_open` and `entry` (the
-  applet's `AppletEntry`), plus `notify` and `copy`, which spawn `notify-send` and `wl-copy`
-  directly, and the host requests `open_uri`, `launch` and `close_popover`.
+- `notify` and `copy` spawn `notify-send` and `wl-copy` from the applet process.
 - Work off the event path (a timer, a thread, a file watch) calls `ctx.waker().wake()`
   to schedule a rebuild; the waker is cloneable and sendable, and `ctx.wake_handle()` returns
   the same handle.
@@ -80,11 +70,6 @@ fn main() -> ExitCode {
 
 ## Example and tests
 
-`examples/kitchen_sink/` is its own crate depending on this one by path. It exercises every
-element kind, every handler, host requests, persistence, a one-second timer,
-and keyed reordering. Run it against an isolated second panel — never the session bar — as
-described in `docs/live-testing.md`.
-
-```
-cargo test
-```
+`examples/kitchen_sink/` is its own crate depending on this one by path, built by
+`just sdk-test`. Run it against an isolated second panel, never the session bar;
+see [live-testing rules](../../docs/live-testing.md).

@@ -11,8 +11,8 @@ read the `load config path=` lines in the log before believing anything on scree
 **Give every test panel its own `GLIMPSE_PANEL_APP_ID`, and never reuse one.** The application ID
 is a unique name on the session bus, so a second panel claiming an ID the previous run has not
 finished releasing hands off to that instance instead: it logs `load config path=`, never reaches
-`initializing app`, maps no window, and sits there looking like a hang. Measured — the same trap the
-preview host answers with `ApplicationFlags::NON_UNIQUE`. A fresh ID per run costs nothing.
+`initializing app`, maps no window, and sits there looking like a hang. A fresh ID per run costs
+nothing.
 
 **`pkill -x glimpse-panel` kills the SESSION panel.** `-x` is the right answer to `-f` matching its
 own shell, but the session binary is also called `glimpse-panel`, so an exact-name kill takes the

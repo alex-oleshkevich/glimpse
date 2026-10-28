@@ -112,10 +112,6 @@ pub struct RemovableState {
 }
 
 impl RemovableState {
-    pub fn drive(&self, id: &DriveId) -> Option<&Drive> {
-        self.drives.iter().find(|drive| &drive.id == id)
-    }
-
     pub fn volume(&self, id: &VolumeId) -> Option<&Volume> {
         self.drives
             .iter()

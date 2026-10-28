@@ -55,6 +55,7 @@ async fn run(cli: Cli) -> Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut watching = true;
+    let mut bus_closed = Box::pin(services.bus_closed());
 
     loop {
         tokio::select! {
@@ -64,6 +65,10 @@ async fn run(cli: Cli) -> Result<()> {
             }
             _ = interrupt.recv() => {
                 tracing::info!(signal = "SIGINT", "shutdown requested");
+                break;
+            }
+            () = &mut bus_closed => {
+                tracing::info!("the session bus is gone; shutting down");
                 break;
             }
             reloaded = configs.next(), if watching => match reloaded {

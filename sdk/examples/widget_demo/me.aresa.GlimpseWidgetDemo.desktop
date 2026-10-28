@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Version=1.5
-Name=Widget demo
-Comment=Popover shell parity fixture
-Icon=applications-graphics-symbolic
-Exec=node --run start
-NoDisplay=true
-Implements=me.aresa.Glimpse.Applet1

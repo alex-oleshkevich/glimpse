@@ -164,7 +164,3 @@ fn compute_renames_reports_nothing_when_no_fresh_name_is_available() {
 
     assert!(renames.is_empty());
 }
-#[tokio::test]
-async fn read_process_name_returns_none_for_a_pid_with_no_readable_comm() {
-    assert_eq!(read_process_name(u32::MAX).await, None);
-}

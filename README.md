@@ -8,12 +8,6 @@ libadwaita.
   <img alt="The glimpse panel over the default wallpaper" src="docs/screenshots/shell-light.png">
 </picture>
 
-## About
-
-glimpse adds what a bare Wayland compositor leaves out: a bar, notifications, a wallpaper, a lock
-screen, idle timers and a night light. It follows your light or dark theme and accent color, and
-blurs what sits behind it.
-
 ## Demo
 
 <picture>
@@ -22,18 +16,6 @@ blurs what sits behind it.
 </picture>
 
 Watch it in full quality: [light](website/public/video/demo.mp4), [dark](website/public/video/demo-dark.mp4).
-
-## Features
-
-- Quick popovers for Wi-Fi, Bluetooth, audio, the calendar and the weather, and a few more.
-- Notifications keep a history, and do not disturb holds them back.
-- The lock screen authenticates through PAM.
-- Idle timers blank the screens, lock and suspend, and can differ between AC and battery.
-- The night light follows sunset and sunrise where you are.
-- Exec applets put your own program on the panel, with its own indicator and popover. SDKs exist
-  for TypeScript, Python, Go and Rust.
-- Settings live in `config.toml` and the panel layout in `panel.toml`. Saving either applies the
-  change, and a JSON schema gives your editor completion.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/applets-dark.png">
@@ -48,9 +30,9 @@ On Arch Linux, install the package from the AUR:
 yay -S glimpse-desktop-bin
 ```
 
-On Debian 14 (forky, still in testing), Ubuntu 26.04, Fedora 44 or openSUSE Tumbleweed and newer, the
-install script downloads the latest release as a `.deb` or `.rpm`, checks it against the published
-checksums and installs it (older releases lack GTK 4.22 and libadwaita 1.9, so it refuses them):
+On Debian 14, Ubuntu 26.04, Fedora 44 or openSUSE Tumbleweed and newer, the install script
+downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums and
+installs it:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/install.sh | bash
@@ -81,9 +63,8 @@ sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ### Start the shell
 
 glimpse runs as systemd user services under `glimpse-session.target`, which follows
-`graphical-session.target`. Explicit shell stops use `--job-mode=replace-irreversibly` so concurrent
-D-Bus activation cannot cancel them; the lock service stays with the graphical session. If your
-session starts `graphical-session.target` (niri's `niri-session`, uwsm), enable the shell target once:
+`graphical-session.target`. If your session starts that target (niri's `niri-session`, uwsm), enable
+the shell target once:
 
 ```sh
 systemctl --user enable --now glimpse-session.target
@@ -111,6 +92,12 @@ The configuration lives in `~/.config/glimpse/`: `config.toml` for settings and 
 panel layout. Every setting and its default is listed, with comments, in
 [`data/config.commented.toml`](data/config.commented.toml) and
 [`data/panel.commented.toml`](data/panel.commented.toml).
+
+## Documentation
+
+The [glimpse documentation](https://alex-oleshkevich.github.io/glimpse/) covers what the shell adds
+to a bare compositor, its configuration, applets, theming and the installed files. Working on
+glimpse itself: [AGENTS.md](AGENTS.md) and [`docs/handbook.md`](docs/handbook.md).
 
 ## Credits
 

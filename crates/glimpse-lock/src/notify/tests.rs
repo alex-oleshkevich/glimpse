@@ -48,16 +48,6 @@ fn a_repeated_false_posts_nothing_and_true_then_false_posts_again() {
 }
 
 #[test]
-fn niri_and_an_enabled_restore_post_nothing() {
-    let mut last = None;
-    assert_eq!(restore_notice(&mut last, None), None);
-    last = None;
-    assert_eq!(restore_notice(&mut last, Some(true)), None);
-    last = Some(true);
-    assert_eq!(restore_notice(&mut last, Some(true)), None);
-}
-
-#[test]
 fn a_provider_gap_keeps_the_last_false_and_posts_exactly_twice() {
     let mut last = None;
     let posted: Vec<Option<Notice>> = [
