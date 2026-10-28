@@ -7,6 +7,7 @@ license.workspace = true
 build = "build.rs"
 
 [features]
+default = ["gtk-mcp"]
 gtk-mcp = ["dep:gtk-mcp-agent"]
 
 [dependencies]

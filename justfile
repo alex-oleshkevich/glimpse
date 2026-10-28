@@ -199,10 +199,6 @@ build-release:
 build-crate CRATE:
     cargo build -p {{ CRATE }}
 
-[doc("debug build of the GTK binaries with the gtk-mcp agent compiled in")]
-build-mcp:
-    cargo build -p glimpse-panel -p glimpse-wallpaper -p glimpse-lock -p glimpse-notifications -p glimpse-agents -p glimpse-shot --features gtk-mcp
-
 [doc("build the shipped binaries with symbols, for perf; output in target/profiling/")]
 build-profiling:
     GLIMPSE_BINARIES="{{ binaries }}" scripts/build-binaries.sh --profile profiling
