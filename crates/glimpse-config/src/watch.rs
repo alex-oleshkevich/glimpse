@@ -290,7 +290,7 @@ struct Watch {
     /// directory is itself one we were asked to watch.
     allowed: Vec<PathBuf>,
     watcher: Option<RecommendedWatcher>,
-    events: mpsc::Receiver<Vec<PathBuf>>,
+    events: mpsc::Receiver<Event>,
     pending: Option<Update>,
 }
 
@@ -303,7 +303,9 @@ struct Arm {
 impl Arm {
     /// A watch is bound to an inode, not to a name, so `rm -rf` followed by a fresh clone leaves
     /// one armed on a directory nobody can reach: it reports nothing, forever, and looks identical
-    /// to a directory where nothing happens. Comparing the inode is what tells those two apart.
+    /// to a directory where nothing happens. Comparing the inode tells those two apart unless the
+    /// filesystem hands the new directory the freed inode, as ext4 does; the kernel's removal of
+    /// the watched directory itself covers that case by clearing `dir`.
     ///
     /// Watching nothing is a settled state, not a displaced one. An arm with no watchable ancestor
     /// — the ordinary case for `/etc/glimpse/` on a machine with no system layer — would otherwise
@@ -354,11 +356,24 @@ impl Watch {
         loop {
             // Coalesce until the directory goes quiet, rather than flushing on a fixed window: a
             // rewrite in progress is read once it has finished, not partway through.
-            let mut paths = self.events.recv().await?;
+            let mut batch = vec![self.events.recv().await?];
             while let Ok(more) = tokio::time::timeout(DEBOUNCE, self.events.recv()).await {
                 match more {
-                    Some(more) => paths.extend(more),
+                    Some(more) => batch.push(more),
                     None => break,
+                }
+            }
+
+            for event in batch.iter().filter(|event| event.kind.is_remove()) {
+                for arm in &mut self.arms {
+                    if arm
+                        .dir
+                        .as_ref()
+                        .is_some_and(|dir| event.paths.contains(dir))
+                    {
+                        arm.dir = None;
+                        arm.inode = None;
+                    }
                 }
             }
 
@@ -369,8 +384,9 @@ impl Watch {
                 });
             }
 
-            let touched: Vec<PathBuf> = paths
+            let touched: Vec<PathBuf> = batch
                 .into_iter()
+                .flat_map(|event| event.paths)
                 .filter(|path| {
                     self.arms
                         .iter()
@@ -444,9 +460,7 @@ impl Watch {
 /// Access events fire for every read in a watched directory, this process's own included, and say
 /// nothing about what changed. Dropping them is what keeps the directory holding `config.toml`
 /// quiet while anything else reads anything in it.
-fn forward(
-    events: mpsc::Sender<Vec<PathBuf>>,
-) -> impl FnMut(notify::Result<Event>) + Send + 'static {
+fn forward(events: mpsc::Sender<Event>) -> impl FnMut(notify::Result<Event>) + Send + 'static {
     move |result| {
         let Ok(event) = result else { return };
         if !matches!(
@@ -459,7 +473,7 @@ fn forward(
         // Dropping one when the queue is full loses nothing: every event makes the consumer re-read
         // the files as they are now, and a full queue means one is already waiting to.
         if !event.paths.is_empty() {
-            let _ = events.try_send(event.paths);
+            let _ = events.try_send(event);
         }
     }
 }
