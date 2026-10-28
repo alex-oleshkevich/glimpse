@@ -4,7 +4,6 @@ fn workspace(id: u64, output: &str) -> Workspace {
     Workspace {
         id,
         label: format!("ws{id}"),
-        detail: "Empty".to_owned(),
         output: output.to_owned(),
         ..Workspace::default()
     }

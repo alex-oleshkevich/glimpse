@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:00+0100\n"
+"POT-Creation-Date: 2026-10-28 14:52+0100\n"
 "PO-Revision-Date: 2026-10-17 14:54+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -37,7 +37,7 @@ msgid "Connect automatically"
 msgstr "Подключаться автоматически"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:37
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr "Подробности"
@@ -343,6 +343,15 @@ msgstr ""
 #| msgid "External applet action failed."
 msgid "The power action failed"
 msgstr "Не удалось выполнить действие внешнего апплета."
+
+#: crates/glimpse-calendar/src/notify.rs:95
+#, fuzzy
+#| msgid "The file cannot be read."
+msgid "{count} calendar cannot be read"
+msgid_plural "{count} calendars cannot be read"
+msgstr[0] "Файл не удаётся прочитать."
+msgstr[1] "Файл не удаётся прочитать."
+msgstr[2] "Файл не удаётся прочитать."
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -1664,19 +1673,6 @@ msgstr "{count} ч"
 msgid "{count}d"
 msgstr "{count} д"
 
-#: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-panel/src/applets/power/render.rs:385
-#: crates/glimpse-widgets/src/places_popover/mod.rs:163
-msgid "Empty"
-msgstr "Пусто"
-
-#: crates/glimpse-panel/src/applets/pager/mod.rs:221
-msgid "{count} window"
-msgid_plural "{count} windows"
-msgstr[0] "{count} окно"
-msgstr[1] "{count} окна"
-msgstr[2] "{count} окон"
-
 #: crates/glimpse-panel/src/applets/places/indicator.rs:64
 #: crates/glimpse-panel/src/applets/places/indicator.rs:84
 #: crates/glimpse-panel/src/applets/places/render.rs:20
@@ -1823,6 +1819,11 @@ msgstr "Заряжается"
 #: crates/glimpse-panel/src/applets/power/render.rs:384
 msgid "Discharging"
 msgstr "Разряжается"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "Пусто"
 
 #: crates/glimpse-panel/src/applets/power/render.rs:386
 msgid "Fully charged"
@@ -2754,7 +2755,7 @@ msgstr "Поиск сетей…"
 msgid "Connect to a hidden network…"
 msgstr "Подключиться к скрытой сети…"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:46
 msgid "Coming up"
 msgstr "Далее"
 
@@ -3719,6 +3720,12 @@ msgstr "Сделать снимок экрана, добавить пометк�
 #: data/me.aresa.Glimpse.Shot.desktop:12
 msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr "снимок экрана;захват;пометки;print screen;фрагмент;скриншот;"
+
+#~ msgid "{count} window"
+#~ msgid_plural "{count} windows"
+#~ msgstr[0] "{count} окно"
+#~ msgstr[1] "{count} окна"
+#~ msgstr[2] "{count} окон"
 
 #, fuzzy
 #~| msgid "Vendor codec"

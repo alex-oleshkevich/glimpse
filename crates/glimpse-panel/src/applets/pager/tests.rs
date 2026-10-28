@@ -152,13 +152,6 @@ fn each_state_reads_its_own_template_and_falls_back_to_the_plain_one() {
 }
 
 #[test]
-fn a_workspace_counts_its_windows_and_calls_none_empty() {
-    assert_eq!(windows_label(0), "Empty");
-    assert_eq!(windows_label(1), "1 window");
-    assert_eq!(windows_label(3), "3 windows");
-}
-
-#[test]
 fn vertical_steps_whatever_the_strip_is_showing() {
     assert!(!steps_windows(PagerMode::Workspaces, false));
     assert!(steps_windows(PagerMode::Windows, false));

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:00+0100\n"
+"POT-Creation-Date: 2026-10-28 14:52+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -34,7 +34,7 @@ msgid "Connect automatically"
 msgstr "Ühenda automaatselt"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:37
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr "Üksikasjad"
@@ -340,6 +340,14 @@ msgstr ""
 #| msgid "External applet action failed."
 msgid "The power action failed"
 msgstr "Välise apleti toiming nurjus."
+
+#: crates/glimpse-calendar/src/notify.rs:95
+#, fuzzy
+#| msgid "The file cannot be read."
+msgid "{count} calendar cannot be read"
+msgid_plural "{count} calendars cannot be read"
+msgstr[0] "Faili ei saa lugeda."
+msgstr[1] "Faili ei saa lugeda."
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -1644,18 +1652,6 @@ msgstr "{count} h"
 msgid "{count}d"
 msgstr "{count} p"
 
-#: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-panel/src/applets/power/render.rs:385
-#: crates/glimpse-widgets/src/places_popover/mod.rs:163
-msgid "Empty"
-msgstr "Tühjenda"
-
-#: crates/glimpse-panel/src/applets/pager/mod.rs:221
-msgid "{count} window"
-msgid_plural "{count} windows"
-msgstr[0] "{count} aken"
-msgstr[1] "{count} akent"
-
 #: crates/glimpse-panel/src/applets/places/indicator.rs:64
 #: crates/glimpse-panel/src/applets/places/indicator.rs:84
 #: crates/glimpse-panel/src/applets/places/render.rs:20
@@ -1802,6 +1798,11 @@ msgstr "Laeb"
 #: crates/glimpse-panel/src/applets/power/render.rs:384
 msgid "Discharging"
 msgstr "Tühjeneb"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "Tühjenda"
 
 #: crates/glimpse-panel/src/applets/power/render.rs:386
 msgid "Fully charged"
@@ -2725,7 +2726,7 @@ msgstr "Võrkude otsimine…"
 msgid "Connect to a hidden network…"
 msgstr "Ühenda peidetud võrguga…"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:46
 msgid "Coming up"
 msgstr "Tulekul"
 
@@ -3686,6 +3687,11 @@ msgstr "Tee ekraanipilt, märgista see, salvesta või kopeeri"
 msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "ekraanipilt;jäädvustus;märgista;print screen;kuvatõmmis;screenshot;capture;"
+
+#~ msgid "{count} window"
+#~ msgid_plural "{count} windows"
+#~ msgstr[0] "{count} aken"
+#~ msgstr[1] "{count} akent"
 
 #, fuzzy
 #~| msgid "Vendor codec"

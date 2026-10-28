@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gettextrs::{gettext, ngettext};
 use glimpse_config::{
     Applet as AppletConfig, AppletKind, PagerConfig, PagerMode, PagerScope, PagerShape,
 };
@@ -127,7 +126,6 @@ impl Pager {
             .map(|workspace| Workspace {
                 id: workspace.id,
                 label: workspace_token(workspace),
-                detail: windows_label(workspace.windows),
                 output: workspace.output.clone().unwrap_or_default(),
                 display: workspace
                     .output
@@ -212,14 +210,6 @@ impl Pager {
                     .collect()
             }
         }
-    }
-}
-
-fn windows_label(count: u32) -> String {
-    match count {
-        0 => gettext("Empty"),
-        count => ngettext("{count} window", "{count} windows", count)
-            .replace("{count}", &count.to_string()),
     }
 }
 

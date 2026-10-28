@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:00+0100\n"
+"POT-Creation-Date: 2026-10-28 14:52+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -34,7 +34,7 @@ msgid "Connect automatically"
 msgstr ""
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:37
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr ""
@@ -1577,18 +1577,6 @@ msgstr ""
 msgid "{count}d"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-panel/src/applets/power/render.rs:385
-#: crates/glimpse-widgets/src/places_popover/mod.rs:163
-msgid "Empty"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/pager/mod.rs:221
-msgid "{count} window"
-msgid_plural "{count} windows"
-msgstr[0] ""
-msgstr[1] ""
-
 #: crates/glimpse-panel/src/applets/places/indicator.rs:64
 #: crates/glimpse-panel/src/applets/places/indicator.rs:84
 #: crates/glimpse-panel/src/applets/places/render.rs:20
@@ -1734,6 +1722,11 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/power/render.rs:384
 msgid "Discharging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/power/render.rs:386
@@ -2641,7 +2634,7 @@ msgstr ""
 msgid "Connect to a hidden network…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:46
 msgid "Coming up"
 msgstr ""
 

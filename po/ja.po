@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:00+0100\n"
+"POT-Creation-Date: 2026-10-28 14:52+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -34,7 +34,7 @@ msgid "Connect automatically"
 msgstr "自動接続"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:37
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr "詳細"
@@ -340,6 +340,13 @@ msgstr ""
 #| msgid "External applet action failed."
 msgid "The power action failed"
 msgstr "外部アプレットの操作に失敗しました。"
+
+#: crates/glimpse-calendar/src/notify.rs:95
+#, fuzzy
+#| msgid "The file cannot be read."
+msgid "{count} calendar cannot be read"
+msgid_plural "{count} calendars cannot be read"
+msgstr[0] "ファイルを読み取れません。"
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -1633,17 +1640,6 @@ msgstr "{count}時間"
 msgid "{count}d"
 msgstr "{count}日"
 
-#: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-panel/src/applets/power/render.rs:385
-#: crates/glimpse-widgets/src/places_popover/mod.rs:163
-msgid "Empty"
-msgstr "空"
-
-#: crates/glimpse-panel/src/applets/pager/mod.rs:221
-msgid "{count} window"
-msgid_plural "{count} windows"
-msgstr[0] "{count} 個のウィンドウ"
-
 #: crates/glimpse-panel/src/applets/places/indicator.rs:64
 #: crates/glimpse-panel/src/applets/places/indicator.rs:84
 #: crates/glimpse-panel/src/applets/places/render.rs:20
@@ -1790,6 +1786,11 @@ msgstr "充電中"
 #: crates/glimpse-panel/src/applets/power/render.rs:384
 msgid "Discharging"
 msgstr "放電中"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "空"
 
 #: crates/glimpse-panel/src/applets/power/render.rs:386
 msgid "Fully charged"
@@ -2708,7 +2709,7 @@ msgstr "ネットワークを検索中…"
 msgid "Connect to a hidden network…"
 msgstr "非公開ネットワークに接続…"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:46
 msgid "Coming up"
 msgstr "今後の予定"
 
@@ -3667,6 +3668,10 @@ msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "screenshot;capture;annotate;print screen;snip;grab;スクリーンショット;キャプ"
 "チャ;画面写真;注釈;"
+
+#~ msgid "{count} window"
+#~ msgid_plural "{count} windows"
+#~ msgstr[0] "{count} 個のウィンドウ"
 
 #, fuzzy
 #~| msgid "Vendor codec"

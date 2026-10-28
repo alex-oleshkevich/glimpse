@@ -9,7 +9,6 @@ use crate::reconcile::by_key;
 pub struct Workspace {
     pub id: u64,
     pub label: String,
-    pub detail: String,
     pub output: String,
     pub display: String,
     pub focused: bool,

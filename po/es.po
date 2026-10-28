@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:00+0100\n"
+"POT-Creation-Date: 2026-10-28 14:52+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -34,7 +34,7 @@ msgid "Connect automatically"
 msgstr "Conectar automáticamente"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:69
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:37
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr "Detalles"
@@ -340,6 +340,14 @@ msgstr ""
 #| msgid "External applet action failed."
 msgid "The power action failed"
 msgstr "Error en la acción del applet externo."
+
+#: crates/glimpse-calendar/src/notify.rs:95
+#, fuzzy
+#| msgid "The file cannot be read."
+msgid "{count} calendar cannot be read"
+msgid_plural "{count} calendars cannot be read"
+msgstr[0] "No se puede leer el archivo."
+msgstr[1] "No se puede leer el archivo."
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -1646,18 +1654,6 @@ msgstr "{count} h"
 msgid "{count}d"
 msgstr "{count} d"
 
-#: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-panel/src/applets/power/render.rs:385
-#: crates/glimpse-widgets/src/places_popover/mod.rs:163
-msgid "Empty"
-msgstr "Vacío"
-
-#: crates/glimpse-panel/src/applets/pager/mod.rs:221
-msgid "{count} window"
-msgid_plural "{count} windows"
-msgstr[0] "{count} ventana"
-msgstr[1] "{count} ventanas"
-
 #: crates/glimpse-panel/src/applets/places/indicator.rs:64
 #: crates/glimpse-panel/src/applets/places/indicator.rs:84
 #: crates/glimpse-panel/src/applets/places/render.rs:20
@@ -1804,6 +1800,11 @@ msgstr "Cargando"
 #: crates/glimpse-panel/src/applets/power/render.rs:384
 msgid "Discharging"
 msgstr "Descargando"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "Vacío"
 
 #: crates/glimpse-panel/src/applets/power/render.rs:386
 msgid "Fully charged"
@@ -2731,7 +2732,7 @@ msgstr "Buscando redes…"
 msgid "Connect to a hidden network…"
 msgstr "Conectarse a una red oculta…"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:46
 msgid "Coming up"
 msgstr "Próximos"
 
@@ -3696,6 +3697,11 @@ msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""
 "screenshot;capture;annotate;print "
 "screen;snip;grab;captura;pantalla;anotar;imprimir pantalla;recorte;"
+
+#~ msgid "{count} window"
+#~ msgid_plural "{count} windows"
+#~ msgstr[0] "{count} ventana"
+#~ msgstr[1] "{count} ventanas"
 
 #, fuzzy
 #~| msgid "Vendor codec"

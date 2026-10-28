@@ -7,7 +7,6 @@ pub(super) fn check() {
             Workspace {
                 id: 1,
                 label: "chats".to_owned(),
-                detail: "1 window".to_owned(),
                 output: "DP-2".to_owned(),
                 display: "Dell U2723QE".to_owned(),
                 focused: false,
@@ -23,7 +22,6 @@ pub(super) fn check() {
             Workspace {
                 id: 2,
                 label: "browser".to_owned(),
-                detail: "1 window".to_owned(),
                 output: "DP-2".to_owned(),
                 display: "Dell U2723QE".to_owned(),
                 focused: true,
@@ -39,7 +37,6 @@ pub(super) fn check() {
             Workspace {
                 id: 5,
                 label: "1".to_owned(),
-                detail: "Empty".to_owned(),
                 output: "eDP-1".to_owned(),
                 display: String::new(),
                 focused: false,
@@ -81,11 +78,6 @@ pub(super) fn check() {
         "a display with no name falls back to its connector rather than an empty header"
     );
     assert_eq!(popover.imp().shell.subtitle(), None);
-    assert_eq!(
-        holders[0].value().as_deref(),
-        Some("1 window"),
-        "the window count sits in the row's value slot"
-    );
     let head = |holder: &ExpanderRow| holder.imp().head.get();
     let marked = |row: &Row| row.imp().end().first_child().is_some();
     assert!(

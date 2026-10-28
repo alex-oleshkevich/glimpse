@@ -96,14 +96,17 @@ pub(crate) fn mark_focused(row: &Row, focused: bool) {
         return;
     }
     match focused {
-        true => row.set_end(&gtk4::Image::from_icon_name(FOCUSED_ICON)),
+        true => {
+            let check = gtk4::Image::from_icon_name(FOCUSED_ICON);
+            check.add_css_class("accent");
+            row.set_end(&check);
+        }
         false => row.clear_end(),
     }
 }
 
 fn apply(row: &ExpanderRow, workspace: &Workspace) {
     row.set_title(Some(workspace.label.as_str()));
-    row.set_value((!workspace.detail.is_empty()).then_some(workspace.detail.as_str()));
     row.set_tone(match workspace.urgent {
         true => RowTone::Warning,
         false => RowTone::Normal,
