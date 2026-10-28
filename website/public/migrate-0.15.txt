@@ -1,0 +1,389 @@
+# Migrate a glimpse 0.15 configuration
+
+You are an agent on the user's Linux machine. The current glimpse is installed. The user's
+configuration was written for glimpse 0.15. Convert it to the current format, prove it loads, and
+report what changed. Follow the steps in order.
+
+## Rules
+
+- The installed schema is the authority. It lives in the glimpse data directory, usually
+  `/usr/share/glimpse/` (`/usr/local/share/glimpse/` for a source install under `/usr/local`):
+  `config.schema.json` and `config.commented.toml` for `config.toml`, `panel.schema.json` and
+  `panel.commented.toml` for `panel.toml`. Each setting's `description` lists its values and
+  placeholders. When a mapping below disagrees with the schema, follow the schema and say so in
+  the report.
+- Carry over only what the user changed. A value equal to the 0.15 default given below counts as
+  unset, so the current default applies, and the report says when that default differs from 0.15.
+  A whole table copied from the 0.15 default reference counts as defaults. After mapping, leave
+  out any value equal to the current default, unless a row below says to write it.
+- Never invent a setting. A 0.15 setting with no current equivalent is dropped and listed in the
+  report with its old value.
+- Keep user data byte-for-byte: commands, paths, URLs, regular expressions, strftime strings,
+  calendar ids, map keys under `labels`, `env` names and values, `options` of an exec applet.
+- Never stop, restart or kill `glimpse-lock.service` or `glimpse-lock`. Stopping it while the
+  screen is locked can lock the user out.
+- Write only inside the glimpse configuration directory. Ask before editing compositor
+  configuration or anything under `~/.config/systemd/`.
+- Ask the user only where this prompt says to ask.
+
+## 1. Find the 0.15 files
+
+The configuration directory is `$XDG_CONFIG_HOME/glimpse`, or `~/.config/glimpse` when
+`XDG_CONFIG_HOME` is unset. 0.15 read two other places first: the file `$GLIMPSE_CONFIG` names
+(check `systemctl --user show-environment` too), then `config.toml` in the service's working
+directory, which is the home directory. If `GLIMPSE_CONFIG` is set or `~/config.toml` exists, ask
+the user which file was in use.
+
+Collect:
+
+- `config.toml`, and every file its top-level `include` array names, recursively. A relative
+  include path is relative to the file that names it.
+- Applet packages under `applets/`: `<id>.toml`, `<id>.dev.toml` and `<dir>/applet.toml`.
+- Stylesheets under `themes/`: `panel.css`, `lock.css`, theme folders, and the file `[lock]
+  css_path` names (relative to the configuration directory).
+- Compositor configuration lines that run `glimpse-shell` or
+  `/usr/share/glimpse/scripts/monitors`.
+
+A file is in the 0.15 format when it has a top-level `theme`, `theme_mode` or `include` key,
+`[[panels]]` in `config.toml`, or snake_case keys such as `transition_ms`. When `config.toml`
+already has `[appearance]` and no `[[panels]]`, and `panel.toml` exists, it is already migrated:
+stop and tell the user.
+
+## 2. Back up
+
+Copy the whole directory before touching anything:
+
+```sh
+cp -a "${XDG_CONFIG_HOME:-$HOME/.config}/glimpse" "${XDG_CONFIG_HOME:-$HOME/.config}/glimpse.0.15-backup"
+```
+
+If that name exists, append the date and time. Every later step writes only to the original
+directory.
+
+## 3. Resolve includes into one document
+
+Load the include tree the way 0.15 did: each included file first, in list order, then the file
+that declares `include`, so a later file wins. Tables merge recursively. Arrays and single values
+replace. Drop the `include` key. The current format has no includes; panel layouts can be split
+into `panel.d/*.toml` drop-ins later, but write one `config.toml` and one `panel.toml` now.
+
+## 4. Split into two files
+
+- `panel.toml` gets `[[panels]]` and every `[applets.<name>]` table.
+- `config.toml` gets everything else.
+
+Start each file with its schema line:
+
+```toml
+#:schema /usr/share/glimpse/config.schema.json
+```
+
+```toml
+#:schema /usr/share/glimpse/panel.schema.json
+```
+
+Use the real data directory from the Rules. Delete included files only after step 10 passes, and
+only once the user agrees.
+
+## 5. Write every key in kebab-case
+
+Every key and every value chosen from a fixed list uses dashes: `transition_ms` becomes
+`transition-ms`, `top_right` becomes `top-right`, `next_event` becomes `next-event`. Placeholders
+inside format strings follow the tables below. Values from the user-data list in the Rules stay as
+they are. Keys the user left out stay out.
+
+0.15 accepted aliases. Read each as its canonical key:
+
+- built-in applet tables: `label` and `format` for `label_format`, `tooltip` for `tooltip_format`;
+- command packages: `left_click` and `command` for `on_click`, `middle_click` for
+  `on_middle_click`, `scroll_up` for `on_scroll_up`, `scroll_down` for `on_scroll_down`,
+  `h_scroll_left` for `on_scroll_left`, `h_scroll_right` for `on_scroll_right`,
+  `right_click_menu` for `menu`, and `name` for a menu item's `label`;
+- `[night_light]`: the value `schedule = "manual"` for `schedule = "schedule"`.
+
+## 6. Map `config.toml`
+
+| 0.15 | Current `config.toml` | Notes |
+| --- | --- | --- |
+| `theme` (`"adwaita"`) | `[appearance] theme` | Keep it only if `themes/<name>/` exists in the configuration directory or the data directory. The 0.15 themes `rosepine` and `edgeglass` are not installed, and an unknown name silently falls back to `adwaita`: drop it and report it. |
+| `theme_mode` (`"auto"`) | `[appearance] color-scheme`, `desktop-color-scheme` | See "Light and dark" below. |
+| `[location] provider = "geo_clue"` | `[geolocation] provider = "geoclue"` | GeoClue is the default: drop the table. |
+| `[monitors] builtin_connector` | none | Dropped. |
+| `[night_light]` | `[night-light]` | `schedule` (`automatic`; `off`, `automatic`, `schedule`), `temperature` (4200), `start-time`, `end-time` (`HH:MM` in both versions), `transition-minutes` (15). |
+| `[idle] enabled`, `respect_inhibitors` | `[idle] enabled`, `respect-inhibitors` | Both default to `true` in both versions. |
+| `[idle.profiles.ac] listeners`, `[idle.profiles.battery] listeners` | same tables | Listener keys `timeout`, `on-idle`, `on-resume`, `respect-inhibitors`. Inline tables stay valid. See "Idle" below. |
+| `[keyboard] remember` (`"window"`) | `[keyboard] remember` | `global`, `app` or `window`. |
+| `[applets.keyboard.labels]` | `[keyboard.labels]` | Moves from the panel applet to `config.toml`. |
+| `[wallpaper] path` | `[wallpaper] image` | |
+| `[wallpaper] color` (`"#101010"`) | `[wallpaper] color` | The current default is `#000000`. |
+| `[wallpaper] fit` (`"cover"`) | `[wallpaper] fit` | `cover`, `contain`, `fill` (and `center`). |
+| `[wallpaper] transition_ms` (800) | `[wallpaper] transition-ms` | 0 to 5000. The current default is 500. |
+| `[backdrop] enabled` (true), `path`, `blur_radius` (24) | `[wallpaper.backdrop] enabled`, `image`, `blur-radius` | The table moves under `[wallpaper]`. |
+| `[lock] pam_service` (`"glimpse-lock"`) | `[lock] pam-service` | |
+| `[lock] css_path` (`"themes/lock.css"`) | none | See step 8. |
+| `[lock.background] color`, `path`, `fit`, `blur_radius` (0), `dim` (0.35) | `[lock.background] color`, `image`, `fit`, `blur-radius`, `dim` | 0.15 used `dim` in both modes. The current `dim-dark` (0.5) replaces it in dark mode, so when the user set `dim`, also write `dim-dark` with the same value. |
+| `[lock.clock] enabled` (true) | `[lock.clock] enabled` | |
+| `[lock.clock] time_format` (`"%H:%M"`) | none | Drop it. The time follows the locale (`LC_TIME`). |
+| `[lock.clock] date_format` (`"%A, %B %-d"`) | `[lock.clock] date-format` | strftime still works. Drop the 0.15 default. |
+| `[lock.controls] buttons` (`["weather", "wifi", "input", "battery", "power"]`) | `[lock.status] enabled` (the battery level), `[lock.session] enabled` (power actions) | Without `battery`, set `[lock.status] enabled = false`. Without `power`, set `[lock.session] enabled = false`. `weather`, `wifi`, `input` have no equivalent. |
+| `[calendar] poll_interval` (600), `sources` | `[calendar] poll-interval`, `sources` | Each source keeps `id`, `type` (`ical`, `directory`), `uri`, `name`, `color`; `poll_interval` becomes `poll-interval`. |
+
+### Light and dark
+
+0.15 had a global `theme_mode` and a per-panel `theme_mode` that defaulted to `"dark"`, so the bar
+stayed dark while popovers followed the sun. The current format has one `color-scheme` for every
+glimpse surface (`desktop`, `light`, `dark`; default `dark`) and a separate `desktop-color-scheme`
+for the desktop-wide setting other apps follow (`sun`, `light`, `dark`, `external`; default `sun`).
+The global `theme_mode` decides both:
+
+| 0.15 global `theme_mode` | `color-scheme` | `desktop-color-scheme` |
+| --- | --- | --- |
+| `"auto"` or unset | see below | `sun` (default, omit) |
+| `"dark"` | `dark` (default, omit) | `dark` |
+| `"light"` | `light` | `light` |
+
+For `"auto"` or unset, ask the user: keep glimpse dark (`dark`, the current default, matching the
+0.15 bar), or follow the desktop's mode (`desktop`, matching the 0.15 popovers). Per-panel
+`theme_mode` has no equivalent; drop it.
+
+### Idle
+
+Replace `/usr/share/glimpse/scripts/monitors off` and `... on` with `glimpse-dpms off` and
+`glimpse-dpms on`. `loginctl lock-session` and `systemctl suspend` stay. Leave out `on-resume` when
+the 0.15 listener had none or an empty one.
+
+The 0.15 defaults were: AC 600 s monitors off, 900 s lock, 3600 s suspend; battery 300 s monitors
+off, 900 s lock, 1800 s suspend. Both profiles used the same commands: `monitors off` with
+`monitors on` as `on_resume`, `loginctl lock-session`, `systemctl suspend`. The current defaults
+are: AC 900 s monitors off, 1800 s lock, 3600 s suspend; battery 900 s monitors off, 1800 s
+suspend, with no lock step. A profile the user never wrote ran the 0.15 defaults. For each
+profile that is unset or equal to the 0.15 defaults (same timeouts and the same commands), ask
+the user whether to keep the 0.15 timings (write them out) or take the current defaults (omit the
+profile).
+
+### Settings that moved out of applet tables
+
+| 0.15 `[applets.<name>]` key | Current `config.toml` | Notes |
+| --- | --- | --- |
+| `notifications.popup_timeout_ms` (5000) | `[notifications] hide-delay` | Seconds: divide by 1000, round, minimum 1. The current default is 4. |
+| `notifications.popup_visible_limit` (8) | `[notifications] max-items` | The current default is 6. |
+| `notifications.popup_position` (`top_right`) | `[notifications] edge` | `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`. |
+| `notifications.popup_monitor` | `[notifications] monitor` | Connector name. |
+| `notifications.max_history` (100) | `[notifications] keep` | |
+| `notifications.filter_regex` | `[notifications] suppress` | Case-sensitive; keep any `(?i)`. |
+| `notifications.popup_margin_x`, `popup_margin_y`, `urgency_remap` | none | Dropped. |
+| `mpris.filter_regex` | `[mpris] ignore` | Case-sensitive; keep any `(?i)`. |
+| `mpris.show_artwork = false` | `[mpris] fetch-art = false` | Closest match: it stops downloads; local artwork still shows. Say so in the report. |
+| `weather.refresh_interval` (1800) | `[weather] poll-interval` | Seconds, minimum 600: raise a smaller value to 600. The current default is 900. |
+
+## 7. Map `panel.toml`
+
+### Panels
+
+`[[panels]]` keeps `monitor`, `position` (`top`; `top`, `bottom`, `left`, `right`), `size` (36), `left`,
+`center`, `right`. `margin = { left, right, top, bottom }` stays valid as an inline table or
+becomes `[panels.margin]`. Drop `theme_mode`.
+
+A zone you leave out keeps its default, and a zone you write replaces the default list. The 0.15
+default zones were:
+
+- `left`: `pager`, `mpris`, `__dev__`
+- `center`: `clock`, `weather`, `notifications`, `privacy`
+- `right`: `__dynamic__`, `next_event`, `tray`, `removable`, `clipboard`, `keyboard`, `printing`,
+  `bluetooth`, `network`, `display`, `audio`, `idle`, `battery`, `session`
+
+The current default zones, from `panel.commented.toml`, are:
+
+- `left`: `workspace-name`, `pager`, `places`, `mpris`
+- `center`: `clock`, `weather`, `notifications`, `privacy`
+- `right`: `next-event`, `tray`, `removable`, `clipboard`, `printing`, `bluetooth`, `network`,
+  `display`, `audio`, `idle`, `power`, `keyboard`, `session`
+
+0.15 expanded `"..."` inside a zone to that zone's defaults; the current format has no such marker.
+Replace `"..."` with the current default list for that zone, leaving out names the zone already
+lists; if the result equals the current default, leave the zone out. If an unset zone, or a zone
+equal to the 0.15 defaults, would show different applets now, ask the user whether to take the
+current default (omit the zone) or keep the 0.15 one, renamed as below.
+
+### Applet names in zones and `extends`
+
+Apply the removals before the renames, since 0.15 `display` and the current `display` are
+different applets.
+
+| 0.15 | Current |
+| --- | --- |
+| `display` (monitor count) | none: remove it |
+| `window` | none: remove it (the pager in `windows` mode shows windows) |
+| `__dynamic__`, `__dev__` | none: remove them |
+| `battery` | `power` |
+| `brightness` | `display` |
+| `next_event` | `next-event` |
+| `workspace` | `workspace-name` |
+| `audio`, `bluetooth`, `clipboard`, `clock`, `idle`, `keyboard`, `mpris`, `network`, `notifications`, `pager`, `printing`, `privacy`, `removable`, `session`, `tray`, `weather` | unchanged |
+
+A table named after a built-in applet needs no `extends`. A second instance keeps
+`extends = "<current name>"`. When the old applet has no current equivalent, remove its table and
+every zone entry naming it.
+
+### Built-in applet settings
+
+0.15 key and default, then the current key. Anything not listed is dropped and reported; check the
+schema before dropping.
+
+- `audio`: `scroll_step` (10) to `scroll-step` (1 to 100; current default 5). `tooltip_format` to
+  `tooltip-format` only if it uses nothing but `{volume}`. Drop `show_icon`,
+  `show_muted_indicator`, `label_format`, `max_volume`, `show_streams`.
+- `battery` to `power`: `label_on_battery` to `label-format` and set
+  `indicator-style = "icon-text"` when it was non-empty. `tooltip_on_battery` to
+  `tooltip-format`. Placeholder `{time_left}` becomes `{remaining}`; `{percentage}` and `{state}`
+  stay. Drop `label_on_ac`, `tooltip_on_ac`, `show_icon`, `settings_command`.
+- `bluetooth`: `tooltip_format` to `tooltip-format` (`{devices}` stays; `{state}` becomes
+  `{status}`). Drop `label_format`.
+- `brightness` to `display`: `scroll_step` (10) to `scroll-step` (current default 5).
+  `tooltip_format` to `tooltip-format` with `{source}` to `{name}` and `{percent}` to
+  `{brightness}`. Drop `label_format`.
+- `clipboard`: `label_format`, `tooltip_format`, `show_when_empty` (false) to `label-format`,
+  `tooltip-format`, `show-when-empty`. `{count}` stays.
+- `clock`: `label_format` (`"%a %-d %b, %H:%M"`) to `label-format`; `tooltip_format`
+  (`"%A, %-d %B %Y"`) to `tooltip-format`; `hide_all_day_events` (false) to `hide-all-day`;
+  `show_week_numbers` (false) to `week-numbers`, whose current default is `true`, so write
+  `week-numbers = false` when the user never set it to `true`. Each `timezones` entry: `name` to
+  `label`, `timezone` stays, drop `format`. Drop `tick_interval`.
+- `idle`, `privacy`, `keyboard`: nothing to carry except `[applets.keyboard.labels]`, which moves
+  to `[keyboard.labels]` in `config.toml`.
+- `mpris`: `label_format` (`"{artist} - {title}"`) to `label-format`, `tooltip_format` to
+  `tooltip-format`; `{artist}`, `{title}`, `{player}` stay. Drop `hide_when_empty`, `max_rows`.
+  `filter_regex` and `show_artwork` move to `[mpris]` (step 6).
+- `network`: `tooltip_format` to `tooltip-format` only if every placeholder appears in the schema
+  description (`{connection}`, `{metered}`, `{signal}`, `{vpn}`); otherwise drop it. Drop
+  `label_format`.
+- `next_event` to `next-event`: `threshold_minutes` (30) to `within` (minutes; current default
+  60). `tooltip_format` to `tooltip-format` only if it can be rewritten with `{summary}`,
+  `{detail}`, `{when}`, `{conflicts}`; `{name}` becomes `{summary}`. Drop `label_format`.
+- `notifications`: `badge_style` (`dot`) to `indicator-style`: `none` to `icon-only`, `dot` to
+  `icon-dot`, `count` to `icon-counter`. `tooltip_format` to `tooltip-format` (`{count}`). Popup
+  and history keys move to `[notifications]` (step 6).
+- `pager`: `display` (`windows`) to `mode` (`windows`, `workspaces`); `appearance` (`dots`) to
+  `shape`, with `numbers` becoming `labels`; `active_workspace_label` to `focused-label`;
+  `inactive_workspace_label` to `unfocused-label`. Placeholders `{index}`, `{id}`, `{name}` stay;
+  `{name_or_index}` becomes `{name-or-index}`.
+- `printing`: `display` (`auto`) to `show`: `auto` becomes `jobs`, `always` stays.
+- `removable`: drop `show_when_empty`, `label_format`; `tooltip_format` only if rewritten with
+  `{drives}` and `{volumes}`.
+- `session`: `tooltip_format` to `tooltip-format` (`{user}` only). Drop `label_format`, every
+  `show_*` and `confirm_*`.
+- `tray`: drop `icon_size` and `show_passive`.
+- `weather`: `city_name` non-empty becomes `place = { at = "location", name = "<city_name>" }`
+  (the schema expects `City, CC`; if the name has no country code, ask the user for it);
+  empty `city_name` or `geolocate = true` is the default `place = { at = "here" }` (omit it).
+  `hourly_slots` (5) to `hours` (current default 4); `forecast_days` (5) to `days` (both count
+  the days after today; current default 6). `tooltip_format` to `tooltip-format` with `{temp}` to
+  `{temperature}`, `{feels_like}` to `{feels-like}`, `{location}` to `{place}`. Drop
+  `label_format`: the current `label` is the place's display name, not a format.
+- `window`, `workspace`, `display` (monitor count): see the name table.
+
+## 8. Custom applets and stylesheets
+
+### Command packages
+
+A 0.15 package with `type = "command"` becomes a table in `panel.toml`:
+
+```toml
+[applets.terminal]
+extends = "command"
+icon = "utilities-terminal-symbolic"
+tooltip-format = "Open terminal"
+on-click = ["ghostty"]
+```
+
+The table name is the package `id`. If the id contains a dot, use a dashed name instead, because a
+dotted zone name is read as an exec applet id. If the id is a built-in applet name, pick another
+name and update the zones. Map `[command]` keys (after resolving the aliases in step 5): `icon`,
+`label` stay; `tooltip` becomes `tooltip-format`; `on_click`, `on_middle_click`, `on_scroll_up`,
+`on_scroll_down`, `on_scroll_left`, `on_scroll_right` become `on-click` and so on. Each stays an
+argument array run without a shell. `menu` has no equivalent: drop it and report each entry's
+label and command. Any `[applets.<id>]` override from 0.15 `config.toml` merges into the same
+table. Keep the id in the panel zones.
+
+### Exec packages
+
+A 0.15 package with `type = "exec"` cannot be converted: the current applet protocol is different
+and an exec applet is now an installed desktop entry. Remove its name from the zones and from
+`panel.toml`, and list it in the report with a link to
+https://alex-oleshkevich.github.io/glimpse/applets/exec/ for rebuilding it. `.dev.toml` packages
+are development copies: drop them.
+
+Current glimpse ignores the `applets/` directory. It stays in place and in the backup; tell the
+user it can be removed.
+
+### Stylesheets
+
+0.15 read `themes/panel.css` and `themes/lock.css` as personal overrides and `themes/<name>/` as
+theme folders. Current glimpse does not read `themes/panel.css` or `themes/lock.css`. It reads
+`styles.css` (every surface) and `dark.css` (dark only) from the configuration directory, and
+theme folders `themes/<name>/` holding `panel.css`, `lock.css`, `wallpaper.css` and `dark.css`.
+Widget classes and variable names are different, so do not translate CSS rule by rule. For each
+old file, list in the report what it customized (colors, fonts, radii) and point the user to
+https://alex-oleshkevich.github.io/glimpse/config/theme-tokens for the current tokens. Leave the
+old files where they are. If `theme` names a user folder that holds 0.15 stylesheets, drop
+`theme` (the default `adwaita` applies) and report it, since an old theme loads but does not match
+the current widgets.
+
+## 9. Session startup and key bindings
+
+These live outside the configuration directory. Show the user each change and ask before writing.
+
+- The shell starts with `glimpse-session.target`. If
+  `~/.config/systemd/user/graphical-session.target.wants/` holds a `glimpse-shell.service` link,
+  propose `systemctl --user disable glimpse-shell.service` (or removing the dangling link), then
+  `systemctl --user enable --now glimpse-session.target`. Do not touch `glimpse-lock.service`.
+- Rewrite compositor bindings that call `glimpse-shell dispatch`:
+
+| `glimpse-shell dispatch` | Current command |
+| --- | --- |
+| `set_dnd enabled=true` / `false` | `glimpsectl notifications dnd on` / `off` |
+| `dismiss_all_notifications` | `glimpsectl notifications clear` |
+| `set_theme mode=dark` / `light` | `glimpsectl appearance set dark` / `light` |
+| `set_theme mode=auto` | `glimpsectl appearance resume` |
+| `set_night_light_schedule schedule=<mode>` | `glimpsectl night-light schedule <mode>` |
+| `set_night_light_temperature kelvin=<n>` | `glimpsectl night-light temperature <n>` |
+| `night_light_deactivate` | `glimpsectl night-light pause` |
+| `night_light_activate`, `night_light_enable` | `glimpsectl night-light resume` |
+| `clear_clipboard_history confirm=true` | `glimpsectl clipboard clear` |
+
+  Run `glimpsectl --help` and the group's `--help` for anything else. Volume, brightness, media,
+  keyboard layout, Wi-Fi and Bluetooth dispatches have no glimpsectl command: list them in the
+  report and leave the bindings commented out. `glimpse-shell applets dev` became
+  `glimpsectl applet run --dev`.
+
+## 10. Validate
+
+Run, and fix every reported problem, until it prints nothing:
+
+```sh
+glimpsectl --log error config validate
+```
+
+It reports only the first wrong value or unknown key per run, so repeat it after every fix. Each
+unknown applet name gets its own line. Then:
+
+```sh
+glimpsectl config show
+glimpsectl panel reload
+```
+
+`config show` prints the merged result, including `/etc/glimpse` if the administrator set
+anything there. Compare it against the merged 0.15 document from step 3, key by key. The panel and
+other glimpse programs pick up saved files on their own; `panel reload` only makes it immediate.
+
+## 11. Report
+
+Tell the user, in this order:
+
+1. The backup path and the files written.
+2. Every 0.15 setting dropped, with its old value and why.
+3. Every behavior that differs from 0.15 because a current default applies.
+4. Every question you asked and the answer.
+5. What needs their hands: exec applets to rebuild, stylesheets to redo, bindings left commented
+   out, startup changes not yet applied, old files (`applets/`, included files) they can delete.
+6. The output of the last `glimpsectl config validate`.

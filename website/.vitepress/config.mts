@@ -145,6 +145,7 @@ export default withMermaid(
               { text: "What is glimpse", link: "/start/" },
               { text: "Install", link: "/start/install" },
               { text: "Your first session", link: "/start/first-session" },
+              { text: "Move settings from 0.15", link: "/start/upgrade" },
             ],
           },
         ],
