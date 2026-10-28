@@ -2,13 +2,15 @@ use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{Calendar, CalendarHandle, Running};
+use tokio::task::JoinHandle;
 
-use crate::provider;
+use crate::{notify, provider};
 
 pub struct CalendarServices {
     pub calendar: CalendarHandle,
     calendar_service: Running<Calendar>,
     provider: Option<provider::Runtime>,
+    notifier: Option<JoinHandle<()>>,
 }
 
 impl CalendarServices {
@@ -17,13 +19,17 @@ impl CalendarServices {
             .await
             .context("calendar provider needs the session bus")?;
         let mut services = Self::start_with_buses(document);
-        match provider::start(session, services.calendar.clone()).await {
+        match provider::start(session.clone(), services.calendar.clone()).await {
             Ok(provider) => services.provider = Some(provider),
             Err(error) => {
                 services.shutdown().await;
                 return Err(error).context("cannot start the calendar D-Bus provider");
             }
         }
+        services.notifier = Some(tokio::spawn(notify::follow(
+            session,
+            services.calendar.subscribe(),
+        )));
         Ok(services)
     }
 
@@ -39,6 +45,7 @@ impl CalendarServices {
             calendar,
             calendar_service,
             provider: None,
+            notifier: None,
         }
     }
 
@@ -58,6 +65,9 @@ impl CalendarServices {
 
     pub async fn shutdown(mut self) {
         tracing::info!("calendar provider shutting down");
+        if let Some(notifier) = self.notifier.take() {
+            notifier.abort();
+        }
         if let Some(provider) = self.provider.take() {
             provider.shutdown().await;
         }

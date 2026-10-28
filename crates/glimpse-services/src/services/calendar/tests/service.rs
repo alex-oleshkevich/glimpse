@@ -614,6 +614,7 @@ async fn an_events_query_does_not_mark_the_snapshot_changed() {
         if watched
             .borrow()
             .events
+            .events
             .iter()
             .any(|event| event.summary == "Soon")
         {
@@ -729,4 +730,76 @@ async fn a_window_past_the_span_drops_the_occurrence_on_day_500() {
         summaries(&events)
     );
     running.stop().await;
+}
+
+#[tokio::test]
+async fn a_missing_file_is_failing_in_the_first_publication() {
+    let root = tempfile::tempdir().expect("a scratch directory");
+    let missing = root.path().join("gone.url");
+    let mock = settled(
+        vec![source(
+            "gone",
+            CalendarSourceKind::Ical,
+            &format!("file://{}", missing.display()),
+        )],
+        |mock| !mock.failing().is_empty(),
+    )
+    .await;
+
+    assert_eq!(mock.first_failing(), Some(vec!["gone".to_owned()]));
+}
+
+#[test]
+fn a_transient_failure_is_failing_only_after_three_in_a_row() {
+    let _ = [false, false, true]
+        .into_iter()
+        .fold(None, |previous, settled| {
+            let failure = failed(
+                previous.as_ref(),
+                Failure::transient("the request timed out".to_owned()),
+            );
+            assert_eq!(failure.settled(), settled);
+            Some(failure)
+        });
+}
+
+#[test]
+fn a_success_resets_the_transient_failure_streak() {
+    let _ = [
+        Some(Failure::transient("the request timed out".to_owned())),
+        Some(Failure::transient("the request timed out".to_owned())),
+        None,
+        Some(Failure::transient("the request timed out".to_owned())),
+        Some(Failure::transient("the request timed out".to_owned())),
+    ]
+    .into_iter()
+    .fold(None, |previous, failure| {
+        let failure = failure.map(|failure| failed(previous.as_ref(), failure));
+        assert!(!failure.as_ref().is_some_and(Failing::settled));
+        failure
+    });
+}
+
+#[test]
+fn a_transient_failure_after_a_lasting_one_keeps_the_source_failing() {
+    let _ = [
+        "gone".to_owned().into(),
+        Failure::transient("the request timed out".to_owned()),
+        Failure::transient("the request timed out".to_owned()),
+    ]
+    .into_iter()
+    .fold(None, |previous, failure| {
+        let failure = failed(previous.as_ref(), failure);
+        assert!(failure.settled());
+        Some(failure)
+    });
+}
+
+#[test]
+fn only_a_server_side_or_throttled_answer_is_transient() {
+    assert!(passing(StatusCode::SERVICE_UNAVAILABLE));
+    assert!(passing(StatusCode::TOO_MANY_REQUESTS));
+    assert!(passing(StatusCode::REQUEST_TIMEOUT));
+    assert!(!passing(StatusCode::NOT_FOUND));
+    assert!(!passing(StatusCode::UNAUTHORIZED));
 }

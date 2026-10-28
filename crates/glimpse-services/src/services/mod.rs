@@ -83,7 +83,7 @@ pub use brightness::{
     Entry as BacklightEntry, Enumeration as BacklightEnumeration, Kind as BrightnessKind,
     Source as BrightnessSource, SysfsBacklight,
 };
-pub use calendar::{Calendar, CalendarHandle};
+pub use calendar::{Calendar, CalendarHandle, CalendarState, FailingSource};
 pub use clipboard::{
     Clipboard, ClipboardEntry, ClipboardEntryId, ClipboardHandle, ClipboardKind, ClipboardState,
     Config as ClipboardConfig, Dependencies as ClipboardDependencies,

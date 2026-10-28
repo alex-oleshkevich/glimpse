@@ -35,7 +35,7 @@ impl Provider {
     fn snapshot(&self) -> CalendarSnapshot {
         let health = self.calendar.health();
         encode_snapshot(
-            &self.calendar.snapshot(),
+            &self.calendar.snapshot().events,
             health.borrow().unavailable_reason(),
         )
     }
@@ -74,7 +74,7 @@ pub(crate) async fn start(
 ) -> zbus::Result<Runtime> {
     let mut state = calendar.subscribe();
     state
-        .wait_for(|state| state.revision != 0)
+        .wait_for(|state| state.events.revision != 0)
         .await
         .map_err(|error| zbus::Error::Failure(error.to_string()))?;
     Exported::serve(

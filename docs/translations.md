@@ -1,9 +1,9 @@
 # Translations
 
 One gettext domain, `glimpse`, for all binaries. `glimpse-utils` owns it: `init_translations()`
-binds it, and the panel, notification popup, lock screen, wallpaper and `glimpse-lens` call that
-once in `run`. The daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and
-a terminal.
+binds it for programs with a UI or desktop notifications, including the panel, notification popup,
+lock screen, wallpaper, `glimpse-lens` and `glimpse-calendar`. The daemon, `glimpsectl` and
+`glimpse-sunset` do not load the catalog — their output is a journal and a terminal.
 
 ```bash
 just extract-strings     # rewrite po/glimpse.pot from the tree

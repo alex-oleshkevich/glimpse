@@ -172,6 +172,7 @@ async fn a_missing_calendar_directory_is_followed_once_created() {
         "work".to_owned(),
         calendars.to_string_lossy().into_owned(),
         CalendarSourceKind::Directory,
+        true,
     );
 
     assert!(matches!(

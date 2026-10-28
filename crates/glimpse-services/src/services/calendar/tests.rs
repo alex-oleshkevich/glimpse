@@ -190,7 +190,7 @@ fn none(body: &str) {
 
 #[derive(Default)]
 struct Observation {
-    states: std::sync::Mutex<Vec<CalendarEvents>>,
+    states: std::sync::Mutex<Vec<CalendarState>>,
     health: std::sync::Mutex<Vec<ServiceState>>,
 }
 
@@ -200,8 +200,38 @@ impl Observation {
             .lock()
             .expect("state lock")
             .iter()
-            .cloned()
+            .map(|state| state.events.clone())
             .collect()
+    }
+
+    fn failing(&self) -> Vec<String> {
+        self.states
+            .lock()
+            .expect("state lock")
+            .last()
+            .map(|state| {
+                state
+                    .failing
+                    .iter()
+                    .map(|source| source.id.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn first_failing(&self) -> Option<Vec<String>> {
+        self.states
+            .lock()
+            .expect("state lock")
+            .iter()
+            .find(|state| state.events.revision != 0)
+            .map(|state| {
+                state
+                    .failing
+                    .iter()
+                    .map(|source| source.id.clone())
+                    .collect()
+            })
     }
 
     fn health(&self) -> Vec<ServiceState> {

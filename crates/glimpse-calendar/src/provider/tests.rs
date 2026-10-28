@@ -197,6 +197,7 @@ async fn range_queries_return_far_events_without_changing_the_snapshot() {
             if state
                 .borrow()
                 .events
+                .events
                 .iter()
                 .any(|event| event.summary == "Near")
             {

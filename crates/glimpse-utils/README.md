@@ -21,9 +21,9 @@ acquire a second spelling elsewhere.
   at class-init — two instances built either side of a `LANGUAGE` change come out in different
   languages, so the domain must be bound before the first widget instance exists.
 - **`init_locale()` is `init_translations()` without the catalog** — `setlocale(LC_ALL, "")` alone,
-  for providers, which have no UI but still need the C library to see `LC_MEASUREMENT`, or
-  `[regional] units = "locale"` silently answers metric for everyone. Never give a provider
-  `init_translations`; its output is a journal, not a UI.
+  for log-only providers, which still need the C library to see `LC_MEASUREMENT`, or
+  `[regional] units = "locale"` silently answers metric for everyone. Providers that post desktop
+  notifications, such as `glimpse-calendar`, use `init_translations()` to load the catalog.
 - **`[regional] language` sets `LANGUAGE`, only when the environment has not already set it**, and
   moves messages only — `LC_TIME` and `LC_MEASUREMENT` keep answering for themselves, so a Russian
   interface in Chicago still shows a twelve-hour clock.

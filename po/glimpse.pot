@@ -285,6 +285,12 @@ msgstr ""
 msgid "The power action failed"
 msgstr ""
 
+#: crates/glimpse-calendar/src/notify.rs:95
+msgid "{count} calendar cannot be read"
+msgid_plural "{count} calendars cannot be read"
+msgstr[0] ""
+msgstr[1] ""
+
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"

@@ -12,6 +12,7 @@ anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 futures-util.workspace = true
+gettext-rs.workspace = true
 glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-services.workspace = true

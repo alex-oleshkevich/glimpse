@@ -11,7 +11,7 @@ use icalendar::{
     Calendar as ICalendar, CalendarDateTime, Component as _, DatePerhapsTime, Event as IEvent,
     EventLike as _, EventStatus, PartStat,
 };
-use reqwest::Url;
+use reqwest::{StatusCode, Url};
 use tokio::{fs, sync::oneshot};
 
 use crate::{
@@ -30,6 +30,7 @@ const REASON: usize = 240;
 const ADVANCE: Duration = Duration::from_secs(3600);
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
+const STREAK: u32 = 3;
 use super::{AGENT, transport};
 
 use glimpse_dbus::calendar::{
@@ -76,7 +77,7 @@ impl ServiceEndpoint<Calendar> {
 pub enum Event {
     Fetched {
         id: String,
-        result: Result<Fetch, String>,
+        result: Result<Fetch, Failure>,
     },
     Expanded {
         generation: u64,
@@ -92,6 +93,63 @@ pub enum Event {
 pub struct Fetch {
     calendars: Vec<Arc<ICalendar>>,
     remote: bool,
+}
+
+#[derive(Debug)]
+pub struct Failure {
+    reason: String,
+    lasting: bool,
+}
+
+impl Failure {
+    fn transient(reason: String) -> Self {
+        Self {
+            reason,
+            lasting: false,
+        }
+    }
+}
+
+impl From<String> for Failure {
+    fn from(reason: String) -> Self {
+        Self {
+            reason,
+            lasting: true,
+        }
+    }
+}
+
+struct Failing {
+    failure: Failure,
+    streak: u32,
+}
+
+impl Failing {
+    fn settled(&self) -> bool {
+        self.failure.lasting || self.streak >= STREAK
+    }
+}
+
+fn failed(previous: Option<&Failing>, failure: Failure) -> Failing {
+    let streak = match previous {
+        Some(previous) if previous.settled() => previous.streak.max(STREAK).saturating_add(1),
+        Some(previous) => previous.streak.saturating_add(1),
+        None => 1,
+    };
+    Failing { failure, streak }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CalendarState {
+    pub events: CalendarEvents,
+    pub failing: Vec<FailingSource>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FailingSource {
+    pub id: String,
+    pub name: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -190,21 +248,21 @@ pub enum Watch {
 }
 
 pub struct Calendar {
-    events: Publisher<CalendarEvents>,
+    state: Publisher<CalendarState>,
     client: Option<reqwest::Client>,
     sources: Vec<CalendarSource>,
     poll: u64,
     attempt: u64,
     generation: u64,
     fetched: BTreeMap<String, Fetch>,
-    failures: BTreeMap<String, String>,
+    failures: BTreeMap<String, Failing>,
 }
 
 impl Service for Calendar {
     const NAME: &'static str = "calendar";
 
     type Config = Config;
-    type State = CalendarEvents;
+    type State = CalendarState;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
@@ -221,7 +279,11 @@ impl Service for Calendar {
             let remote = self
                 .fetched
                 .get(&source.id)
-                .is_some_and(|fetch| fetch.remote);
+                .is_some_and(|fetch| fetch.remote)
+                || self
+                    .failures
+                    .get(&source.id)
+                    .is_some_and(|failing| !failing.failure.lasting);
             let declares = declares(source, remote);
 
             if declares.watch {
@@ -229,6 +291,7 @@ impl Service for Calendar {
                 let id = source.id.clone();
                 let uri = source.uri.clone();
                 let kind = source.kind;
+                let leading = !remote;
 
                 declared.push(Sub::stream(
                     Watch::Directory {
@@ -236,7 +299,7 @@ impl Service for Calendar {
                         uri: source.uri.clone(),
                         attempt: self.attempt,
                     },
-                    move |_ctx| async move { watching(client, id, uri, kind) },
+                    move |_ctx| async move { watching(client, id, uri, kind, leading) },
                 ));
             }
 
@@ -314,7 +377,7 @@ impl Service for Calendar {
         };
 
         Self {
-            events: ctx.publisher(),
+            state: ctx.publisher(),
             client,
             sources: config.sources,
             poll: config.poll_interval,
@@ -336,8 +399,9 @@ impl Service for Calendar {
                         self.failures.remove(&id);
                         self.fetched.insert(id, fetch);
                     }
-                    Err(reason) => {
-                        self.failures.insert(id, reason);
+                    Err(failure) => {
+                        let failure = failed(self.failures.get(&id), failure);
+                        self.failures.insert(id, failure);
                     }
                 }
                 self.report(ctx);
@@ -347,11 +411,18 @@ impl Service for Calendar {
                 self.generation += 1;
             }
             Input::Event(Event::Expanded { payload, .. }) => {
-                self.events.set(payload);
+                self.state.set(CalendarState {
+                    events: payload,
+                    failing: self.failing(),
+                });
             }
             Input::Event(Event::Unwatched { id, reason }) => {
-                self.failures.entry(id).or_insert(reason);
+                self.failures.entry(id).or_insert(Failing {
+                    failure: reason.into(),
+                    streak: 1,
+                });
                 self.report(ctx);
+                self.generation += 1;
             }
             Input::Config(config) => {
                 self.poll = config.poll_interval;
@@ -393,10 +464,24 @@ impl Calendar {
         let reasons = self
             .failures
             .iter()
-            .map(|(id, reason)| format!("{id}: {reason}"))
+            .map(|(id, failing)| format!("{id}: {}", failing.failure.reason))
             .collect::<Vec<_>>()
             .join("; ");
         ctx.degraded(clean(&reasons, REASON));
+    }
+
+    fn failing(&self) -> Vec<FailingSource> {
+        self.sources
+            .iter()
+            .filter_map(|source| {
+                let failing = self.failures.get(&source.id)?;
+                failing.settled().then(|| FailingSource {
+                    id: source.id.clone(),
+                    name: clean(source.name.as_deref().unwrap_or(&source.id), DETAIL),
+                    reason: clean(&failing.failure.reason, REASON),
+                })
+            })
+            .collect()
     }
 
     fn loaded(&self) -> Vec<Loaded> {
@@ -529,14 +614,32 @@ fn sidecar(text: &str) -> Option<Url> {
     }
 }
 
-async fn fetch(client: Option<reqwest::Client>, url: Url) -> Result<String, String> {
-    let client = client.ok_or("there is no http client, so a feed cannot be read")?;
-    let response = client.get(url).send().await.map_err(transport)?;
+async fn fetch(client: Option<reqwest::Client>, url: Url) -> Result<String, Failure> {
+    let client =
+        client.ok_or_else(|| "there is no http client, so a feed cannot be read".to_owned())?;
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|error| Failure::transient(transport(error)))?;
     let status = response.status();
     if !status.is_success() {
-        return Err(format!("the server answered {status}"));
+        let reason = format!("the server answered {status}");
+        return Err(match passing(status) {
+            true => Failure::transient(reason),
+            false => reason.into(),
+        });
     }
-    response.text().await.map_err(transport)
+    response
+        .text()
+        .await
+        .map_err(|error| Failure::transient(transport(error)))
+}
+
+fn passing(status: StatusCode) -> bool {
+    status.is_server_error()
+        || status == StatusCode::REQUEST_TIMEOUT
+        || status == StatusCode::TOO_MANY_REQUESTS
 }
 
 enum Fetching {
@@ -565,7 +668,7 @@ async fn resolve(uri: &str) -> Result<Fetching, String> {
     }
 }
 
-async fn feed(client: Option<reqwest::Client>, uri: &str) -> Result<(String, bool), String> {
+async fn feed(client: Option<reqwest::Client>, uri: &str) -> Result<(String, bool), Failure> {
     let resolved = resolve(uri).await?;
     let remote = resolved.remote();
     let document = match resolved {
@@ -615,7 +718,7 @@ async fn read(
     client: Option<reqwest::Client>,
     kind: CalendarSourceKind,
     uri: String,
-) -> Result<Fetch, String> {
+) -> Result<Fetch, Failure> {
     let (documents, remote) = match kind {
         CalendarSourceKind::Ical => {
             let (document, remote) = feed(client, &uri).await?;
@@ -713,11 +816,11 @@ async fn reread(
     Event::Fetched { id, result }
 }
 
-fn failed(id: String, reason: String) -> BoxStream<'static, Event> {
+fn failed_fetch(id: String, reason: String) -> BoxStream<'static, Event> {
     stream::once(async move {
         Event::Fetched {
             id,
-            result: Err(reason),
+            result: Err(reason.into()),
         }
     })
     .boxed()
@@ -728,17 +831,24 @@ fn watching(
     id: String,
     uri: String,
     kind: CalendarSourceKind,
+    leading: bool,
 ) -> BoxStream<'static, Event> {
     let root = match (location(&uri), kind) {
         (Ok(Location::Local(path)), CalendarSourceKind::Directory) => path,
         (Ok(Location::Local(path)), CalendarSourceKind::Ical) => match path.parent() {
             Some(parent) => parent.to_path_buf(),
-            None => return failed(id, "its path has no directory to watch".to_owned()),
+            None => return failed_fetch(id, "its path has no directory to watch".to_owned()),
         },
-        _ => return failed(id, "a watched source names a local path".to_owned()),
+        _ => return failed_fetch(id, "a watched source names a local path".to_owned()),
     };
 
-    let leading = stream::once(reread(client.clone(), id.clone(), uri.clone(), kind));
+    let leading = stream::iter(leading.then(|| {
+        let client = client.clone();
+        let id = id.clone();
+        let uri = uri.clone();
+        async move { reread(client, id, uri, kind).await }
+    }))
+    .then(|read| read);
     let changes = glimpse_config::watch_dirs(
         root.ancestors()
             .take(2)

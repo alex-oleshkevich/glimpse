@@ -87,7 +87,9 @@ unless labels override them. Layout memory follows `[keyboard] remember` (window
 uses ordered provider events, and resets when the provider disconnects.
 
 **calendar** — a local path is watched, `http(s)` is polled, and a `file://` holding a one-line feed URL does both. **A failure
-reason never contains the uri.**
+reason never contains the uri.** `failing` lists a source at once when its failure needs the user —
+a missing file, a document that is not iCalendar, a 4xx — and a transport error, timeout, 408, 429 or
+5xx only after three reads in a row, so a dropped network is not reported as a broken calendar.
 
 **weather** — one state entry per place watched. Places are not configured, they are **leased**: a
 consumer calls the typed watch method and the registration lasts thirty minutes unless renewed, and
