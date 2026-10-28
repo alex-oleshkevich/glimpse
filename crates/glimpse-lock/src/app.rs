@@ -302,10 +302,6 @@ impl SimpleComponent for App {
             AppInput::ConfigVerdict(verdict) => self.actions.report(verdict),
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
-                glimpse_utils::report_language_change(
-                    self.config.regional.language(),
-                    config.regional.language(),
-                );
                 self.pam_service.reload(&config.lock.pam_service);
                 let redecode = background::redecodes(&self.config, &config);
                 let recolor = self.config.lock.background.color != config.lock.background.color;
@@ -711,7 +707,7 @@ impl App {
             dim: background::dim(background.dim, background.dim_dark, dark),
             clock: lock.clock.enabled.then(|| {
                 (
-                    lock.clock.time_format.clone(),
+                    glimpse_config::clock(glimpse_config::twelve_hour()).to_owned(),
                     lock.clock.date_format.clone(),
                 )
             }),

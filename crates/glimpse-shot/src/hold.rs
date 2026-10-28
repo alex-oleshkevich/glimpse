@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context as _, Result, bail};
-use glimpse_config::Documents;
 use glimpse_shot::ports::Notice;
 use glimpse_utils::init_translations;
 use glimpse_wayland::selection::{Entry, Owned};
@@ -94,14 +93,7 @@ fn reply_pipe(fd: i32) -> Result<File> {
 
 pub fn run() -> Result<()> {
     let mut reply = reply_pipe(REPLY_FD)?;
-    let language = match glimpse_config::load(Documents::Config) {
-        Ok(config) => config.regional.language().map(str::to_owned),
-        Err(error) => {
-            tracing::warn!("running on defaults: {error:#}");
-            None
-        }
-    };
-    init_translations(language.as_deref());
+    init_translations();
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;

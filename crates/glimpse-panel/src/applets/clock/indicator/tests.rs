@@ -1,8 +1,9 @@
 use super::{
-    Applet, Browsed, Clock, MINUTE, SECOND, accept, failed, formatted, invalidate, painted, period,
+    Applet, Browsed, Clock, MINUTE, SECOND, accept, failed, invalidate, painted, period,
     ticks_below_a_minute,
 };
 use crate::applets::agenda::Occasion;
+use crate::applets::strftime;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use glimpse_dbus::calendar::CalendarProvider;
 use glimpse_services::{CalendarEvent, CalendarEvents};
@@ -251,13 +252,13 @@ fn a_feed_revision_with_the_same_events_asks_again_while_a_month_is_open() {
 }
 
 #[test]
-fn a_format_that_cannot_render_yields_nothing_rather_than_panicking() {
+fn a_format_renders_in_the_instant_s_own_offset_and_an_unknown_one_yields_nothing() {
     let now = Utc.with_ymd_and_hms(2026, 9, 4, 15, 30, 0).unwrap();
 
-    assert_eq!(formatted(&now, "%H:%M").as_deref(), Some("15:30"));
-    assert!(
-        formatted(&now, "%Q").is_none(),
-        "chrono's Display returns an error for an unknown specifier, and to_string() turns \
-             that into a panic that would stop the applet for good"
+    assert_eq!(strftime(&now, "%H:%M").as_deref(), Some("15:30"));
+    assert_eq!(
+        strftime(&now.with_timezone(&chrono_tz::Asia::Tokyo), "%H:%M").as_deref(),
+        Some("00:30")
     );
+    assert!(strftime(&now, "%Q").is_none());
 }

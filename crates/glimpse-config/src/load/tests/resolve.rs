@@ -65,6 +65,21 @@ fn a_document_that_fails_to_load_starts_the_defaults_and_keeps_the_error() {
 }
 
 #[test]
+fn retired_keys_are_dropped_and_the_rest_of_the_document_still_loads() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let path = dir.path().join("config.toml");
+    write(
+        &path,
+        "[regional]\nlanguage = \"ru\"\nunits = \"kelvin\"\n\n[idle]\nenabled = false\n\n\
+         [lock.clock]\ntime-format = \"%I\"\ndate-format = \"%d\"\n",
+    );
+
+    let config = load_files(&[path]).expect("an old document still loads");
+    assert!(!config.idle.enabled);
+    assert_eq!(config.lock.clock.date_format, "%d");
+}
+
+#[test]
 fn the_files_run_from_the_lowest_root_up_and_the_panel_follows_the_config() {
     let base = tempfile::tempdir().expect("a temporary directory");
     let roots = roots_of(base.path());

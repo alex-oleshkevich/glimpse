@@ -243,7 +243,7 @@ keeps a small margin from an adjacent row so two filled rows never merge.
 `glimpse_config::cache_dir()/raster/`; the source is decoded in a single pass. An entry is keyed by
 source path, length and mtime plus target size and fit, and its header repeats the key; any entry
 that fails validation is a miss and is deleted. Writes are atomic into a private directory, and the
-cache is count-bounded, evicting least-recently-used entries.
+cache is bounded by entry count and by total bytes, evicting least-recently-used entries.
 
 ## Stylesheets
 

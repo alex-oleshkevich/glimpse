@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:52+0100\n"
+"POT-Creation-Date: 2026-10-28 16:51+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -17,14 +17,12 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:39
-#, fuzzy
-#| msgid "{count}m"
 msgid "Account"
-msgstr "{count}分"
+msgstr "アカウント"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:47
 msgid "Username"
-msgstr ""
+msgstr "ユーザー名"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:63
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
@@ -41,7 +39,7 @@ msgstr "詳細"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:317
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -66,24 +64,18 @@ msgid "Password"
 msgstr "パスワード"
 
 #: crates/glimpse-agents/src/app/view.rs:61
-#, fuzzy
-#| msgid "Location"
 msgid "Action"
-msgstr "場所"
+msgstr "操作"
 
 #: crates/glimpse-agents/src/app/view.rs:75
 msgid "Authorize"
-msgstr ""
+msgstr "承認"
 
 #: crates/glimpse-agents/src/app/view.rs:78
-#, fuzzy
-#| msgid "Authentication failed"
 msgid "Authentication needed"
-msgstr "認証に失敗しました"
+msgstr "認証が必要です"
 
 #: crates/glimpse-agents/src/app/view.rs:90
-#, fuzzy
-#| msgid "That password did not work"
 msgid "That password didn't work"
 msgstr "パスワードが正しくありません"
 
@@ -92,22 +84,16 @@ msgid "Try again"
 msgstr "再試行"
 
 #: crates/glimpse-agents/src/app/view.rs:93
-#, fuzzy
-#| msgid "Join Zoom"
 msgid "Join"
-msgstr "Zoom に参加"
+msgstr "参加"
 
 #: crates/glimpse-agents/src/app/view.rs:97
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Join “{name}”"
-msgstr "「{name}」を保存しました"
+msgstr "「{name}」に参加"
 
 #: crates/glimpse-agents/src/app/view.rs:98
-#, fuzzy
-#| msgid "That network needs a password."
 msgid "The network needs a password"
-msgstr "そのネットワークにはパスワードが必要です。"
+msgstr "このネットワークにはパスワードが必要です"
 
 #: crates/glimpse-agents/src/app/view.rs:107
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:248
@@ -118,10 +104,8 @@ msgid "Connect"
 msgstr "接続"
 
 #: crates/glimpse-agents/src/app/view.rs:110
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Sign in to “{name}”"
-msgstr "「{name}」を保存しました"
+msgstr "「{name}」にサインイン"
 
 #: crates/glimpse-agents/src/app/view.rs:118
 #: crates/glimpse-agents/src/obex/mod.rs:132
@@ -129,10 +113,8 @@ msgid "this device"
 msgstr "このデバイス"
 
 #: crates/glimpse-agents/src/app/view.rs:121
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”"
-msgstr "「{name}」を保存しました"
+msgstr "「{name}」とペアリング"
 
 #: crates/glimpse-agents/src/app/view.rs:126
 #: crates/glimpse-agents/src/app/view.rs:134
@@ -142,49 +124,34 @@ msgid "Pair"
 msgstr "ペアリング"
 
 #: crates/glimpse-agents/src/app/view.rs:128
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”?"
-msgstr "「{name}」を保存しました"
+msgstr "「{name}」とペアリングしますか？"
 
 #: crates/glimpse-agents/src/app/view.rs:129
 msgid "Check that the device shows the same code"
-msgstr ""
+msgstr "デバイスに同じコードが表示されていることを確認してください"
 
 #: crates/glimpse-agents/src/app/view.rs:133
-#, fuzzy
-#| msgid "VPN"
 msgid "PIN"
-msgstr "VPN"
+msgstr "PIN"
 
 #: crates/glimpse-agents/src/app/view.rs:137
 msgid "Enter the PIN from the device's manual — often 0000"
 msgstr ""
+"デバイスの取扱説明書に記載されている PIN を入力してください（多くは 0000）"
 
 #: crates/glimpse-agents/src/app/view.rs:141
-#, fuzzy
-#| msgid "Codec"
 msgid "Code"
-msgstr "コーデック"
+msgstr "コード"
 
 #: crates/glimpse-agents/src/app/view.rs:143
-#, fuzzy
-#| msgid ""
-#| "Is this the code shown on {device}?\n"
-#| "\n"
-#| "{code}"
 msgid "Enter the code shown on the device"
-msgstr ""
-"{device} に表示されているコードはこれですか?\n"
-"\n"
-"{code}"
+msgstr "デバイスに表示されているコードを入力してください"
 
 #: crates/glimpse-agents/src/app/view.rs:149
 #: crates/glimpse-agents/src/app/view.rs:156
-#, fuzzy
-#| msgid "Type the PIN shown on {device}, then press OK."
 msgid "Type this code on the device, then press Enter"
-msgstr "{device} に表示されている PIN を入力し、OK を押してください。"
+msgstr "このコードをデバイスで入力し、Enter キーを押してください"
 
 #: crates/glimpse-agents/src/app/view.rs:160
 msgid "Allow"
@@ -195,42 +162,36 @@ msgid "Deny"
 msgstr "拒否"
 
 #: crates/glimpse-agents/src/app/view.rs:163
-#, fuzzy
-#| msgid "{name} wants to pair"
 msgid "“{name}” wants to connect"
-msgstr "{name} がペアリングを求めています"
+msgstr "「{name}」が接続を求めています"
 
 #: crates/glimpse-agents/src/app/view.rs:164
-#, fuzzy
-#| msgid "{device} wants to pair with this computer."
 msgid "It has never been paired with this computer"
-msgstr "{device} がこのコンピューターとのペアリングを求めています。"
+msgstr "このコンピューターとペアリングされたことはありません"
 
 #: crates/glimpse-agents/src/obex/notify.rs:52
 msgid "Incoming file"
-msgstr ""
+msgstr "受信ファイル"
 
 #: crates/glimpse-agents/src/obex/notify.rs:53
 msgid "“{device}” wants to send you “{file}”"
-msgstr ""
+msgstr "「{device}」が「{file}」を送信しようとしています"
 
 #: crates/glimpse-agents/src/obex/notify.rs:56
 msgid "Accept"
-msgstr ""
+msgstr "受け入れる"
 
 #: crates/glimpse-agents/src/obex/notify.rs:57
 msgid "Decline"
-msgstr ""
+msgstr "拒否"
 
 #: crates/glimpse-agents/src/obex/notify.rs:63
 msgid "Receiving “{file}”"
-msgstr ""
+msgstr "「{file}」を受信中"
 
 #: crates/glimpse-agents/src/obex/notify.rs:68
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Received “{file}”"
-msgstr "「{name}」を保存しました"
+msgstr "「{file}」を受信しました"
 
 #: crates/glimpse-agents/src/obex/notify.rs:69
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:220
@@ -240,20 +201,20 @@ msgid "Open"
 msgstr "開く"
 
 #: crates/glimpse-agents/src/obex/notify.rs:70
-#, fuzzy
-#| msgid "Open File"
 msgid "Open Folder"
-msgstr "ファイルを開く"
+msgstr "フォルダーを開く"
 
 #: crates/glimpse-agents/src/obex/notify.rs:76
 msgid "Could not receive “{file}”"
-msgstr ""
+msgstr "「{file}」を受信できませんでした"
 
 #: crates/glimpse-agents/src/polkit/agent.rs:158
 msgid ""
 "Another authentication agent is running; glimpse can't ask for admin "
 "passwords"
 msgstr ""
+"別の認証エージェントが実行中のため、glimpse は管理者パスワードを要求できませ"
+"ん"
 
 #: crates/glimpse-agents/src/polkit/mod.rs:223
 #: crates/glimpse-panel/src/applets/command.rs:87
@@ -268,14 +229,12 @@ msgstr "パスワードが違います"
 #: crates/glimpse-agents/src/polkit/mod.rs:334
 #: crates/glimpse-agents/src/polkit/mod.rs:335
 #: crates/glimpse-agents/src/polkit/mod.rs:496
-#, fuzzy
-#| msgid "Can't verify passwords. Run glimpse-lock check."
 msgid "Can't verify passwords"
-msgstr "パスワードを確認できません。glimpse-lock check を実行してください。"
+msgstr "パスワードを検証できません"
 
 #: crates/glimpse-agents/src/session.rs:46
 msgid "The requested power action is unavailable or inhibited"
-msgstr ""
+msgstr "要求された電源操作は利用できないか、抑止されています"
 
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
@@ -285,26 +244,20 @@ msgid "Restart"
 msgstr "再起動"
 
 #: crates/glimpse-agents/src/session.rs:53
-#, fuzzy
-#| msgid "Restart"
 msgid "Restart?"
-msgstr "再起動"
+msgstr "再起動しますか？"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off"
 msgstr "電源オフ"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off?"
-msgstr "電源オフ"
+msgstr "電源をオフにしますか？"
 
 #: crates/glimpse-agents/src/session.rs:59
 msgid "Unsaved work in open apps may be lost"
-msgstr ""
+msgstr "開いているアプリの未保存の作業が失われる可能性があります"
 
 #: crates/glimpse-agents/src/session.rs:177
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
@@ -312,41 +265,31 @@ msgid "Delay"
 msgstr "遅延"
 
 #: crates/glimpse-agents/src/session.rs:178
-#, fuzzy
-#| msgid "Blocked"
 msgid "Block"
-msgstr "ブロック中"
+msgstr "ブロック"
 
 #: crates/glimpse-agents/src/session.rs:182
-#, fuzzy
-#| msgid "An application"
 msgid "{kind}: {application}"
-msgstr "アプリ"
+msgstr "{kind}: {application}"
 
 #: crates/glimpse-agents/src/session.rs:206
 #: crates/glimpse-agents/src/session.rs:228
 #: crates/glimpse-agents/src/session.rs:237
-#, fuzzy
-#| msgid "The drive did not respond in time."
 msgid "The power service did not answer in time"
-msgstr "ドライブが時間内に応答しませんでした。"
+msgstr "電源サービスが時間内に応答しませんでした"
 
 #: crates/glimpse-agents/src/session.rs:223
 msgid "The session is locked"
-msgstr ""
+msgstr "セッションはロックされています"
 
 #: crates/glimpse-agents/src/session.rs:241
-#, fuzzy
-#| msgid "External applet action failed."
 msgid "The power action failed"
-msgstr "外部アプレットの操作に失敗しました。"
+msgstr "電源操作に失敗しました"
 
-#: crates/glimpse-calendar/src/notify.rs:95
-#, fuzzy
-#| msgid "The file cannot be read."
+#: crates/glimpse-calendar/src/notify.rs:92
 msgid "{count} calendar cannot be read"
 msgid_plural "{count} calendars cannot be read"
-msgstr[0] "ファイルを読み取れません。"
+msgstr[0] "読み取れないカレンダーが {count} 件あります"
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -453,21 +396,21 @@ msgstr "システムの電源を切れませんでした"
 msgid "Blocked by {who}: {why}"
 msgstr "{who} がブロック中: {why}"
 
-#: crates/glimpse-notifications/src/app.rs:501
+#: crates/glimpse-notifications/src/app.rs:497
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "今"
 
-#: crates/glimpse-panel/src/app.rs:379
+#: crates/glimpse-panel/src/app.rs:375
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "セッション"
 
-#: crates/glimpse-panel/src/app.rs:381
+#: crates/glimpse-panel/src/app.rs:377
 msgid "Could not complete the session action"
 msgstr "セッション操作を完了できませんでした"
 
-#: crates/glimpse-panel/src/app.rs:383
+#: crates/glimpse-panel/src/app.rs:379
 msgid "The session manager refused that action."
 msgstr "セッションマネージャーに拒否されました。"
 
@@ -500,14 +443,12 @@ msgid "That did not work."
 msgstr "うまくいきませんでした。"
 
 #: crates/glimpse-panel/src/applet/mod.rs:202
-#, fuzzy
-#| msgid "Could not move the application"
 msgid "Could not open that location"
-msgstr "アプリを移動できませんでした"
+msgstr "その場所を開けませんでした"
 
 #: crates/glimpse-panel/src/applet/mod.rs:218
 msgid "No app is installed to open it."
-msgstr ""
+msgstr "開けるアプリがインストールされていません。"
 
 #: crates/glimpse-panel/src/applets/agenda.rs:80
 msgid "All day · day {day} of {days}"
@@ -521,100 +462,100 @@ msgstr "終日"
 msgid "{start} · until {weekday} {end}"
 msgstr "{start} · {weekday} {end} まで"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:98
-#: crates/glimpse-panel/src/applets/agenda.rs:130
+#: crates/glimpse-panel/src/applets/agenda.rs:102
+#: crates/glimpse-panel/src/applets/agenda.rs:134
 msgid "{start} · {length}"
 msgstr "{start} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:106
+#: crates/glimpse-panel/src/applets/agenda.rs:110
 msgid "{start} · over"
 msgstr "{start} · 終了"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:107
+#: crates/glimpse-panel/src/applets/agenda.rs:111
 msgid "ended {length} ago"
 msgstr "{length} 前に終了"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:114
+#: crates/glimpse-panel/src/applets/agenda.rs:118
 msgid "now · ends in {length}"
 msgstr "進行中 · あと {length} で終了"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:116
+#: crates/glimpse-panel/src/applets/agenda.rs:120
 msgid "now · ends {end}"
 msgstr "進行中 · {end} に終了"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:123
+#: crates/glimpse-panel/src/applets/agenda.rs:127
 msgid "starting now · {length}"
 msgstr "まもなく開始 · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:126
+#: crates/glimpse-panel/src/applets/agenda.rs:130
 msgid "in {until} · {length}"
 msgstr "{until} 後 · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:153
+#: crates/glimpse-panel/src/applets/agenda.rs:157
 msgid "Join Google Meet"
 msgstr "Google Meet に参加"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:154
+#: crates/glimpse-panel/src/applets/agenda.rs:158
 msgid "Join Zoom"
 msgstr "Zoom に参加"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:155
+#: crates/glimpse-panel/src/applets/agenda.rs:159
 msgid "Join Microsoft Teams"
 msgstr "Microsoft Teams に参加"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:156
+#: crates/glimpse-panel/src/applets/agenda.rs:160
 msgid "Join Webex"
 msgstr "Webex に参加"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:157
+#: crates/glimpse-panel/src/applets/agenda.rs:161
 msgid "Join meeting"
 msgstr "会議に参加"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:170
+#: crates/glimpse-panel/src/applets/agenda.rs:174
 msgid "Open event"
 msgstr "予定を開く"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/agenda.rs:194
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr "場所"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/agenda.rs:196
 #: crates/glimpse-panel/src/applets/next_event/render.rs:236
 msgid "Calendar"
 msgstr "カレンダー"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/agenda.rs:200
 #: crates/glimpse-panel/src/applets/next_event/render.rs:239
 msgid "Organizer"
 msgstr "主催者"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/agenda.rs:202
 #: crates/glimpse-panel/src/applets/next_event/render.rs:255
 msgid "Description"
 msgstr "説明"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:216
+#: crates/glimpse-panel/src/applets/agenda.rs:220
 msgid "{minutes} min"
 msgstr "{minutes} 分"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/agenda.rs:226
 #: crates/glimpse-panel/src/applets/power/render.rs:374
 msgid "{hours} h"
 msgstr "{hours} 時間"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:223
-#: crates/glimpse-panel/src/applets/weather/render.rs:265
+#: crates/glimpse-panel/src/applets/agenda.rs:227
+#: crates/glimpse-panel/src/applets/weather/render.rs:257
 msgid "{hours} h {minutes} min"
 msgstr "{hours} 時間 {minutes} 分"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:231
+#: crates/glimpse-panel/src/applets/agenda.rs:235
 msgid "{days} d"
 msgstr "{days} 日"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:232
+#: crates/glimpse-panel/src/applets/agenda.rs:236
 msgid "{days} d {hours} h"
 msgstr "{days} 日 {hours} 時間"
 
@@ -1320,7 +1261,7 @@ msgstr "キーボードレイアウトを切り替えられませんでした"
 msgid "The keyboard layout service is unavailable."
 msgstr "キーボードレイアウトのサービスは利用できません。"
 
-#: crates/glimpse-panel/src/applets/mod.rs:47
+#: crates/glimpse-panel/src/applets/mod.rs:36
 msgid "Built-in display"
 msgstr "内蔵ディスプレイ"
 
@@ -1383,10 +1324,8 @@ msgid "Continue"
 msgstr "続行"
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:191
-#, fuzzy
-#| msgid "Choose how the network is secured, then type its password."
 msgid "Choose how the network is secured."
-msgstr "ネットワークのセキュリティ方式を選び、パスワードを入力してください。"
+msgstr "ネットワークのセキュリティ方式を選択してください。"
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:213
 msgid "VPN is connected"
@@ -2129,7 +2068,7 @@ msgid "Light rain"
 msgstr "小雨"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:24
-#: crates/glimpse-panel/src/applets/weather/render.rs:206
+#: crates/glimpse-panel/src/applets/weather/render.rs:198
 msgid "Rain"
 msgstr "雨"
 
@@ -2146,7 +2085,7 @@ msgid "Light snow"
 msgstr "小雪"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:28
-#: crates/glimpse-panel/src/applets/weather/render.rs:205
+#: crates/glimpse-panel/src/applets/weather/render.rs:197
 msgid "Snow"
 msgstr "雪"
 
@@ -2182,117 +2121,117 @@ msgstr "ひょうを伴う雷雨"
 msgid "feels like {temperature}"
 msgstr "体感 {temperature}"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:213
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
 msgstr[0] "{count} 分後から{what}"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:215
 msgid "{what} starting in {count} hour"
 msgid_plural "{what} starting in {count} hours"
 msgstr[0] "{count} 時間後から{what}"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:244
+#: crates/glimpse-panel/src/applets/weather/render.rs:236
 msgid "°C"
 msgstr "°C"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:245
+#: crates/glimpse-panel/src/applets/weather/render.rs:237
 msgid "°F"
 msgstr "°F"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:273
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
 msgctxt "wind"
 msgid "N"
 msgstr "北"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:274
+#: crates/glimpse-panel/src/applets/weather/render.rs:266
 msgctxt "wind"
 msgid "NE"
 msgstr "北東"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:275
+#: crates/glimpse-panel/src/applets/weather/render.rs:267
 msgctxt "wind"
 msgid "E"
 msgstr "東"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:276
+#: crates/glimpse-panel/src/applets/weather/render.rs:268
 msgctxt "wind"
 msgid "SE"
 msgstr "南東"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:277
+#: crates/glimpse-panel/src/applets/weather/render.rs:269
 msgctxt "wind"
 msgid "S"
 msgstr "南"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:278
+#: crates/glimpse-panel/src/applets/weather/render.rs:270
 msgctxt "wind"
 msgid "SW"
 msgstr "南西"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:279
+#: crates/glimpse-panel/src/applets/weather/render.rs:271
 msgctxt "wind"
 msgid "W"
 msgstr "西"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:280
+#: crates/glimpse-panel/src/applets/weather/render.rs:272
 msgctxt "wind"
 msgid "NW"
 msgstr "北西"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:287
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
 msgid "km/h"
 msgstr "km/h"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:288
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
 msgid "mph"
 msgstr "mph"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:299
+#: crates/glimpse-panel/src/applets/weather/render.rs:291
 msgid "{amount} mm"
 msgstr "{amount} mm"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:300
+#: crates/glimpse-panel/src/applets/weather/render.rs:292
 msgid "{amount} in"
 msgstr "{amount} in"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:307
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
 msgid "Wind"
 msgstr "風"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:310
+#: crates/glimpse-panel/src/applets/weather/render.rs:302
 msgid "Humidity"
 msgstr "湿度"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:313
+#: crates/glimpse-panel/src/applets/weather/render.rs:305
 msgid "Precipitation"
 msgstr "降水量"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:321
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
 msgid "High"
 msgstr "最高"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:325
+#: crates/glimpse-panel/src/applets/weather/render.rs:317
 msgid "Low"
 msgstr "最低"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:331
+#: crates/glimpse-panel/src/applets/weather/render.rs:323
 msgid "Chance of rain"
 msgstr "降水確率"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:340
+#: crates/glimpse-panel/src/applets/weather/render.rs:332
 msgid "Sunrise"
 msgstr "日の出"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:343
+#: crates/glimpse-panel/src/applets/weather/render.rs:335
 msgid "Sunset"
 msgstr "日の入り"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:346
+#: crates/glimpse-panel/src/applets/weather/render.rs:338
 msgid "Day length"
 msgstr "昼の長さ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:392
+#: crates/glimpse-panel/src/applets/weather/render.rs:384
 msgid ""
 "{place}\n"
 "{condition}, {temperature}, feels like {feels-like}"
@@ -2318,16 +2257,12 @@ msgid "Already the name of {workspace}"
 msgstr "{workspace} で使われている名前です"
 
 #: crates/glimpse-panel/src/config_alert.rs:36
-#, fuzzy
-#| msgid ""
-#| "Idle and night light are off until it is fixed; everything else uses its "
-#| "defaults."
 msgid ""
 "The panels use their defaults until it is fixed; everything else is as "
 "configured."
 msgstr ""
-"修正されるまで、アイドルと夜間モードはオフになります。その他はデフォルト設定"
-"で動作します。"
+"修正されるまで、パネルは既定の設定を使用します。それ以外は設定どおりに動作し"
+"ます。"
 
 #: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
@@ -2344,7 +2279,7 @@ msgstr "最後の変更は適用されていません。以前の設定のまま
 
 #: crates/glimpse-panel/src/config_alert.rs:51
 msgid "A stylesheet could not be read: {reason}"
-msgstr ""
+msgstr "スタイルシートを読み取れませんでした: {reason}"
 
 #: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
@@ -2396,10 +2331,8 @@ msgid "That window has closed"
 msgstr "そのウィンドウは閉じられました"
 
 #: crates/glimpse-shot/src/gui/app.rs:861
-#, fuzzy
-#| msgid "PNG Images"
 msgid "Images"
-msgstr "PNG 画像"
+msgstr "画像"
 
 #: crates/glimpse-shot/src/gui/app.rs:871
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
@@ -2408,7 +2341,7 @@ msgstr "画像を開く"
 
 #: crates/glimpse-shot/src/gui/app.rs:896
 msgid "The image must be a local file"
-msgstr ""
+msgstr "画像はローカルファイルである必要があります"
 
 #: crates/glimpse-shot/src/gui/app.rs:1012
 msgid "Untitled window"
@@ -2515,10 +2448,10 @@ msgctxt "notification action"
 msgid "Open"
 msgstr "開く"
 
-#: crates/glimpse-shot/src/portal.rs:166
-#: crates/glimpse-shot/src/portal/tests.rs:53
-#: crates/glimpse-shot/src/portal/tests.rs:54
-#: crates/glimpse-shot/src/portal/tests.rs:611
+#: crates/glimpse-shot/src/portal.rs:127
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "アプリ"
@@ -2605,8 +2538,6 @@ msgid "Next"
 msgstr "次へ"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
-#, fuzzy
-#| msgid "Some events on this day aren't shown."
 msgid "Some events on this day aren’t shown."
 msgstr "この日の一部の予定は表示されていません。"
 
@@ -2904,10 +2835,8 @@ msgid "Preferences"
 msgstr "設定"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-#, fuzzy
-#| msgid "config.toml cannot be read, so nothing here can be saved"
 msgid "config.toml is invalid or read-only, so nothing here can be saved"
-msgstr "config.toml を読み込めないため、ここでは何も保存できません"
+msgstr "config.toml が無効か読み取り専用のため、ここでは何も保存できません"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
 msgid "Open File"
@@ -2929,7 +2858,7 @@ msgstr "ファイル名"
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:44
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:83
 msgid ".png"
-msgstr ""
+msgstr ".png"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
 msgid "Behavior"
@@ -3309,8 +3238,6 @@ msgid "Pixelate (B)"
 msgstr "モザイク (B)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:225
-#, fuzzy
-#| msgid "Color (1–5)"
 msgid "Color (1 –5)"
 msgstr "色 (1–5)"
 
@@ -3392,19 +3319,19 @@ msgstr "リピート"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:14
 msgid "Wide"
-msgstr ""
+msgstr "幅広"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:25
 msgid "body 1"
-msgstr ""
+msgstr "本文 1"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:36
 msgid "body 2"
-msgstr ""
+msgstr "本文 2"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:47
 msgid "body 3"
-msgstr ""
+msgstr "本文 3"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
 msgid "Inactive warning row"
@@ -3425,7 +3352,7 @@ msgstr "暴風警報: 地域全体で最大 90 km/h の強い突風が予想さ�
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:250
 msgid "tall"
-msgstr ""
+msgstr "縦長"
 
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
 msgid "Name this workspace"
@@ -3646,18 +3573,16 @@ msgid "magnifier;zoom;lens;enlarge;"
 msgstr "拡大鏡;ズーム;拡大;magnifier;"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:3
-#, fuzzy
-#| msgid "Annotate In"
 msgid "Annotate Image"
-msgstr "注釈の編集先"
+msgstr "画像に注釈を付ける"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:4
 msgid "Open an image and mark it up"
-msgstr ""
+msgstr "画像を開いて注釈を付けます"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:12
 msgid "image;annotate;annotation;PNG;draw;markup;"
-msgstr ""
+msgstr "画像;注釈;アノテーション;PNG;描画;マークアップ;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"

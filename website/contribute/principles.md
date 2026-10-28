@@ -9,8 +9,7 @@ what it was holding up.
 All of glimpse reads one configuration, `config.toml`, with one top-level table per owner: one per
 service, plus the wallpaper and lock tables. The panel layout, `[[panels]]` and `[applets]`, is the
 one exception: it lives in `panel.toml` and `panel.d/`, and only the panel and `glimpsectl` read it, so a typo in the layout
-never sends a daemon back to its defaults. A binary acts on the tables it owns plus the shared `[appearance]` and
-`[regional]` tables. One cross-owner read exists: while the lock background names neither image, the
+never sends a daemon back to its defaults. A binary acts on the tables it owns plus the shared `[appearance]` table. One cross-owner read exists: while the lock background names neither image, the
 locker inherits the wallpaper images, because a lock screen that differs from the desktop by default
 reads as a bug.
 

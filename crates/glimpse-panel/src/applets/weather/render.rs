@@ -142,15 +142,7 @@ fn day_label(index: usize, day: &DayForecast, offset: FixedOffset) -> String {
 /// A weekday name belongs to `LC_TIME`, which `init_translations` has already set, rather than to
 /// the message catalog — so it is formatted rather than looked up.
 fn weekday(when: DateTime<FixedOffset>) -> String {
-    glib::DateTime::from_unix_utc(when.timestamp())
-        .and_then(|utc| {
-            utc.to_timezone(&glib::TimeZone::from_offset(
-                when.offset().local_minus_utc(),
-            ))
-        })
-        .and_then(|local| local.format("%a"))
-        .map(|name| name.to_string())
-        .unwrap_or_else(|_| when.format("%a").to_string())
+    crate::applets::strftime(&when, "%a").unwrap_or_else(|| when.format("%a").to_string())
 }
 
 pub fn severity(severity: AlertSeverity) -> Severity {

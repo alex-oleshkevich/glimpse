@@ -9,11 +9,6 @@ desktop-color-scheme = "sun"
 blur = false
 animation-speed = 1.0
 
-[regional]
-language = ""
-hour-format = "locale"
-units = "locale"
-
 [geolocation]
 provider = "geoclue"
 
@@ -133,7 +128,6 @@ dim-dark = 0.5
 
 [lock.clock]
 enabled = true
-time-format = "%H:%M"
 date-format = "%A, {day} %B"
 
 [lock.status]

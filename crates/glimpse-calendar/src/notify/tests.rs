@@ -11,6 +11,7 @@ use super::follow;
 struct Record {
     posts: Vec<(u32, String, String)>,
     closes: Vec<u32>,
+    refuse_close: bool,
 }
 
 struct Notes(Arc<Mutex<Record>>);
@@ -37,8 +38,13 @@ impl Notes {
         7
     }
 
-    fn close_notification(&self, id: u32) {
-        self.0.lock().expect("record").closes.push(id);
+    fn close_notification(&self, id: u32) -> zbus::fdo::Result<()> {
+        let mut record = self.0.lock().expect("record");
+        record.closes.push(id);
+        if record.refuse_close {
+            return Err(zbus::fdo::Error::Failed("no such notification".into()));
+        }
+        Ok(())
     }
 }
 
@@ -67,11 +73,16 @@ async fn until(record: &Arc<Mutex<Record>>, ready: impl Fn(&Record) -> bool) {
     .expect("recorded call");
 }
 
-#[tokio::test]
-async fn failing_sources_are_posted_replaced_and_closed() {
+async fn serve(
+    record: &Arc<Mutex<Record>>,
+) -> (
+    glimpse_dbus::testing::PrivateBus,
+    zbus::Connection,
+    watch::Sender<CalendarState>,
+    tokio::task::JoinHandle<()>,
+) {
     let bus = glimpse_dbus::testing::PrivateBus::start();
     let server = bus.connection().await;
-    let record = Arc::new(Mutex::new(Record::default()));
     server
         .object_server()
         .at("/org/freedesktop/Notifications", Notes(record.clone()))
@@ -80,9 +91,15 @@ async fn failing_sources_are_posted_replaced_and_closed() {
     glimpse_dbus::own_name(&server, "org.freedesktop.Notifications")
         .await
         .expect("notification name");
-
     let (sender, receiver) = watch::channel(CalendarState::default());
     let task = tokio::spawn(follow(bus.connection().await, receiver));
+    (bus, server, sender, task)
+}
+
+#[tokio::test]
+async fn failing_sources_are_posted_replaced_and_closed() {
+    let record = Arc::new(Mutex::new(Record::default()));
+    let (_bus, _server, sender, task) = serve(&record).await;
 
     sender
         .send(state(vec![source("a", "<b>& unreadable")]))
@@ -123,6 +140,25 @@ async fn failing_sources_are_posted_replaced_and_closed() {
         assert_eq!(record.closes, [7]);
         assert_eq!(record.posts.len(), 2);
     }
+
+    task.abort();
+}
+
+#[tokio::test]
+async fn a_refused_close_does_not_swallow_the_next_failure() {
+    let record = Arc::new(Mutex::new(Record {
+        refuse_close: true,
+        ..Record::default()
+    }));
+    let (_bus, _server, sender, task) = serve(&record).await;
+
+    sender.send(state(vec![source("a", "gone")])).expect("send");
+    until(&record, |record| record.posts.len() == 1).await;
+    sender.send(state(Vec::new())).expect("send");
+    until(&record, |record| record.closes == [7]).await;
+    sender.send(state(vec![source("a", "gone")])).expect("send");
+    until(&record, |record| record.posts.len() == 2).await;
+    assert_eq!(record.lock().expect("record").posts[1].0, 0);
 
     task.abort();
 }

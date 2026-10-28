@@ -28,7 +28,7 @@ fn run(cli: &Cli) -> Result<()> {
     glimpse_config::init(cli.config.config_dir.clone());
     glimpse_config::seed_user_config();
     let (config, _) = glimpse_config::load_or_default(glimpse_config::Documents::Config);
-    init_translations(config.regional.language());
+    init_translations();
     let theme = glimpse_config::load_theme(
         &config.appearance.theme,
         glimpse_config::WALLPAPER_STYLESHEET,

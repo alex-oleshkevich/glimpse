@@ -19,6 +19,7 @@ const BACKDROP_FLOOR: i32 = 256;
 const CACHE_MAGIC: &[u8; 8] = b"GLMPRAST";
 const CACHE_VERSION: u32 = 1;
 const CACHE_ENTRIES: usize = 16;
+const CACHE_BYTES: u64 = 1 << 30;
 const ENTRY_SUFFIX: &str = ".raster";
 const TEMP_PREFIX: &str = ".tmp-";
 const TEMP_MAX_AGE: Duration = Duration::from_secs(60);
@@ -403,7 +404,7 @@ fn store(dir: &Path, key: &Key, raster: &Raster) -> Result<()> {
         let _ = fs::remove_file(&temp);
         return Err(error.into());
     }
-    evict(dir, &key.name);
+    evict(dir, &key.name, CACHE_BYTES);
     Ok(())
 }
 
@@ -430,18 +431,22 @@ fn write_entry(
     out.flush()
 }
 
-fn evict(dir: &Path, keep: &str) {
+fn evict(dir: &Path, keep: &str, budget: u64) {
     let Ok(listing) = fs::read_dir(dir) else {
         return;
     };
     let now = SystemTime::now();
+    let mut used = fs::metadata(dir.join(keep)).map_or(0, |metadata| metadata.len());
     let mut entries = Vec::new();
     for item in listing.flatten() {
         let name = item.file_name();
         let Some(name) = name.to_str() else {
             continue;
         };
-        let Ok(modified) = item.metadata().and_then(|metadata| metadata.modified()) else {
+        let Ok(metadata) = item.metadata() else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
             continue;
         };
         if name.starts_with(TEMP_PREFIX) {
@@ -452,13 +457,20 @@ fn evict(dir: &Path, keep: &str) {
                 let _ = fs::remove_file(item.path());
             }
         } else if name.ends_with(ENTRY_SUFFIX) && name != keep {
-            entries.push((modified, item.path()));
+            entries.push((modified, metadata.len(), item.path()));
         }
     }
-    entries.sort();
-    let excess = (entries.len() + 1).saturating_sub(CACHE_ENTRIES);
-    for (_, path) in entries.into_iter().take(excess) {
-        let _ = fs::remove_file(path);
+    entries.sort_by_key(|entry| std::cmp::Reverse(entry.0));
+    let mut kept = 1;
+    let mut full = false;
+    for (_, length, path) in entries {
+        full = full || kept >= CACHE_ENTRIES || used.saturating_add(length) > budget;
+        if full {
+            let _ = fs::remove_file(path);
+        } else {
+            kept += 1;
+            used += length;
+        }
     }
 }
 

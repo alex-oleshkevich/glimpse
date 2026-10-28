@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:52+0100\n"
+"POT-Creation-Date: 2026-10-28 16:51+0100\n"
 "PO-Revision-Date: 2026-10-17 14:54+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -20,14 +20,12 @@ msgstr ""
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:39
-#, fuzzy
-#| msgid "{count}m"
 msgid "Account"
-msgstr "{count} мин"
+msgstr "Учётная запись"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:47
 msgid "Username"
-msgstr ""
+msgstr "Имя пользователя"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:63
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
@@ -44,7 +42,7 @@ msgstr "Подробности"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:317
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -69,24 +67,18 @@ msgid "Password"
 msgstr "Пароль"
 
 #: crates/glimpse-agents/src/app/view.rs:61
-#, fuzzy
-#| msgid "Location"
 msgid "Action"
-msgstr "Место"
+msgstr "Действие"
 
 #: crates/glimpse-agents/src/app/view.rs:75
 msgid "Authorize"
-msgstr ""
+msgstr "Авторизовать"
 
 #: crates/glimpse-agents/src/app/view.rs:78
-#, fuzzy
-#| msgid "Authentication failed"
 msgid "Authentication needed"
-msgstr "Ошибка аутентификации"
+msgstr "Требуется аутентификация"
 
 #: crates/glimpse-agents/src/app/view.rs:90
-#, fuzzy
-#| msgid "That password did not work"
 msgid "That password didn't work"
 msgstr "Этот пароль не подошёл"
 
@@ -95,22 +87,16 @@ msgid "Try again"
 msgstr "Попробовать снова"
 
 #: crates/glimpse-agents/src/app/view.rs:93
-#, fuzzy
-#| msgid "Join Zoom"
 msgid "Join"
-msgstr "Подключиться к Zoom"
+msgstr "Подключиться"
 
 #: crates/glimpse-agents/src/app/view.rs:97
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Join “{name}”"
-msgstr "Сохранено «{name}»"
+msgstr "Подключиться к «{name}»"
 
 #: crates/glimpse-agents/src/app/view.rs:98
-#, fuzzy
-#| msgid "That network needs a password."
 msgid "The network needs a password"
-msgstr "Для этой сети нужен пароль."
+msgstr "Для сети нужен пароль"
 
 #: crates/glimpse-agents/src/app/view.rs:107
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:248
@@ -121,10 +107,8 @@ msgid "Connect"
 msgstr "Подключить"
 
 #: crates/glimpse-agents/src/app/view.rs:110
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Sign in to “{name}”"
-msgstr "Сохранено «{name}»"
+msgstr "Вход в «{name}»"
 
 #: crates/glimpse-agents/src/app/view.rs:118
 #: crates/glimpse-agents/src/obex/mod.rs:132
@@ -132,10 +116,8 @@ msgid "this device"
 msgstr "это устройство"
 
 #: crates/glimpse-agents/src/app/view.rs:121
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”"
-msgstr "Сохранено «{name}»"
+msgstr "Сопряжение с «{name}»"
 
 #: crates/glimpse-agents/src/app/view.rs:126
 #: crates/glimpse-agents/src/app/view.rs:134
@@ -145,49 +127,33 @@ msgid "Pair"
 msgstr "Сопрячь"
 
 #: crates/glimpse-agents/src/app/view.rs:128
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”?"
-msgstr "Сохранено «{name}»"
+msgstr "Выполнить сопряжение с «{name}»?"
 
 #: crates/glimpse-agents/src/app/view.rs:129
 msgid "Check that the device shows the same code"
-msgstr ""
+msgstr "Убедитесь, что на устройстве показан тот же код"
 
 #: crates/glimpse-agents/src/app/view.rs:133
-#, fuzzy
-#| msgid "VPN"
 msgid "PIN"
-msgstr "VPN"
+msgstr "PIN-код"
 
 #: crates/glimpse-agents/src/app/view.rs:137
 msgid "Enter the PIN from the device's manual — often 0000"
-msgstr ""
+msgstr "Введите PIN-код из руководства к устройству — часто 0000"
 
 #: crates/glimpse-agents/src/app/view.rs:141
-#, fuzzy
-#| msgid "Codec"
 msgid "Code"
-msgstr "Кодек"
+msgstr "Код"
 
 #: crates/glimpse-agents/src/app/view.rs:143
-#, fuzzy
-#| msgid ""
-#| "Is this the code shown on {device}?\n"
-#| "\n"
-#| "{code}"
 msgid "Enter the code shown on the device"
-msgstr ""
-"Это код, показанный на устройстве {device}?\n"
-"\n"
-"{code}"
+msgstr "Введите код, показанный на устройстве"
 
 #: crates/glimpse-agents/src/app/view.rs:149
 #: crates/glimpse-agents/src/app/view.rs:156
-#, fuzzy
-#| msgid "Type the PIN shown on {device}, then press OK."
 msgid "Type this code on the device, then press Enter"
-msgstr "Введите PIN-код, показанный на {device}, и нажмите ОК."
+msgstr "Введите этот код на устройстве и нажмите Enter"
 
 #: crates/glimpse-agents/src/app/view.rs:160
 msgid "Allow"
@@ -198,42 +164,36 @@ msgid "Deny"
 msgstr "Запретить"
 
 #: crates/glimpse-agents/src/app/view.rs:163
-#, fuzzy
-#| msgid "{name} wants to pair"
 msgid "“{name}” wants to connect"
-msgstr "{name} хочет выполнить сопряжение"
+msgstr "«{name}» хочет подключиться"
 
 #: crates/glimpse-agents/src/app/view.rs:164
-#, fuzzy
-#| msgid "{device} wants to pair with this computer."
 msgid "It has never been paired with this computer"
-msgstr "{device} хочет выполнить сопряжение с этим компьютером."
+msgstr "Оно ещё ни разу не сопрягалось с этим компьютером"
 
 #: crates/glimpse-agents/src/obex/notify.rs:52
 msgid "Incoming file"
-msgstr ""
+msgstr "Входящий файл"
 
 #: crates/glimpse-agents/src/obex/notify.rs:53
 msgid "“{device}” wants to send you “{file}”"
-msgstr ""
+msgstr "«{device}» хочет отправить вам «{file}»"
 
 #: crates/glimpse-agents/src/obex/notify.rs:56
 msgid "Accept"
-msgstr ""
+msgstr "Принять"
 
 #: crates/glimpse-agents/src/obex/notify.rs:57
 msgid "Decline"
-msgstr ""
+msgstr "Отклонить"
 
 #: crates/glimpse-agents/src/obex/notify.rs:63
 msgid "Receiving “{file}”"
-msgstr ""
+msgstr "Получение «{file}»"
 
 #: crates/glimpse-agents/src/obex/notify.rs:68
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Received “{file}”"
-msgstr "Сохранено «{name}»"
+msgstr "Получен файл «{file}»"
 
 #: crates/glimpse-agents/src/obex/notify.rs:69
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:220
@@ -243,20 +203,20 @@ msgid "Open"
 msgstr "Открыть"
 
 #: crates/glimpse-agents/src/obex/notify.rs:70
-#, fuzzy
-#| msgid "Open File"
 msgid "Open Folder"
-msgstr "Открыть файл"
+msgstr "Открыть папку"
 
 #: crates/glimpse-agents/src/obex/notify.rs:76
 msgid "Could not receive “{file}”"
-msgstr ""
+msgstr "Не удалось получить «{file}»"
 
 #: crates/glimpse-agents/src/polkit/agent.rs:158
 msgid ""
 "Another authentication agent is running; glimpse can't ask for admin "
 "passwords"
 msgstr ""
+"Работает другой агент аутентификации; glimpse не может запрашивать пароли "
+"администратора"
 
 #: crates/glimpse-agents/src/polkit/mod.rs:223
 #: crates/glimpse-panel/src/applets/command.rs:87
@@ -271,14 +231,12 @@ msgstr "Неверный пароль"
 #: crates/glimpse-agents/src/polkit/mod.rs:334
 #: crates/glimpse-agents/src/polkit/mod.rs:335
 #: crates/glimpse-agents/src/polkit/mod.rs:496
-#, fuzzy
-#| msgid "Can't verify passwords. Run glimpse-lock check."
 msgid "Can't verify passwords"
-msgstr "Не удаётся проверить пароли. Запустите glimpse-lock check."
+msgstr "Не удаётся проверить пароли"
 
 #: crates/glimpse-agents/src/session.rs:46
 msgid "The requested power action is unavailable or inhibited"
-msgstr ""
+msgstr "Запрошенное действие с питанием недоступно или заблокировано"
 
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
@@ -288,26 +246,20 @@ msgid "Restart"
 msgstr "Перезагрузить"
 
 #: crates/glimpse-agents/src/session.rs:53
-#, fuzzy
-#| msgid "Restart"
 msgid "Restart?"
-msgstr "Перезагрузить"
+msgstr "Перезагрузить?"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off"
 msgstr "Выключить"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off?"
-msgstr "Выключить"
+msgstr "Выключить?"
 
 #: crates/glimpse-agents/src/session.rs:59
 msgid "Unsaved work in open apps may be lost"
-msgstr ""
+msgstr "Несохранённые данные в открытых приложениях могут быть потеряны"
 
 #: crates/glimpse-agents/src/session.rs:177
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
@@ -315,43 +267,33 @@ msgid "Delay"
 msgstr "Задержка"
 
 #: crates/glimpse-agents/src/session.rs:178
-#, fuzzy
-#| msgid "Blocked"
 msgid "Block"
-msgstr "Заблокировано"
+msgstr "Блокировка"
 
 #: crates/glimpse-agents/src/session.rs:182
-#, fuzzy
-#| msgid "An application"
 msgid "{kind}: {application}"
-msgstr "Приложение"
+msgstr "{kind}: {application}"
 
 #: crates/glimpse-agents/src/session.rs:206
 #: crates/glimpse-agents/src/session.rs:228
 #: crates/glimpse-agents/src/session.rs:237
-#, fuzzy
-#| msgid "The drive did not respond in time."
 msgid "The power service did not answer in time"
-msgstr "Диск не ответил вовремя."
+msgstr "Служба питания не ответила вовремя"
 
 #: crates/glimpse-agents/src/session.rs:223
 msgid "The session is locked"
-msgstr ""
+msgstr "Сеанс заблокирован"
 
 #: crates/glimpse-agents/src/session.rs:241
-#, fuzzy
-#| msgid "External applet action failed."
 msgid "The power action failed"
-msgstr "Не удалось выполнить действие внешнего апплета."
+msgstr "Не удалось выполнить действие с питанием"
 
-#: crates/glimpse-calendar/src/notify.rs:95
-#, fuzzy
-#| msgid "The file cannot be read."
+#: crates/glimpse-calendar/src/notify.rs:92
 msgid "{count} calendar cannot be read"
 msgid_plural "{count} calendars cannot be read"
-msgstr[0] "Файл не удаётся прочитать."
-msgstr[1] "Файл не удаётся прочитать."
-msgstr[2] "Файл не удаётся прочитать."
+msgstr[0] "Не удаётся прочитать {count} календарь"
+msgstr[1] "Не удаётся прочитать {count} календаря"
+msgstr[2] "Не удаётся прочитать {count} календарей"
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -460,21 +402,21 @@ msgstr "Не удалось выключить систему"
 msgid "Blocked by {who}: {why}"
 msgstr "Заблокировано — {who}: {why}"
 
-#: crates/glimpse-notifications/src/app.rs:501
+#: crates/glimpse-notifications/src/app.rs:497
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "сейчас"
 
-#: crates/glimpse-panel/src/app.rs:379
+#: crates/glimpse-panel/src/app.rs:375
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "Сеанс"
 
-#: crates/glimpse-panel/src/app.rs:381
+#: crates/glimpse-panel/src/app.rs:377
 msgid "Could not complete the session action"
 msgstr "Не удалось выполнить действие сеанса"
 
-#: crates/glimpse-panel/src/app.rs:383
+#: crates/glimpse-panel/src/app.rs:379
 msgid "The session manager refused that action."
 msgstr "Менеджер сеанса отклонил это действие."
 
@@ -507,14 +449,12 @@ msgid "That did not work."
 msgstr "Это не сработало."
 
 #: crates/glimpse-panel/src/applet/mod.rs:202
-#, fuzzy
-#| msgid "Could not move the application"
 msgid "Could not open that location"
-msgstr "Не удалось переместить приложение"
+msgstr "Не удалось открыть это расположение"
 
 #: crates/glimpse-panel/src/applet/mod.rs:218
 msgid "No app is installed to open it."
-msgstr ""
+msgstr "Не установлено приложение для открытия."
 
 #: crates/glimpse-panel/src/applets/agenda.rs:80
 msgid "All day · day {day} of {days}"
@@ -528,100 +468,100 @@ msgstr "Весь день"
 msgid "{start} · until {weekday} {end}"
 msgstr "{start} · до {weekday} {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:98
-#: crates/glimpse-panel/src/applets/agenda.rs:130
+#: crates/glimpse-panel/src/applets/agenda.rs:102
+#: crates/glimpse-panel/src/applets/agenda.rs:134
 msgid "{start} · {length}"
 msgstr "{start} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:106
+#: crates/glimpse-panel/src/applets/agenda.rs:110
 msgid "{start} · over"
 msgstr "{start} · завершилось"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:107
+#: crates/glimpse-panel/src/applets/agenda.rs:111
 msgid "ended {length} ago"
 msgstr "закончилось {length} назад"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:114
+#: crates/glimpse-panel/src/applets/agenda.rs:118
 msgid "now · ends in {length}"
 msgstr "сейчас · закончится через {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:116
+#: crates/glimpse-panel/src/applets/agenda.rs:120
 msgid "now · ends {end}"
 msgstr "сейчас · до {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:123
+#: crates/glimpse-panel/src/applets/agenda.rs:127
 msgid "starting now · {length}"
 msgstr "начинается · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:126
+#: crates/glimpse-panel/src/applets/agenda.rs:130
 msgid "in {until} · {length}"
 msgstr "через {until} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:153
+#: crates/glimpse-panel/src/applets/agenda.rs:157
 msgid "Join Google Meet"
 msgstr "Подключиться к Google Meet"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:154
+#: crates/glimpse-panel/src/applets/agenda.rs:158
 msgid "Join Zoom"
 msgstr "Подключиться к Zoom"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:155
+#: crates/glimpse-panel/src/applets/agenda.rs:159
 msgid "Join Microsoft Teams"
 msgstr "Подключиться к Microsoft Teams"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:156
+#: crates/glimpse-panel/src/applets/agenda.rs:160
 msgid "Join Webex"
 msgstr "Подключиться к Webex"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:157
+#: crates/glimpse-panel/src/applets/agenda.rs:161
 msgid "Join meeting"
 msgstr "Подключиться к встрече"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:170
+#: crates/glimpse-panel/src/applets/agenda.rs:174
 msgid "Open event"
 msgstr "Открыть событие"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/agenda.rs:194
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr "Место"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/agenda.rs:196
 #: crates/glimpse-panel/src/applets/next_event/render.rs:236
 msgid "Calendar"
 msgstr "Календарь"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/agenda.rs:200
 #: crates/glimpse-panel/src/applets/next_event/render.rs:239
 msgid "Organizer"
 msgstr "Организатор"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/agenda.rs:202
 #: crates/glimpse-panel/src/applets/next_event/render.rs:255
 msgid "Description"
 msgstr "Описание"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:216
+#: crates/glimpse-panel/src/applets/agenda.rs:220
 msgid "{minutes} min"
 msgstr "{minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/agenda.rs:226
 #: crates/glimpse-panel/src/applets/power/render.rs:374
 msgid "{hours} h"
 msgstr "{hours} ч"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:223
-#: crates/glimpse-panel/src/applets/weather/render.rs:265
+#: crates/glimpse-panel/src/applets/agenda.rs:227
+#: crates/glimpse-panel/src/applets/weather/render.rs:257
 msgid "{hours} h {minutes} min"
 msgstr "{hours} ч {minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:231
+#: crates/glimpse-panel/src/applets/agenda.rs:235
 msgid "{days} d"
 msgstr "{days} д"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:232
+#: crates/glimpse-panel/src/applets/agenda.rs:236
 msgid "{days} d {hours} h"
 msgstr "{days} д {hours} ч"
 
@@ -1347,7 +1287,7 @@ msgstr "Не удалось переключить раскладку клави
 msgid "The keyboard layout service is unavailable."
 msgstr "Служба раскладки клавиатуры недоступна."
 
-#: crates/glimpse-panel/src/applets/mod.rs:47
+#: crates/glimpse-panel/src/applets/mod.rs:36
 msgid "Built-in display"
 msgstr "Встроенный экран"
 
@@ -1410,10 +1350,8 @@ msgid "Continue"
 msgstr "Продолжить"
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:191
-#, fuzzy
-#| msgid "Choose how the network is secured, then type its password."
 msgid "Choose how the network is secured."
-msgstr "Выберите способ защиты сети и введите её пароль."
+msgstr "Выберите способ защиты сети."
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:213
 msgid "VPN is connected"
@@ -2167,7 +2105,7 @@ msgid "Light rain"
 msgstr "Небольшой дождь"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:24
-#: crates/glimpse-panel/src/applets/weather/render.rs:206
+#: crates/glimpse-panel/src/applets/weather/render.rs:198
 msgid "Rain"
 msgstr "Дождь"
 
@@ -2184,7 +2122,7 @@ msgid "Light snow"
 msgstr "Небольшой снег"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:28
-#: crates/glimpse-panel/src/applets/weather/render.rs:205
+#: crates/glimpse-panel/src/applets/weather/render.rs:197
 msgid "Snow"
 msgstr "Снег"
 
@@ -2220,121 +2158,121 @@ msgstr "Гроза с градом"
 msgid "feels like {temperature}"
 msgstr "ощущается как {temperature}"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:213
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
 msgstr[0] "{what} начнётся через {count} минуту"
 msgstr[1] "{what} начнётся через {count} минуты"
 msgstr[2] "{what} начнётся через {count} минут"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:215
 msgid "{what} starting in {count} hour"
 msgid_plural "{what} starting in {count} hours"
 msgstr[0] "{what} начнётся через {count} час"
 msgstr[1] "{what} начнётся через {count} часа"
 msgstr[2] "{what} начнётся через {count} часов"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:244
+#: crates/glimpse-panel/src/applets/weather/render.rs:236
 msgid "°C"
 msgstr "°C"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:245
+#: crates/glimpse-panel/src/applets/weather/render.rs:237
 msgid "°F"
 msgstr "°F"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:273
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
 msgctxt "wind"
 msgid "N"
 msgstr "С"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:274
+#: crates/glimpse-panel/src/applets/weather/render.rs:266
 msgctxt "wind"
 msgid "NE"
 msgstr "СВ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:275
+#: crates/glimpse-panel/src/applets/weather/render.rs:267
 msgctxt "wind"
 msgid "E"
 msgstr "В"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:276
+#: crates/glimpse-panel/src/applets/weather/render.rs:268
 msgctxt "wind"
 msgid "SE"
 msgstr "ЮВ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:277
+#: crates/glimpse-panel/src/applets/weather/render.rs:269
 msgctxt "wind"
 msgid "S"
 msgstr "Ю"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:278
+#: crates/glimpse-panel/src/applets/weather/render.rs:270
 msgctxt "wind"
 msgid "SW"
 msgstr "ЮЗ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:279
+#: crates/glimpse-panel/src/applets/weather/render.rs:271
 msgctxt "wind"
 msgid "W"
 msgstr "З"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:280
+#: crates/glimpse-panel/src/applets/weather/render.rs:272
 msgctxt "wind"
 msgid "NW"
 msgstr "СЗ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:287
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
 msgid "km/h"
 msgstr "км/ч"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:288
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
 msgid "mph"
 msgstr "миль/ч"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:299
+#: crates/glimpse-panel/src/applets/weather/render.rs:291
 msgid "{amount} mm"
 msgstr "{amount} мм"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:300
+#: crates/glimpse-panel/src/applets/weather/render.rs:292
 msgid "{amount} in"
 msgstr "{amount} дюйма"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:307
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
 msgid "Wind"
 msgstr "Ветер"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:310
+#: crates/glimpse-panel/src/applets/weather/render.rs:302
 msgid "Humidity"
 msgstr "Влажность"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:313
+#: crates/glimpse-panel/src/applets/weather/render.rs:305
 msgid "Precipitation"
 msgstr "Осадки"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:321
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
 msgid "High"
 msgstr "Макс."
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:325
+#: crates/glimpse-panel/src/applets/weather/render.rs:317
 msgid "Low"
 msgstr "Мин."
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:331
+#: crates/glimpse-panel/src/applets/weather/render.rs:323
 msgid "Chance of rain"
 msgstr "Вероятность дождя"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:340
+#: crates/glimpse-panel/src/applets/weather/render.rs:332
 msgid "Sunrise"
 msgstr "Восход"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:343
+#: crates/glimpse-panel/src/applets/weather/render.rs:335
 msgid "Sunset"
 msgstr "Закат"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:346
+#: crates/glimpse-panel/src/applets/weather/render.rs:338
 msgid "Day length"
 msgstr "Продолжительность дня"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:392
+#: crates/glimpse-panel/src/applets/weather/render.rs:384
 msgid ""
 "{place}\n"
 "{condition}, {temperature}, feels like {feels-like}"
@@ -2360,16 +2298,12 @@ msgid "Already the name of {workspace}"
 msgstr "Уже используется: {workspace}"
 
 #: crates/glimpse-panel/src/config_alert.rs:36
-#, fuzzy
-#| msgid ""
-#| "Idle and night light are off until it is fixed; everything else uses its "
-#| "defaults."
 msgid ""
 "The panels use their defaults until it is fixed; everything else is as "
 "configured."
 msgstr ""
-"Бездействие и ночная подсветка отключены, пока это не исправлено; всё "
-"остальное использует значения по умолчанию."
+"Панели используют значения по умолчанию, пока это не исправлено; всё "
+"остальное работает согласно настройкам."
 
 #: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
@@ -2388,7 +2322,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/config_alert.rs:51
 msgid "A stylesheet could not be read: {reason}"
-msgstr ""
+msgstr "Не удалось прочитать таблицу стилей: {reason}"
 
 #: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
@@ -2440,10 +2374,8 @@ msgid "That window has closed"
 msgstr "Это окно закрылось"
 
 #: crates/glimpse-shot/src/gui/app.rs:861
-#, fuzzy
-#| msgid "PNG Images"
 msgid "Images"
-msgstr "Изображения PNG"
+msgstr "Изображения"
 
 #: crates/glimpse-shot/src/gui/app.rs:871
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
@@ -2452,7 +2384,7 @@ msgstr "Открыть изображение"
 
 #: crates/glimpse-shot/src/gui/app.rs:896
 msgid "The image must be a local file"
-msgstr ""
+msgstr "Изображение должно быть локальным файлом"
 
 #: crates/glimpse-shot/src/gui/app.rs:1012
 msgid "Untitled window"
@@ -2559,10 +2491,10 @@ msgctxt "notification action"
 msgid "Open"
 msgstr "Открыть"
 
-#: crates/glimpse-shot/src/portal.rs:166
-#: crates/glimpse-shot/src/portal/tests.rs:53
-#: crates/glimpse-shot/src/portal/tests.rs:54
-#: crates/glimpse-shot/src/portal/tests.rs:611
+#: crates/glimpse-shot/src/portal.rs:127
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Приложение"
@@ -2651,8 +2583,6 @@ msgid "Next"
 msgstr "Вперёд"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
-#, fuzzy
-#| msgid "Some events on this day aren't shown."
 msgid "Some events on this day aren’t shown."
 msgstr "Некоторые события этого дня не показаны."
 
@@ -2950,10 +2880,10 @@ msgid "Preferences"
 msgstr "Настройки"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-#, fuzzy
-#| msgid "config.toml cannot be read, so nothing here can be saved"
 msgid "config.toml is invalid or read-only, so nothing here can be saved"
-msgstr "config.toml нельзя прочитать, поэтому здесь ничего нельзя сохранить"
+msgstr ""
+"config.toml содержит ошибки или доступен только для чтения, поэтому здесь "
+"ничего нельзя сохранить"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
 msgid "Open File"
@@ -2975,7 +2905,7 @@ msgstr "Имя файла"
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:44
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:83
 msgid ".png"
-msgstr ""
+msgstr ".png"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
 msgid "Behavior"
@@ -3355,8 +3285,6 @@ msgid "Pixelate (B)"
 msgstr "Пикселизация (B)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:225
-#, fuzzy
-#| msgid "Color (1–5)"
 msgid "Color (1 –5)"
 msgstr "Цвет (1–5)"
 
@@ -3438,19 +3366,19 @@ msgstr "Повтор"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:14
 msgid "Wide"
-msgstr ""
+msgstr "Широкий"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:25
 msgid "body 1"
-msgstr ""
+msgstr "текст 1"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:36
 msgid "body 2"
-msgstr ""
+msgstr "текст 2"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:47
 msgid "body 3"
-msgstr ""
+msgstr "текст 3"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
 msgid "Inactive warning row"
@@ -3473,7 +3401,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:250
 msgid "tall"
-msgstr ""
+msgstr "Высокий"
 
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
 msgid "Name this workspace"
@@ -3700,18 +3628,16 @@ msgid "magnifier;zoom;lens;enlarge;"
 msgstr "лупа;масштаб;увеличение;magnifier;"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:3
-#, fuzzy
-#| msgid "Annotate In"
 msgid "Annotate Image"
-msgstr "Где аннотировать"
+msgstr "Аннотировать изображение"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:4
 msgid "Open an image and mark it up"
-msgstr ""
+msgstr "Откройте изображение и добавьте пометки"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:12
 msgid "image;annotate;annotation;PNG;draw;markup;"
-msgstr ""
+msgstr "изображение;аннотировать;аннотация;PNG;рисование;разметка;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"

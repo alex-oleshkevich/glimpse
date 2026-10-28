@@ -32,7 +32,7 @@ impl Applet for NextEvent {
             return;
         };
         self.settings = settings.clone();
-        self.twelve = config.regional.twelve_hour();
+        self.twelve = glimpse_config::twelve_hour();
         self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         ctx.interval(MINUTE);

@@ -102,7 +102,7 @@ pub fn run(gui: &GuiArgs) -> Result<()> {
         bail!("the directory {} does not exist", dir.display());
     }
     let (document, unreadable) = load_config();
-    init_translations(document.regional.language());
+    init_translations();
     if let Some(error) = unreadable {
         tracing::warn!("running on defaults: {error:#}");
     }

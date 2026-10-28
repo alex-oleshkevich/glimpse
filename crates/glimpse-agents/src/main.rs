@@ -47,7 +47,7 @@ fn daemon() -> Result<()> {
     if let Some(error) = failure {
         tracing::warn!("{error}");
     }
-    init_translations(config.regional.language());
+    init_translations();
 
     let (input, inbox) = relm4::channel();
     let cancelled = Arc::new(Mutex::new(HashSet::new()));

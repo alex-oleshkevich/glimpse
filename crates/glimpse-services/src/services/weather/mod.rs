@@ -123,7 +123,7 @@ impl From<&glimpse_config::Config> for Config {
                 ConfiguredProvider::OpenMeteo => Provider::OpenMeteo,
                 ConfiguredProvider::MetNo => Provider::MetNo,
             },
-            units: match document.regional.is_metric() {
+            units: match glimpse_config::metric() {
                 true => UnitSystem::Metric,
                 false => UnitSystem::Imperial,
             },

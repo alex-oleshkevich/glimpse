@@ -102,8 +102,6 @@ where
 pub struct Clock {
     /// Show the clock on your lock screen.
     pub enabled: bool,
-    /// A `strftime` pattern for the time, e.g. `%H:%M` or `%-I:%M %p`.
-    pub time_format: String,
     /// `{day}` is the day of the month with its ordinal suffix, e.g. "3rd".
     pub date_format: String,
 }
@@ -112,7 +110,6 @@ impl Default for Clock {
     fn default() -> Self {
         Self {
             enabled: true,
-            time_format: "%H:%M".to_owned(),
             date_format: "%A, {day} %B".to_owned(),
         }
     }

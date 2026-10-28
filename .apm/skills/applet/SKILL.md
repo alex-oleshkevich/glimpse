@@ -201,9 +201,10 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 - **There is no staleness and no `degraded`.** The last snapshot stays on screen until the service
   changes it; never dim a value for its age.
 - **Configuration is typed and validated at load, not by the applet.** `glimpse_config::Applet` is
-  one applet's whole configuration: `kind`, an internally-tagged enum on `extends` carrying the
-  settings this applet alone understands, and `regional`, the document's `[regional]` table stamped
-  on by `applets::configured`. A bad setting is a load error naming the table and the key — the
+  one applet's whole configuration: `{ kind }`, an internally-tagged enum on `extends` carrying the
+  settings this applet alone understands. The 12/24-hour choice and units come from the session
+  environment: read them with `glimpse_config::twelve_hour()` and `glimpse_config::metric()`. A bad
+  setting is a load error naming the table and the key — the
   applet never deserializes anything and has no failure path.
   `configure(&mut self, ctx, config: &AppletConfig)` destructures its own variant off `kind`:
   `let AppletKind::Clock(clock) = &config.kind else { return };`. The runtime compares the config

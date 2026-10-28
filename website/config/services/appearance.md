@@ -1,4 +1,4 @@
-# Appearance, region and location
+# Appearance and location
 
 These tables affect every glimpse surface: the panel, popovers, notifications, the lock screen and
 the wallpaper.
@@ -73,23 +73,6 @@ layer-rule {
 A theme is a directory of stylesheets. glimpse ships one, `adwaita`, and looks for your own under
 `~/.config/glimpse/themes/<name>/` first. The shipped theme's only nonempty stylesheet is
 `dark.css`, which makes the bar black in dark mode. Your own theme does not inherit it.
-
-## Region
-
-The language, how glimpse writes times and units. `hour-format` changes the world clock, next-event
-rows, power charge and empty estimates, idle times and weather times. It does not change the bar
-clock, the display applet's paused-until time, the night-light schedule, `glimpsectl night-light status` output
-or the lock clock. The bar clock has its own `label-format`; set it to `%-I:%M %p` for a 12-hour
-clock. The lock clock uses `time-format` under `[lock]`.
-
-`hour-format = "locale"` follows `LC_TIME`, and `units = "locale"` follows `LC_MEASUREMENT`. With
-`en_US`, those defaults produce 12-hour times and Fahrenheit.
-
-An empty `language` uses your system language, and a new value applies the next time glimpse starts.
-If the `LANGUAGE` environment variable is set in your session, it wins and `language` has no effect.
-Date formatting, weekday names and month names follow your system settings, not `language`.
-
-<ConfigTable path="regional" describe />
 
 ## Location
 

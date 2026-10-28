@@ -388,10 +388,6 @@ impl App {
 
     fn configure(&mut self, config: Config, sender: &ComponentSender<Self>) {
         let renamed = config.appearance.theme != self.config.appearance.theme;
-        glimpse_utils::report_language_change(
-            self.config.regional.language(),
-            config.regional.language(),
-        );
         self.config = config;
         if let Some(services) = &self.services {
             services.reconfigure(&self.config);

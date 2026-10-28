@@ -43,10 +43,9 @@ just build-translations
 
 This compiles the catalogs into `target/locale/<lang>/LC_MESSAGES/glimpse.mo`. glimpse loads
 catalogs from the installed locale directory, so install your build to see the language on your own
-desktop (see [Build glimpse from source](/contribute/build#install)). Then set `[regional] language`
-in `~/.config/glimpse/config.toml`. If your session already sets the `LANGUAGE` environment variable,
-that wins over the setting. A language change does not apply live: restart the running components to
-pick it up.
+desktop (see [Build glimpse from source](/contribute/build#install)). Then start your session with
+`LANGUAGE` or `LANG` set to your language, for example `LANGUAGE=ru`, and restart glimpse
+(`systemctl --user restart glimpse-session.target`) to pick it up.
 
 ## Check your work
 

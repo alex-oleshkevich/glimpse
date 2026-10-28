@@ -120,7 +120,7 @@ and yields a `Reload<T>` when the result differs from what it holds:
 
 ## Applets
 
-`Applet` is `{ kind, regional }`; `kind` is an internally-tagged enum on `extends`, and both are in
+`Applet` is `{ kind }`; `kind` is an internally-tagged enum on `extends`, and it is in
 the schema so a misspelled setting is a load error naming the table and key. Kind names use their canonical
 spelling. The table name supplies the tag when `extends` is absent; custom instances set `extends`.
 **A variant with no settings is written `Clock {}`, never `Clock`** — `deny_unknown_fields` has
@@ -133,24 +133,17 @@ instance is `[applets.pomo]` with `extends = "exec"` and a required `applet` id.
 the applet as written, unvalidated. Exec
 applets run unconfined as systemd units; their table takes `applet`, `options` and `env`.
 
-## The `locale` convention
+## The environment answers locale questions
 
-A setting whose correct value the system already knows takes an enum with a `locale` variant, the
-default. `[regional]` is the only place glimpse asks the environment anything.
-
-| Key           | Asks             | Resolved by                                | Live reload |
-| ------------- | ---------------- | ------------------------------------------ | ----------- |
-| `language`    | `LANGUAGE`       | each UI binary, before `init_translations` | no          |
-| `hour-format` | `LC_TIME`        | each UI binary, at load                    | yes         |
-| `units`       | `LC_MEASUREMENT` | `glimpse-weather`                          | yes         |
-
-`environment.rs` holds both resolvers; `libc` is the only way it asks. **`TWELVE` is `%-I:%M %p`,
-not `%l:%M %p`**, since `%l` is space-padded and carries a leading space into the middle of a
-sentence.
+No document key names a language, a time format or a unit system: `LANG`, `LC_*` and `LANGUAGE`
+answer for every binary, so glimpse agrees with the rest of the session. `environment.rs` holds the
+resolvers, `twelve_hour()` asking `LC_TIME` and `metric()` asking `LC_MEASUREMENT`; `libc` is the
+only way it asks. **`TWELVE` is `%-I:%M %p`, not `%l:%M %p`**, since `%l` is space-padded and
+carries a leading space into the middle of a sentence.
 **These resolvers answer `C` — 24-hour, metric — unless `setlocale(LC_ALL, "")` has already run**,
 each binary's own job, since `setlocale` mutates process-global state read from tokio worker
-threads. **`language` is the one key whose unknown value is a warning, not a load error** — the
-others name a closed set of behaviours; this names a catalog that may not be installed.
+threads. **Retired keys — a `[regional]` table, `[lock.clock] time-format` — are dropped at load
+with a warning**, so a document written for them keeps loading.
 
 ## Not here
 

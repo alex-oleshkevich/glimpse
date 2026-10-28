@@ -38,9 +38,7 @@ fn an_array_of_tables_header_is_never_left_live() {
 #[test]
 fn a_table_whose_emptiness_changes_nothing_stays_live() {
     let config = commented_document(CONFIG);
-    for header in ["[appearance]", "[regional]"] {
-        assert!(config.contains(&format!("\n{header}\n")), "{header}");
-    }
+    assert!(config.contains("\n[appearance]\n"));
     assert!(commented_document(PANEL).contains("\n[applets]\n"));
 }
 

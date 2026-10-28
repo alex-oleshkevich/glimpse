@@ -55,14 +55,16 @@ The name must be a city Open-Meteo knows, written as `City, CC`. Check the
 
 ## Pick the units
 
-`[regional] units` applies to everything glimpse shows: `locale` (the default, follows your system
-locale; American English gives imperial), `metric` (Celsius, km/h, millimeters) or `imperial`
-(Fahrenheit, mph, inches):
+Units follow the session's `LC_MEASUREMENT`: American English gives imperial (Fahrenheit, mph,
+inches), most other locales give metric (Celsius, km/h, millimeters). The setting applies to
+everything glimpse shows. To change it, set the variable for your session, for example in
+`~/.config/environment.d/units.conf`:
 
-```toml
-[regional]
-units = "metric"
+```sh
+LC_MEASUREMENT=en_GB.UTF-8
 ```
+
+Then restart glimpse with `systemctl --user restart glimpse-session.target`.
 
 ## Pick the forecast source
 

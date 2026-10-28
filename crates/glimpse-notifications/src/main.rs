@@ -33,7 +33,7 @@ fn run(cli: &Cli) -> Result<()> {
     let theme =
         glimpse_config::load_theme(&config.appearance.theme, glimpse_config::PANEL_STYLESHEET)
             .unwrap_or_default();
-    init_translations(config.regional.language());
+    init_translations();
     gtk4::init().context("cannot initialize GTK")?;
     glimpse_widgets::register_resources()?;
     if RELM_THREADS.set(4).is_err() {

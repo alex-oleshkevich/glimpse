@@ -35,7 +35,7 @@ impl Applet for Idle {
             return;
         };
         self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
-        self.twelve = config.regional.twelve_hour();
+        self.twelve = glimpse_config::twelve_hour();
 
         ctx.interval(MINUTE);
         self.sync();

@@ -15,7 +15,6 @@ mod night_light;
 mod notifications;
 mod panels;
 mod places;
-mod regional;
 mod removable;
 mod screenshot;
 mod wallpaper;
@@ -57,7 +56,6 @@ pub use night_light::{MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, pa
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;
-pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
 pub use screenshot::{Editor, FileTemplate, PaletteColor, Screenshot as ScreenshotConfig, Stroke};
 pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
@@ -69,7 +67,6 @@ pub const PANEL_TABLES: [&str; 2] = ["panels", "applets"];
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Config {
     pub appearance: Appearance,
-    pub regional: Regional,
     pub geolocation: Geolocation,
     pub bluetooth: Bluetooth,
     pub network: NetworkSettings,
@@ -139,7 +136,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             appearance: Appearance::default(),
-            regional: Regional::default(),
             geolocation: Geolocation::default(),
             bluetooth: Bluetooth::default(),
             network: NetworkSettings::default(),

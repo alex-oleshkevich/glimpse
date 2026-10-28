@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:52+0100\n"
+"POT-Creation-Date: 2026-10-28 16:51+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -17,14 +17,12 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:39
-#, fuzzy
-#| msgid "{count}m"
 msgid "Account"
-msgstr "{count} min"
+msgstr "Účet"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:47
 msgid "Username"
-msgstr ""
+msgstr "Uživatelské jméno"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:63
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
@@ -41,7 +39,7 @@ msgstr "Podrobnosti"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:317
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -66,48 +64,36 @@ msgid "Password"
 msgstr "Heslo"
 
 #: crates/glimpse-agents/src/app/view.rs:61
-#, fuzzy
-#| msgid "Location"
 msgid "Action"
-msgstr "Místo"
+msgstr "Akce"
 
 #: crates/glimpse-agents/src/app/view.rs:75
 msgid "Authorize"
-msgstr ""
+msgstr "Autorizovat"
 
 #: crates/glimpse-agents/src/app/view.rs:78
-#, fuzzy
-#| msgid "Authentication failed"
 msgid "Authentication needed"
-msgstr "Ověření selhalo"
+msgstr "Je nutné ověření"
 
 #: crates/glimpse-agents/src/app/view.rs:90
-#, fuzzy
-#| msgid "That password did not work"
 msgid "That password didn't work"
-msgstr "Heslo nefungovalo"
+msgstr "Toto heslo nefungovalo"
 
 #: crates/glimpse-agents/src/app/view.rs:92
 msgid "Try again"
 msgstr "Zkusit znovu"
 
 #: crates/glimpse-agents/src/app/view.rs:93
-#, fuzzy
-#| msgid "Join Zoom"
 msgid "Join"
-msgstr "Připojit se přes Zoom"
+msgstr "Připojit se"
 
 #: crates/glimpse-agents/src/app/view.rs:97
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Join “{name}”"
-msgstr "Uloženo „{name}“"
+msgstr "Připojit se k „{name}“"
 
 #: crates/glimpse-agents/src/app/view.rs:98
-#, fuzzy
-#| msgid "That network needs a password."
 msgid "The network needs a password"
-msgstr "Tato síť vyžaduje heslo."
+msgstr "Síť vyžaduje heslo"
 
 #: crates/glimpse-agents/src/app/view.rs:107
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:248
@@ -118,10 +104,8 @@ msgid "Connect"
 msgstr "Připojit"
 
 #: crates/glimpse-agents/src/app/view.rs:110
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Sign in to “{name}”"
-msgstr "Uloženo „{name}“"
+msgstr "Přihlásit se k „{name}“"
 
 #: crates/glimpse-agents/src/app/view.rs:118
 #: crates/glimpse-agents/src/obex/mod.rs:132
@@ -129,10 +113,8 @@ msgid "this device"
 msgstr "toto zařízení"
 
 #: crates/glimpse-agents/src/app/view.rs:121
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”"
-msgstr "Uloženo „{name}“"
+msgstr "Spárovat s „{name}“"
 
 #: crates/glimpse-agents/src/app/view.rs:126
 #: crates/glimpse-agents/src/app/view.rs:134
@@ -142,49 +124,33 @@ msgid "Pair"
 msgstr "Spárovat"
 
 #: crates/glimpse-agents/src/app/view.rs:128
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”?"
-msgstr "Uloženo „{name}“"
+msgstr "Spárovat s „{name}“?"
 
 #: crates/glimpse-agents/src/app/view.rs:129
 msgid "Check that the device shows the same code"
-msgstr ""
+msgstr "Zkontrolujte, že zařízení zobrazuje stejný kód"
 
 #: crates/glimpse-agents/src/app/view.rs:133
-#, fuzzy
-#| msgid "VPN"
 msgid "PIN"
-msgstr "VPN"
+msgstr "PIN"
 
 #: crates/glimpse-agents/src/app/view.rs:137
 msgid "Enter the PIN from the device's manual — often 0000"
-msgstr ""
+msgstr "Zadejte PIN z příručky zařízení — často 0000"
 
 #: crates/glimpse-agents/src/app/view.rs:141
-#, fuzzy
-#| msgid "Codec"
 msgid "Code"
-msgstr "Kodek"
+msgstr "Kód"
 
 #: crates/glimpse-agents/src/app/view.rs:143
-#, fuzzy
-#| msgid ""
-#| "Is this the code shown on {device}?\n"
-#| "\n"
-#| "{code}"
 msgid "Enter the code shown on the device"
-msgstr ""
-"Je to kód zobrazený na zařízení {device}?\n"
-"\n"
-"{code}"
+msgstr "Zadejte kód zobrazený na zařízení"
 
 #: crates/glimpse-agents/src/app/view.rs:149
 #: crates/glimpse-agents/src/app/view.rs:156
-#, fuzzy
-#| msgid "Type the PIN shown on {device}, then press OK."
 msgid "Type this code on the device, then press Enter"
-msgstr "Zadejte PIN zobrazený na zařízení {device} a stiskněte OK."
+msgstr "Zadejte tento kód na zařízení a stiskněte Enter"
 
 #: crates/glimpse-agents/src/app/view.rs:160
 msgid "Allow"
@@ -195,42 +161,36 @@ msgid "Deny"
 msgstr "Zamítnout"
 
 #: crates/glimpse-agents/src/app/view.rs:163
-#, fuzzy
-#| msgid "{name} wants to pair"
 msgid "“{name}” wants to connect"
-msgstr "{name} se chce spárovat"
+msgstr "„{name}“ se chce připojit"
 
 #: crates/glimpse-agents/src/app/view.rs:164
-#, fuzzy
-#| msgid "{device} wants to pair with this computer."
 msgid "It has never been paired with this computer"
-msgstr "{device} se chce spárovat s tímto počítačem."
+msgstr "Dosud nebylo s tímto počítačem spárováno"
 
 #: crates/glimpse-agents/src/obex/notify.rs:52
 msgid "Incoming file"
-msgstr ""
+msgstr "Příchozí soubor"
 
 #: crates/glimpse-agents/src/obex/notify.rs:53
 msgid "“{device}” wants to send you “{file}”"
-msgstr ""
+msgstr "„{device}“ vám chce poslat „{file}“"
 
 #: crates/glimpse-agents/src/obex/notify.rs:56
 msgid "Accept"
-msgstr ""
+msgstr "Přijmout"
 
 #: crates/glimpse-agents/src/obex/notify.rs:57
 msgid "Decline"
-msgstr ""
+msgstr "Odmítnout"
 
 #: crates/glimpse-agents/src/obex/notify.rs:63
 msgid "Receiving “{file}”"
-msgstr ""
+msgstr "Přijímání „{file}“"
 
 #: crates/glimpse-agents/src/obex/notify.rs:68
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Received “{file}”"
-msgstr "Uloženo „{name}“"
+msgstr "Přijat soubor „{file}“"
 
 #: crates/glimpse-agents/src/obex/notify.rs:69
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:220
@@ -240,20 +200,19 @@ msgid "Open"
 msgstr "Otevřít"
 
 #: crates/glimpse-agents/src/obex/notify.rs:70
-#, fuzzy
-#| msgid "Open File"
 msgid "Open Folder"
-msgstr "Otevřít soubor"
+msgstr "Otevřít složku"
 
 #: crates/glimpse-agents/src/obex/notify.rs:76
 msgid "Could not receive “{file}”"
-msgstr ""
+msgstr "Soubor „{file}“ se nepodařilo přijmout"
 
 #: crates/glimpse-agents/src/polkit/agent.rs:158
 msgid ""
 "Another authentication agent is running; glimpse can't ask for admin "
 "passwords"
 msgstr ""
+"Běží jiný ověřovací agent; glimpse se nemůže ptát na administrátorská hesla"
 
 #: crates/glimpse-agents/src/polkit/mod.rs:223
 #: crates/glimpse-panel/src/applets/command.rs:87
@@ -268,14 +227,12 @@ msgstr "Nesprávné heslo"
 #: crates/glimpse-agents/src/polkit/mod.rs:334
 #: crates/glimpse-agents/src/polkit/mod.rs:335
 #: crates/glimpse-agents/src/polkit/mod.rs:496
-#, fuzzy
-#| msgid "Can't verify passwords. Run glimpse-lock check."
 msgid "Can't verify passwords"
-msgstr "Hesla nelze ověřit. Spusťte glimpse-lock check."
+msgstr "Hesla nelze ověřit"
 
 #: crates/glimpse-agents/src/session.rs:46
 msgid "The requested power action is unavailable or inhibited"
-msgstr ""
+msgstr "Požadovaná akce napájení není dostupná nebo je blokována"
 
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
@@ -285,26 +242,20 @@ msgid "Restart"
 msgstr "Restartovat"
 
 #: crates/glimpse-agents/src/session.rs:53
-#, fuzzy
-#| msgid "Restart"
 msgid "Restart?"
-msgstr "Restartovat"
+msgstr "Restartovat?"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off"
 msgstr "Vypnout"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off?"
-msgstr "Vypnout"
+msgstr "Vypnout?"
 
 #: crates/glimpse-agents/src/session.rs:59
 msgid "Unsaved work in open apps may be lost"
-msgstr ""
+msgstr "Neuložená práce v otevřených aplikacích může být ztracena"
 
 #: crates/glimpse-agents/src/session.rs:177
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
@@ -312,43 +263,33 @@ msgid "Delay"
 msgstr "Zpoždění"
 
 #: crates/glimpse-agents/src/session.rs:178
-#, fuzzy
-#| msgid "Blocked"
 msgid "Block"
-msgstr "Blokováno"
+msgstr "Blokování"
 
 #: crates/glimpse-agents/src/session.rs:182
-#, fuzzy
-#| msgid "An application"
 msgid "{kind}: {application}"
-msgstr "Aplikace"
+msgstr "{kind}: {application}"
 
 #: crates/glimpse-agents/src/session.rs:206
 #: crates/glimpse-agents/src/session.rs:228
 #: crates/glimpse-agents/src/session.rs:237
-#, fuzzy
-#| msgid "The drive did not respond in time."
 msgid "The power service did not answer in time"
-msgstr "Disk neodpověděl včas."
+msgstr "Služba napájení neodpověděla včas"
 
 #: crates/glimpse-agents/src/session.rs:223
 msgid "The session is locked"
-msgstr ""
+msgstr "Relace je zamčena"
 
 #: crates/glimpse-agents/src/session.rs:241
-#, fuzzy
-#| msgid "External applet action failed."
 msgid "The power action failed"
-msgstr "Akce externího apletu selhala."
+msgstr "Akce napájení selhala"
 
-#: crates/glimpse-calendar/src/notify.rs:95
-#, fuzzy
-#| msgid "The file cannot be read."
+#: crates/glimpse-calendar/src/notify.rs:92
 msgid "{count} calendar cannot be read"
 msgid_plural "{count} calendars cannot be read"
-msgstr[0] "Soubor nelze přečíst."
-msgstr[1] "Soubor nelze přečíst."
-msgstr[2] "Soubor nelze přečíst."
+msgstr[0] "{count} kalendář nelze přečíst"
+msgstr[1] "{count} kalendáře nelze přečíst"
+msgstr[2] "{count} kalendářů nelze přečíst"
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -456,21 +397,21 @@ msgstr "Systém nelze vypnout"
 msgid "Blocked by {who}: {why}"
 msgstr "Blokováno aplikací {who}: {why}"
 
-#: crates/glimpse-notifications/src/app.rs:501
+#: crates/glimpse-notifications/src/app.rs:497
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "nyní"
 
-#: crates/glimpse-panel/src/app.rs:379
+#: crates/glimpse-panel/src/app.rs:375
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "Relace"
 
-#: crates/glimpse-panel/src/app.rs:381
+#: crates/glimpse-panel/src/app.rs:377
 msgid "Could not complete the session action"
 msgstr "Akci relace nelze dokončit"
 
-#: crates/glimpse-panel/src/app.rs:383
+#: crates/glimpse-panel/src/app.rs:379
 msgid "The session manager refused that action."
 msgstr "Správce relací tuto akci odmítl."
 
@@ -503,14 +444,12 @@ msgid "That did not work."
 msgstr "Nepodařilo se."
 
 #: crates/glimpse-panel/src/applet/mod.rs:202
-#, fuzzy
-#| msgid "Could not move the application"
 msgid "Could not open that location"
-msgstr "Aplikaci nelze přesunout"
+msgstr "Toto umístění se nepodařilo otevřít"
 
 #: crates/glimpse-panel/src/applet/mod.rs:218
 msgid "No app is installed to open it."
-msgstr ""
+msgstr "Není nainstalována žádná aplikace, která by to otevřela."
 
 #: crates/glimpse-panel/src/applets/agenda.rs:80
 msgid "All day · day {day} of {days}"
@@ -524,100 +463,100 @@ msgstr "Celý den"
 msgid "{start} · until {weekday} {end}"
 msgstr "{start} · do {weekday} {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:98
-#: crates/glimpse-panel/src/applets/agenda.rs:130
+#: crates/glimpse-panel/src/applets/agenda.rs:102
+#: crates/glimpse-panel/src/applets/agenda.rs:134
 msgid "{start} · {length}"
 msgstr "{start} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:106
+#: crates/glimpse-panel/src/applets/agenda.rs:110
 msgid "{start} · over"
 msgstr "{start} · skončilo"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:107
+#: crates/glimpse-panel/src/applets/agenda.rs:111
 msgid "ended {length} ago"
 msgstr "skončilo před {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:114
+#: crates/glimpse-panel/src/applets/agenda.rs:118
 msgid "now · ends in {length}"
 msgstr "nyní · končí za {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:116
+#: crates/glimpse-panel/src/applets/agenda.rs:120
 msgid "now · ends {end}"
 msgstr "nyní · končí v {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:123
+#: crates/glimpse-panel/src/applets/agenda.rs:127
 msgid "starting now · {length}"
 msgstr "začíná nyní · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:126
+#: crates/glimpse-panel/src/applets/agenda.rs:130
 msgid "in {until} · {length}"
 msgstr "za {until} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:153
+#: crates/glimpse-panel/src/applets/agenda.rs:157
 msgid "Join Google Meet"
 msgstr "Připojit se přes Google Meet"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:154
+#: crates/glimpse-panel/src/applets/agenda.rs:158
 msgid "Join Zoom"
 msgstr "Připojit se přes Zoom"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:155
+#: crates/glimpse-panel/src/applets/agenda.rs:159
 msgid "Join Microsoft Teams"
 msgstr "Připojit se přes Microsoft Teams"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:156
+#: crates/glimpse-panel/src/applets/agenda.rs:160
 msgid "Join Webex"
 msgstr "Připojit se přes Webex"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:157
+#: crates/glimpse-panel/src/applets/agenda.rs:161
 msgid "Join meeting"
 msgstr "Připojit se ke schůzce"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:170
+#: crates/glimpse-panel/src/applets/agenda.rs:174
 msgid "Open event"
 msgstr "Otevřít událost"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/agenda.rs:194
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr "Místo"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/agenda.rs:196
 #: crates/glimpse-panel/src/applets/next_event/render.rs:236
 msgid "Calendar"
 msgstr "Kalendář"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/agenda.rs:200
 #: crates/glimpse-panel/src/applets/next_event/render.rs:239
 msgid "Organizer"
 msgstr "Organizátor"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/agenda.rs:202
 #: crates/glimpse-panel/src/applets/next_event/render.rs:255
 msgid "Description"
 msgstr "Popis"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:216
+#: crates/glimpse-panel/src/applets/agenda.rs:220
 msgid "{minutes} min"
 msgstr "{minutes} min"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/agenda.rs:226
 #: crates/glimpse-panel/src/applets/power/render.rs:374
 msgid "{hours} h"
 msgstr "{hours} h"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:223
-#: crates/glimpse-panel/src/applets/weather/render.rs:265
+#: crates/glimpse-panel/src/applets/agenda.rs:227
+#: crates/glimpse-panel/src/applets/weather/render.rs:257
 msgid "{hours} h {minutes} min"
 msgstr "{hours} h {minutes} min"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:231
+#: crates/glimpse-panel/src/applets/agenda.rs:235
 msgid "{days} d"
 msgstr "{days} d"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:232
+#: crates/glimpse-panel/src/applets/agenda.rs:236
 msgid "{days} d {hours} h"
 msgstr "{days} d {hours} h"
 
@@ -1340,7 +1279,7 @@ msgstr "Rozložení klávesnice se nepodařilo přepnout"
 msgid "The keyboard layout service is unavailable."
 msgstr "Služba rozložení klávesnice není dostupná."
 
-#: crates/glimpse-panel/src/applets/mod.rs:47
+#: crates/glimpse-panel/src/applets/mod.rs:36
 msgid "Built-in display"
 msgstr "Vestavěný displej"
 
@@ -1403,10 +1342,8 @@ msgid "Continue"
 msgstr "Pokračovat"
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:191
-#, fuzzy
-#| msgid "Choose how the network is secured, then type its password."
 msgid "Choose how the network is secured."
-msgstr "Zvolte, jak je síť zabezpečena, a pak zadejte její heslo."
+msgstr "Vyberte, jak je síť zabezpečena."
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:213
 msgid "VPN is connected"
@@ -2160,7 +2097,7 @@ msgid "Light rain"
 msgstr "Slabý déšť"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:24
-#: crates/glimpse-panel/src/applets/weather/render.rs:206
+#: crates/glimpse-panel/src/applets/weather/render.rs:198
 msgid "Rain"
 msgstr "Déšť"
 
@@ -2177,7 +2114,7 @@ msgid "Light snow"
 msgstr "Slabé sněžení"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:28
-#: crates/glimpse-panel/src/applets/weather/render.rs:205
+#: crates/glimpse-panel/src/applets/weather/render.rs:197
 msgid "Snow"
 msgstr "Sněžení"
 
@@ -2213,121 +2150,121 @@ msgstr "Bouřka s krupobitím"
 msgid "feels like {temperature}"
 msgstr "pocitově {temperature}"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:213
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
 msgstr[0] "{what} začne za {count} minutu"
 msgstr[1] "{what} začne za {count} minuty"
 msgstr[2] "{what} začne za {count} minut"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:215
 msgid "{what} starting in {count} hour"
 msgid_plural "{what} starting in {count} hours"
 msgstr[0] "{what} začne za {count} hodinu"
 msgstr[1] "{what} začne za {count} hodiny"
 msgstr[2] "{what} začne za {count} hodin"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:244
+#: crates/glimpse-panel/src/applets/weather/render.rs:236
 msgid "°C"
 msgstr "°C"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:245
+#: crates/glimpse-panel/src/applets/weather/render.rs:237
 msgid "°F"
 msgstr "°F"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:273
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
 msgctxt "wind"
 msgid "N"
 msgstr "S"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:274
+#: crates/glimpse-panel/src/applets/weather/render.rs:266
 msgctxt "wind"
 msgid "NE"
 msgstr "SV"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:275
+#: crates/glimpse-panel/src/applets/weather/render.rs:267
 msgctxt "wind"
 msgid "E"
 msgstr "V"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:276
+#: crates/glimpse-panel/src/applets/weather/render.rs:268
 msgctxt "wind"
 msgid "SE"
 msgstr "JV"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:277
+#: crates/glimpse-panel/src/applets/weather/render.rs:269
 msgctxt "wind"
 msgid "S"
 msgstr "J"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:278
+#: crates/glimpse-panel/src/applets/weather/render.rs:270
 msgctxt "wind"
 msgid "SW"
 msgstr "JZ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:279
+#: crates/glimpse-panel/src/applets/weather/render.rs:271
 msgctxt "wind"
 msgid "W"
 msgstr "Z"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:280
+#: crates/glimpse-panel/src/applets/weather/render.rs:272
 msgctxt "wind"
 msgid "NW"
 msgstr "SZ"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:287
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
 msgid "km/h"
 msgstr "km/h"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:288
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
 msgid "mph"
 msgstr "mph"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:299
+#: crates/glimpse-panel/src/applets/weather/render.rs:291
 msgid "{amount} mm"
 msgstr "{amount} mm"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:300
+#: crates/glimpse-panel/src/applets/weather/render.rs:292
 msgid "{amount} in"
 msgstr "{amount} in"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:307
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
 msgid "Wind"
 msgstr "Vítr"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:310
+#: crates/glimpse-panel/src/applets/weather/render.rs:302
 msgid "Humidity"
 msgstr "Vlhkost"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:313
+#: crates/glimpse-panel/src/applets/weather/render.rs:305
 msgid "Precipitation"
 msgstr "Srážky"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:321
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
 msgid "High"
 msgstr "Max."
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:325
+#: crates/glimpse-panel/src/applets/weather/render.rs:317
 msgid "Low"
 msgstr "Min."
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:331
+#: crates/glimpse-panel/src/applets/weather/render.rs:323
 msgid "Chance of rain"
 msgstr "Pravděpodobnost deště"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:340
+#: crates/glimpse-panel/src/applets/weather/render.rs:332
 msgid "Sunrise"
 msgstr "Východ slunce"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:343
+#: crates/glimpse-panel/src/applets/weather/render.rs:335
 msgid "Sunset"
 msgstr "Západ slunce"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:346
+#: crates/glimpse-panel/src/applets/weather/render.rs:338
 msgid "Day length"
 msgstr "Délka dne"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:392
+#: crates/glimpse-panel/src/applets/weather/render.rs:384
 msgid ""
 "{place}\n"
 "{condition}, {temperature}, feels like {feels-like}"
@@ -2353,16 +2290,12 @@ msgid "Already the name of {workspace}"
 msgstr "Tento název už má {workspace}"
 
 #: crates/glimpse-panel/src/config_alert.rs:36
-#, fuzzy
-#| msgid ""
-#| "Idle and night light are off until it is fixed; everything else uses its "
-#| "defaults."
 msgid ""
 "The panels use their defaults until it is fixed; everything else is as "
 "configured."
 msgstr ""
-"Nečinnost a noční světlo jsou vypnuté, dokud se chyba neopraví; vše ostatní "
-"používá výchozí hodnoty."
+"Panely používají výchozí nastavení, dokud se to neopraví; vše ostatní je "
+"nastaveno podle konfigurace."
 
 #: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
@@ -2379,7 +2312,7 @@ msgstr "Poslední změna nebyla použita; stále běží předchozí konfigurace
 
 #: crates/glimpse-panel/src/config_alert.rs:51
 msgid "A stylesheet could not be read: {reason}"
-msgstr ""
+msgstr "Šablonu stylů se nepodařilo přečíst: {reason}"
 
 #: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
@@ -2431,10 +2364,8 @@ msgid "That window has closed"
 msgstr "Okno bylo zavřeno"
 
 #: crates/glimpse-shot/src/gui/app.rs:861
-#, fuzzy
-#| msgid "PNG Images"
 msgid "Images"
-msgstr "Obrázky PNG"
+msgstr "Obrázky"
 
 #: crates/glimpse-shot/src/gui/app.rs:871
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
@@ -2443,7 +2374,7 @@ msgstr "Otevřít obrázek"
 
 #: crates/glimpse-shot/src/gui/app.rs:896
 msgid "The image must be a local file"
-msgstr ""
+msgstr "Obrázek musí být místní soubor"
 
 #: crates/glimpse-shot/src/gui/app.rs:1012
 msgid "Untitled window"
@@ -2550,10 +2481,10 @@ msgctxt "notification action"
 msgid "Open"
 msgstr "Otevřít"
 
-#: crates/glimpse-shot/src/portal.rs:166
-#: crates/glimpse-shot/src/portal/tests.rs:53
-#: crates/glimpse-shot/src/portal/tests.rs:54
-#: crates/glimpse-shot/src/portal/tests.rs:611
+#: crates/glimpse-shot/src/portal.rs:127
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Aplikace"
@@ -2642,10 +2573,8 @@ msgid "Next"
 msgstr "Další"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
-#, fuzzy
-#| msgid "Some events on this day aren't shown."
 msgid "Some events on this day aren’t shown."
-msgstr "Některé události tohoto dne nejsou zobrazeny."
+msgstr "Některé události tohoto dne se nezobrazují."
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
 msgid "World clock"
@@ -2941,10 +2870,9 @@ msgid "Preferences"
 msgstr "Předvolby"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-#, fuzzy
-#| msgid "config.toml cannot be read, so nothing here can be saved"
 msgid "config.toml is invalid or read-only, so nothing here can be saved"
-msgstr "Soubor config.toml nelze přečíst, proto nic nelze uložit"
+msgstr ""
+"config.toml je neplatný nebo jen pro čtení, takže se zde nic nedá uložit"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
 msgid "Open File"
@@ -2966,7 +2894,7 @@ msgstr "Název souboru"
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:44
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:83
 msgid ".png"
-msgstr ""
+msgstr ".png"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
 msgid "Behavior"
@@ -3346,8 +3274,6 @@ msgid "Pixelate (B)"
 msgstr "Pixelizace (B)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:225
-#, fuzzy
-#| msgid "Color (1–5)"
 msgid "Color (1 –5)"
 msgstr "Barva (1–5)"
 
@@ -3429,19 +3355,19 @@ msgstr "Opakovat"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:14
 msgid "Wide"
-msgstr ""
+msgstr "Široký"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:25
 msgid "body 1"
-msgstr ""
+msgstr "text 1"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:36
 msgid "body 2"
-msgstr ""
+msgstr "text 2"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:47
 msgid "body 3"
-msgstr ""
+msgstr "text 3"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
 msgid "Inactive warning row"
@@ -3464,7 +3390,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:250
 msgid "tall"
-msgstr ""
+msgstr "vysoký"
 
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
 msgid "Name this workspace"
@@ -3691,18 +3617,16 @@ msgid "magnifier;zoom;lens;enlarge;"
 msgstr "lupa;zvětšení;zoom;magnifier;"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:3
-#, fuzzy
-#| msgid "Annotate In"
 msgid "Annotate Image"
-msgstr "Anotovat v"
+msgstr "Anotovat obrázek"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:4
 msgid "Open an image and mark it up"
-msgstr ""
+msgstr "Otevřete obrázek a udělejte do něj poznámky"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:12
 msgid "image;annotate;annotation;PNG;draw;markup;"
-msgstr ""
+msgstr "obrázek;anotace;poznámky;PNG;kreslení;značky;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"

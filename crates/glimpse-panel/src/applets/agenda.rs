@@ -90,7 +90,11 @@ pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str)
     if days > 1 {
         return gettext("{start} · until {weekday} {end}")
             .replace("{start}", &started)
-            .replace("{weekday}", &event.end.format("%a").to_string())
+            .replace(
+                "{weekday}",
+                &crate::applets::strftime(&event.end, "%a")
+                    .unwrap_or_else(|| event.end.format("%a").to_string()),
+            )
             .replace("{end}", &event.end.format(clock).to_string());
     }
 

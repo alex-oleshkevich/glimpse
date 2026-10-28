@@ -20,9 +20,9 @@ The selected theme's `lock.css` styles the lock screen. See [Write a theme](/gui
 
 <ConfigTable path="lock.clock" describe />
 
-`glimpsectl config validate` does not check the clock formats, background colors, image paths, or
-`pam-service`. An invalid `time-format` hides the time. Only `{day}` is replaced in `date-format`;
-an unknown placeholder is printed as typed.
+`glimpsectl config validate` does not check the date format, background colors, image paths, or
+`pam-service`. The time follows your system's 12- or 24-hour clock (`LC_TIME`). Only `{day}` is
+replaced in `date-format`; an unknown placeholder is printed as typed.
 
 <ConfigTable path="lock.status" describe />
 

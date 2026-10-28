@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 14:52+0100\n"
+"POT-Creation-Date: 2026-10-28 16:51+0100\n"
 "PO-Revision-Date: 2026-10-15 15:14+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -18,14 +18,12 @@ msgstr ""
 "2);\n"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:39
-#, fuzzy
-#| msgid "{count}m"
 msgid "Account"
-msgstr "{count} min"
+msgstr "Konts"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:47
 msgid "Username"
-msgstr ""
+msgstr "Lietotājvārds"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:63
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:262
@@ -42,7 +40,7 @@ msgstr "Sīkāka informācija"
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:317
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -67,24 +65,18 @@ msgid "Password"
 msgstr "Parole"
 
 #: crates/glimpse-agents/src/app/view.rs:61
-#, fuzzy
-#| msgid "Location"
 msgid "Action"
-msgstr "Vieta"
+msgstr "Darbība"
 
 #: crates/glimpse-agents/src/app/view.rs:75
 msgid "Authorize"
-msgstr ""
+msgstr "Autorizēt"
 
 #: crates/glimpse-agents/src/app/view.rs:78
-#, fuzzy
-#| msgid "Authentication failed"
 msgid "Authentication needed"
-msgstr "Autentifikācija neizdevās"
+msgstr "Nepieciešama autentifikācija"
 
 #: crates/glimpse-agents/src/app/view.rs:90
-#, fuzzy
-#| msgid "That password did not work"
 msgid "That password didn't work"
 msgstr "Šī parole nederēja"
 
@@ -93,22 +85,16 @@ msgid "Try again"
 msgstr "Mēģināt vēlreiz"
 
 #: crates/glimpse-agents/src/app/view.rs:93
-#, fuzzy
-#| msgid "Join Zoom"
 msgid "Join"
-msgstr "Pievienoties Zoom"
+msgstr "Pievienoties"
 
 #: crates/glimpse-agents/src/app/view.rs:97
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Join “{name}”"
-msgstr "Saglabāts “{name}”"
+msgstr "Pievienoties “{name}”"
 
 #: crates/glimpse-agents/src/app/view.rs:98
-#, fuzzy
-#| msgid "That network needs a password."
 msgid "The network needs a password"
-msgstr "Šim tīklam nepieciešama parole."
+msgstr "Tīklam nepieciešama parole"
 
 #: crates/glimpse-agents/src/app/view.rs:107
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:248
@@ -119,10 +105,8 @@ msgid "Connect"
 msgstr "Savienot"
 
 #: crates/glimpse-agents/src/app/view.rs:110
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Sign in to “{name}”"
-msgstr "Saglabāts “{name}”"
+msgstr "Pierakstīties pakalpojumā “{name}”"
 
 #: crates/glimpse-agents/src/app/view.rs:118
 #: crates/glimpse-agents/src/obex/mod.rs:132
@@ -130,10 +114,8 @@ msgid "this device"
 msgstr "šī ierīce"
 
 #: crates/glimpse-agents/src/app/view.rs:121
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”"
-msgstr "Saglabāts “{name}”"
+msgstr "Sapārot ar “{name}”"
 
 #: crates/glimpse-agents/src/app/view.rs:126
 #: crates/glimpse-agents/src/app/view.rs:134
@@ -143,49 +125,33 @@ msgid "Pair"
 msgstr "Sapārot"
 
 #: crates/glimpse-agents/src/app/view.rs:128
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Pair with “{name}”?"
-msgstr "Saglabāts “{name}”"
+msgstr "Sapārot ar “{name}”?"
 
 #: crates/glimpse-agents/src/app/view.rs:129
 msgid "Check that the device shows the same code"
-msgstr ""
+msgstr "Pārbaudiet, vai ierīcē tiek rādīts tas pats kods"
 
 #: crates/glimpse-agents/src/app/view.rs:133
-#, fuzzy
-#| msgid "VPN"
 msgid "PIN"
-msgstr "VPN"
+msgstr "PIN"
 
 #: crates/glimpse-agents/src/app/view.rs:137
 msgid "Enter the PIN from the device's manual — often 0000"
-msgstr ""
+msgstr "Ievadiet PIN no ierīces rokasgrāmatas — bieži 0000"
 
 #: crates/glimpse-agents/src/app/view.rs:141
-#, fuzzy
-#| msgid "Codec"
 msgid "Code"
-msgstr "Kodeks"
+msgstr "Kods"
 
 #: crates/glimpse-agents/src/app/view.rs:143
-#, fuzzy
-#| msgid ""
-#| "Is this the code shown on {device}?\n"
-#| "\n"
-#| "{code}"
 msgid "Enter the code shown on the device"
-msgstr ""
-"Vai šis ir kods, kas redzams ierīcē {device}?\n"
-"\n"
-"{code}"
+msgstr "Ievadiet ierīcē parādīto kodu"
 
 #: crates/glimpse-agents/src/app/view.rs:149
 #: crates/glimpse-agents/src/app/view.rs:156
-#, fuzzy
-#| msgid "Type the PIN shown on {device}, then press OK."
 msgid "Type this code on the device, then press Enter"
-msgstr "Ievadiet ierīcē {device} redzamo PIN un nospiediet “Labi”."
+msgstr "Ievadiet šo kodu ierīcē un nospiediet Enter"
 
 #: crates/glimpse-agents/src/app/view.rs:160
 msgid "Allow"
@@ -196,42 +162,36 @@ msgid "Deny"
 msgstr "Liegt"
 
 #: crates/glimpse-agents/src/app/view.rs:163
-#, fuzzy
-#| msgid "{name} wants to pair"
 msgid "“{name}” wants to connect"
-msgstr "{name} vēlas sapāroties"
+msgstr "“{name}” vēlas izveidot savienojumu"
 
 #: crates/glimpse-agents/src/app/view.rs:164
-#, fuzzy
-#| msgid "{device} wants to pair with this computer."
 msgid "It has never been paired with this computer"
-msgstr "{device} vēlas izveidot pāri ar šo datoru."
+msgstr "Tas nekad nav bijis sapārots ar šo datoru"
 
 #: crates/glimpse-agents/src/obex/notify.rs:52
 msgid "Incoming file"
-msgstr ""
+msgstr "Ienākošais fails"
 
 #: crates/glimpse-agents/src/obex/notify.rs:53
 msgid "“{device}” wants to send you “{file}”"
-msgstr ""
+msgstr "“{device}” vēlas jums nosūtīt “{file}”"
 
 #: crates/glimpse-agents/src/obex/notify.rs:56
 msgid "Accept"
-msgstr ""
+msgstr "Pieņemt"
 
 #: crates/glimpse-agents/src/obex/notify.rs:57
 msgid "Decline"
-msgstr ""
+msgstr "Noraidīt"
 
 #: crates/glimpse-agents/src/obex/notify.rs:63
 msgid "Receiving “{file}”"
-msgstr ""
+msgstr "Tiek saņemts “{file}”"
 
 #: crates/glimpse-agents/src/obex/notify.rs:68
-#, fuzzy
-#| msgid "Saved “{name}”"
 msgid "Received “{file}”"
-msgstr "Saglabāts “{name}”"
+msgstr "Saņemts “{file}”"
 
 #: crates/glimpse-agents/src/obex/notify.rs:69
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:220
@@ -241,20 +201,20 @@ msgid "Open"
 msgstr "Atvērt"
 
 #: crates/glimpse-agents/src/obex/notify.rs:70
-#, fuzzy
-#| msgid "Open File"
 msgid "Open Folder"
-msgstr "Atvērt failu"
+msgstr "Atvērt mapi"
 
 #: crates/glimpse-agents/src/obex/notify.rs:76
 msgid "Could not receive “{file}”"
-msgstr ""
+msgstr "Nevarēja saņemt “{file}”"
 
 #: crates/glimpse-agents/src/polkit/agent.rs:158
 msgid ""
 "Another authentication agent is running; glimpse can't ask for admin "
 "passwords"
 msgstr ""
+"Darbojas cits autentifikācijas aģents; glimpse nevar pieprasīt "
+"administratora paroles"
 
 #: crates/glimpse-agents/src/polkit/mod.rs:223
 #: crates/glimpse-panel/src/applets/command.rs:87
@@ -269,14 +229,12 @@ msgstr "Nepareiza parole"
 #: crates/glimpse-agents/src/polkit/mod.rs:334
 #: crates/glimpse-agents/src/polkit/mod.rs:335
 #: crates/glimpse-agents/src/polkit/mod.rs:496
-#, fuzzy
-#| msgid "Can't verify passwords. Run glimpse-lock check."
 msgid "Can't verify passwords"
-msgstr "Nevar pārbaudīt paroles. Palaidiet glimpse-lock check."
+msgstr "Nevar pārbaudīt paroles"
 
 #: crates/glimpse-agents/src/session.rs:46
 msgid "The requested power action is unavailable or inhibited"
-msgstr ""
+msgstr "Pieprasītā barošanas darbība nav pieejama vai ir bloķēta"
 
 #: crates/glimpse-agents/src/session.rs:53
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
@@ -286,26 +244,20 @@ msgid "Restart"
 msgstr "Pārstartēt"
 
 #: crates/glimpse-agents/src/session.rs:53
-#, fuzzy
-#| msgid "Restart"
 msgid "Restart?"
-msgstr "Pārstartēt"
+msgstr "Pārstartēt?"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off"
 msgstr "Izslēgt"
 
 #: crates/glimpse-agents/src/session.rs:54
-#, fuzzy
-#| msgid "Power Off"
 msgid "Power off?"
-msgstr "Izslēgt"
+msgstr "Izslēgt?"
 
 #: crates/glimpse-agents/src/session.rs:59
 msgid "Unsaved work in open apps may be lost"
-msgstr ""
+msgstr "Nesaglabātais darbs atvērtajās lietotnēs var tikt zaudēts"
 
 #: crates/glimpse-agents/src/session.rs:177
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
@@ -313,43 +265,33 @@ msgid "Delay"
 msgstr "Aizture"
 
 #: crates/glimpse-agents/src/session.rs:178
-#, fuzzy
-#| msgid "Blocked"
 msgid "Block"
-msgstr "Bloķēts"
+msgstr "Bloķēšana"
 
 #: crates/glimpse-agents/src/session.rs:182
-#, fuzzy
-#| msgid "An application"
 msgid "{kind}: {application}"
-msgstr "Kāda lietotne"
+msgstr "{kind}: {application}"
 
 #: crates/glimpse-agents/src/session.rs:206
 #: crates/glimpse-agents/src/session.rs:228
 #: crates/glimpse-agents/src/session.rs:237
-#, fuzzy
-#| msgid "The drive did not respond in time."
 msgid "The power service did not answer in time"
-msgstr "Disks laikus neatbildēja."
+msgstr "Barošanas pakalpojums laikus neatbildēja"
 
 #: crates/glimpse-agents/src/session.rs:223
 msgid "The session is locked"
-msgstr ""
+msgstr "Sesija ir bloķēta"
 
 #: crates/glimpse-agents/src/session.rs:241
-#, fuzzy
-#| msgid "External applet action failed."
 msgid "The power action failed"
-msgstr "Ārējās sīklietotnes darbība neizdevās."
+msgstr "Barošanas darbība neizdevās"
 
-#: crates/glimpse-calendar/src/notify.rs:95
-#, fuzzy
-#| msgid "The file cannot be read."
+#: crates/glimpse-calendar/src/notify.rs:92
 msgid "{count} calendar cannot be read"
 msgid_plural "{count} calendars cannot be read"
-msgstr[0] "Failu nevar nolasīt."
-msgstr[1] "Failu nevar nolasīt."
-msgstr[2] "Failu nevar nolasīt."
+msgstr[0] "Nevar nolasīt {count} kalendāru"
+msgstr[1] "Nevar nolasīt {count} kalendārus"
+msgstr[2] "Nevar nolasīt {count} kalendārus"
 
 #: crates/glimpse-lens/src/session.rs:239
 msgid "total {length}px, {count} segment"
@@ -458,21 +400,21 @@ msgstr "Neizdevās izslēgt sistēmu"
 msgid "Blocked by {who}: {why}"
 msgstr "Bloķē {who}: {why}"
 
-#: crates/glimpse-notifications/src/app.rs:501
+#: crates/glimpse-notifications/src/app.rs:497
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "tagad"
 
-#: crates/glimpse-panel/src/app.rs:379
+#: crates/glimpse-panel/src/app.rs:375
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr "Sesija"
 
-#: crates/glimpse-panel/src/app.rs:381
+#: crates/glimpse-panel/src/app.rs:377
 msgid "Could not complete the session action"
 msgstr "Neizdevās pabeigt sesijas darbību"
 
-#: crates/glimpse-panel/src/app.rs:383
+#: crates/glimpse-panel/src/app.rs:379
 msgid "The session manager refused that action."
 msgstr "Sesiju pārvaldnieks atteica šo darbību."
 
@@ -505,14 +447,12 @@ msgid "That did not work."
 msgstr "Tas neizdevās."
 
 #: crates/glimpse-panel/src/applet/mod.rs:202
-#, fuzzy
-#| msgid "Could not move the application"
 msgid "Could not open that location"
-msgstr "Neizdevās pārvietot lietotni"
+msgstr "Nevarēja atvērt šo vietu"
 
 #: crates/glimpse-panel/src/applet/mod.rs:218
 msgid "No app is installed to open it."
-msgstr ""
+msgstr "Nav instalētas lietotnes, ar ko to atvērt."
 
 #: crates/glimpse-panel/src/applets/agenda.rs:80
 msgid "All day · day {day} of {days}"
@@ -526,100 +466,100 @@ msgstr "Visu dienu"
 msgid "{start} · until {weekday} {end}"
 msgstr "{start} · līdz {weekday} {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:98
-#: crates/glimpse-panel/src/applets/agenda.rs:130
+#: crates/glimpse-panel/src/applets/agenda.rs:102
+#: crates/glimpse-panel/src/applets/agenda.rs:134
 msgid "{start} · {length}"
 msgstr "{start} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:106
+#: crates/glimpse-panel/src/applets/agenda.rs:110
 msgid "{start} · over"
 msgstr "{start} · beidzies"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:107
+#: crates/glimpse-panel/src/applets/agenda.rs:111
 msgid "ended {length} ago"
 msgstr "beidzās pirms {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:114
+#: crates/glimpse-panel/src/applets/agenda.rs:118
 msgid "now · ends in {length}"
 msgstr "tagad · beigsies pēc {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:116
+#: crates/glimpse-panel/src/applets/agenda.rs:120
 msgid "now · ends {end}"
 msgstr "tagad · līdz {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:123
+#: crates/glimpse-panel/src/applets/agenda.rs:127
 msgid "starting now · {length}"
 msgstr "sākas tagad · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:126
+#: crates/glimpse-panel/src/applets/agenda.rs:130
 msgid "in {until} · {length}"
 msgstr "pēc {until} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:153
+#: crates/glimpse-panel/src/applets/agenda.rs:157
 msgid "Join Google Meet"
 msgstr "Pievienoties Google Meet"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:154
+#: crates/glimpse-panel/src/applets/agenda.rs:158
 msgid "Join Zoom"
 msgstr "Pievienoties Zoom"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:155
+#: crates/glimpse-panel/src/applets/agenda.rs:159
 msgid "Join Microsoft Teams"
 msgstr "Pievienoties Microsoft Teams"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:156
+#: crates/glimpse-panel/src/applets/agenda.rs:160
 msgid "Join Webex"
 msgstr "Pievienoties Webex"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:157
+#: crates/glimpse-panel/src/applets/agenda.rs:161
 msgid "Join meeting"
 msgstr "Pievienoties sapulcei"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:170
+#: crates/glimpse-panel/src/applets/agenda.rs:174
 msgid "Open event"
 msgstr "Atvērt notikumu"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/agenda.rs:194
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr "Vieta"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/agenda.rs:196
 #: crates/glimpse-panel/src/applets/next_event/render.rs:236
 msgid "Calendar"
 msgstr "Kalendārs"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/agenda.rs:200
 #: crates/glimpse-panel/src/applets/next_event/render.rs:239
 msgid "Organizer"
 msgstr "Organizators"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/agenda.rs:202
 #: crates/glimpse-panel/src/applets/next_event/render.rs:255
 msgid "Description"
 msgstr "Apraksts"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:216
+#: crates/glimpse-panel/src/applets/agenda.rs:220
 msgid "{minutes} min"
 msgstr "{minutes} min"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/agenda.rs:226
 #: crates/glimpse-panel/src/applets/power/render.rs:374
 msgid "{hours} h"
 msgstr "{hours} h"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:223
-#: crates/glimpse-panel/src/applets/weather/render.rs:265
+#: crates/glimpse-panel/src/applets/agenda.rs:227
+#: crates/glimpse-panel/src/applets/weather/render.rs:257
 msgid "{hours} h {minutes} min"
 msgstr "{hours} h {minutes} min"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:231
+#: crates/glimpse-panel/src/applets/agenda.rs:235
 msgid "{days} d"
 msgstr "{days} d"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:232
+#: crates/glimpse-panel/src/applets/agenda.rs:236
 msgid "{days} d {hours} h"
 msgstr "{days} d {hours} h"
 
@@ -1343,7 +1283,7 @@ msgstr "Neizdevās pārslēgt tastatūras izkārtojumu"
 msgid "The keyboard layout service is unavailable."
 msgstr "Tastatūras izkārtojuma pakalpojums nav pieejams."
 
-#: crates/glimpse-panel/src/applets/mod.rs:47
+#: crates/glimpse-panel/src/applets/mod.rs:36
 msgid "Built-in display"
 msgstr "Iebūvētais displejs"
 
@@ -1406,10 +1346,8 @@ msgid "Continue"
 msgstr "Turpināt"
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:191
-#, fuzzy
-#| msgid "Choose how the network is secured, then type its password."
 msgid "Choose how the network is secured."
-msgstr "Izvēlieties, kā tīkls ir aizsargāts, un ievadiet tā paroli."
+msgstr "Izvēlieties, kā tīkls ir aizsargāts."
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:213
 msgid "VPN is connected"
@@ -2163,7 +2101,7 @@ msgid "Light rain"
 msgstr "Neliels lietus"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:24
-#: crates/glimpse-panel/src/applets/weather/render.rs:206
+#: crates/glimpse-panel/src/applets/weather/render.rs:198
 msgid "Rain"
 msgstr "Lietus"
 
@@ -2180,7 +2118,7 @@ msgid "Light snow"
 msgstr "Neliels sniegs"
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:28
-#: crates/glimpse-panel/src/applets/weather/render.rs:205
+#: crates/glimpse-panel/src/applets/weather/render.rs:197
 msgid "Snow"
 msgstr "Sniegs"
 
@@ -2216,121 +2154,121 @@ msgstr "Pērkona negaiss ar krusu"
 msgid "feels like {temperature}"
 msgstr "jūtas kā {temperature}"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:213
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
 msgstr[0] "{what} sāksies pēc {count} minūtes"
 msgstr[1] "{what} sāksies pēc {count} minūtēm"
 msgstr[2] "{what} sāksies pēc {count} minūtēm"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:215
 msgid "{what} starting in {count} hour"
 msgid_plural "{what} starting in {count} hours"
 msgstr[0] "{what} sāksies pēc {count} stundas"
 msgstr[1] "{what} sāksies pēc {count} stundām"
 msgstr[2] "{what} sāksies pēc {count} stundām"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:244
+#: crates/glimpse-panel/src/applets/weather/render.rs:236
 msgid "°C"
 msgstr "°C"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:245
+#: crates/glimpse-panel/src/applets/weather/render.rs:237
 msgid "°F"
 msgstr "°F"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:273
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
 msgctxt "wind"
 msgid "N"
 msgstr "Z"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:274
+#: crates/glimpse-panel/src/applets/weather/render.rs:266
 msgctxt "wind"
 msgid "NE"
 msgstr "ZA"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:275
+#: crates/glimpse-panel/src/applets/weather/render.rs:267
 msgctxt "wind"
 msgid "E"
 msgstr "A"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:276
+#: crates/glimpse-panel/src/applets/weather/render.rs:268
 msgctxt "wind"
 msgid "SE"
 msgstr "DA"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:277
+#: crates/glimpse-panel/src/applets/weather/render.rs:269
 msgctxt "wind"
 msgid "S"
 msgstr "D"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:278
+#: crates/glimpse-panel/src/applets/weather/render.rs:270
 msgctxt "wind"
 msgid "SW"
 msgstr "DR"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:279
+#: crates/glimpse-panel/src/applets/weather/render.rs:271
 msgctxt "wind"
 msgid "W"
 msgstr "R"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:280
+#: crates/glimpse-panel/src/applets/weather/render.rs:272
 msgctxt "wind"
 msgid "NW"
 msgstr "ZR"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:287
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
 msgid "km/h"
 msgstr "km/h"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:288
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
 msgid "mph"
 msgstr "mph"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:299
+#: crates/glimpse-panel/src/applets/weather/render.rs:291
 msgid "{amount} mm"
 msgstr "{amount} mm"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:300
+#: crates/glimpse-panel/src/applets/weather/render.rs:292
 msgid "{amount} in"
 msgstr "{amount} in"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:307
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
 msgid "Wind"
 msgstr "Vējš"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:310
+#: crates/glimpse-panel/src/applets/weather/render.rs:302
 msgid "Humidity"
 msgstr "Mitrums"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:313
+#: crates/glimpse-panel/src/applets/weather/render.rs:305
 msgid "Precipitation"
 msgstr "Nokrišņi"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:321
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
 msgid "High"
 msgstr "Maks."
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:325
+#: crates/glimpse-panel/src/applets/weather/render.rs:317
 msgid "Low"
 msgstr "Min."
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:331
+#: crates/glimpse-panel/src/applets/weather/render.rs:323
 msgid "Chance of rain"
 msgstr "Lietus iespējamība"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:340
+#: crates/glimpse-panel/src/applets/weather/render.rs:332
 msgid "Sunrise"
 msgstr "Saullēkts"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:343
+#: crates/glimpse-panel/src/applets/weather/render.rs:335
 msgid "Sunset"
 msgstr "Saulriets"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:346
+#: crates/glimpse-panel/src/applets/weather/render.rs:338
 msgid "Day length"
 msgstr "Dienas garums"
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:392
+#: crates/glimpse-panel/src/applets/weather/render.rs:384
 msgid ""
 "{place}\n"
 "{condition}, {temperature}, feels like {feels-like}"
@@ -2356,16 +2294,12 @@ msgid "Already the name of {workspace}"
 msgstr "Jau ir darbvietas {workspace} nosaukums"
 
 #: crates/glimpse-panel/src/config_alert.rs:36
-#, fuzzy
-#| msgid ""
-#| "Idle and night light are off until it is fixed; everything else uses its "
-#| "defaults."
 msgid ""
 "The panels use their defaults until it is fixed; everything else is as "
 "configured."
 msgstr ""
-"Dīkstāve un nakts gaisma ir izslēgtas, līdz kļūda tiks novērsta; viss "
-"pārējais izmanto noklusējuma vērtības."
+"Paneļi izmanto noklusējuma iestatījumus, kamēr tas nav izlabots; viss "
+"pārējais ir kā konfigurēts."
 
 #: crates/glimpse-panel/src/config_alert.rs:39
 msgid ""
@@ -2384,7 +2318,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/config_alert.rs:51
 msgid "A stylesheet could not be read: {reason}"
-msgstr ""
+msgstr "Stilu lapu nevarēja nolasīt: {reason}"
 
 #: crates/glimpse-panel/src/config_alert.rs:126
 msgid "Glimpse configuration has errors"
@@ -2436,10 +2370,8 @@ msgid "That window has closed"
 msgstr "Šis logs ir aizvērts"
 
 #: crates/glimpse-shot/src/gui/app.rs:861
-#, fuzzy
-#| msgid "PNG Images"
 msgid "Images"
-msgstr "PNG attēli"
+msgstr "Attēli"
 
 #: crates/glimpse-shot/src/gui/app.rs:871
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
@@ -2448,7 +2380,7 @@ msgstr "Atvērt attēlu"
 
 #: crates/glimpse-shot/src/gui/app.rs:896
 msgid "The image must be a local file"
-msgstr ""
+msgstr "Attēlam jābūt lokālam failam"
 
 #: crates/glimpse-shot/src/gui/app.rs:1012
 msgid "Untitled window"
@@ -2555,10 +2487,10 @@ msgctxt "notification action"
 msgid "Open"
 msgstr "Atvērt"
 
-#: crates/glimpse-shot/src/portal.rs:166
-#: crates/glimpse-shot/src/portal/tests.rs:53
-#: crates/glimpse-shot/src/portal/tests.rs:54
-#: crates/glimpse-shot/src/portal/tests.rs:611
+#: crates/glimpse-shot/src/portal.rs:127
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:599
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr "Kāda lietotne"
@@ -2647,8 +2579,6 @@ msgid "Next"
 msgstr "Nākamais"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
-#, fuzzy
-#| msgid "Some events on this day aren't shown."
 msgid "Some events on this day aren’t shown."
 msgstr "Daži šīs dienas notikumi netiek rādīti."
 
@@ -2946,10 +2876,9 @@ msgid "Preferences"
 msgstr "Iestatījumi"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
-#, fuzzy
-#| msgid "config.toml cannot be read, so nothing here can be saved"
 msgid "config.toml is invalid or read-only, so nothing here can be saved"
-msgstr "config.toml nevar nolasīt, tāpēc šeit neko nevar saglabāt"
+msgstr ""
+"config.toml ir nederīgs vai tikai lasāms, tāpēc šeit neko nevar saglabāt"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
 msgid "Open File"
@@ -2971,7 +2900,7 @@ msgstr "Faila nosaukums"
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:44
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:83
 msgid ".png"
-msgstr ""
+msgstr ".png"
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
 msgid "Behavior"
@@ -3351,8 +3280,6 @@ msgid "Pixelate (B)"
 msgstr "Pikselizēt (B)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:225
-#, fuzzy
-#| msgid "Color (1–5)"
 msgid "Color (1 –5)"
 msgstr "Krāsa (1–5)"
 
@@ -3434,19 +3361,19 @@ msgstr "Atkārtot"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:14
 msgid "Wide"
-msgstr ""
+msgstr "Plata"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:25
 msgid "body 1"
-msgstr ""
+msgstr "pamatteksts 1"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:36
 msgid "body 2"
-msgstr ""
+msgstr "pamatteksts 2"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:47
 msgid "body 3"
-msgstr ""
+msgstr "pamatteksts 3"
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
 msgid "Inactive warning row"
@@ -3468,7 +3395,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:250
 msgid "tall"
-msgstr ""
+msgstr "augsta"
 
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
 msgid "Name this workspace"
@@ -3695,18 +3622,16 @@ msgid "magnifier;zoom;lens;enlarge;"
 msgstr "lupa;tālummaiņa;palielināt;magnifier;"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:3
-#, fuzzy
-#| msgid "Annotate In"
 msgid "Annotate Image"
-msgstr "Anotēšanas vieta"
+msgstr "Anotēt attēlu"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:4
 msgid "Open an image and mark it up"
-msgstr ""
+msgstr "Atveriet attēlu un veiciet tajā atzīmes"
 
 #: data/me.aresa.Glimpse.Shot.Annotate.desktop:12
 msgid "image;annotate;annotation;PNG;draw;markup;"
-msgstr ""
+msgstr "attēls;anotēt;anotācija;PNG;zīmēt;atzīmēt;"
 
 #: data/me.aresa.Glimpse.Shot.desktop:4
 msgid "Take a screenshot, mark it up, save or copy it"

@@ -17,6 +17,7 @@ pub(crate) const PANEL_FILE: &str = "panel.toml";
 pub(crate) const PANEL_DROPINS: &str = "panel.d";
 const FOLDER_NAME: &str = "glimpse";
 const WRITE_ATTEMPTS: usize = 3;
+const RETIRED: [&[&str]; 2] = [&["regional"], &["lock", "clock", "time-format"]];
 const CONFIG_STUB: &str = concat!(
     "#:schema ",
     env!("GLIMPSE_DATA_DIR_DEFAULT"),
@@ -358,9 +359,15 @@ pub fn load_files(files: &[PathBuf]) -> Result<Config, ConfigError> {
             Err(error) => return Err(error),
         };
 
-        let table = match text.parse::<toml::Table>() {
+        let mut table = match text.parse::<toml::Table>() {
             Ok(table) => table,
             Err(error) => return Err(ConfigError::parse(path, &text, &error)),
+        };
+        let text = match retire(&mut table) {
+            true => toml::to_string(&table).map_err(|error| ConfigError::Schema {
+                message: format!("{}: {error}", path.display()),
+            })?,
+            false => text,
         };
         let panel_file = path.file_name().is_some_and(|name| name == PANEL_FILE)
             || path
@@ -402,6 +409,29 @@ pub fn load_files(files: &[PathBuf]) -> Result<Config, ConfigError> {
 
 fn is_config_table(key: &str) -> bool {
     toml::Table::try_from(Config::default()).is_ok_and(|table| table.contains_key(key))
+}
+
+fn retire(table: &mut toml::Table) -> bool {
+    let mut retired = false;
+    for path in RETIRED {
+        let Some((last, parents)) = path.split_last() else {
+            continue;
+        };
+        let mut current = Some(&mut *table);
+        for parent in parents {
+            current = current
+                .and_then(|table| table.get_mut(*parent))
+                .and_then(toml::Value::as_table_mut);
+        }
+        if current.and_then(|table| table.remove(*last)).is_some() {
+            tracing::warn!(
+                key = path.join("."),
+                "this key is no longer read: language, times and units follow LANG and LC_*; remove it"
+            );
+            retired = true;
+        }
+    }
+    retired
 }
 
 pub fn seed_user_config() {

@@ -32,7 +32,7 @@ async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     glimpse_config::init(cli.config.config_dir.clone());
     let (config, _) = glimpse_config::load_or_default(Documents::Config);
-    init_translations(config.regional.language());
+    init_translations();
     tracing::info!(
         config_dir = ?cli.config.config_dir,
         sources = config.calendar.sources.len(),

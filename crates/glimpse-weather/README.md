@@ -13,8 +13,8 @@ the requested kind, coordinates, and location name, then supplies resolved coord
 canonical city and ISO 3166-1 alpha-2 country code; either canonical name field is an empty string
 when it is unavailable. A watch is the 30-minute service lease, so consumers renew it
 while they need the place and the provider fetches nothing when no lease remains. The process keeps
-no client registry and does not own solar state, Night Light, UI theme, or regional configuration
-beyond applying the configured weather units.
+no client registry and does not own solar state, Night Light or UI theme; its units are the ones
+`LC_MEASUREMENT` names.
 
 The panel and the provider read the same `config.toml` on their own. An explicit
 `glimpse-panel --config-dir` applies only to the panel process; D-Bus activation cannot inherit that

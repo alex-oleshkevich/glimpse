@@ -5,7 +5,7 @@ fn every_name_in_the_default_zones_resolves_to_a_kind() {
     let panel = glimpse_config::Panel::default();
     for name in panel.left.iter().chain(&panel.center).chain(&panel.right) {
         assert!(
-            configured(name, &BTreeMap::new(), &Regional::default()).is_some(),
+            glimpse_config::resolve_applet(name, &BTreeMap::new()).is_some(),
             "`{name}` ships in a default zone, so an untouched installation must resolve it"
         );
     }
@@ -15,36 +15,11 @@ fn every_name_in_the_default_zones_resolves_to_a_kind() {
 fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
     let applets = custom("pulse", AppletKind::Heartbeat {}.into());
     assert!(
-        configured("pulse", &applets, &Regional::default()).is_some(),
+        glimpse_config::resolve_applet("pulse", &applets).is_some(),
         "`pulse` is not a kind; `extends` is what says which one it is"
     );
     assert!(
-        configured("pulse", &BTreeMap::new(), &Regional::default()).is_none(),
+        glimpse_config::resolve_applet("pulse", &BTreeMap::new()).is_none(),
         "without the entry the same name is just unknown"
-    );
-}
-
-#[test]
-fn an_applet_with_no_table_of_its_own_still_carries_the_document_s_regional() {
-    let twelve = Regional {
-        hour_format: glimpse_config::HourFormat::Twelve,
-        ..Regional::default()
-    };
-
-    let built = configured("clock", &BTreeMap::new(), &twelve).expect("the clock configures");
-    assert!(
-        built.regional.twelve_hour(),
-        "an applet with no table of its own must still read the document's `[regional]`"
-    );
-
-    let found = configured(
-        "clock",
-        &custom("clock", AppletKind::Clock(<_>::default()).into()),
-        &twelve,
-    )
-    .expect("the clock configures");
-    assert!(
-        found.regional.twelve_hour(),
-        "and so must one that has a table"
     );
 }

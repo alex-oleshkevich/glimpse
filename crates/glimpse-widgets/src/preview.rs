@@ -77,7 +77,7 @@ fn activate(
 ) {
     let blueprint = &resolve(blueprint);
     adw::StyleManager::default().set_color_scheme(scheme);
-    glimpse_utils::init_translations(None);
+    glimpse_utils::init_translations();
     crate::register_resources().expect("widget resources");
     if let Some(display) = gdk::Display::default() {
         gtk4::IconTheme::for_display(&display).add_resource_path("/me/aresa/GlimpseShell/icons");

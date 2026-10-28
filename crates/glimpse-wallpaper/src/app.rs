@@ -115,10 +115,6 @@ impl SimpleComponent for App {
         match msg {
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
-                glimpse_utils::report_language_change(
-                    self.config.regional.language(),
-                    config.regional.language(),
-                );
                 self.config = config;
                 self.styles
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));

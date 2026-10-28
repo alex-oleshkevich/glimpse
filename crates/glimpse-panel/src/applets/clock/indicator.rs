@@ -1,7 +1,6 @@
-use std::fmt::Write as _;
 use std::time::Duration;
 
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Local, Utc};
 use chrono_tz::Tz;
 use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig};
 use glimpse_dbus::calendar::CalendarProviderHandle;
@@ -15,6 +14,7 @@ use super::popover;
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 use crate::applets::agenda::{self, Occasion};
+use crate::applets::strftime;
 
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
@@ -55,7 +55,7 @@ impl Applet for Clock {
             return;
         };
         self.settings = clock.clone();
-        self.twelve = config.regional.twelve_hour();
+        self.twelve = glimpse_config::twelve_hour();
         self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.zone = clock
@@ -270,8 +270,8 @@ impl Clock {
 
     fn read(&self, format: &str) -> Option<String> {
         match self.zone {
-            Some(zone) => formatted(&Utc::now().with_timezone(&zone), format),
-            None => formatted(&Local::now(), format),
+            Some(zone) => strftime(&Utc::now().with_timezone(&zone), format),
+            None => strftime(&Local::now(), format),
         }
     }
 }
@@ -325,15 +325,6 @@ fn failed(browsed: &mut Browsed, generation: u64) -> bool {
     }
     browsed.asked = None;
     true
-}
-
-fn formatted<Z: TimeZone>(now: &DateTime<Z>, format: &str) -> Option<String>
-where
-    Z::Offset: std::fmt::Display,
-{
-    let mut rendered = String::new();
-    write!(rendered, "{}", now.format(format)).ok()?;
-    Some(rendered)
 }
 
 fn period(label: &str, tooltip: Option<&str>) -> Duration {

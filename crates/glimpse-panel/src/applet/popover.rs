@@ -136,10 +136,8 @@ fn finished(result: Option<&str>) -> Result<(), gtk4::glib::Error> {
 }
 
 fn panel_environment() -> Vec<(String, String)> {
-    let language = glimpse_utils::language_was_inherited();
     std::env::vars_os()
         .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)))
-        .filter(|(name, _)| language || name != "LANGUAGE")
         .collect()
 }
 

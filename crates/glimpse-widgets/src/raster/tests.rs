@@ -782,6 +782,31 @@ fn eviction_keeps_sixteen_entries_and_drops_the_oldest() {
 }
 
 #[test]
+fn the_byte_budget_drops_the_oldest_entries_even_below_sixteen() {
+    let scratch = Scratch::new();
+    let source = scratch.image("a.png", 20, 3, true);
+    let cache = scratch.cache();
+    let paths: Vec<PathBuf> = (5..=7)
+        .map(|width| cache.join(key_for(&source, target(width, 3), Fit::Fill).name))
+        .collect();
+    let epoch = SystemTime::now() - Duration::from_secs(10_000);
+    for (age, width) in (5..=7).enumerate() {
+        raster_in(Some(&cache), &source, target(width, 3), Fit::Fill).expect("decode");
+        set_mtime(&paths[age], epoch + Duration::from_secs(age as u64));
+    }
+    let length = |path: &PathBuf| fs::metadata(path).expect("entry").len();
+    let newest = paths[2]
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("name");
+
+    evict(&cache, newest, length(&paths[2]) + length(&paths[1]));
+    assert!(!paths[0].exists(), "the oldest entry went");
+    assert!(paths[1].exists(), "an entry within the budget stays");
+    assert!(paths[2].exists(), "the kept entry stays");
+}
+
+#[test]
 fn eviction_removes_only_stale_temporary_files() {
     let scratch = Scratch::new();
     let source = scratch.image("a.png", 8, 6, true);

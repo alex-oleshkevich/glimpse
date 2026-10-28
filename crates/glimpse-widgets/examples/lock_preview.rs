@@ -44,7 +44,7 @@ fn root() -> PathBuf {
 }
 
 fn activate(app: &adw::Application, cli: &Cli) {
-    glimpse_utils::init_translations(None);
+    glimpse_utils::init_translations();
     glimpse_widgets::register_resources().expect("widget resources");
     let display = gdk::Display::default().expect("display");
     gtk4::IconTheme::for_display(&display).add_resource_path("/me/aresa/GlimpseShell/icons");

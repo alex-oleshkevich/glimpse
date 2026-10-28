@@ -40,7 +40,7 @@ fn main() -> ExitCode {
 fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
 
-    init_translations(None);
+    init_translations();
 
     match cli.tool {
         Some(Tool::Ruler) => {

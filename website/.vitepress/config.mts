@@ -171,7 +171,7 @@ export default withMermaid(
           {
             text: "Services",
             items: [
-              { text: "Appearance, region and location", link: "/config/services/appearance" },
+              { text: "Appearance and location", link: "/config/services/appearance" },
               { text: "Notifications", link: "/config/services/notifications" },
               { text: "Lock screen", link: "/config/services/lock" },
               { text: "Idle", link: "/config/services/idle" },

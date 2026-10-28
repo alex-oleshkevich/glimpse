@@ -7,7 +7,7 @@ mod theme;
 mod watch;
 
 pub use commented::commented_document;
-pub use environment::{TWENTY_FOUR, clock};
+pub use environment::{TWENTY_FOUR, clock, metric, twelve_hour};
 pub use error::ConfigError;
 pub use load::{
     DATA_DIR, Documents, applets_dir, cache_dir, config_dir, config_files, find, init, load,

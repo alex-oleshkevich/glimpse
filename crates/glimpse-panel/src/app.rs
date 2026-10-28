@@ -180,10 +180,6 @@ impl SimpleComponent for App {
         match msg {
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
-                glimpse_utils::report_language_change(
-                    self.config.regional.language(),
-                    config.regional.language(),
-                );
                 self.config = config;
                 self.problems.recover();
                 if renamed {
@@ -608,7 +604,6 @@ fn reconcile_panels(
                 right: cfg.right.clone(),
                 attached: crate::attached::visible_on(&applets, &layout, index, &key.monitor),
                 applets: config.applets.clone(),
-                regional: config.regional.clone(),
                 blur: config.appearance.blur,
                 handles: services.handles.clone(),
                 dialog: dialog.clone(),

@@ -29,8 +29,3 @@ fn both_providers_read_and_a_third_is_refused() {
     load("[weather]\nprovider = \"accuweather\"\n")
         .expect_err("a provider nothing implements is a document error, not a fallback");
 }
-
-#[test]
-fn units_is_not_a_key_of_this_table() {
-    load("[weather]\nunits = \"imperial\"\n").expect_err("`units` belongs to `[regional]`");
-}

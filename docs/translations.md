@@ -15,18 +15,18 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
 
 - **`glimpse-sunset` and `glimpse-weather` call `init_locale()` instead, and must keep doing so.**
   That is the `setlocale(LC_ALL, "")` half without the catalog. Without it the process locale is
-  `C`, `nl_langinfo(LC_MEASUREMENT)` answers metric for everyone, and `[regional] units = "locale"`
-  is silently wrong rather than absent. It is not `init_translations` and must not become it.
-- **`[regional] language` sets `LANGUAGE` and moves messages only.** `LC_TIME` and `LC_MEASUREMENT`
-  keep answering for themselves, so a Russian interface in Chicago still gets a twelve-hour clock
-  and Fahrenheit. Russian labels beside English weekday names look like a bug and are not. An
-  explicit `LANGUAGE` in the environment wins over the document, matching `GLIMPSE_THEME`.
-- **The config load runs before `init_translations`** in all three UI binaries, because the language
-  comes out of the document: `init_app_tracing` → `glimpse_config::load` → `init_translations` →
-  `register_resources`. Reordering breaks the warnings, the language, or both.
+  `C`, `nl_langinfo(LC_MEASUREMENT)` answers metric for everyone and weather units are silently
+  wrong rather than absent. It is not `init_translations` and must not become it.
+- **Language, time and units come from the session environment only.** Messages follow
+  `LANGUAGE`/`LC_MESSAGES`/`LANG`; day and month names and the 12/24-hour choice follow `LC_TIME`;
+  weather units follow `LC_MEASUREMENT`. They are independent, so a Russian interface in Chicago
+  still gets a twelve-hour clock and Fahrenheit. Russian labels beside English weekday names look
+  like a bug and are not.
+- **`init_translations()` takes no argument** and runs after `init_app_tracing` and before
+  `register_resources` in the UI binaries.
 - **A language change cannot be applied to a running process.** A GTK template resolves
   `translatable="yes"` per **instance**, so two widgets built either side of a `LANGUAGE` change
-  come out in different languages. `ConfigChanged` logs at `info` and waits for a restart.
+  come out in different languages. Restart glimpse after changing the session environment.
 - **Mark a string where it is written.** In Blueprint, `_("Text")`; in Rust, `gettext("Text")`, or
   `ngettext(singular, plural, count)` when a number decides the wording. Interpolate with named
   `{placeholders}` and `.replace(…)`, never `format!` into the msgid — a positional `%s` cannot be

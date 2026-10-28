@@ -70,7 +70,7 @@ fn daemon(cli: Cli) -> Result<()> {
     let (config, failure) = glimpse_config::load_or_default(Documents::Config);
     let theme =
         glimpse_config::load_theme(&config.appearance.theme, LOCK_STYLESHEET).unwrap_or_default();
-    init_translations(config.regional.language());
+    init_translations();
 
     let pam_service = auth::Service::new(&config.lock.pam_service);
     let checks = probe::startup(pam_service.name());

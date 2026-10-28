@@ -43,7 +43,7 @@ fn run(cli: &Cli) -> Result<()> {
     }
     let theme =
         glimpse_config::load_theme(&config.appearance.theme, PANEL_STYLESHEET).unwrap_or_default();
-    init_translations(config.regional.language());
+    init_translations();
     if RELM_THREADS.set(4).is_err() {
         tracing::warn!("RELM_THREADS already initialized");
     }

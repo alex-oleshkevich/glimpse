@@ -8,7 +8,7 @@ fn the_catalog_directory_is_the_install_prefix_unless_the_environment_names_anot
     unsafe { env::set_var(OVERRIDE, "/nonexistent/glimpse/locale") };
     assert_eq!(locale_dir(), PathBuf::from("/nonexistent/glimpse/locale"));
 
-    init_translations(None);
+    init_translations();
 
     unsafe { env::remove_var(OVERRIDE) };
 }

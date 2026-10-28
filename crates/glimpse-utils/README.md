@@ -15,18 +15,17 @@ acquire a second spelling elsewhere.
   `textdomain` for the single domain `glimpse`, never failing a binary — every problem is a
   `tracing::warn!` and the text stays English. **One domain serves every UI binary**, since they all
   link `glimpse-widgets`; per-binary domains would translate the same button differently per process.
-- **`init_translations()` runs after `init_app_tracing` and `glimpse_config::load`, and before
-  `register_resources`.** A subscriber must exist first for its own warnings, the document first for
-  the language in `[regional]`, and a GTK template resolves `translatable="yes"` per **instance**, not
-  at class-init — two instances built either side of a `LANGUAGE` change come out in different
-  languages, so the domain must be bound before the first widget instance exists.
+- **`init_translations()` runs after `init_app_tracing` and before `register_resources`.** A
+  subscriber must exist first for its own warnings, and a GTK template resolves `translatable="yes"`
+  per **instance**, not at class-init, so the domain must be bound before the first widget instance
+  exists.
+- **The environment is the only source of language and formats.** `setlocale(LC_ALL, "")` reads
+  `LANG`, `LC_*` and `LANGUAGE`; no document sets them, so every binary, exec applet and launched app
+  in one session reads the same answer.
 - **`init_locale()` is `init_translations()` without the catalog** — `setlocale(LC_ALL, "")` alone,
-  for log-only providers, which still need the C library to see `LC_MEASUREMENT`, or
-  `[regional] units = "locale"` silently answers metric for everyone. Providers that post desktop
-  notifications, such as `glimpse-calendar`, use `init_translations()` to load the catalog.
-- **`[regional] language` sets `LANGUAGE`, only when the environment has not already set it**, and
-  moves messages only — `LC_TIME` and `LC_MEASUREMENT` keep answering for themselves, so a Russian
-  interface in Chicago still shows a twelve-hour clock.
+  for log-only providers, which still need the C library to see `LC_MEASUREMENT`, or weather units
+  silently answer metric for everyone. Providers that post desktop notifications, such as
+  `glimpse-calendar`, use `init_translations()` to load the catalog.
 - **The C binding is required, not a preference** — `gtk_widget_init_template` resolves
   `translatable="yes"` through `g_dgettext(NULL, …)` against the process domain, which a pure-Rust
   catalog cannot answer, leaving every blueprint in English.

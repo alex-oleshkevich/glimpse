@@ -11,13 +11,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub struct Applet {
     #[serde(flatten)]
     pub kind: Kind,
-    /// The document's `[regional]` table, stamped on by whoever builds a running applet — for the
-    /// panel that is `applets::resolve`, the one place that produces an `Applet` both by finding
-    /// its table and by inventing one for a name that has none. An applet renders a time of day
-    /// off the configuration it is already handed rather than through a second route. It is not a
-    /// key of an applet's own table and never round-trips.
-    #[serde(skip)]
-    pub regional: super::Regional,
 }
 
 pub const NETWORK_TOOLTIP: &str = "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}";
@@ -787,10 +780,7 @@ impl Default for Clock {
 
 impl From<Kind> for Applet {
     fn from(kind: Kind) -> Self {
-        Self {
-            kind,
-            regional: super::Regional::default(),
-        }
+        Self { kind }
     }
 }
 
@@ -858,10 +848,7 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     }
     on_earth(&mut kind)?;
     runnable(&kind)?;
-    Ok(Applet {
-        kind,
-        regional: super::Regional::default(),
-    })
+    Ok(Applet { kind })
 }
 
 /// The wire refuses these too, but a document saying so at load names the table and the key rather

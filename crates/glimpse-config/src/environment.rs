@@ -13,7 +13,7 @@ pub fn clock(twelve_hour: bool) -> &'static str {
 const MEASUREMENT: libc::nl_item = (libc::LC_MEASUREMENT << 16) as libc::nl_item;
 const METRIC: libc::c_char = 1;
 
-pub(crate) fn locale_is_twelve_hour() -> bool {
+pub fn twelve_hour() -> bool {
     let marker = unsafe { libc::nl_langinfo(libc::PM_STR) };
     if marker.is_null() {
         return false;
@@ -22,7 +22,7 @@ pub(crate) fn locale_is_twelve_hour() -> bool {
     !meridiem.is_empty() && locale_afternoon().contains(meridiem.as_ref())
 }
 
-pub(crate) fn locale_is_metric() -> bool {
+pub fn metric() -> bool {
     let answer = unsafe { libc::nl_langinfo(MEASUREMENT) };
     if answer.is_null() {
         return true;

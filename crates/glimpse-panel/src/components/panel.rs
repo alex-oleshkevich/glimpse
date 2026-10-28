@@ -1,5 +1,5 @@
 use adw::gdk;
-use glimpse_config::{Applet as AppletConfig, Margin, Position, Regional};
+use glimpse_config::{Applet as AppletConfig, Margin, Position, resolve_applet};
 use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -42,7 +42,7 @@ fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation, index: u3
         config.monitor.connector().map(String::from),
         slot.zone,
     ));
-    if let Some(applet) = applets::configured(&slot.name, &config.applets, &config.regional) {
+    if let Some(applet) = resolve_applet(&slot.name, &config.applets) {
         handle.configure(applet);
     }
 }
@@ -89,7 +89,6 @@ pub struct Config {
     pub right: Vec<String>,
     pub attached: Vec<(Zone, String)>,
     pub applets: BTreeMap<String, AppletConfig>,
-    pub regional: Regional,
     pub blur: bool,
     pub handles: crate::services::Handles,
     pub dialog: relm4::Sender<crate::app::AppInput>,
@@ -108,7 +107,6 @@ impl Config {
 fn desired(
     zones: [(Zone, &[String]); 3],
     applets: &BTreeMap<String, AppletConfig>,
-    regional: &Regional,
     attached: &[(Zone, String)],
 ) -> Vec<(
     Zone,
@@ -119,7 +117,7 @@ fn desired(
     let configured_ids: Vec<_> = zones
         .iter()
         .flat_map(|(_, names)| names.iter())
-        .filter_map(|name| applets::configured(name, applets, regional))
+        .filter_map(|name| resolve_applet(name, applets))
         .filter_map(|applet| match applet.kind {
             glimpse_config::AppletKind::Exec(exec) => Some(exec.applet),
             _ => None,
@@ -127,14 +125,14 @@ fn desired(
         .collect();
     for (zone, names) in zones {
         for name in names {
-            let applet = applets::configured(name, applets, regional);
+            let applet = resolve_applet(name, applets);
             let kind = applet.map(|applet| std::mem::discriminant(&applet.kind));
             desired.push((zone, name.clone(), kind));
         }
         for (_, id) in attached.iter().filter(|(target, _)| *target == zone) {
             if !configured_ids.contains(id) {
-                let kind = applets::configured(id, applets, regional)
-                    .map(|applet| std::mem::discriminant(&applet.kind));
+                let kind =
+                    resolve_applet(id, applets).map(|applet| std::mem::discriminant(&applet.kind));
                 desired.push((zone, id.clone(), kind));
             }
         }
@@ -262,12 +260,7 @@ impl Panel {
     }
 
     fn reconcile_applets(&mut self, config: &Config, orientation: gtk::Orientation) {
-        let desired = desired(
-            config.zones(),
-            &config.applets,
-            &config.regional,
-            &config.attached,
-        );
+        let desired = desired(config.zones(), &config.applets, &config.attached);
 
         if self
             .applets
@@ -311,29 +304,27 @@ impl Panel {
                         zone,
                         name: name.clone(),
                         kind,
-                        handle: applets::configured(&name, &config.applets, &config.regional).map(
-                            |applet| {
-                                let build = applets::build(
-                                    &applet,
-                                    &config.handles,
-                                    crate::applets::exec::placement(
-                                        config.position,
-                                        config.size,
-                                        connector.clone(),
-                                        zone,
-                                    ),
-                                    &config.dialog,
-                                );
-                                AppletHandle::launch(
-                                    name.clone(),
+                        handle: resolve_applet(&name, &config.applets).map(|applet| {
+                            let build = applets::build(
+                                &applet,
+                                &config.handles,
+                                crate::applets::exec::placement(
+                                    config.position,
+                                    config.size,
                                     connector.clone(),
-                                    build,
-                                    applet,
-                                    Rc::clone(&self.catcher),
-                                    slot_info(config, zone, index, &name),
-                                )
-                            },
-                        ),
+                                    zone,
+                                ),
+                                &config.dialog,
+                            );
+                            AppletHandle::launch(
+                                name.clone(),
+                                connector.clone(),
+                                build,
+                                applet,
+                                Rc::clone(&self.catcher),
+                                slot_info(config, zone, index, &name),
+                            )
+                        }),
                     }),
             );
         }

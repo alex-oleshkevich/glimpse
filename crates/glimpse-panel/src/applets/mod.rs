@@ -27,20 +27,9 @@ mod widget_demo;
 mod workspace;
 mod workspace_name;
 
-use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
-use std::collections::BTreeMap;
+use glimpse_config::{Applet as AppletConfig, AppletKind};
 
 use crate::applet::runtime::Builder;
-
-pub fn configured(
-    name: &str,
-    configured: &BTreeMap<String, AppletConfig>,
-    regional: &Regional,
-) -> Option<AppletConfig> {
-    let mut config = glimpse_config::resolve_applet(name, configured)?;
-    config.regional = regional.clone();
-    Some(config)
-}
 
 pub(crate) fn output_name(connector: &str, outputs: &[glimpse_services::OutputInfo]) -> String {
     match outputs.iter().find(|output| output.connector == connector) {
@@ -48,6 +37,19 @@ pub(crate) fn output_name(connector: &str, outputs: &[glimpse_services::OutputIn
         Some(output) => output.label.clone().unwrap_or_else(|| connector.to_owned()),
         None => connector.to_owned(),
     }
+}
+
+pub(crate) fn strftime<Z: chrono::TimeZone>(
+    when: &chrono::DateTime<Z>,
+    format: &str,
+) -> Option<String> {
+    use chrono::Offset;
+    let offset = when.offset().fix().local_minus_utc();
+    gtk4::glib::DateTime::from_unix_utc(when.timestamp())
+        .and_then(|utc| utc.to_timezone(&gtk4::glib::TimeZone::from_offset(offset)))
+        .and_then(|local| local.format(format))
+        .map(|text| text.to_string())
+        .ok()
 }
 
 pub fn build(

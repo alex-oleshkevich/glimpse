@@ -48,10 +48,7 @@ async fn reconcile(
         if shown.id != 0 {
             match tokio::time::timeout(DEADLINE, proxy.close_notification(shown.id)).await {
                 Ok(Ok(())) => {}
-                Ok(Err(error)) => {
-                    tracing::warn!(%error, "cannot close the calendar notification");
-                    return;
-                }
+                Ok(Err(error)) => tracing::debug!(%error, "the calendar notification was gone"),
                 Err(_) => {
                     tracing::warn!("the notification daemon did not answer in time");
                     return;

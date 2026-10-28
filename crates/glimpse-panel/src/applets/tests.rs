@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::*;
 
 fn custom(name: &str, extends: AppletConfig) -> BTreeMap<String, AppletConfig> {
