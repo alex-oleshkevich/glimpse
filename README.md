@@ -105,6 +105,9 @@ glimpse is built on [GTK4](https://gtk.org), [libadwaita](https://gnome.pages.gi
 [gtk4-layer-shell](https://github.com/wmww/gtk4-layer-shell), [relm4](https://relm4.org),
 [zbus](https://github.com/dbus2/zbus) and [tokio](https://tokio.rs). Weather and geocoding come from
 [Open-Meteo](https://open-meteo.com), location from [GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue),
-and icons from the [Adwaita](https://gitlab.gnome.org/GNOME/adwaita-icon-theme) icon theme.
+and icons from the [Adwaita](https://gitlab.gnome.org/GNOME/adwaita-icon-theme) icon theme. The default
+wallpaper is [a photo](https://unsplash.com/photos/wJCvIJx1FSE) by
+[Jakob Gausvik-Tvedt](https://unsplash.com/@jakobokai), used under the
+[Unsplash License](https://unsplash.com/license).
 
 glimpse is released under the [BSD 3-Clause license](LICENSE).
