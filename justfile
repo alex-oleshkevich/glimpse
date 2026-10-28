@@ -247,7 +247,7 @@ docs-gen-cli:
 docs-screenshots: docs-sandbox-build
     scripts/docs-screenshots.py
 
-[doc("record the home page demo video in the same sandbox into website/public/video; --dark records the dark variant")]
+[doc("record the home page demo video in the same sandbox into website/public/video, with the README's GIF and panel still in docs/screenshots; --dark records the dark variant")]
 docs-video *ARGS: docs-sandbox-build
     scripts/docs-screenshots.py --video {{ ARGS }}
 
@@ -257,7 +257,7 @@ release-video *ARGS: docs-sandbox-build
     target/debug/glimpsectl idle inhibit -- scripts/release-video.py {{ ARGS }}
 
 [private]
-docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") (build-crate "glimpse-lens") (build-crate "glimpse-shot") fake-tray-build click-build
+docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") (build-crate "glimpse-calendar") (build-crate "glimpse-sunset") (build-crate "glimpse-compositor-niri") (build-crate "glimpse-lens") (build-crate "glimpse-shot") fake-tray-build click-build
 
 [private]
 fake-tray-build:
