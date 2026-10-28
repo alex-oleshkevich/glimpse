@@ -112,15 +112,75 @@ fn same_compares_icon_label_and_severity() {
 fn full() -> Status {
     Status {
         battery: Some(IndicatorSpec::default()),
+        layout: Some(IndicatorSpec::default()),
     }
 }
 
 #[test]
-fn disabled_status_hides_the_battery() {
-    assert!(shown(&full(), false).battery.is_none());
+fn disabled_status_hides_the_battery_but_keeps_the_layout() {
+    let shown = shown(&full(), false);
+    assert!(shown.battery.is_none());
+    assert!(shown.layout.is_some());
 }
 
 #[test]
 fn enabled_status_passes_the_battery_through() {
     assert!(shown(&full(), true).battery.is_some());
+}
+
+fn layouts(codes: &[&str], current: Option<u8>) -> KeyboardLayouts {
+    KeyboardLayouts {
+        layouts: codes
+            .iter()
+            .map(|code| glimpse_services::KeyboardLayout {
+                code: (*code).to_owned(),
+                name: format!("{code} layout"),
+            })
+            .collect(),
+        current,
+    }
+}
+
+#[test]
+fn fewer_than_two_layouts_hide_the_slot() {
+    assert!(layout(&layouts(&[], None)).is_none());
+    assert!(layout(&layouts(&["us"], Some(0))).is_none());
+}
+
+#[test]
+fn two_layouts_show_the_current_code_and_name() {
+    let spec = layout(&layouts(&["us", "cz"], Some(1))).expect("a layout slot");
+    assert_eq!(spec.label.as_deref(), Some("cz"));
+    assert!(
+        spec.tooltip
+            .is_some_and(|tooltip| tooltip.contains("cz layout"))
+    );
+    assert!(spec.icon.is_none());
+}
+
+#[test]
+fn an_unknown_current_layout_falls_back_to_the_first() {
+    let unset = layout(&layouts(&["us", "cz"], None)).expect("a layout slot");
+    assert_eq!(unset.label.as_deref(), Some("us"));
+    let out_of_range = layout(&layouts(&["us", "cz"], Some(9))).expect("a layout slot");
+    assert_eq!(out_of_range.label.as_deref(), Some("us"));
+}
+
+#[test]
+fn a_layout_code_is_cleaned_and_capped() {
+    let spec = layout(&layouts(&["us", "a\u{202e}véry-long-layout-code"], Some(1)))
+        .expect("a layout slot");
+    let label = spec.label.expect("a label");
+    assert_eq!(label.chars().count(), LAYOUT_CAP + 1, "{label}");
+    assert!(!label.contains('\u{202e}'));
+    assert!(label.ends_with('…'));
+}
+
+#[test]
+fn variants_sharing_a_code_differ_by_name() {
+    let mut intl = layouts(&["us", "us"], Some(0));
+    intl.layouts[1].name = "English (intl)".to_owned();
+    let mut slot = layout(&intl);
+    intl.current = Some(1);
+    assert!(replace(&mut slot, layout(&intl)));
 }

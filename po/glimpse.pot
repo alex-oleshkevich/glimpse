@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-28 16:51+0100\n"
+"POT-Creation-Date: 2026-10-29 00:08+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -389,6 +389,10 @@ msgstr ""
 
 #: crates/glimpse-lock/src/session.rs:136
 msgid "Blocked by {who}: {why}"
+msgstr ""
+
+#: crates/glimpse-lock/src/status.rs:39
+msgid "Keyboard layout: {layout}"
 msgstr ""
 
 #: crates/glimpse-notifications/src/app.rs:497
@@ -1559,7 +1563,7 @@ msgid "No new notifications"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/notifications/render.rs:62
-#: crates/glimpse-widgets/src/status_island/mod.rs:101
+#: crates/glimpse-widgets/src/status_island/mod.rs:105
 msgid "{count} new notification"
 msgid_plural "{count} new notifications"
 msgstr[0] ""
@@ -1604,8 +1608,8 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/power/mod.rs:317
 #: crates/glimpse-panel/src/applets/power/render.rs:27
 #: crates/glimpse-widgets/blueprints/power_popover.blp:12
-#: crates/glimpse-widgets/blueprints/status_island.blp:18
-#: crates/glimpse-widgets/blueprints/status_island.blp:21
+#: crates/glimpse-widgets/blueprints/status_island.blp:22
+#: crates/glimpse-widgets/blueprints/status_island.blp:25
 msgid "Power"
 msgstr ""
 
@@ -3521,7 +3525,7 @@ msgstr ""
 msgid "captured when picked"
 msgstr ""
 
-#: crates/glimpse-widgets/src/status_island/mod.rs:110
+#: crates/glimpse-widgets/src/status_island/mod.rs:114
 msgid "{app}: {notifications}"
 msgstr ""
 

@@ -8,6 +8,8 @@ use crate::Indicator;
 pub struct StatusIsland {
     pub chips: std::cell::RefCell<Vec<(String, Indicator)>>,
     #[template_child]
+    pub layout: TemplateChild<Indicator>,
+    #[template_child]
     pub battery: TemplateChild<Indicator>,
     #[template_child]
     pub power_button: TemplateChild<gtk4::Button>,

@@ -48,6 +48,10 @@ impl StatusIsland {
         );
     }
 
+    pub fn set_layout(&self, spec: Option<&IndicatorSpec>) {
+        apply_slot(&self.imp().layout, spec);
+    }
+
     pub fn set_battery(&self, spec: Option<&IndicatorSpec>) {
         apply_slot(&self.imp().battery, spec);
     }

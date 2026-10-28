@@ -628,6 +628,7 @@ impl Shared {
         stage.stage.track().set_track(look.track.as_ref());
         stage.stage.set_notifications(&look.notifications);
         stage.stage.set_battery(look.status.battery.as_ref());
+        stage.stage.status().set_layout(look.status.layout.as_ref());
     }
 
     fn apply_prompt(&self, stage: &LockStage) {

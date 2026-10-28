@@ -64,12 +64,15 @@ an unlock as well as at once.
 sheet offers, each also gated by logind's own `Can*` answer — hidden where polkit can't prompt
 through a lock, disabled with the blocking inhibitor's reason otherwise.
 
-`Mpris`, `Compositor` and `Battery`, plus the notifications provider, are hosted once at daemon
-start, never on the lock path. The lock shows only the battery, notification counts and the power
-button: no weather, keyboard layout, network or Bluetooth state is hosted or shown. Notifications
-group by `app_id` (never `app_name`, sender-chosen), and `lock_started` marks which count as "since
-this lock", clearing only on a real authenticated unlock; bodies and summaries never reach a chip,
-only `app_id`, `app_name`, `icon` and `urgency`.
+`Mpris`, `Compositor`, `Keyboard` and `Battery`, plus the notifications provider, are hosted once
+at daemon start, never on the lock path. The lock shows only the keyboard layout, the battery,
+notification counts and the power button: no weather, network or Bluetooth state is hosted or
+shown. The layout shows whenever two or more are configured, even with `[lock.status]` off, since
+the password is typed in whichever one is active; `Keyboard` runs with `remember = "global"`,
+because there is no window whose layout to restore. Notifications group by `app_id` (never
+`app_name`, sender-chosen), and `lock_started` marks which count as "since this lock", clearing only
+on a real authenticated unlock; bodies and summaries never reach a chip, only `app_id`, `app_name`,
+`icon` and `urgency`.
 
 ## Rules
 

@@ -156,7 +156,8 @@ catalog**: an English, `C` or `C.<codeset>` time locale gets `1st`, anything els
 
 `SessionSheet` rows start hidden until `set_action` shows one, and every action goes through a
 confirm page that re-checks the row before emitting, since `set_action` can revoke it mid-page.
-`StatusIsland` is one box, one spacing: notification chips, battery and power button.
+`StatusIsland` is one box, one spacing: notification chips, keyboard layout, battery and power
+button.
 `TrackCard`'s labels carry `width-chars` beside `max-width-chars` and a fixed `min-width`, so a
 track change never resizes the footer. A notification item is built with `accessible-role: Img`
 through `glib::Object::builder`, since the role is construct-only.

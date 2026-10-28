@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use glimpse_config::{
-    Config, Documents, LOCK_STYLESHEET, Reload, Theme, watch_config, watch_theme,
+    Config, Documents, LOCK_STYLESHEET, Reload, Remember, Theme, watch_config, watch_theme,
 };
 use glimpse_dbus::Buses;
 use glimpse_dbus::accounts::{AccountsProxy, AccountsUserProxy};
@@ -18,8 +18,8 @@ use glimpse_dbus::notifications::{
 };
 use glimpse_services::{
     Battery, BatteryState, Compositor, CompositorDependencies, CompositorProvider,
-    CompositorProviderHandle, CompositorState, Mpris, MprisHandle, MprisPlayers, PlayerAction,
-    Running,
+    CompositorProviderHandle, CompositorState, Keyboard, KeyboardDependencies, KeyboardLayouts,
+    Mpris, MprisHandle, MprisPlayers, PlayerAction, Running,
 };
 use glimpse_widgets::SessionActionState;
 use glimpse_widgets::Styles;
@@ -94,6 +94,7 @@ pub enum AppInput {
     Notifications(NotificationsProviderState),
     TrackAction(TransportAction),
     Battery(BatteryState),
+    Layouts(KeyboardLayouts),
     Restore(Notice),
 }
 
@@ -122,6 +123,7 @@ impl std::fmt::Debug for AppInput {
             Self::Notifications(_) => "Notifications",
             Self::TrackAction(_) => "TrackAction",
             Self::Battery(_) => "Battery",
+            Self::Layouts(_) => "Layouts",
             Self::Restore(_) => "Restore",
         };
         f.write_str(name)
@@ -522,6 +524,11 @@ impl SimpleComponent for App {
             AppInput::TrackAction(action) => self.control_track(action),
             AppInput::Battery(state) => {
                 if status::replace(&mut self.status.battery, status::battery(&state)) {
+                    self.restage();
+                }
+            }
+            AppInput::Layouts(layouts) => {
+                if status::replace(&mut self.status.layout, status::layout(&layouts)) {
                     self.restage();
                 }
             }
@@ -1207,11 +1214,13 @@ fn offscreen_renderer() -> Option<gsk::Renderer> {
 fn hosted(config: &Config) -> Config {
     let mut config = config.clone();
     config.mpris.fetch_art = false;
+    config.keyboard.remember = Remember::Global;
     config
 }
 
 pub struct StatusServices {
     compositor: Running<Compositor>,
+    keyboard: Running<Keyboard>,
     battery: Running<Battery>,
     _compositor_provider: CompositorProvider,
     feeds: Vec<JoinHandle<()>>,
@@ -1232,14 +1241,23 @@ impl StatusServices {
                 provider: provider.clone(),
             },
         );
+        let (keyboard, layouts) = Running::<Keyboard>::spawn(
+            &config,
+            buses.clone(),
+            KeyboardDependencies {
+                provider: provider.clone(),
+            },
+        );
         let (battery, battery_handle) = Running::<Battery>::spawn(&config, buses, <_>::default());
         let feeds = vec![
             forward_focus(compositor_handle.subscribe(), sender),
             forward_restore(provider, sender),
+            forward(layouts.subscribe(), sender, AppInput::Layouts),
             forward(battery_handle.subscribe(), sender, AppInput::Battery),
         ];
         Self {
             compositor,
+            keyboard,
             battery,
             _compositor_provider: compositor_provider,
             feeds,
@@ -1249,6 +1267,7 @@ impl StatusServices {
     fn reconfigure(&self, config: &Config) {
         let config = hosted(config);
         self.compositor.reconfigure(&config);
+        self.keyboard.reconfigure(&config);
         self.battery.reconfigure(&config);
     }
 }
