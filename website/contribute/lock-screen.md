@@ -74,11 +74,13 @@ of options break PAM's password check in a way that looks like a wrong password:
 - Seccomp-family options (`SystemCallFilter=`, `LockPersonality=`, `RestrictSUIDSGID=` and relatives)
   imply `NoNewPrivileges`, which blocks the same helper.
 
-Either way PAM answers `AUTHINFO_UNAVAIL` and the correct password is rejected. For the same reason the
+Either way the helper can't read `/etc/shadow`, PAM answers a plain authentication failure, and the
+correct password is rejected as a wrong one. For the same reason the
 `lock` subcommand never locks in its own process: it sends the logind request and the resident daemon
 does the locking.
 
-The daemon also probes itself at startup: its uid mapping, its `NoNewPrivs` flag, the password helper's
+The daemon also probes itself at startup: its uid mapping, its `NoNewPrivs` flag, on systems whose
+`/etc/shadow` its owner can't read (Fedora) its capability bounding set and securebits, the password helper's
 ownership and mount flags, and the PAM stack, which must resolve every include and must not contain
 `pam_permit.so` in the service file itself. When a probe fails, every lock request is refused and a
 notification tells the user to run `glimpse-lock check`, which runs the same probes. An unlocked screen

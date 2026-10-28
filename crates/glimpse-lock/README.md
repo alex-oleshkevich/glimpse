@@ -113,7 +113,7 @@ indistinguishable from a real second factor. **A PAM text always wins over "Wron
 `pam_faillock` sends its lockout sentence through the conversation, then returns plain `AUTH_ERR`.
 A correct password whose `acct_mgmt` answers `NEW_AUTHTOK_REQD`/`AUTHTOK_EXPIRED` unlocks and
 posts a password-change notice; every other answer refuses. **`AUTHINFO_UNAVAIL` never renders as
-a wrong password** — it names `glimpse-lock check`, since it's the sandbox trap below.
+a wrong password** — it names `glimpse-lock check`.
 
 The password lives in a `Zeroizing<String>`, moved into the PAM thread and dropped there; no struct
 holding it derives `Debug`. Two short-lived copies unavoidably escape the wipe — the conversation's
@@ -124,16 +124,21 @@ reply `CString` and pam-client2's own `strdup` — both freed by the module.
 **Never sandbox this unit — no systemd sandboxing option of any kind.** Namespace options
 (`PrivateTmp=`, `ProtectSystem=`, …) put it in a user namespace where root is unmapped and
 `unix_chkpwd`'s setuid/setgid bits are ignored; seccomp options imply `NoNewPrivileges`. Either way
-PAM returns `AUTHINFO_UNAVAIL` and the correct password is rejected — and a sandbox is inherited,
-which is why the daemon never locks from its own command line.
+`unix_chkpwd` can't read `/etc/shadow` and PAM returns plain `AUTH_ERR`, so the correct password
+reads as a wrong one and only the probe below tells them apart — and a sandbox is inherited, which
+is why the daemon never locks from its own command line.
 
 At start the daemon probes itself: `/proc/self/uid_map` must read exactly `0 0 4294967295`,
 `NoNewPrivs` must be 0, and the first `unix_chkpwd` in `/run/wrappers/bin`, `/usr/bin`, `/usr/sbin`, `/sbin` must be root-owned and setuid/setgid
-on a filesystem without `nosuid` (no `unix_chkpwd` at all skips the probe). The PAM stack for
+on a filesystem without `nosuid` (no `unix_chkpwd` at all skips the probe). Where `/etc/shadow`
+is unreadable to its owner (Fedora ships it `0000`), a setuid-root `unix_chkpwd` reads it only
+through a capability, so `CapBnd` must keep `CAP_DAC_OVERRIDE` or `CAP_DAC_READ_SEARCH` and
+`securebits` must not set `NOROOT`. The PAM stack for
 `[lock] pam-service` is resolved through every `include`/`substack`/`@include` it names; missing,
 unresolvable, or an uncommented `pam_permit.so` in the service file itself refuses locking like a
 failed probe. `check` runs the same probes against the running service's `MainPID`, then against
-itself, so a shell outside the unit's sandbox can't pass while the service fails.
+itself, so a shell outside the unit's sandbox can't pass while the service fails; `securebits` is
+read only from its own process.
 
 **When a probe fails, every `Lock` is refused** and posts a notification naming `glimpse-lock
 check`; no sleep inhibitor is taken. An unlocked screen with a loud warning is the lesser failure,

@@ -23,6 +23,39 @@ fn no_new_privs_must_read_zero() {
 }
 
 #[test]
+fn only_a_shadow_its_owner_cannot_read_needs_capabilities() {
+    assert!(shadow_needs_caps(Some(0o100000)), "Fedora ships it 0000");
+    assert!(!shadow_needs_caps(Some(0o100600)), "Arch ships it 0600");
+    assert!(!shadow_needs_caps(Some(0o100640)), "Debian ships it 0640");
+    assert!(!shadow_needs_caps(None));
+}
+
+#[test]
+fn the_bounding_set_must_keep_a_dac_capability() {
+    let status = |value: &str| format!("Name:\tglimpse-lock\nCapBnd:\t{value}\nNoNewPrivs:\t0\n");
+    assert_eq!(bounding_set(&status("000001ffffffffff")), Ok(()));
+    assert_eq!(bounding_set(&status("000001fffffffffb")), Ok(()));
+    assert_eq!(bounding_set(&status("000001fffffffffd")), Ok(()));
+    assert!(bounding_set(&status("000001fffffffff9")).is_err());
+    assert!(bounding_set(&status("0000000000000000")).is_err());
+    assert!(bounding_set(&status("zz")).is_err());
+    assert!(bounding_set("Name:\tx\n").is_err());
+}
+
+#[test]
+fn securebits_must_not_set_noroot() {
+    assert_eq!(securebits(0), Ok(()));
+    assert_eq!(
+        securebits(0b10),
+        Ok(()),
+        "NOROOT_LOCKED alone changes nothing"
+    );
+    assert!(securebits(0b1).is_err());
+    assert!(securebits(0b11).is_err());
+    assert!(securebits(-1).is_err());
+}
+
+#[test]
 fn unix_chkpwd_must_be_setuid_or_setgid_root_on_a_suid_filesystem() {
     assert_eq!(chkpwd(0, 0o106755, false), Ok(()));
     assert_eq!(chkpwd(0, 0o104755, false), Ok(()));

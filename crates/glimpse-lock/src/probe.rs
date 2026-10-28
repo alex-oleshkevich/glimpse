@@ -6,6 +6,9 @@ use rustix::fs::StatVfsMountFlags;
 const CHKPWD_DIRS: [&str; 4] = ["/run/wrappers/bin", "/usr/bin", "/usr/sbin", "/sbin"];
 const PAM_DIRS: [&str; 2] = ["/etc/pam.d", "/usr/lib/pam.d"];
 const NOT_A_SERVICE: &str = "not a PAM service name";
+const SHADOW: &str = "/etc/shadow";
+const DAC_CAPS: u64 = (1 << 1) | (1 << 2);
+const SECBIT_NOROOT: i32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
@@ -67,6 +70,37 @@ pub fn no_new_privs(status: &str) -> Result<(), String> {
             "NoNewPrivs reads {:?}",
             glimpse_utils::clean(other, 16)
         )),
+    }
+}
+
+pub fn shadow_needs_caps(mode: Option<u32>) -> bool {
+    mode.is_some_and(|mode| mode & 0o400 == 0)
+}
+
+pub fn bounding_set(status: &str) -> Result<(), String> {
+    let value = status
+        .lines()
+        .find_map(|line| line.strip_prefix("CapBnd:"))
+        .map(str::trim)
+        .ok_or_else(|| "no CapBnd field".to_owned())?;
+    let set = u64::from_str_radix(value, 16)
+        .map_err(|_| format!("CapBnd reads {:?}", glimpse_utils::clean(value, 32)))?;
+    match set & DAC_CAPS {
+        0 => Err(
+            "CapBnd lacks CAP_DAC_OVERRIDE and CAP_DAC_READ_SEARCH, so unix_chkpwd can't read /etc/shadow"
+                .to_owned(),
+        ),
+        _ => Ok(()),
+    }
+}
+
+pub fn securebits(bits: i32) -> Result<(), String> {
+    if bits < 0 {
+        Err("securebits are unreadable".to_owned())
+    } else if bits & SECBIT_NOROOT != 0 {
+        Err("securebits set NOROOT, so setuid root gives unix_chkpwd no capabilities".to_owned())
+    } else {
+        Ok(())
     }
 }
 
@@ -200,22 +234,42 @@ pub fn startup(pam_service: &str) -> Vec<Check> {
 }
 
 pub fn process(root: &Path, prefix: &str) -> Vec<Check> {
-    vec![
+    let status = read(&root.join("status"));
+    let mut checks = vec![
         Check::new(
             format!("{prefix}uid_map"),
             read(&root.join("uid_map")).and_then(|text| uid_map(&text).map(|()| None)),
         ),
         Check::new(
             format!("{prefix}NoNewPrivs"),
-            read(&root.join("status")).and_then(|text| no_new_privs(&text).map(|()| None)),
+            status
+                .clone()
+                .and_then(|text| no_new_privs(&text).map(|()| None)),
         ),
-    ]
+    ];
+    if shadow_needs_caps(shadow_mode()) {
+        checks.push(Check::new(
+            format!("{prefix}CapBnd"),
+            status.and_then(|text| bounding_set(&text).map(|()| None)),
+        ));
+    }
+    checks
 }
 
 pub fn own() -> Vec<Check> {
     let mut checks = process(Path::new("/proc/self"), "");
+    if shadow_needs_caps(shadow_mode()) {
+        let bits = unsafe { libc::prctl(libc::PR_GET_SECUREBITS) };
+        checks.push(Check::new("securebits", securebits(bits).map(|()| None)));
+    }
     checks.push(Check::new("unix_chkpwd", own_chkpwd()));
     checks
+}
+
+fn shadow_mode() -> Option<u32> {
+    std::fs::metadata(SHADOW)
+        .ok()
+        .map(|metadata| metadata.mode())
 }
 
 pub fn failures(checks: &[Check]) -> Vec<String> {

@@ -79,9 +79,10 @@ glimpse-lock check
 ```
 
 It prints one line per check and exits with status 5 if any fails. Failures identify a missing
-service, a user namespace, `NoNewPrivs` blocking privilege changes, or a `unix_chkpwd` helper without
-setuid or setgid permissions or on a `nosuid` filesystem. Do not sandbox the lock screen service;
-that can prevent it from checking passwords.
+service, a user namespace, `NoNewPrivs` blocking privilege changes, a capability bounding set or
+securebits that leave the helper without the capability Fedora's `/etc/shadow` needs, or a
+`unix_chkpwd` helper without setuid or setgid permissions or on a `nosuid` filesystem. Do not
+sandbox the lock screen service; that can prevent it from checking passwords.
 
 The lock screen authenticates through PAM. The service name is `[lock] pam-service` (default
 `glimpse-lock`), read from `/etc/pam.d/<name>` or `/usr/lib/pam.d/<name>`. A missing PAM file, a

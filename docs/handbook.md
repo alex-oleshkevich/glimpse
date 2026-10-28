@@ -189,10 +189,12 @@ part of `just verify`, so a string marked wrongly fails the build.
   (`PrivateTmp=`, `ProtectSystem=`, `ProtectKernelTunables=`, …) put a user service in a user
   namespace where root is unmapped and `unix_chkpwd`'s setuid bit is not honoured, and
   seccomp-family options (`SystemCallFilter=`, `LockPersonality=`, `RestrictSUIDSGID=`, …) imply
-  `NoNewPrivileges`. PAM then returns `AUTHINFO_UNAVAIL` and the correct password is rejected, which
-  looks like a wrong password and is expensive to diagnose. The daemon probes itself at start and
-  refuses to lock when either mechanism is present, except when `LockedHint` is already true at
-  start, where it locks behind a prompt that sends the user to a text console.
+  `NoNewPrivileges`. `unix_chkpwd` then can't read `/etc/shadow`, PAM returns plain `AUTH_ERR`, and
+  the correct password is rejected as a wrong one, which is expensive to diagnose. The daemon probes
+  itself at start (also for a `CapBnd` or `securebits` that leaves a setuid-root helper without the
+  capability Fedora's mode `0000` shadow needs) and refuses to lock when any of these is present,
+  except when `LockedHint` is already true at start, where it locks behind a prompt that sends the
+  user to a text console.
 - **No unit relationship may stop `glimpse-lock.service` while it holds the lock.** A stopped locker
   is a locked session with nothing to authenticate against. `PartOf=` on anything but
   `graphical-session.target`, `BindsTo=`, or someone else's `Conflicts=` all reach that state;
