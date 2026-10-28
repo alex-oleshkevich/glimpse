@@ -76,18 +76,18 @@ fn daemon() -> Result<()> {
         tracing::warn!("RELM_THREADS already initialized");
     }
 
-    RelmApp::new("me.aresa.GlimpseAgents")
-        .visible_on_activate(false)
-        .with_args(Vec::new())
-        .run::<app::App>(app::Init {
-            config,
-            theme,
-            session,
-            system,
-            runtime: handle,
-            inbox,
-            cancelled,
-        });
+    let app = RelmApp::new("me.aresa.GlimpseAgents").visible_on_activate(false);
+    #[cfg(all(debug_assertions, feature = "gtk-mcp"))]
+    gtk_mcp_agent::attach(&relm4::main_application());
+    app.with_args(Vec::new()).run::<app::App>(app::Init {
+        config,
+        theme,
+        session,
+        system,
+        runtime: handle,
+        inbox,
+        cancelled,
+    });
     Ok(())
 }
 

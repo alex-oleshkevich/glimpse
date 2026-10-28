@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 build = "build.rs"
 
+[features]
+gtk-mcp = ["dep:gtk-mcp-agent"]
+
 [dependencies]
 adw.workspace = true
 anyhow.workspace = true
@@ -18,6 +21,7 @@ glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-utils.workspace = true
 glimpse-widgets.workspace = true
+gtk-mcp-agent = { workspace = true, optional = true }
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true
 relm4.workspace = true

@@ -42,12 +42,13 @@ fn run(cli: &Cli) -> Result<()> {
 
     let app_id = std::env::var("GLIMPSE_NOTIFICATIONS_APP_ID")
         .unwrap_or_else(|_| "me.aresa.GlimpseNotifications".to_owned());
-    RelmApp::new(&app_id)
-        .with_args(Vec::new())
-        .run::<app::App>(app::Init {
-            config,
-            theme,
-            failure: failure.map(|error| error.to_string()),
-        });
+    let app = RelmApp::new(&app_id);
+    #[cfg(all(debug_assertions, feature = "gtk-mcp"))]
+    gtk_mcp_agent::attach(&relm4::main_application());
+    app.with_args(Vec::new()).run::<app::App>(app::Init {
+        config,
+        theme,
+        failure: failure.map(|error| error.to_string()),
+    });
     Ok(())
 }

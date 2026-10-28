@@ -122,6 +122,8 @@ pub fn run(gui: &GuiArgs) -> Result<()> {
         .application_id(&app_id)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE | gio::ApplicationFlags::HANDLES_OPEN)
         .build();
+    #[cfg(all(debug_assertions, feature = "gtk-mcp"))]
+    gtk_mcp_agent::attach(&app);
     let shell = Shell::new(&app);
     let started = Rc::clone(&shell);
     app.connect_startup(move |_| started.startup());

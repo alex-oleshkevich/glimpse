@@ -97,6 +97,8 @@ fn daemon(cli: Cli) -> Result<()> {
     let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
     relm4::main_application()
         .set_flags(relm4::main_application().flags() | gio::ApplicationFlags::NON_UNIQUE);
+    #[cfg(all(debug_assertions, feature = "gtk-mcp"))]
+    gtk_mcp_agent::attach(&relm4::main_application());
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
         pam_service,

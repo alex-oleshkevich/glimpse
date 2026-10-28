@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"gtk-mcp": {
+			"type": "stdio",
+			"command": "gtk-mcp"
+		},
+		"wayland-mcp": {
+			"type": "stdio",
+			"command": "wayland-mcp"
+		}
+	}
+}

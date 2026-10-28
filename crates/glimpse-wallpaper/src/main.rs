@@ -49,6 +49,8 @@ fn run(cli: &Cli) -> Result<()> {
     let app_id =
         std::env::var("GLIMPSE_WALLPAPER_APP_ID").unwrap_or("me.aresa.GlimpseWallpaper".into());
     let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
+    #[cfg(all(debug_assertions, feature = "gtk-mcp"))]
+    gtk_mcp_agent::attach(&relm4::main_application());
     app.with_args(vec![])
         .run::<app::App>(app::AppInit { config, theme });
     Ok(())

@@ -126,6 +126,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-channel"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "924ed96dd52d1b75e9c1a3e6275715fd320f5f9439fb5a4a11fa51f4221158d2"
+dependencies = [
+ "concurrent-queue",
+ "event-listener-strategy",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-recursion"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -476,6 +488,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "concurrent-queue"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "config"
 version = "0.15.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -562,6 +583,12 @@ checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "crossbeam-utils"
+version = "0.8.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
 
 [[package]]
 name = "crunchy"
@@ -1340,6 +1367,7 @@ dependencies = [
  "glimpse-dbus",
  "glimpse-utils",
  "glimpse-widgets",
+ "gtk-mcp-agent",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
@@ -1523,6 +1551,7 @@ dependencies = [
  "glimpse-services",
  "glimpse-utils",
  "glimpse-widgets",
+ "gtk-mcp-agent",
  "gtk4",
  "gtk4-session-lock",
  "libadwaita",
@@ -1556,6 +1585,7 @@ dependencies = [
  "glimpse-services",
  "glimpse-utils",
  "glimpse-widgets",
+ "gtk-mcp-agent",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
@@ -1596,6 +1626,7 @@ dependencies = [
  "glimpse-utils",
  "glimpse-wayland",
  "glimpse-widgets",
+ "gtk-mcp-agent",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
@@ -1695,6 +1726,7 @@ dependencies = [
  "glimpse-utils",
  "glimpse-wayland",
  "glimpse-widgets",
+ "gtk-mcp-agent",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
@@ -1759,6 +1791,7 @@ dependencies = [
  "glimpse-dbus",
  "glimpse-utils",
  "glimpse-widgets",
+ "gtk-mcp-agent",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
@@ -1932,6 +1965,36 @@ dependencies = [
  "libc",
  "pango-sys",
  "system-deps 7.0.8",
+]
+
+[[package]]
+name = "gtk-mcp-agent"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "665a56af65785882070cc7eb349a70ccbbef805b0c88c65dbc8ce788374b288d"
+dependencies = [
+ "async-channel",
+ "base64 0.22.1",
+ "gio",
+ "glib",
+ "gtk-mcp-protocol",
+ "gtk4",
+ "libc",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "gtk-mcp-protocol"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ddc2692b6a3cacaccb0ec01afb9742cab24fc42f994e5424519a915d6014ce4"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
