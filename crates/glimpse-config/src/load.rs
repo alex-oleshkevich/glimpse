@@ -131,6 +131,10 @@ pub fn state_dir() -> Option<PathBuf> {
     dirs::state_dir().map(|dir| dir.join(FOLDER_NAME))
 }
 
+pub fn cache_dir() -> Option<PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join(FOLDER_NAME))
+}
+
 pub fn applets_dir() -> Option<PathBuf> {
     dirs::data_dir().map(|dir| dir.join(FOLDER_NAME).join("applets"))
 }

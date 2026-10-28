@@ -10,9 +10,9 @@ pub use commented::commented_document;
 pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
 pub use load::{
-    DATA_DIR, Documents, applets_dir, config_dir, config_files, find, init, load, load_files,
-    load_or_default, resolve_image, runtime_dir, seed_user_config, state_dir, unknown_applets,
-    writable_file, write_table,
+    DATA_DIR, Documents, applets_dir, cache_dir, config_dir, config_files, find, init, load,
+    load_files, load_or_default, resolve_image, runtime_dir, seed_user_config, state_dir,
+    unknown_applets, writable_file, write_table,
 };
 pub use schema::*;
 pub use theme::{

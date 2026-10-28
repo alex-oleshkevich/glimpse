@@ -166,6 +166,7 @@ pub struct App {
     lock_started: Option<DateTime<Utc>>,
     status_services: Option<StatusServices>,
     status: Status,
+    warmer: Warmer,
 }
 
 #[relm4::component(pub)]
@@ -282,12 +283,14 @@ impl SimpleComponent for App {
             lock_started: None,
             status_services: None,
             status: Status::default(),
+            warmer: Warmer::default(),
         };
         model.reload_styles();
         model
             .backgrounds
             .configure(background::variants(&model.config));
         model.backgrounds.set_outputs(outputs());
+        model.warm();
 
         let widgets = view_output!();
 
@@ -315,6 +318,7 @@ impl SimpleComponent for App {
                     self.backgrounds
                         .configure(background::variants(&self.config));
                     self.decode(&sender);
+                    self.warm();
                 }
                 if session_changed {
                     self.session =
@@ -399,6 +403,7 @@ impl SimpleComponent for App {
             }
             AppInput::Outputs => {
                 self.backgrounds.set_outputs(outputs());
+                self.warm();
                 self.decode(&sender);
                 self.restage();
                 if let Some(surfaces) = &self.surfaces {
@@ -568,6 +573,7 @@ impl App {
         match effect {
             Effect::Lock(generation) => {
                 tracing::info!(generation, "locking");
+                self.warmer.cancel();
                 self.session_answers = session::Answers::default();
                 self.session = HashMap::new();
                 self.lock_started.get_or_insert_with(Utc::now);
@@ -874,6 +880,22 @@ impl App {
         }
     }
 
+    fn warm(&mut self) {
+        if self.surfaces.is_some() {
+            return;
+        }
+        let (light, dark) = background::images(&self.config);
+        let images: Vec<std::path::PathBuf> = [light, dark]
+            .into_iter()
+            .flatten()
+            .map(ToOwned::to_owned)
+            .collect();
+        let targets: Vec<raster::Target> =
+            outputs().into_iter().map(|(_, target)| target).collect();
+        self.warmer
+            .request(images, targets, self.config.lock.background.fit);
+    }
+
     fn logind(&self, request: Request) {
         if let Some(logind) = &self.logind
             && let Err(error) = logind.send(request)
@@ -901,6 +923,43 @@ impl App {
         self.styles.load(&self.theme);
         self.styles.set_variant(&appearance.theme_variant);
         self.styles.set_animation_speed(appearance.animation_speed);
+    }
+}
+
+#[derive(Default)]
+struct Warmer {
+    worker: ArtWorker,
+    generation: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl Warmer {
+    fn cancel(&self) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn request(
+        &mut self,
+        images: Vec<std::path::PathBuf>,
+        targets: Vec<raster::Target>,
+        fit: glimpse_config::Fit,
+    ) {
+        let wanted = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = self.generation.clone();
+        self.worker.submit(move || {
+            for image in &images {
+                let Some(path) = glimpse_config::resolve_image(image) else {
+                    continue;
+                };
+                for target in &targets {
+                    if generation.load(Ordering::SeqCst) != wanted {
+                        return;
+                    }
+                    if let Err(error) = raster::warm(&path, *target, fit) {
+                        tracing::debug!(path = %path.display(), "lock background warm failed: {error:#}");
+                    }
+                }
+            }
+        });
     }
 }
 

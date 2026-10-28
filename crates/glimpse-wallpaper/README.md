@@ -13,7 +13,8 @@ to the integer scale factor only when the fractional scale is unavailable — no
 The cache lives on each surface, in memory: the currently-rendered texture, at most one in-flight
 decode, and the outgoing texture held during a crossfade. The key is (image path, decode target,
 fit, blur radius, mtime); dark mode is already resolved into which image path is used, so it plays
-no part in the key itself.
+no part in the key itself. A decode reads and fills the shared disk raster cache
+(`glimpse_widgets::raster`), which the lock screen also reads.
 
 The backdrop decodes at the output's physical size divided by `downscale-factor`, and is blurred
 once, on the GPU, when its texture is applied: a gaussian `GskBlurNode` rendered offscreen through

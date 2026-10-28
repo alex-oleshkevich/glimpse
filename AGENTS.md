@@ -42,8 +42,8 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 - **Never shell out to `systemctl`, `loginctl`, `nmcli`, `bluetoothctl` or `niri msg`** from glimpse
   code — use D-Bus or the compositor IPC.
 - **No service crate has a Wayland dependency.** GTK stays in UI crates or `glimpse-widgets`.
-- Runtime state goes under `$XDG_RUNTIME_DIR/glimpse/` only; an applet's persistent data goes under
-  `glimpse-config`'s `state_dir()`.
+- Runtime state goes under `$XDG_RUNTIME_DIR/glimpse/`; an applet's persistent data under
+  `state_dir()`; regenerable derived data (e.g. wallpaper rasters) under `glimpse-config`'s `cache_dir()`.
 - **Text from other apps is hostile**: cap, ellipsize, never build markup from it.
 - **Never add `panic = "abort"`. Never sandbox `glimpse-lock.service`**, and nothing may stop it while
   it holds the lock.

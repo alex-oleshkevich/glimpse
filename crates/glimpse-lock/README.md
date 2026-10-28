@@ -49,14 +49,17 @@ awake chips, battery and power button sit, and the two cross-fade there; the cor
 until awake and the faded-out side is hidden from assistive technology. A mirror stays on its cover.
 The wake blur is one small pre-rendered copy faded in by opacity, never a live `filter: blur()`.
 
-`[lock.background]` `image`/`image-dark` decode off the UI thread when a lock starts, never on
-the UI thread at the lock itself; naming either inherits the whole pair from `[wallpaper]`, and
-both scheme variants decode so a dark/light flip while locked swaps every stage at once. The
-cache drops on unlock, and nothing is decoded or held while the session is open. The daemon fixes
-glibc's mmap threshold at start, so a decode buffer is its own mapping and returns to the system on
-free rather than staying resident in a worker thread's arena. GTK's renderer cache frees an unused
-texture only once it is fifteen seconds old, checked every fifteen seconds, so the heap is returned
-again 35 seconds after an unlock as well as at once.
+`[lock.background]` `image`/`image-dark` become output-sized rasters in the shared disk cache, warmed
+off the UI thread one decode at a time — at start, and when the image, fit or an output changes; a
+newer request supersedes queued work, and a warm stops at its next image when a lock starts. A lock
+reads the cached raster and decodes off the UI thread only on a miss, never on the UI thread at the
+lock itself; naming either inherits the whole pair from `[wallpaper]`, and both scheme variants load
+so a dark/light flip while locked swaps every stage at once. Nothing is held in memory while the
+session is open: the texture cache drops on unlock. The daemon fixes glibc's mmap threshold at
+start, so a decode buffer is its own mapping and returns to the system on free rather than staying
+resident in a worker thread's arena. GTK's renderer cache frees an unused texture only once it is
+fifteen seconds old, checked every fifteen seconds, so the heap is returned again 35 seconds after
+an unlock as well as at once.
 `[lock.session]` `actions` (gated by `enabled`) names which of suspend, reboot, power-off the
 sheet offers, each also gated by logind's own `Can*` answer — hidden where polkit can't prompt
 through a lock, disabled with the blocking inhibitor's reason otherwise.

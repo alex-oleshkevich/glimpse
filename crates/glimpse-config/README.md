@@ -19,8 +19,8 @@ defaults; `Documents::ConfigAndPanel` (the panel and `glimpsectl`) reads both.
 roots and then `DATA_DIR`; **`writable_file(name)` is `--config-dir` when given, else the user
 directory, and `None` with neither — never `/etc/glimpse`.** **Merging is per key: tables merge,
 scalars replace, arrays replace rather than append** — an appending array could never be shortened
-by a later layer. `runtime_dir()` resolves to `$XDG_RUNTIME_DIR/glimpse` without creating it, and
-returns `None` when the environment variable is unset.
+by a later layer. `runtime_dir()` resolves to `$XDG_RUNTIME_DIR/glimpse` without creating it (`None`
+when unset); regenerable derived data, such as processed wallpaper rasters, goes under `cache_dir()`.
 
 ## Schema
 

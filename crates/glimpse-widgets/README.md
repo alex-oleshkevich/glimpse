@@ -237,6 +237,14 @@ the parent's end with margins, since rows stack flush and box spacing would sepa
 `--row-entry-bg` fill with a hairline, never `--gl-hover`, so it never reads as a hovered row, and
 keeps a small margin from an adjacent row so two filled rows never merge.
 
+## Raster
+
+`raster::raster` and `raster::warm` share one disk cache of processed rasters under
+`glimpse_config::cache_dir()/raster/`; the source is decoded in a single pass. An entry is keyed by
+source path, length and mtime plus target size and fit, and its header repeats the key; any entry
+that fails validation is a miss and is deleted. Writes are atomic into a private directory, and the
+cache is count-bounded, evicting least-recently-used entries.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them **once** and gives every
