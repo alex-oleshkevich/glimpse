@@ -20,7 +20,7 @@ Answer the prompts with these values:
 | Icon | `view-list-symbolic` |
 | Directory | `glimpse-todo` |
 
-Use a new or empty directory. The id must not already be installed. The command creates `.gitignore`, `README.md`, `biome.json`, `devconfig.toml`, `index.tsx`, `justfile`, `me.aresa.GlimpseTodo.desktop`, `package.json`, and `tsconfig.json`.
+Use a new or empty directory. The id must not already be installed. The command creates `.gitignore`, `README.md`, `biome.json`, `devconfig.toml`, `index.tsx`, `justfile`, `me.aresa.GlimpseTodo.desktop`, `package.json`, and `tsconfig.json`, plus the `glimpse-exec-applet` skill for [a coding agent](/applets/agents) in `.agents/skills/` and `.claude/skills`.
 
 The applet is in `index.tsx`:
 

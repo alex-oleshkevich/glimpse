@@ -88,7 +88,10 @@ export default withMermaid(
         "/applets/": [
           {
             text: "Build applets",
-            items: [{ text: "Choosing an applet kind", link: "/applets/" }],
+            items: [
+              { text: "Choosing an applet kind", link: "/applets/" },
+              { text: "Build an applet with a coding agent", link: "/applets/agents" },
+            ],
           },
           {
             text: "Command applets",

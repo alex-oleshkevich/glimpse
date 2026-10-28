@@ -18,7 +18,10 @@ both clean up only their own child and runtime files.
 
 `applet new` selects `$GLIMPSE_SDK_TEMPLATES_DIR/<language>` or
 `DATA_DIR/sdk/templates/<language>`. It renders only `.jinja` files with minijinja and copies
-other files unchanged.
+other files unchanged. The `skills/glimpse-exec-applet` directory beside the templates root is
+copied into the project's `.agents/skills/`, with `.claude/skills` a relative link to it; a missing
+skills directory scaffolds without it. Every `toml` block in `sdk/skills/*/SKILL.md` must load as a
+`panel.toml`, and every `glimpsectl` line in an `sh` block must parse (`tests/skills.rs`).
 `applet package` runs the applet's `just build`, which assembles production
 files into `dist/`, and writes `<id>.glimpse.zip` holding only those files plus a generated
 `metadata.toml` listing each with its sha256. `applet install` checks a package against its own

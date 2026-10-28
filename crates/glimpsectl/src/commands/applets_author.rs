@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
@@ -137,6 +137,33 @@ fn collect_template_files(dir: &Path, root: &Path, files: &mut Vec<PathBuf>) -> 
         } else {
             bail!("template contains a non-regular file: {}", path.display());
         }
+    }
+    Ok(())
+}
+
+const SKILL: &str = "glimpse-exec-applet";
+
+fn skill_dir(template: &Path) -> Option<PathBuf> {
+    let skill = template
+        .canonicalize()
+        .ok()?
+        .parent()?
+        .parent()?
+        .join("skills")
+        .join(SKILL);
+    skill.is_dir().then_some(skill)
+}
+
+fn plan_skill(skill: &Path, planned: &mut Vec<(PathBuf, Vec<u8>)>) -> Result<()> {
+    let mut files = Vec::new();
+    collect_template_files(skill, skill, &mut files)
+        .with_context(|| format!("cannot read skill {}", skill.display()))?;
+    for relative in files {
+        let content = fs::read(skill.join(&relative))?;
+        planned.push((
+            Path::new(".agents/skills").join(SKILL).join(relative),
+            content,
+        ));
     }
     Ok(())
 }
@@ -291,6 +318,10 @@ fn new_with_catalog(
 
         planned.push((output, content));
     }
+    let skill = skill_dir(template);
+    if let Some(skill) = &skill {
+        plan_skill(skill, &mut planned)?;
+    }
     for (relative, content) in planned {
         let output = dir.join(relative);
         if let Some(parent) = output.parent() {
@@ -298,6 +329,10 @@ fn new_with_catalog(
         }
 
         write_file(&output, &content)?;
+    }
+    if skill.is_some() {
+        fs::create_dir_all(dir.join(".claude"))?;
+        symlink("../.agents/skills", dir.join(".claude/skills"))?;
     }
     let shown = env::current_dir()
         .ok()

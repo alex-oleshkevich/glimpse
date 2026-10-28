@@ -662,12 +662,15 @@ fn native_packages_ship_the_six_config_references() {
 }
 
 #[test]
-fn native_packages_ship_only_the_applet_templates_from_the_sdk() {
+fn native_packages_ship_only_the_applet_templates_and_skills_from_the_sdk() {
     let root = workspace_root();
-    let templates = root.join("sdk/templates");
-    let mut template: Vec<String> = files_under(&templates)
+    let mut template: Vec<String> = ["sdk/templates", "sdk/skills"]
         .into_iter()
-        .map(|path| format!("sdk/templates/{}", path.display()))
+        .flat_map(|dir| {
+            files_under(&root.join(dir))
+                .into_iter()
+                .map(move |path| format!("{dir}/{}", path.display()))
+        })
         .collect();
     template.sort();
     assert!(
@@ -681,6 +684,12 @@ fn native_packages_ship_only_the_applet_templates_from_the_sdk() {
         "sdk/templates/go/main.go.jinja",
     ] {
         assert!(template.contains(&nested.to_owned()), "{nested}");
+    }
+    for skill in [
+        "sdk/skills/glimpse-command-applet/SKILL.md",
+        "sdk/skills/glimpse-exec-applet/SKILL.md",
+    ] {
+        assert!(template.contains(&skill.to_owned()), "{skill}");
     }
     for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
         let body = fs::read_to_string(root.join(script)).expect(script);
@@ -706,13 +715,16 @@ fn native_packages_ship_only_the_applet_templates_from_the_sdk() {
     }
     let manifest = manifest(&root);
     for kind in ["deb", "generate-rpm"] {
-        let sdk: Vec<_> = assets(&manifest, kind)
+        let mut sdk: Vec<_> = assets(&manifest, kind)
             .into_iter()
             .filter(|(path, _)| path.contains("sdk/"))
             .collect();
-        assert_eq!(sdk.len(), 1, "{kind}");
-        assert!(sdk[0].0.ends_with("sdk/templates/**/*"), "{kind}");
-        assert!(sdk[0].1.contains("share/glimpse/sdk/templates"), "{kind}");
+        sdk.sort();
+        assert_eq!(sdk.len(), 2, "{kind}");
+        assert!(sdk[0].0.ends_with("sdk/skills/**/*"), "{kind}");
+        assert!(sdk[0].1.contains("share/glimpse/sdk/skills"), "{kind}");
+        assert!(sdk[1].0.ends_with("sdk/templates/**/*"), "{kind}");
+        assert!(sdk[1].1.contains("share/glimpse/sdk/templates"), "{kind}");
     }
 }
 

@@ -18,7 +18,7 @@ Details, reasons and measured facts live in `docs/` — read the relevant file b
 | Path | Role |
 | --- | --- |
 | `crates/` | Flat workspace, one directory per crate |
-| `sdk/` | Applet SDKs (`sdk-ts/`, `sdk-rs/`, `sdk-py/`, `sdk-go/`), `applets new` templates installed to `DATA_DIR/sdk/templates` (`templates/`), examples |
+| `sdk/` | Applet SDKs (`sdk-ts/`, `sdk-rs/`, `sdk-py/`, `sdk-go/`), `applets new` templates installed to `DATA_DIR/sdk/templates` (`templates/`), agent skills for applet authors installed to `DATA_DIR/sdk/skills` (`skills/`), examples |
 | `data/`, `scripts/`, `docs/`, `var/` | Installed assets, local scripts, documentation and scratch files |
 
 `_old/` and `var/glimpse2` are **reference only — never edit, build or copy from them**.

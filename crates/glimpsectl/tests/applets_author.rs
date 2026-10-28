@@ -68,6 +68,8 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
     assert_eq!(
         files,
         [
+            ".agents",
+            ".claude",
             ".gitignore",
             "README.md",
             "biome.json",
@@ -79,7 +81,7 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
             "tsconfig.json"
         ]
     );
-    for name in &files {
+    for name in files.iter().filter(|name| dir.join(name).is_file()) {
         let content = fs::read_to_string(dir.join(name)).unwrap();
         assert!(!content.replace("{{ zone }}", "").contains("{{"), "{name}");
     }
@@ -111,6 +113,45 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
             .unwrap()
             .contains("<Popover icon=")
     );
+}
+
+#[test]
+fn new_copies_the_exec_skill_and_links_it_for_claude() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("hello");
+    applets_new_with_catalog(args(&dir, "Hello"), &template(), |_| false).unwrap();
+    let skill = dir.join(".agents/skills/glimpse-exec-applet/SKILL.md");
+    assert_eq!(
+        fs::read(&skill).unwrap(),
+        fs::read(repo().join("sdk/skills/glimpse-exec-applet/SKILL.md")).unwrap()
+    );
+    assert_eq!(
+        fs::read_link(dir.join(".claude/skills")).unwrap(),
+        PathBuf::from("../.agents/skills")
+    );
+    assert!(
+        dir.join(".claude/skills/glimpse-exec-applet/SKILL.md")
+            .is_file()
+    );
+}
+
+#[test]
+fn new_without_installed_skills_still_scaffolds() {
+    let root = tempfile::tempdir().unwrap();
+    let templates = root.path().join("sdk/templates");
+    fs::create_dir_all(&templates).unwrap();
+    let copied = std::process::Command::new("cp")
+        .arg("-r")
+        .arg(template())
+        .arg(templates.join("ts"))
+        .status()
+        .unwrap();
+    assert!(copied.success());
+    let dir = root.path().join("hello");
+    applets_new_with_catalog(args(&dir, "Hello"), &templates.join("ts"), |_| false).unwrap();
+    assert!(dir.join("index.tsx").is_file());
+    assert!(!dir.join(".agents").exists());
+    assert!(!dir.join(".claude").exists());
 }
 
 #[test]
@@ -158,7 +199,10 @@ fn new_renders_every_language_without_placeholders() {
             "{}",
             language.dir()
         );
-        for relative in &files {
+        for relative in files
+            .iter()
+            .filter(|path| !path.starts_with(".agents") && !path.starts_with(".claude"))
+        {
             assert!(
                 !relative.to_string_lossy().contains(".jinja"),
                 "{}",

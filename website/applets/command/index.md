@@ -43,3 +43,5 @@ on-scroll-down = ["glimpse-shot", "--region"]
 Save again. Middle-click now lets you pick a window. One upward scroll notch starts a screen capture; one downward notch starts region selection. Each notch runs its command, so use a single notch when trying these actions.
 
 The [command settings reference](/config/applets/custom#command) also lists the horizontal scroll gestures.
+
+To have a coding agent write command buttons for you, see [Build an applet with a coding agent](/applets/agents).

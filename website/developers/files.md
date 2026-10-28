@@ -91,6 +91,7 @@ glimpse-shot and glimpse-lens icons, each in a full color and a symbolic version
 | `language-codes.json` | The keyboard applet, which shortens layout names to codes such as `US`. A copy in `~/.config/glimpse/` takes precedence. |
 | `themes/adwaita/` | The built-in theme: `panel.css`, `dark.css`, `wallpaper.css`, `lock.css` and the default wallpaper. |
 | `sdk/templates/` | `glimpsectl applet new`, which copies it to start an applet. |
+| `sdk/skills/` | Coding agents: `glimpse-command-applet` and `glimpse-exec-applet`; `glimpsectl applet new` copies the second into each project. |
 | `portals/` | The install script, as the pristine copies of the portal preferences. |
 | `LICENSE` | The license text. |
 

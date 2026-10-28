@@ -73,7 +73,7 @@ install -Dm644 LICENSE "$sharedir/LICENSE"
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$sharedir/$f"
-done < <(find sdk/templates -type f -print0)
+done < <(find sdk/templates sdk/skills -type f -print0)
 
 for f in data/themes/*/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/themes/$(basename "$(dirname "$f")")/$(basename "$f")"

@@ -13,3 +13,5 @@ A command applet has a fixed display. Its command's output does not become the l
 An exec applet runs as a systemd user unit with your full session access and a 256 MiB memory limit. The panel draws what it describes, and systemd restarts it when it exits. Start with [the todo tutorial](/applets/exec/) in TypeScript, or [start in Python, Go or Rust](/applets/exec/start).
 
 Both custom kinds use panel zones and applet configuration. The [command and exec settings reference](/config/applets/custom) lists their settings.
+
+A coding agent can write either kind for you with the skills glimpse ships: [Build an applet with a coding agent](/applets/agents).

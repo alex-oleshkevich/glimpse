@@ -43,6 +43,7 @@ name, description, icon and directory.
 | `pyproject.toml`, `go.mod` or `Cargo.toml` | The project and its SDK dependency |
 | `test_applet.py` (Python) | A test that builds the applet and checks its indicator |
 | `README.md`, `.gitignore` | How to run and package the project, and the files git ignores |
+| `.agents/skills/`, `.claude/skills` | The `glimpse-exec-applet` skill for [a coding agent](/applets/agents) |
 
 ## Run it in the panel
 
