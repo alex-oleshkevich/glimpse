@@ -39,7 +39,11 @@ there is nothing to set.
 blur = true
 ```
 
-Your compositor draws the blur and sets its strength; where blur is not supported, glimpse stays solid and works the same.
+::: warning Needs compositor setup
+Your compositor draws the blur and sets its strength, so it has to support blur and may need a
+layer rule to blur the windows behind glimpse. The [blur setup](/config/services/appearance#blur)
+shows what to configure. Where blur is not supported, glimpse stays solid and works the same.
+:::
 
 ## Animation speed
 
