@@ -3,6 +3,8 @@
 Each SDK can run your applet without a panel: you feed it the panel's messages and check what it
 draws and asks for. `just test` runs the tests of a generated project. Run `just dev` as well: only
 the panel checks [which element may hold which](/applets/exec/reference/elements#parent-table).
+[Let a coding agent see glimpse](/developers/agents) shows how an agent checks what
+the panel then draws.
 
 ## Check what the applet draws
 

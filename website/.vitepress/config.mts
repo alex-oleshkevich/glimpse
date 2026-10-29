@@ -12,6 +12,7 @@ const developers = [
       { text: "How an applet runs", link: "/developers/exec-applets" },
       { text: "How development mode works", link: "/developers/dev-mode" },
       { text: "What an applet can do", link: "/developers/trust" },
+      { text: "Let a coding agent see glimpse", link: "/developers/agents" },
     ],
   },
   {
