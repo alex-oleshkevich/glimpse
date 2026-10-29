@@ -198,11 +198,13 @@ async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
     );
     let backend: Arc<dyn Backlight> =
         Arc::new(FakeBacklight::new(vec![Entry::keyboard(KEYBOARD_ID, 1, 3)]));
-    let mut watcher = tokio::spawn(async move {
+    let (subscribed, first) = tokio::sync::oneshot::channel();
+    let watcher = tokio::spawn(async move {
         let mut events = keyboard_watch(ctx, backend).await;
-        (events.next().await, events.next().await)
+        let _ = subscribed.send(events.next().await);
+        events.next().await
     });
-    let failed = keyboard_bus_reply(&mut messages, "GetMaxBrightness", None).await;
+    let failed = keyboard_bus_reply(&mut messages, "GetMaxBrightness").await;
     assert_eq!(failed.message_type(), zbus::message::Type::Error);
 
     let upower = bus.connection().await;
@@ -218,18 +220,16 @@ async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
         zbus::object_server::SignalEmitter::new(&upower, "/org/freedesktop/UPower/KbdBacklight")
             .unwrap();
 
-    tokio::select! {
-        reply = keyboard_bus_reply(&mut messages, "AddMatch", Some("BrightnessChangedWithSource")) => {
-            assert_eq!(reply.message_type(), zbus::message::Type::MethodReturn);
-        }
-        _ = &mut watcher => panic!("the watch stopped before subscribing"),
-    }
+    let first = tokio::time::timeout(std::time::Duration::from_secs(10), first)
+        .await
+        .expect("the watch subscribes once UPower appears")
+        .expect("the watch is still running");
     FakeKbdBacklight::brightness_changed_with_source(&emitter, 2, String::new())
         .await
         .unwrap();
-    let (first, second) = tokio::time::timeout(std::time::Duration::from_secs(10), watcher)
+    let second = tokio::time::timeout(std::time::Duration::from_secs(10), watcher)
         .await
-        .expect("the watch delivers an enumeration and the change")
+        .expect("the watch delivers the change")
         .unwrap();
 
     assert!(
@@ -239,11 +239,7 @@ async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
     assert!(matches!(second, Some(Event::Rescanned { .. })));
 }
 
-async fn keyboard_bus_reply(
-    messages: &mut zbus::MessageStream,
-    member: &str,
-    match_contains: Option<&str>,
-) -> zbus::Message {
+async fn keyboard_bus_reply(messages: &mut zbus::MessageStream, member: &str) -> zbus::Message {
     let request = loop {
         let message = messages.next().await.unwrap().unwrap();
         if message.message_type() == zbus::message::Type::MethodCall
@@ -251,12 +247,6 @@ async fn keyboard_bus_reply(
                 .header()
                 .member()
                 .is_some_and(|name| name.as_str() == member)
-            && match_contains.is_none_or(|needle| {
-                message
-                    .body()
-                    .deserialize::<String>()
-                    .is_ok_and(|rule| rule.contains(needle))
-            })
         {
             break message;
         }
