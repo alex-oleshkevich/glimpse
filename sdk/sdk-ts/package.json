@@ -1,6 +1,6 @@
 {
 	"name": "glimpse-sdk",
-	"version": "0.13.0",
+	"version": "0.13.1",
 	"description": "React renderer for glimpse panel applets: write the indicator and popover in JSX, run it under Node.",
 	"keywords": [
 		"glimpse",
