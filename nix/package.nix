@@ -133,6 +133,9 @@ rustPlatform.buildRustPackage {
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
     substituteInPlace "$out/share/glimpse/panel.commented.toml" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
+    for skill in "$out"/share/glimpse/sdk/skills/*/SKILL.md; do
+      substituteInPlace "$skill" --replace-quiet /usr/share/glimpse "$out/share/glimpse"
+    done
 
     while read -r language; do
       if [ -n "$language" ]; then
