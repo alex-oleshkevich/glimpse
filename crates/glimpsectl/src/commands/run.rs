@@ -26,7 +26,7 @@ struct HostTarget<'a> {
     zone: &'a str,
 }
 
-pub(super) fn source(dir: &Path) -> Result<(String, ExecEntry)> {
+pub(super) fn locate(dir: &Path) -> Result<(String, PathBuf)> {
     let mut desktops = fs::read_dir(dir)?
         .filter_map(|item| item.ok().map(|item| item.path()))
         .filter(|path| path.extension().is_some_and(|ext| ext == "desktop"));
@@ -43,6 +43,11 @@ pub(super) fn source(dir: &Path) -> Result<(String, ExecEntry)> {
         .context("invalid .desktop filename")?
         .to_owned();
     ensure!(is_desktop_id(&id), "invalid desktop-file id: {id}");
+    Ok((id, path))
+}
+
+pub(super) fn source(dir: &Path) -> Result<(String, ExecEntry)> {
+    let (id, path) = locate(dir)?;
     let entry = DesktopCatalog
         .resolve_file(&path)
         .map_err(anyhow::Error::msg)?;
@@ -183,10 +188,18 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
         isolated,
     } = args;
     let directory_target = Path::new(&target).is_dir();
-    let (id, mut entry, dir) = if directory_target {
+    let builds = directory_target
+        && super::package_manager::has_justfile(&Path::new(&target).canonicalize()?);
+    let (id, entry, dir, source_desktop) = if directory_target {
         let dir = Path::new(&target).canonicalize()?;
-        let (id, entry) = source(&dir)?;
-        (id, entry, dir)
+        if builds {
+            let (id, path) = locate(&dir)?;
+            (id, None, dir, path)
+        } else {
+            let (id, entry) = source(&dir)?;
+            let path = entry.path.clone();
+            (id, Some(entry), dir, path)
+        }
     } else {
         ensure!(
             is_desktop_id(&target),
@@ -203,10 +216,9 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
             .parent()
             .context("installed desktop file has no directory")?
             .to_path_buf();
-        (target, entry, dir)
+        let path = entry.path.clone();
+        (target, Some(entry), dir, path)
     };
-    let source_desktop = entry.path.clone();
-    let builds = directory_target && super::package_manager::has_justfile(&dir);
     let applet_config = match applet_config {
         Some(path) => path,
         None if directory_target => {
@@ -226,7 +238,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
     let (events_tx, mut events_rx) = mpsc::unbounded_channel::<notify::Result<notify::Event>>();
     let _watcher = if watch {
         let watched_dir = dir.clone();
-        let watched_file = entry.path.clone();
+        let watched_file = source_desktop.clone();
         let watched_config = applet_config.clone();
         let mut watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
@@ -316,14 +328,17 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
         .destination(name.clone())?
         .build()
         .await?;
-    if builds {
-        if !build(&dir, &mut interrupt, &mut terminate, &mut hangup).await? {
-            return Ok(());
+    let mut entry = match entry {
+        Some(entry) => entry,
+        None => {
+            if !build(&dir, &mut interrupt, &mut terminate, &mut hangup).await? {
+                return Ok(());
+            }
+            DesktopCatalog
+                .resolve_file(&dir.join("dist").join(format!("{id}.desktop")))
+                .map_err(anyhow::Error::msg)?
         }
-        entry = DesktopCatalog
-            .resolve_file(&dir.join("dist").join(format!("{id}.desktop")))
-            .map_err(anyhow::Error::msg)?;
-    }
+    };
     let mut handle = Some(attach(&proxy, &host, &entry, &current_settings, &flags).await?);
     let mut tty = io::stdin().is_terminal();
     let (command_tx, mut commands) = mpsc::unbounded_channel();
@@ -388,7 +403,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
                     let settled = Instant::now() + Duration::from_millis(300);
                     for path in event.paths {
                         if applet_config == path { config_at = Some(config_at.map_or(settled, |at| at.max(settled))); }
-                        else if if directory_target { watched(&path, &dir) } else { path == entry.path } {
+                        else if if directory_target { watched(&path, &dir) } else { path == source_desktop } {
                             changed = true;
                             rebuild = true;
                             reattach |= path == source_desktop;

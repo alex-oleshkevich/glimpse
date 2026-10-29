@@ -252,7 +252,7 @@ fn new_renders_every_language_without_placeholders() {
     assert!(
         fs::read_to_string(dir.join("go.mod"))
             .unwrap()
-            .contains("require github.com/alex-oleshkevich/glimpse/sdk/sdk-go v0.13.0")
+            .contains("require github.com/alex-oleshkevich/glimpse/sdk/sdk-go v0.13.1")
     );
     let dir = root.path().join("py");
     applets_new_with_catalog(
