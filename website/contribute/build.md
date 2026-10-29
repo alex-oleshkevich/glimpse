@@ -41,7 +41,7 @@ check, clippy with warnings as errors, the tests and the translation checks.
 just verify
 ```
 
-The debug build from `just build` has the gtk-mcp agent inside every window program;
+The debug build from `just build` has the gtk-mcp hook inside the panel and most other glimpse windows;
 [Let a coding agent see glimpse](/developers/agents) shows what that gives you.
 
 ## Install

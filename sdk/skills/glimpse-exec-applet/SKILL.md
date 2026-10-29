@@ -280,9 +280,9 @@ journalctl --user -u 'app-glimpse-*.service' -f
 - Exceptions in handlers end the process and print to stderr. `console` output goes to stderr in
   ts; use it for debugging, not `stdout`.
 - `restart` needs running units for that id. In a dev run, save a file instead.
-- With the gtk-mcp server available and a glimpse debug build, run the applet with that build's
-  `target/debug/glimpsectl applet run --dev --isolated .`: the test panel it starts carries the
-  gtk-mcp agent. `list_apps`, `snapshot`, `audit_layout` (labels cut off, children outside their
+- With the gtk-mcp server available and a glimpse debug build (ask the user for its checkout path),
+  run `<checkout>/target/debug/glimpsectl applet run --dev --isolated .`: the test panel it starts
+  carries the gtk-mcp hook. `list_apps`, `snapshot`, `audit_layout` (labels cut off, children outside their
   parent, missing icons), `interact` and `capture` then show and drive what the panel built from
   the tree. A packaged glimpse is a release build, and gtk-mcp sees nothing in it.
 - With the wayland-mcp server available, `screenshot` shows the chip and popover on screen and
