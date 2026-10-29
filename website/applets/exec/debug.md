@@ -36,3 +36,6 @@ glimpsectl applet restart me.aresa.GlimpseTodo
 ```
 
 This command requires running units for that id. During a [development run](/applets/exec/live-reload), save the source or type `r` and Enter in the development terminal instead. Type `t` and Enter to print the current tree as the panel holds it. See [the CLI reference](/config/cli/glimpsectl#glimpsectl-applet) for command options.
+
+To see the GTK widgets the panel built from that tree, and which labels got cut off, see
+[Let a coding agent see glimpse](/developers/agents).

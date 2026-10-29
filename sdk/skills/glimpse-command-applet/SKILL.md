@@ -98,7 +98,7 @@ glimpsectl applet click terminal --button middle
 glimpsectl applet scroll terminal up --steps 3
 ```
 
-The panel hot-reloads `panel.toml` on save; do not restart it. Tell the user the chip should appear in its zone, and how to remove it (delete the table and its name from the zone).
+With the wayland-mcp server available, a `screenshot` shows whether the chip appeared. The panel hot-reloads `panel.toml` on save; do not restart it. Tell the user the chip should appear in its zone, and how to remove it (delete the table and its name from the zone).
 
 ## Traps
 

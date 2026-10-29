@@ -65,3 +65,6 @@ agent at the Markdown version of these pages, such as
 source inside the project. glimpse's test suite loads every configuration example in the skills and
 parses every `glimpsectl` command in their shell examples, so a renamed setting or command cannot
 ship unnoticed.
+
+To let the agent look at the applet running in a panel, click it and take pictures of its popover,
+see [Let a coding agent see glimpse](/developers/agents).
