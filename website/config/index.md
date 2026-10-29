@@ -45,8 +45,7 @@ belongs in.
 
 Each glimpse process watches the files it reads, except the ones in `/etc/glimpse`. Save, and within a moment the change is live: the
 clock reformats, the panel moves to another edge, notifications pop up in a different corner. You
-never restart anything for a configuration change, except `[lock] pam-service`, which is read when
-each process starts, and a smaller panel `size`,
+never restart anything for a configuration change, except a smaller panel `size`,
 which applies when the panel next starts. To read the files again right away, run `glimpsectl panel reload`
 for the panel or send any glimpse process `SIGHUP`, which also reads the files in `/etc/glimpse`.
 

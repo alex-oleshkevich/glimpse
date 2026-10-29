@@ -84,11 +84,9 @@ securebits that leave the helper without the capability Fedora's `/etc/shadow` n
 `unix_chkpwd` helper without setuid or setgid permissions or on a `nosuid` filesystem. Do not
 sandbox the lock screen service; that can prevent it from checking passwords.
 
-The lock screen authenticates through PAM. The service name is `[lock] pam-service` (default
-`glimpse-lock`), read from `/etc/pam.d/<name>` or `/usr/lib/pam.d/<name>`. A missing PAM file, a
-service name containing `/`, or a service containing `pam_permit.so` fails the check. A service
-that accepts any password is refused on purpose. Changing `pam-service` takes effect after the lock
-screen restarts; log out and back in to apply it.
+The lock screen authenticates through PAM with the `glimpse-lock` service, read from
+`/etc/pam.d/glimpse-lock` or `/usr/lib/pam.d/glimpse-lock`. A missing PAM file or one containing
+`pam_permit.so` fails the check. A service that accepts any password is refused on purpose.
 
 Only local password authentication unlocks the screen; logind's `Unlock` signal does not. Restarting
 the lock screen does not recover access: it locks again if the session is already marked locked,

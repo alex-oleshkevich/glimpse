@@ -46,10 +46,7 @@ pub use color_format::ColorFormat;
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
-pub use lock::{
-    Background as LockBackground, Lock, Privacy as LockPrivacy, Session as LockSession,
-    SessionAction as LockSessionAction,
-};
+pub use lock::{Background as LockBackground, Lock};
 pub use mpris::Mpris as MprisConfig;
 pub use network::Network as NetworkSettings;
 pub use night_light::{MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, parse_clock};

@@ -57,6 +57,15 @@ pub struct PrintJob {
     pub state: JobState,
     pub pages_completed: Option<u32>,
     pub pages_total: Option<u32>,
+    pub sheets_completed: Option<u32>,
+    pub copies: Option<u32>,
+    pub sides: String,
+    pub color_mode: String,
+    pub media: String,
+    pub created: Option<chrono::DateTime<chrono::Utc>>,
+    pub user: String,
+    pub host: String,
+    pub hold_until: String,
     pub reason: String,
 }
 

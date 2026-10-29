@@ -43,6 +43,7 @@ pub enum Icon {
     Bluetooth,
     Reboot,
     PowerOff,
+    LogOut,
 }
 
 impl Icon {
@@ -54,6 +55,7 @@ impl Icon {
             Self::Bluetooth => "bluetooth-active-symbolic",
             Self::Reboot => "system-reboot-symbolic",
             Self::PowerOff => "system-shutdown-symbolic",
+            Self::LogOut => "system-log-out-symbolic",
         }
     }
 }

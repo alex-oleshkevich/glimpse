@@ -36,9 +36,7 @@ impl LockClock {
         let time_text = formatted(time, imp.time_format.borrow().as_str());
         set_text(&imp.time, Some(&time_text));
 
-        let day = day_label(time.day_of_month() as u32, &time_locale());
-        let date_format = imp.date_format.borrow().replace("{day}", &day);
-        let date_text = formatted(time, &date_format);
+        let date_text = formatted(time, imp.date_format.borrow().as_str());
         set_text(&imp.date, Some(&date_text));
     }
 }
@@ -61,33 +59,6 @@ fn formatted(time: &glib::DateTime, pattern: &str) -> String {
 
 fn warn_once(pattern: &str) -> bool {
     WARNED.with_borrow_mut(|warned| warned.insert(pattern.to_owned()))
-}
-
-fn time_locale() -> String {
-    let name = unsafe { libc::setlocale(libc::LC_TIME, std::ptr::null()) };
-    if name.is_null() {
-        return String::new();
-    }
-    unsafe { std::ffi::CStr::from_ptr(name) }
-        .to_string_lossy()
-        .into_owned()
-}
-
-fn day_label(day: u32, time_locale: &str) -> String {
-    let english = matches!(time_locale, "" | "C" | "POSIX")
-        || time_locale.starts_with("C.")
-        || time_locale.starts_with("en");
-    if !english {
-        return day.to_string();
-    }
-    let suffix = match (day % 100, day % 10) {
-        (11..=13, _) => "th",
-        (_, 1) => "st",
-        (_, 2) => "nd",
-        (_, 3) => "rd",
-        _ => "th",
-    };
-    format!("{day}{suffix}")
 }
 
 #[cfg(test)]

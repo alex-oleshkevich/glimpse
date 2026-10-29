@@ -81,28 +81,16 @@ and limits.
 
 ## Choose what the lock screen shows
 
-The clock, the battery level,
-notifications, media controls and the session buttons each have a table with an `enabled` switch:
-
-```toml
-[lock.notifications]
-enabled = false
-
-[lock.media]
-enabled = false
-```
-
-Only notifications that arrive while the screen is locked appear. `"apps"`, the default, shows one
-icon with a count for each app; the app's name is the icon's tooltip and accessible name. `"count"`
-shows a single icon with the total. Neither mode shows a summary or a body.
+The lock screen always shows the clock, the battery level, notifications, the current track and
+the session button, plus the active keyboard layout when you have two or more. Only notifications
+that arrive while the screen is locked appear, as one icon with a count for each app; the app's
+name is the icon's tooltip and accessible name. No summary or body is shown.
 
 The media area shows the track title and artist to anyone, and its pause and next buttons work
-without a password. Turn off `[lock.media]` as above to hide it. Turn off `[lock.status]` to hide
-the battery level; the session button has its own switch under `[lock.session]`.
+without a password.
 
 The session menu offers `Suspend...`, `Restart...`, and `Power Off...`, and every action asks for
-confirmation. Configuration edits apply live while the screen is locked; only `pam-service` waits
-for a restart.
+confirmation. Configuration edits apply live while the screen is locked.
 
 ## Let the compositor accept a restarted lock screen
 

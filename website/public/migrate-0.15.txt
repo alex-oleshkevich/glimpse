@@ -119,13 +119,13 @@ they are. Keys the user left out stay out.
 | `[wallpaper] fit` (`"cover"`) | `[wallpaper] fit` | `cover`, `contain`, `fill` (and `center`). |
 | `[wallpaper] transition_ms` (800) | `[wallpaper] transition-ms` | 0 to 5000. The current default is 500. |
 | `[backdrop] enabled` (true), `path`, `blur_radius` (24) | `[wallpaper.backdrop] enabled`, `image`, `blur-radius` | The table moves under `[wallpaper]`. |
-| `[lock] pam_service` (`"glimpse-lock"`) | `[lock] pam-service` | |
+| `[lock] pam_service` (`"glimpse-lock"`) | none | Drop it. The lock screen always uses `/etc/pam.d/glimpse-lock`. |
 | `[lock] css_path` (`"themes/lock.css"`) | none | See step 8. |
 | `[lock.background] color`, `path`, `fit`, `blur_radius` (0), `dim` (0.35) | `[lock.background] color`, `image`, `fit`, `blur-radius`, `dim` | 0.15 used `dim` in both modes. The current `dim-dark` (0.5) replaces it in dark mode, so when the user set `dim`, also write `dim-dark` with the same value. |
-| `[lock.clock] enabled` (true) | `[lock.clock] enabled` | |
+| `[lock.clock] enabled` (true) | none | Drop it. The clock always shows. |
 | `[lock.clock] time_format` (`"%H:%M"`) | none | Drop it. The time follows the locale (`LC_TIME`). |
 | `[lock.clock] date_format` (`"%A, %B %-d"`) | `[lock.clock] date-format` | strftime still works. Drop the 0.15 default. |
-| `[lock.controls] buttons` (`["weather", "wifi", "input", "battery", "power"]`) | `[lock.status] enabled` (the battery level), `[lock.session] enabled` (power actions) | Without `battery`, set `[lock.status] enabled = false`. Without `power`, set `[lock.session] enabled = false`. `weather`, `wifi`, `input` have no equivalent. |
+| `[lock.controls] buttons` (`["weather", "wifi", "input", "battery", "power"]`) | none | Drop it. The battery, the keyboard layout and the power button always show; `weather` and `wifi` have no equivalent. |
 | `[calendar] poll_interval` (600), `sources` | `[calendar] poll-interval`, `sources` | Each source keeps `id`, `type` (`ical`, `directory`), `uri`, `name`, `color`; `poll_interval` becomes `poll-interval`. |
 
 ### Light and dark

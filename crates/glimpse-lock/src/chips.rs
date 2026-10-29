@@ -1,13 +1,10 @@
 use chrono::{DateTime, Utc};
-use gettextrs::gettext;
-use glimpse_config::LockPrivacy;
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_widgets::ChipGroup;
 use gtk4::gio;
 use gtk4::prelude::Cast;
 
 const GENERIC_ICON: &str = "preferences-system-notifications-symbolic";
-const COUNT_KEY: &str = "count";
 
 struct Group {
     app_id: String,
@@ -18,11 +15,7 @@ struct Group {
     latest: DateTime<Utc>,
 }
 
-pub fn groups_of(
-    records: &[NotificationRecord],
-    since: DateTime<Utc>,
-    privacy: LockPrivacy,
-) -> Vec<ChipGroup> {
+pub fn groups_of(records: &[NotificationRecord], since: DateTime<Utc>) -> Vec<ChipGroup> {
     let mut kept: Vec<&NotificationRecord> = records
         .iter()
         .filter(|record| record.created >= since)
@@ -32,15 +25,7 @@ pub fn groups_of(
     }
     kept.sort_by_key(|record| std::cmp::Reverse(record.created));
 
-    match privacy {
-        LockPrivacy::Count => vec![ChipGroup {
-            key: COUNT_KEY.to_owned(),
-            app: gettext("Notifications"),
-            icon: generic_icon(),
-            count: kept.len() as u32,
-        }],
-        LockPrivacy::Apps => app_groups(&kept),
-    }
+    app_groups(&kept)
 }
 
 fn app_groups(kept: &[&NotificationRecord]) -> Vec<ChipGroup> {

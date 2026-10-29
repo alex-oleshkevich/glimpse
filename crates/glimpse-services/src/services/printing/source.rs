@@ -4,6 +4,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+use chrono::DateTime;
 use futures_util::{Stream, StreamExt, stream};
 use ipp::attribute::{IppAttribute, IppAttributeGroup, IppAttributes};
 use ipp::client::non_blocking::AsyncIppClient;
@@ -27,15 +28,24 @@ use super::{
 const NAME_CAP: usize = 128;
 const NOTIFIER_INTERFACE: &str = "org.cups.cupsd.Notifier";
 const NOTIFIER_PATH: &str = "/org/cups/cupsd/Notifier";
-const REQUESTED_JOB_ATTRIBUTES: [&str; 8] = [
+const REQUESTED_JOB_ATTRIBUTES: [&str; 17] = [
     "job-id",
     "job-name",
     "job-state",
     "job-printer-uri",
     "job-impressions",
     "job-impressions-completed",
+    "job-media-sheets-completed",
     "job-printer-state-message",
     "job-state-reasons",
+    "copies",
+    "sides",
+    "print-color-mode",
+    "media",
+    "time-at-creation",
+    "job-originating-user-name",
+    "job-originating-host-name",
+    "job-hold-until",
 ];
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
@@ -301,6 +311,17 @@ fn parse_jobs(attributes: &IppAttributes) -> Vec<PrintJob> {
                 state,
                 pages_completed,
                 pages_total,
+                sheets_completed: u32_attr(group, "job-media-sheets-completed"),
+                copies: u32_attr(group, "copies"),
+                sides: capped_attr(group, "sides"),
+                color_mode: capped_attr(group, "print-color-mode"),
+                media: capped_attr(group, "media"),
+                created: u32_attr(group, "time-at-creation")
+                    .filter(|seconds| *seconds > 0)
+                    .and_then(|seconds| DateTime::from_timestamp(i64::from(seconds), 0)),
+                user: capped_attr(group, "job-originating-user-name"),
+                host: capped_attr(group, "job-originating-host-name"),
+                hold_until: capped_attr(group, "job-hold-until"),
                 reason,
             })
         })
@@ -313,6 +334,12 @@ fn printer_name_from_uri(uri: &str) -> String {
 
 fn str_attr(group: &IppAttributeGroup, name: &str) -> Option<String> {
     ipp_str_value(group.get(name)?.value())
+}
+
+fn capped_attr(group: &IppAttributeGroup, name: &str) -> String {
+    str_attr(group, name)
+        .map(|value| cap(&value, NAME_CAP))
+        .unwrap_or_default()
 }
 
 fn u32_attr(group: &IppAttributeGroup, name: &str) -> Option<u32> {

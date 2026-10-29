@@ -4,44 +4,10 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 #[test]
-fn ordinal_follows_english_rules() {
-    let cases = [
-        (1, "1st"),
-        (2, "2nd"),
-        (3, "3rd"),
-        (4, "4th"),
-        (11, "11th"),
-        (12, "12th"),
-        (13, "13th"),
-        (21, "21st"),
-        (22, "22nd"),
-        (23, "23rd"),
-        (31, "31st"),
-    ];
-    for (day, expected) in cases {
-        assert_eq!(day_label(day, "en_US.UTF-8"), expected, "day {day}");
-    }
-    assert_eq!(day_label(1, "C"), "1st");
-    assert_eq!(day_label(2, "C.UTF-8"), "2nd");
-    assert_eq!(day_label(3, "C.utf8"), "3rd");
-    assert_eq!(day_label(3, "POSIX"), "3rd");
-}
-
-#[test]
 fn a_bad_format_warns_once_per_pattern() {
     assert!(warn_once("%Q-test-a"));
     assert!(!warn_once("%Q-test-a"), "the same pattern again is quiet");
     assert!(warn_once("%Q-test-b"), "a different pattern warns");
-}
-
-#[test]
-fn a_non_english_date_shows_the_plain_day() {
-    assert_eq!(
-        day_label(23, "pl_PL.UTF-8"),
-        "23",
-        "a Polish date is 'środa, 23 września', never '23rd'"
-    );
-    assert_eq!(day_label(1, "de_DE.UTF-8"), "1");
 }
 
 #[test]
@@ -78,10 +44,10 @@ fn lock_clock_states() {
     );
     assert_eq!(imp.time.text().as_str(), "14:07");
 
-    clock.set_formats("%H:%M", "%A, {day} %B");
+    clock.set_formats("%H:%M", "%A, %-d %B");
     clock.set_time(&now);
     assert_eq!(imp.time.text().as_str(), "14:07");
-    assert_eq!(imp.date.text().as_str(), "Sunday, 1st November");
+    assert_eq!(imp.date.text().as_str(), "Sunday, 1 November");
     assert_eq!(notifications.get(), 1);
 
     let same_minute = glib::DateTime::from_utc(2026, 11, 1, 14, 7, 45.0).expect("instant");
@@ -95,10 +61,10 @@ fn lock_clock_states() {
         "an empty date format hides the label"
     );
 
-    clock.set_formats("%H:%M", "%A, {day} %B");
+    clock.set_formats("%H:%M", "%A, %-d %B");
     clock.set_time(&now);
     assert!(imp.date.get_visible());
-    assert_eq!(imp.date.text().as_str(), "Sunday, 1st November");
+    assert_eq!(imp.date.text().as_str(), "Sunday, 1 November");
 
     window.destroy();
 }

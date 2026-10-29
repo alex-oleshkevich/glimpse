@@ -25,14 +25,14 @@ generation unpainted and dispatches a display roundtrip after requesting the loc
 windows, so an immediate refusal creates no protocol surfaces. Accepted requests get one lock surface
 per monitor, including one hotplugged while locked; `LockedHint` is set only after the compositor sends
 `locked`. Lifecycle reports enqueue events, so reentrant dispatch never tears down the active call stack.
-Authenticates through PAM service `[lock] pam-service` off the UI thread. Every surface carries a
+Authenticates through PAM service `glimpse-lock` off the UI thread. Every surface carries a
 `LockStage` sharing the same prompt state, but exactly one is interactive and only it submits and
 wakes; the others stay on their cover. A lock never has zero interactive prompts while any surface
 exists. Shows AccountsService `RealName`, else `UserName`, and `IconFile`, refreshed on every lock
 and never awaited — the stage shows the PAM username and its initials until it answers. The avatar
 and the current track's local art decode off the UI thread, one art decode at a time, only while
-locked (not while unlocking) and only when `[lock.media]` is enabled, from PNG, JPEG or WebP regular
-files of at most 8 MiB and 2048 px a side; both drop on unlock, and the blur renderer with them, so
+locked (not while unlocking), from PNG, JPEG or WebP regular files of at most 8 MiB and 2048 px a
+side; both drop on unlock, and the blur renderer with them, so
 a decode that lands after unlock is discarded unblurred. Art at a rewritten path decodes again, and
 a path that could not be read is retried when the path changes or after thirty seconds. Session and
 transport actions come only from the interactive stage. Moving the prompt to another output carries
@@ -60,19 +60,17 @@ start, so a decode buffer is its own mapping and returns to the system on free r
 resident in a worker thread's arena. GTK's renderer cache frees an unused texture only once it is
 fifteen seconds old, checked every fifteen seconds, so the heap is returned again 35 seconds after
 an unlock as well as at once.
-`[lock.session]` `actions` (gated by `enabled`) names which of suspend, reboot, power-off the
-sheet offers, each also gated by logind's own `Can*` answer — hidden where polkit can't prompt
-through a lock, disabled with the blocking inhibitor's reason otherwise.
+The sheet offers suspend, reboot and power-off, each gated by logind's own `Can*` answer — hidden
+where polkit can't prompt through a lock, disabled with the blocking inhibitor's reason otherwise.
 
 `Mpris`, `Compositor`, `Keyboard` and `Battery`, plus the notifications provider, are hosted once
 at daemon start, never on the lock path. The lock shows only the keyboard layout, the battery,
 notification counts and the power button: no weather, network or Bluetooth state is hosted or
-shown. The layout shows whenever two or more are configured, even with `[lock.status]` off, since
-the password is typed in whichever one is active; `Keyboard` runs with `remember = "global"`,
-because there is no window whose layout to restore. Notifications group by `app_id` (never
-`app_name`, sender-chosen), and `lock_started` marks which count as "since this lock", clearing only
-on a real authenticated unlock; bodies and summaries never reach a chip, only `app_id`, `app_name`,
-`icon` and `urgency`.
+shown. The layout shows whenever two or more are configured, since the password is typed in
+whichever one is active; `Keyboard` runs with `remember = "global"`, because there is no window
+whose layout to restore. Notifications group by `app_id` (never `app_name`, sender-chosen), and
+`lock_started` marks which count as "since this lock", clearing only on a real authenticated
+unlock; bodies and summaries never reach a chip, only `app_id`, `app_name`, `icon` and `urgency`.
 
 ## Rules
 
@@ -137,7 +135,7 @@ on a filesystem without `nosuid` (no `unix_chkpwd` at all skips the probe). Wher
 is unreadable to its owner (Fedora ships it `0000`), a setuid-root `unix_chkpwd` reads it only
 through a capability, so `CapBnd` must keep `CAP_DAC_OVERRIDE` or `CAP_DAC_READ_SEARCH` and
 `securebits` must not set `NOROOT`. The PAM stack for
-`[lock] pam-service` is resolved through every `include`/`substack`/`@include` it names; missing,
+`glimpse-lock` is resolved through every `include`/`substack`/`@include` it names; missing,
 unresolvable, or an uncommented `pam_permit.so` in the service file itself refuses locking like a
 failed probe. `check` runs the same probes against the running service's `MainPID`, then against
 itself, so a shell outside the unit's sandbox can't pass while the service fails; `securebits` is
@@ -172,12 +170,11 @@ timeout; a missed signal observation resynchronizes sleep state without dropping
 
 ## Configuration
 
-`[lock]` (`pam-service`, `prompt-output`), `[lock.background]`, `[lock.clock]`, `[lock.session]`,
-`[lock.media]`, `[lock.notifications]`, `[lock.status]` and `lock.css`; other binaries' tables are validated but not used. Reloaded
-from `config.toml` alone through `glimpse_config::watch_config`, and nothing in a reload can unlock. **`pam-service` is read
-once at start and a change to it is logged and ignored until restart** — a same-user process that
-could repoint it mid-lock could otherwise point PAM at a `pam_permit.so` stack and unlock the
-screen. A stylesheet that fails to parse keeps the previous one, which can leave the password entry
+`[lock]` (`prompt-output`), `[lock.background]`, `[lock.clock]` and `lock.css`; other binaries'
+tables are validated but not used. Reloaded from `config.toml` alone through
+`glimpse_config::watch_config`, and nothing in a reload can unlock: the PAM service is the fixed
+name `glimpse-lock`, never a setting a same-user process could repoint at a `pam_permit.so` stack.
+A stylesheet that fails to parse keeps the previous one, which can leave the password entry
 invisible with nothing to fall back to.
 
 The binary is a relm4 application: `main.rs` parses, probes and calls `RelmApp::run`, behind a

@@ -20,37 +20,23 @@ The selected theme's `lock.css` styles the lock screen. See [Write a theme](/gui
 
 <ConfigTable path="lock.clock" describe />
 
-`glimpsectl config validate` does not check the date format, background colors, image paths, or
-`pam-service`. The time follows your system's 12- or 24-hour clock (`LC_TIME`). Only `{day}` is
-replaced in `date-format`; an unknown placeholder is printed as typed.
+`glimpsectl config validate` does not check the date format, background colors or image paths. The
+time follows your system's 12- or 24-hour clock (`LC_TIME`). `date-format` is a strftime pattern.
 
-<ConfigTable path="lock.status" describe />
-
-Turning off this table hides the battery level but leaves the session button.
-
-<ConfigTable path="lock.notifications" describe />
-
-Only notifications that arrive after the lock starts appear. `"apps"` shows one icon with a count
-for each app; the app's name is the icon's tooltip and accessible name. Apps without an icon use a
-generic bell, and groups are ordered critical first, then newest. `"count"` shows one icon with the
-total. Neither mode shows a summary or a body.
-
-<ConfigTable path="lock.media" describe />
-
-The track title and artist are visible to anyone. The pause and next buttons work without a
-password; turn this table off to hide both the information and the controls.
-
-<ConfigTable path="lock.session" describe />
-
-Every session action asks for confirmation. Logind decides whether it is available: `yes` shows the
-action, `no`, `na`, and `challenge` hide it, and `inhibited`, `inhibitor-blocked`, or
-`challenge-inhibitor-blocked` shows it disabled with the blocker's reason when available.
+The lock screen always shows the clock, notifications, the current track and the session button.
+Only notifications that arrive after the lock starts appear, as one icon with a count for each app;
+the app's name is the icon's tooltip and accessible name. Apps without an icon use a generic bell,
+and groups are ordered critical first, then newest. No summary or body is shown. The track title
+and artist are visible to anyone, and the pause and next buttons work without a password. The
+session menu offers suspend, restart and power off, and every action asks for confirmation. Logind
+decides whether each is available: `yes` shows the action, `no`, `na`, and `challenge` hide it, and
+`inhibited`, `inhibitor-blocked`, or `challenge-inhibitor-blocked` shows it disabled with the
+blocker's reason when available.
 
 ::: warning PAM
-The lock screen checks your password through the PAM service named by `pam-service`, which it reads
-once when it starts. The packages install `/etc/pam.d/glimpse-lock`. Give the bare file name, not a
-path. Point `pam-service` somewhere else only if that file exists in `/etc/pam.d`. If it is missing
-or unsafe, the lock screen refuses to lock and posts a "Screen not locked" notification.
+The lock screen checks your password through `/etc/pam.d/glimpse-lock`, which the packages install.
+If it is missing or unsafe, the lock screen refuses to lock and posts a "Screen not locked"
+notification.
 `glimpse-lock check` tells you what is wrong. If the session is already locked when the daemon
 starts, it re-acquires the lock even if the checks fail and shows instructions for using a text
 console.

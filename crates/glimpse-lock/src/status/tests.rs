@@ -109,25 +109,6 @@ fn same_compares_icon_label_and_severity() {
     assert!(slot.is_none());
 }
 
-fn full() -> Status {
-    Status {
-        battery: Some(IndicatorSpec::default()),
-        layout: Some(IndicatorSpec::default()),
-    }
-}
-
-#[test]
-fn disabled_status_hides_the_battery_but_keeps_the_layout() {
-    let shown = shown(&full(), false);
-    assert!(shown.battery.is_none());
-    assert!(shown.layout.is_some());
-}
-
-#[test]
-fn enabled_status_passes_the_battery_through() {
-    assert!(shown(&full(), true).battery.is_some());
-}
-
 fn layouts(codes: &[&str], current: Option<u8>) -> KeyboardLayouts {
     KeyboardLayouts {
         layouts: codes

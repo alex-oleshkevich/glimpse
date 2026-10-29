@@ -111,29 +111,9 @@
           "fit": "cover"
         },
         "clock": {
-          "date-format": "%A, {day} %B",
-          "enabled": true
+          "date-format": "%A, %-d %B"
         },
-        "media": {
-          "enabled": true
-        },
-        "notifications": {
-          "enabled": true,
-          "privacy": "apps"
-        },
-        "pam-service": "glimpse-lock",
-        "prompt-output": "focused",
-        "session": {
-          "actions": [
-            "suspend",
-            "reboot",
-            "power-off"
-          ],
-          "enabled": true
-        },
-        "status": {
-          "enabled": true
-        }
+        "prompt-output": "focused"
       }
     },
     "mpris": {
@@ -445,14 +425,9 @@
       "type": "object",
       "properties": {
         "date-format": {
-          "description": "`{day}` is the day of the month with its ordinal suffix, e.g. \"3rd\".",
+          "description": "A strftime pattern, e.g. `%-d` for the day of the month without padding.",
           "type": "string",
-          "default": "%A, {day} %B"
-        },
-        "enabled": {
-          "description": "Show the clock on your lock screen.",
-          "type": "boolean",
-          "default": true
+          "default": "%A, %-d %B"
         }
       },
       "additionalProperties": false
@@ -667,53 +642,13 @@
           "description": "The time and date on your lock screen.",
           "$ref": "#/$defs/Clock",
           "default": {
-            "date-format": "%A, {day} %B",
-            "enabled": true
+            "date-format": "%A, %-d %B"
           }
-        },
-        "media": {
-          "description": "Playback controls on your lock screen.",
-          "$ref": "#/$defs/LockSection",
-          "default": {
-            "enabled": true
-          }
-        },
-        "notifications": {
-          "description": "Notifications received while the screen is locked.",
-          "$ref": "#/$defs/LockNotifications",
-          "default": {
-            "enabled": true,
-            "privacy": "apps"
-          }
-        },
-        "pam-service": {
-          "description": "The password-checking rules for your lock screen, from `/etc/pam.d/<name>`.",
-          "type": "string",
-          "default": "glimpse-lock"
         },
         "prompt-output": {
           "description": "The monitor you enter your password on, by connector name such as `eDP-1`. Use `focused` to\nfollow your current monitor.",
           "type": "string",
           "default": "focused"
-        },
-        "session": {
-          "description": "Power options on your lock screen.",
-          "$ref": "#/$defs/LockSession",
-          "default": {
-            "actions": [
-              "suspend",
-              "reboot",
-              "power-off"
-            ],
-            "enabled": true
-          }
-        },
-        "status": {
-          "description": "The battery level on your lock screen.",
-          "$ref": "#/$defs/LockSection",
-          "default": {
-            "enabled": true
-          }
         }
       },
       "additionalProperties": false
@@ -772,94 +707,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "LockNotifications": {
-      "description": "Which notifications reach the lock stage, and how much of each one is shown.",
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "description": "Show notifications on your lock screen.",
-          "type": "boolean",
-          "default": true
-        },
-        "privacy": {
-          "description": "How much you reveal about notifications: `count` shows a total, and `apps` also shows the\nsenders. Message text stays hidden.",
-          "$ref": "#/$defs/LockPrivacy",
-          "default": "apps"
-        }
-      },
-      "additionalProperties": false
-    },
-    "LockPrivacy": {
-      "description": "How much of a notification's own content shows on the lock stage.",
-      "oneOf": [
-        {
-          "description": "A notification count only.",
-          "type": "string",
-          "const": "count"
-        },
-        {
-          "description": "A count and application names.",
-          "type": "string",
-          "const": "apps"
-        }
-      ]
-    },
-    "LockSection": {
-      "description": "A lock stage element with nothing to configure besides whether it shows at all.",
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "description": "Show this item on your lock screen.",
-          "type": "boolean",
-          "default": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "LockSession": {
-      "description": "The session actions offered from the lock stage.",
-      "type": "object",
-      "properties": {
-        "actions": {
-          "description": "The power actions you offer on your lock screen. Actions your system doesn't allow stay\nhidden.",
-          "type": "array",
-          "default": [
-            "suspend",
-            "reboot",
-            "power-off"
-          ],
-          "items": {
-            "$ref": "#/$defs/LockSessionAction"
-          }
-        },
-        "enabled": {
-          "description": "Show power options on your lock screen.",
-          "type": "boolean",
-          "default": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "LockSessionAction": {
-      "description": "One system action offered from the lock stage.",
-      "oneOf": [
-        {
-          "description": "Put your computer to sleep.",
-          "type": "string",
-          "const": "suspend"
-        },
-        {
-          "description": "Restart your computer.",
-          "type": "string",
-          "const": "reboot"
-        },
-        {
-          "description": "Power the system off.",
-          "type": "string",
-          "const": "power-off"
-        }
-      ]
     },
     "Mpris": {
       "description": "Choose which media players you follow and whether to download their artwork.\nPlaying players take priority over paused, then stopped players, with the most recently active first.",

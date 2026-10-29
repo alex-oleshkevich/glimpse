@@ -49,27 +49,7 @@ pub enum Verdict {
     Refused { message: Message, shake: bool },
 }
 
-pub struct Service(String);
-
-impl Service {
-    pub fn new(configured: &str) -> Self {
-        Self(configured.to_ascii_lowercase())
-    }
-
-    pub fn name(&self) -> &str {
-        &self.0
-    }
-
-    pub fn reload(&mut self, configured: &str) {
-        if configured.to_ascii_lowercase() != self.0 {
-            tracing::warn!(
-                running = %self.0,
-                configured,
-                "[lock] pam-service changes apply after a restart"
-            );
-        }
-    }
-}
+pub const SERVICE: &str = "glimpse-lock";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Step {

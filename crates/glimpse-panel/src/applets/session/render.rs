@@ -61,13 +61,9 @@ pub fn confirm(
             gettext("Hibernate this session?"),
             gettext("Hibernate"),
         ),
-        SessionAction::LogOut => (
-            gettext("Log out"),
-            gettext("This closes the current session. Applications may not shut down gracefully."),
-            gettext("Log out"),
-        ),
         SessionAction::Lock
         | SessionAction::Suspend
+        | SessionAction::LogOut
         | SessionAction::Reboot
         | SessionAction::PowerOff => return None,
     };

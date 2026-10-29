@@ -42,7 +42,7 @@ fn a_record_older_than_the_lock_is_dropped() {
         NotificationUrgency::Normal,
         None,
     )];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert!(
         groups.is_empty(),
         "the since filter excludes anything before the lock began"
@@ -59,7 +59,7 @@ fn a_record_at_the_lock_moment_is_kept() {
         NotificationUrgency::Normal,
         None,
     )];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert_eq!(groups.len(), 1, "at or after the lock moment is inclusive");
 }
 
@@ -83,7 +83,7 @@ fn records_group_by_app_id_never_by_app_name() {
             None,
         ),
     ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert_eq!(
         groups.len(),
         1,
@@ -116,7 +116,7 @@ fn a_different_app_id_never_merges_even_with_the_same_app_name() {
             None,
         ),
     ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert_eq!(groups.len(), 2, "app_id, not app_name, is the grouping key");
 }
 
@@ -140,7 +140,7 @@ fn a_critical_group_sorts_before_a_more_recent_normal_one() {
             None,
         ),
     ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert_eq!(
         groups[0].key, "critical",
         "critical goes first even though it is older"
@@ -154,31 +154,14 @@ fn groups_otherwise_sort_by_most_recent() {
         record(1, "old", "Old", at(1), NotificationUrgency::Normal, None),
         record(2, "new", "New", at(5), NotificationUrgency::Normal, None),
     ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert_eq!(groups[0].key, "new");
     assert_eq!(groups[1].key, "old");
 }
 
 #[test]
-fn count_privacy_collapses_everything_into_one_total() {
-    let records = vec![
-        record(1, "a", "A", at(1), NotificationUrgency::Normal, None),
-        record(2, "b", "B", at(2), NotificationUrgency::Critical, None),
-    ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Count);
-    assert_eq!(groups.len(), 1);
-    assert_eq!(groups[0].count, 2);
-    assert_eq!(groups[0].app, "Notifications");
-    assert!(
-        groups[0].icon.is_some(),
-        "count privacy still shows a generic icon"
-    );
-}
-
-#[test]
 fn no_records_since_the_lock_produce_no_groups() {
-    assert!(groups_of(&[], at(0), LockPrivacy::Apps).is_empty());
-    assert!(groups_of(&[], at(0), LockPrivacy::Count).is_empty());
+    assert!(groups_of(&[], at(0)).is_empty());
 }
 
 #[test]
@@ -194,7 +177,7 @@ fn a_missing_icon_on_the_most_recent_record_falls_back_to_an_older_one_in_the_gr
         ),
         record(2, "app", "App", at(2), NotificationUrgency::Normal, None),
     ];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert!(
         groups[0].icon.is_some(),
         "an older record in the same group still supplies an icon"
@@ -211,7 +194,7 @@ fn a_group_with_no_icon_anywhere_falls_back_to_the_generic_icon() {
         NotificationUrgency::Normal,
         None,
     )];
-    let groups = groups_of(&records, at(0), LockPrivacy::Apps);
+    let groups = groups_of(&records, at(0));
     assert!(
         groups[0].icon.is_some(),
         "nothing in the group has an icon, so the generic one fills in"

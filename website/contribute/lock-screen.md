@@ -51,7 +51,7 @@ locker logs a warning and releases the inhibitor so sleep can proceed. Every log
 
 ## PAM does the authentication
 
-Passwords are checked through PAM, using the service named by `[lock] pam-service`, off the UI thread.
+Passwords are checked through PAM, using the `glimpse-lock` service, off the UI thread.
 Each attempt runs on its own thread with a 30 second timeout, because a PAM call cannot be cancelled. At
 most two attempts exist at once and a further submit is refused. The username is the one for the user's
 uid in `/etc/passwd` (falling back to `$USER`); if it cannot be resolved, the lock is refused. The

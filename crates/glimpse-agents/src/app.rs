@@ -48,7 +48,7 @@ pub struct App {
     paired: Option<JoinHandle<()>>,
     headless: bool,
     blur: bool,
-    _session: zbus::Connection,
+    user: zbus::Connection,
     system: zbus::Connection,
     runtime: Handle,
     _styles: Option<Styles>,
@@ -158,7 +158,7 @@ impl SimpleComponent for App {
             paired: None,
             headless: false,
             blur: blurred(&init.config),
-            _session: init.session,
+            user: init.session,
             system: init.system,
             runtime: init.runtime,
             _styles: Some(styles),
@@ -201,7 +201,7 @@ impl App {
             paired: None,
             headless: true,
             blur: false,
-            _session: system.clone(),
+            user: system.clone(),
             system,
             runtime,
             _styles: None,
@@ -312,10 +312,11 @@ impl App {
                     if confirm && allowed {
                         self.session.executing = true;
                         let system = self.system.clone();
+                        let user = self.user.clone();
                         let sender = sender.clone();
                         self.runtime.spawn(async move {
                             sender.emit(Input::SessionDone(
-                                crate::session::execute(&system, pending.action).await,
+                                crate::session::execute(&system, &user, pending.action).await,
                             ));
                         });
                     }
@@ -502,7 +503,7 @@ impl App {
     }
 
     fn notify_session(&self, reason: String) {
-        let session = self._session.clone();
+        let session = self.user.clone();
         self.runtime.spawn(async move {
             crate::session::notify(&session, &reason).await;
         });

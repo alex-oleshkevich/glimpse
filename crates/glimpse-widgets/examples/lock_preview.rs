@@ -109,7 +109,7 @@ fn stub(stage: &LockStage, cli: &Cli) {
     stage.set_interactive(true);
 
     let clock = stage.clock();
-    clock.set_formats("%H:%M", "%A, {day} %B");
+    clock.set_formats("%H:%M", "%A, %-d %B");
     if let Ok(now) = glib::DateTime::now_local() {
         clock.set_time(&now);
     }

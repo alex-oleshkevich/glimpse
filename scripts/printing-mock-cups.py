@@ -131,6 +131,14 @@ class Job:
     state:            int               = 5   # 3=pending 4=held 5=processing
     pages_completed:  Optional[int]     = None
     pages_total:      Optional[int]     = None
+    copies:           int               = 1
+    sides:            str               = "one-sided"
+    color_mode:       str               = "color"
+    media:            str               = "iso_a4_210x297mm"
+    age_minutes:      int               = 2
+    user:             str               = os.environ.get("USER", "user")
+    host:             str               = "localhost"
+    hold_until:       str               = "no-hold"
 
 
 @dataclass
@@ -175,6 +183,16 @@ def _job_group(j: Job, port: int) -> bytes:
         out += attrs(TAG_INTEGER, "job-impressions", j.pages_total)
     if j.pages_completed is not None:
         out += attrs(TAG_INTEGER, "job-impressions-completed", j.pages_completed)
+    out += (
+        attrs(TAG_INTEGER, "copies",                    j.copies)
+        + attrs(TAG_KEYWORD, "sides",                   j.sides)
+        + attrs(TAG_KEYWORD, "print-color-mode",        j.color_mode)
+        + attrs(TAG_KEYWORD, "media",                   j.media)
+        + attrs(TAG_INTEGER, "time-at-creation",        int(time.time()) - j.age_minutes * 60)
+        + attrs(TAG_NAME,    "job-originating-user-name", j.user)
+        + attrs(TAG_NAME,    "job-originating-host-name", j.host)
+        + attrs(TAG_KEYWORD, "job-hold-until",          j.hold_until)
+    )
     return out
 
 
@@ -240,16 +258,18 @@ SCENARIOS: list[Scenario] = [
         "5 · One held (paused) job",
         "Resume + Cancel actions visible",
         printers=[Printer(HP, "HP LaserJet Pro M404n", job_count=1)],
-        jobs=[Job(106, "BigReport.pdf", HP, state=4)],
+        jobs=[Job(106, "BigReport.pdf", HP, state=4, hold_until="night", copies=2,
+                  sides="two-sided-long-edge", age_minutes=60 * 26)],
     ),
     Scenario(
         "6 · Mixed: processing + held + pending",
         "All three action types in one view",
         printers=[Printer(HP, "HP LaserJet Pro M404n", state=4, job_count=3)],
         jobs=[
-            Job(107, "Printing_Now.pdf",  HP, state=5, pages_completed=8, pages_total=20),
-            Job(108, "On_Hold.docx",      HP, state=4),
-            Job(109, "Waiting.pdf",       HP, state=3),
+            Job(107, "Printing_Now.pdf",  HP, state=5, pages_completed=8, pages_total=20,
+                copies=3, color_mode="monochrome", media="na_letter_8.5x11in"),
+            Job(108, "On_Hold.docx",      HP, state=4, user="maria", host="laptop.lan"),
+            Job(109, "Waiting.pdf",       HP, state=3, age_minutes=15),
         ],
     ),
     Scenario(

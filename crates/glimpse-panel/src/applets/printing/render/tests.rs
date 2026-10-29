@@ -8,6 +8,15 @@ fn job_at(id: u32, printer_name: &str, state: JobState) -> PrintJob {
         state,
         pages_completed: None,
         pages_total: None,
+        sheets_completed: None,
+        copies: None,
+        sides: String::new(),
+        color_mode: String::new(),
+        media: String::new(),
+        created: None,
+        user: String::new(),
+        host: String::new(),
+        hold_until: String::new(),
         reason: String::new(),
     }
 }
@@ -32,6 +41,14 @@ fn printer_at(name: &str, state: PrinterState) -> ServicePrinter {
 
 fn no_pending() -> HashSet<u32> {
     HashSet::new()
+}
+
+fn viewer() -> Viewer {
+    Viewer {
+        user: "alex".to_owned(),
+        now: DateTime::parse_from_rfc3339("2026-10-29T15:00:00+01:00").expect("a time"),
+        twelve_hour: false,
+    }
 }
 
 #[test]
@@ -88,7 +105,7 @@ fn the_tooltip_count_never_disagrees_with_what_the_popover_actually_shows() {
     };
     let cap_count = 8;
 
-    let popover_count = jobs(&state, cap_count, &no_pending()).len();
+    let popover_count = jobs(&state, cap_count, &no_pending(), &viewer()).len();
     let told = tooltip(&state, Some("{count}"), cap_count).expect("active jobs exist");
 
     assert_eq!(
@@ -112,6 +129,7 @@ fn a_hostile_job_name_is_capped_before_it_reaches_the_widget() {
         },
         8,
         &no_pending(),
+        &viewer(),
     );
 
     assert_eq!(converted.len(), 1);
@@ -186,24 +204,130 @@ fn the_jobs_list_is_truncated_to_the_configured_cap() {
             .map(|id| job_at(id, "office", JobState::Pending))
             .collect(),
     };
-    assert_eq!(jobs(&state, 3, &no_pending()).len(), 3);
+    assert_eq!(jobs(&state, 3, &no_pending(), &viewer()).len(), 3);
 }
 
 #[test]
-fn progress_is_only_some_when_both_page_counts_are_known() {
+fn pages_read_done_of_total_only_while_printing() {
     let mut source = job_at(1, "office", JobState::Processing);
     source.pages_completed = Some(3);
-    let converted = jobs(
-        &PrintingState {
-            printers: Vec::new(),
-            jobs: vec![source],
-        },
-        8,
-        &no_pending(),
+    source.pages_total = Some(12);
+    assert_eq!(fact(source.clone(), "Pages").as_deref(), Some("3 of 12"));
+
+    source.state = JobState::Pending;
+    assert_eq!(fact(source.clone(), "Pages").as_deref(), Some("12"));
+
+    source.state = JobState::Processing;
+    source.pages_total = None;
+    assert_eq!(
+        fact(source, "Pages"),
+        None,
+        "a page count is never fabricated from one half of the pair"
+    );
+}
+
+#[test]
+fn the_job_facts_name_the_cups_keywords_and_drop_what_is_unknown() {
+    let mut source = job_at(1, "office", JobState::Processing);
+    source.copies = Some(3);
+    source.sides = "two-sided-long-edge".to_owned();
+    source.color_mode = "monochrome".to_owned();
+    source.media = "iso_a4_210x297mm".to_owned();
+    source.created = Some(
+        DateTime::parse_from_rfc3339("2026-10-29T13:02:00Z")
+            .expect("a time")
+            .to_utc(),
     );
     assert_eq!(
-        converted[0].progress, None,
-        "a page count is never fabricated from one half of the pair"
+        facts_of(source),
+        [
+            ("Printer", "office"),
+            ("Status", "Printing"),
+            ("Copies", "3"),
+            ("Sides", "Two-sided"),
+            ("Color", "Grayscale"),
+            ("Paper", "A4"),
+            ("Submitted", "14:02"),
+        ]
+        .map(|(label, value)| (label.to_owned(), value.to_owned()))
+    );
+
+    let mut plain = job_at(2, "office", JobState::Pending);
+    plain.copies = Some(1);
+    plain.sides = "something-new".to_owned();
+    plain.color_mode = "auto".to_owned();
+    assert_eq!(
+        facts_of(plain).len(),
+        2,
+        "one copy, an unknown keyword and auto color are not facts"
+    );
+}
+
+#[test]
+fn paper_names_follow_the_pwg_media_name() {
+    for (media, expected) in [
+        ("iso_a4_210x297mm", "A4"),
+        ("na_letter_8.5x11in", "Letter"),
+        ("na_index-4x6_4x6in", "Index-4x6"),
+        ("custom_min_3x5in", "Custom"),
+        ("A4", "A4"),
+        ("", ""),
+    ] {
+        assert_eq!(media_name(media), expected, "{media}");
+    }
+}
+
+#[test]
+fn a_job_from_another_day_names_the_day() {
+    let mut source = job_at(1, "office", JobState::Pending);
+    source.created = Some(
+        DateTime::parse_from_rfc3339("2026-10-27T08:30:00Z")
+            .expect("a time")
+            .to_utc(),
+    );
+    assert_eq!(fact(source, "Submitted").as_deref(), Some("27 Oct, 09:30"));
+}
+
+#[test]
+fn the_submitter_shows_only_when_it_is_someone_else_or_somewhere_else() {
+    let mut mine = job_at(1, "office", JobState::Pending);
+    mine.user = "alex".to_owned();
+    mine.host = "localhost".to_owned();
+    assert_eq!(fact(mine.clone(), "Submitted by"), None);
+    assert_eq!(fact(mine, "From"), None);
+
+    let mut theirs = job_at(2, "office", JobState::Pending);
+    theirs.user = "maria".to_owned();
+    theirs.host = "laptop.lan".to_owned();
+    assert_eq!(
+        fact(theirs.clone(), "Submitted by").as_deref(),
+        Some("maria")
+    );
+    assert_eq!(fact(theirs, "From").as_deref(), Some("laptop.lan"));
+}
+
+#[test]
+fn a_held_job_says_until_when() {
+    let mut job = job_at(1, "office", JobState::Held);
+    job.hold_until = "night".to_owned();
+    assert_eq!(fact(job.clone(), "Held until").as_deref(), Some("Night"));
+
+    job.hold_until = "18:00".to_owned();
+    assert_eq!(
+        fact(job.clone(), "Held until").as_deref(),
+        Some("19:00"),
+        "CUPS names the time in UTC"
+    );
+
+    job.hold_until = "indefinite".to_owned();
+    assert_eq!(fact(job.clone(), "Held until"), None);
+
+    job.hold_until = "night".to_owned();
+    job.state = JobState::Pending;
+    assert_eq!(
+        fact(job, "Held until"),
+        None,
+        "a released job is no longer held"
     );
 }
 
@@ -303,6 +427,7 @@ fn the_job_actions_follow_the_job_state() {
             },
             8,
             &no_pending(),
+            &viewer(),
         );
         assert_eq!(converted[0].cancellable, cancellable_expected, "{state:?}");
         assert_eq!(converted[0].pausable, pausable_expected, "{state:?}");
@@ -320,7 +445,7 @@ fn a_job_with_a_command_in_flight_is_busy_and_offers_no_action() {
     let mut pending = HashSet::new();
     pending.insert(1);
 
-    let converted = jobs(&state, 8, &pending);
+    let converted = jobs(&state, 8, &pending, &viewer());
 
     assert!(
         converted[0].busy,
@@ -376,12 +501,28 @@ fn row_of(job: PrintJob) -> PrintingJob {
         },
         8,
         &no_pending(),
+        &viewer(),
     )
     .remove(0)
 }
 
+fn facts_of(job: PrintJob) -> Vec<(String, String)> {
+    row_of(job)
+        .facts
+        .into_iter()
+        .map(|fact| (fact.label, fact.value))
+        .collect()
+}
+
+fn fact(job: PrintJob, label: &str) -> Option<String> {
+    facts_of(job)
+        .into_iter()
+        .find(|(name, _)| name == label)
+        .map(|(_, value)| value)
+}
+
 fn status_of(job: PrintJob) -> String {
-    row_of(job).status
+    fact(job, "Status").expect("a status")
 }
 
 #[test]
@@ -390,9 +531,11 @@ fn a_stopped_job_says_why() {
     job.reason = "Printer not connected".to_owned();
     job.pages_completed = Some(0);
     job.pages_total = Some(1);
-    let row = row_of(job);
-    assert_eq!(row.status, "Stopped: Printer not connected");
-    assert_eq!(row.progress, None, "a page count would replace the reason");
+    assert_eq!(
+        fact(job.clone(), "Status").as_deref(),
+        Some("Stopped: Printer not connected")
+    );
+    assert_eq!(fact(job, "Pages").as_deref(), Some("1"));
 }
 
 #[test]

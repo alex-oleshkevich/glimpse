@@ -6,13 +6,18 @@ NetworkManager secret agent and the BlueZ pairing agent, all drawing into one di
 **The session interface is exported before the bus name is owned.** `me.aresa.Glimpse.Agents` is
 requested with `DoNotQueue` before agents register or windows exist. The system-bus agents start
 before GTK; requests wait on the app channel during startup. A second instance cannot take the name.
-`me.aresa.Glimpse.Session.RequestAction` accepts only `reboot` and `power-off` and acknowledges
-admission within 5 s. One independent confirmation slot rejects requests while authentication or
-another power action is active. Authentication, lock uncertainty, locking, Cancel and focus loss
-cancel that slot; it never enters the authentication FIFO or reopens automatically. Initial focus
-must arrive within 5 s. Confirmation destroys its exclusive overlay before interactive logind
-execution, which rechecks lock state and capability and has a 120 s authorization deadline.
-Failures after admission are notifications; logind owns inhibitor enforcement.
+`me.aresa.Glimpse.Session.RequestAction` accepts only `reboot`, `power-off` and `log-out` and
+acknowledges admission within 5 s. All three share one confirmation dialog. One independent
+confirmation slot rejects requests while authentication or another power action is active.
+Authentication, lock uncertainty, locking, Cancel and focus loss cancel that slot; it never enters
+the authentication FIFO or reopens automatically. Initial focus must arrive within 5 s.
+Confirmation destroys its exclusive overlay before interactive execution, which rechecks lock state
+and capability and has a 120 s authorization deadline. Failures after admission are notifications;
+logind owns inhibitor enforcement. **Log out stops `graphical-session.target` when an active service
+bound to it is ordered before it — the compositor unit of `niri-session` or uwsm — and terminates
+the logind session otherwise**: a session wrapper such as `niri-session` runs its own teardown after
+its compositor unit stops, and killing the session scope skips that teardown and leaves the next
+login refused.
 
 **One process owns every prompt, and one dialog shows at a time.** Agents never touch GTK: each
 turns its D-Bus call into an `Ask` sent to the app and awaits a oneshot reply. The app keeps one

@@ -5,18 +5,6 @@ fn refused(message: Message, shake: bool) -> Verdict {
 }
 
 #[test]
-fn the_pam_service_is_fixed_at_start() {
-    let mut service = Service::new("glimpse-lock");
-    service.reload("permit-everything");
-    assert_eq!(service.name(), "glimpse-lock");
-}
-
-#[test]
-fn the_pam_service_is_lowercased_the_way_pam_start_does() {
-    assert_eq!(Service::new("Glimpse-LOCK").name(), "glimpse-lock");
-}
-
-#[test]
 fn success_unlocks() {
     assert_eq!(
         classify(Ok(()), None),

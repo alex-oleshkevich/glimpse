@@ -21,6 +21,7 @@ const INHIBITORS_MAX: usize = 8;
 pub(crate) enum Action {
     Reboot,
     PowerOff,
+    LogOut,
 }
 
 impl Action {
@@ -28,8 +29,9 @@ impl Action {
         match action {
             "reboot" => Ok(Self::Reboot),
             "power-off" => Ok(Self::PowerOff),
+            "log-out" => Ok(Self::LogOut),
             _ => Err(fdo::Error::InvalidArgs(
-                "expected reboot or power-off".into(),
+                "expected reboot, power-off or log-out".into(),
             )),
         }
     }
@@ -38,6 +40,7 @@ impl Action {
         let capability = match self {
             Self::Reboot => manager.can_reboot().await,
             Self::PowerOff => manager.can_power_off().await,
+            Self::LogOut => return Ok(()),
         }
         .map_err(|error| error.to_string())?;
         match capability.as_str() {
@@ -52,6 +55,7 @@ impl Action {
         let (icon, title, confirm) = match self {
             Self::Reboot => (Icon::Reboot, gettext("Restart?"), gettext("Restart")),
             Self::PowerOff => (Icon::PowerOff, gettext("Power off?"), gettext("Power off")),
+            Self::LogOut => (Icon::LogOut, gettext("Log out?"), gettext("Log out")),
         };
         View {
             icon,
@@ -206,7 +210,11 @@ pub(crate) async fn prepare(system: &zbus::Connection, action: Action) -> Result
     .map_err(|_| gettext("The power service did not answer in time"))?
 }
 
-pub(crate) async fn execute(system: &zbus::Connection, action: Action) -> Result<(), String> {
+pub(crate) async fn execute(
+    system: &zbus::Connection,
+    user: &zbus::Connection,
+    action: Action,
+) -> Result<(), String> {
     let manager = tokio::time::timeout(DEADLINE, async {
         let manager = Login1ManagerProxy::new(system)
             .await
@@ -228,10 +236,16 @@ pub(crate) async fn execute(system: &zbus::Connection, action: Action) -> Result
     .map_err(|_| gettext("The power service did not answer in time"))??;
     tokio::time::timeout(EXECUTION_DEADLINE, async {
         match action {
-            Action::Reboot => manager.reboot(true).await,
-            Action::PowerOff => manager.power_off(true).await,
+            Action::Reboot => manager
+                .reboot(true)
+                .await
+                .map_err(|error| error.to_string()),
+            Action::PowerOff => manager
+                .power_off(true)
+                .await
+                .map_err(|error| error.to_string()),
+            Action::LogOut => logout::log_out(system, user, &manager).await,
         }
-        .map_err(|error| error.to_string())
     })
     .await
     .map_err(|_| gettext("The power service did not answer in time"))?
@@ -261,5 +275,6 @@ pub(crate) async fn notify(session: &zbus::Connection, reason: &str) {
     }
 }
 
+mod logout;
 #[cfg(test)]
 pub(crate) mod tests;

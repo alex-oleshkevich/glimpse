@@ -1,14 +1,16 @@
 use super::*;
+use crate::Fact;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-fn job(id: &str, progress: Option<(u32, u32)>) -> Job {
+fn job(id: &str) -> Job {
     Job {
         id: id.to_owned(),
         name: "specs-004-panel.pdf".into(),
-        printer: "HP LaserJet 400".into(),
-        status: "Printing".into(),
-        progress,
+        facts: vec![
+            Fact::new("Printer".to_owned(), "HP LaserJet 400".to_owned()),
+            Fact::new("Pages".to_owned(), "3 of 12".to_owned()),
+        ],
         busy: true,
         cancellable: true,
         pausable: false,
@@ -82,12 +84,11 @@ fn printing_popover_states() {
 
     assert!(!imp.jobs.get_visible(), "no jobs is no section at all");
 
-    popover.set_jobs(&[job("1", Some((3, 12)))]);
+    popover.set_jobs(&[job("1")]);
     assert!(imp.jobs.get_visible());
-    assert_eq!(
-        imp.jobs.count().as_deref(),
-        Some("1"),
-        "the job count is the section's count"
+    assert!(
+        imp.jobs.count().is_none(),
+        "the jobs heading carries no counter"
     );
     let row = job_row(&popover, "1");
     assert_eq!(row.title().as_deref(), Some("specs-004-panel.pdf"));
@@ -96,7 +97,7 @@ fn printing_popover_states() {
     assert!(row.icon_name().is_none(), "a job row carries no icon");
     assert_eq!(imp.shell.icon_name().as_deref(), Some("printer-symbolic"));
 
-    popover.set_jobs(&[job("1", Some((3, 12)))]);
+    popover.set_jobs(&[job("1")]);
     assert_eq!(
         job_row(&popover, "1"),
         row,
@@ -116,9 +117,8 @@ fn printing_popover_states() {
                 Some("Printer".to_owned()),
                 Some("HP LaserJet 400".to_owned())
             ),
-            (Some("Status".to_owned()), Some("Page 3 of 12".to_owned())),
-        ],
-        "progress replaces the status word rather than sitting beside it"
+            (Some("Pages".to_owned()), Some("3 of 12".to_owned())),
+        ]
     );
     assert_eq!(
         titles(&row),
@@ -160,7 +160,7 @@ fn printing_popover_states() {
 
     popover.set_jobs(&[Job {
         pausable: true,
-        ..job("2", None)
+        ..job("2")
     }]);
     let processing = drawer_actions(&job_row(&popover, "2"));
     assert!(processing[0].get_visible(), "a pausable job shows Pause");
@@ -180,7 +180,7 @@ fn printing_popover_states() {
         resumable: true,
         cancellable: false,
         busy: false,
-        ..job("3", None)
+        ..job("3")
     }]);
     let held_row = job_row(&popover, "3");
     assert!(!held_row.busy(), "a held job is not spinning");
@@ -203,7 +203,7 @@ fn printing_popover_states() {
     popover.set_jobs(&[Job {
         retryable: true,
         busy: false,
-        ..job("4", None)
+        ..job("4")
     }]);
     let stopped = drawer_actions(&job_row(&popover, "4"));
     assert!(stopped[2].get_visible(), "a retryable job shows Retry");
@@ -214,9 +214,6 @@ fn printing_popover_states() {
     });
     stopped[2].emit_by_name::<()>("activated", &[]);
     assert_eq!(*retried.borrow(), ["4".to_owned()]);
-
-    popover.set_jobs(&[job("1", None), job("2", None), job("3", None)]);
-    assert_eq!(imp.jobs.count().as_deref(), Some("3"));
 
     popover.set_jobs(&[]);
     assert!(!imp.jobs.get_visible());

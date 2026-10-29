@@ -48,11 +48,7 @@ fn run(cli: Cli) -> Result<()> {
     glimpse_config::init(cli.config.config_dir.clone());
     match cli.command {
         Some(Command::Lock) => runtime()?.block_on(commands::lock()),
-        Some(Command::Check) => {
-            let config = glimpse_config::load(Documents::Config)?;
-            let pam_service = auth::Service::new(&config.lock.pam_service);
-            runtime()?.block_on(commands::check(pam_service.name()))
-        }
+        Some(Command::Check) => runtime()?.block_on(commands::check()),
         None => daemon(cli),
     }
 }
@@ -72,8 +68,7 @@ fn daemon(cli: Cli) -> Result<()> {
         glimpse_config::load_theme(&config.appearance.theme, LOCK_STYLESHEET).unwrap_or_default();
     init_translations();
 
-    let pam_service = auth::Service::new(&config.lock.pam_service);
-    let checks = probe::startup(pam_service.name());
+    let checks = probe::startup();
     let mut cant_verify = probe::failures(&checks);
     for line in &cant_verify {
         tracing::error!(check = %line, "sandbox self-probe failed; passwords cannot be verified");
@@ -101,7 +96,6 @@ fn daemon(cli: Cli) -> Result<()> {
     gtk_mcp_agent::attach(&relm4::main_application());
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
-        pam_service,
         theme,
         failure: failure.map(|error| error.to_string()),
         standalone: cli.standalone,

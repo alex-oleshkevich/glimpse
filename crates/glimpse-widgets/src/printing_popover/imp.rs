@@ -7,13 +7,11 @@ use gtk4::{
 
 use crate::{ActionRow, ExpanderRow, Fact, PopoverShell, Section};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Job {
     pub id: String,
     pub name: String,
-    pub printer: String,
-    pub status: String,
-    pub progress: Option<(u32, u32)>,
+    pub facts: Vec<Fact>,
     pub busy: bool,
     pub cancellable: bool,
     pub pausable: bool,

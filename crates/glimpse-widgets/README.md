@@ -185,7 +185,7 @@ the same row widget, with the applet owning its open state and the `quiet` flag 
 
 **A job and a printer are an `ExpanderRow` whose head opens the drawer; a printer with no facts is a
 plain `Row`.** A drawer holds info first, then toggles, then actions, with the destructive one
-last: a job's facts, Pause, Resume or Retry as allowed, then Cancel. The job count is the section's
+last: a job's facts, Pause, Resume or Retry as allowed, then Cancel. The jobs heading carries no
 count, and there is no hero. Formatting and sanitizing raw CUPS text is the panel applet's job, not
 this widget's.
 

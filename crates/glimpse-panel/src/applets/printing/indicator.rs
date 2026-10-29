@@ -205,7 +205,12 @@ impl Printing {
 
     fn dress(&self, shown: &PrintingPopover) {
         let pending = self.pending.borrow();
-        shown.set_jobs(&render::jobs(&self.state, self.jobs, &pending));
+        shown.set_jobs(&render::jobs(
+            &self.state,
+            self.jobs,
+            &pending,
+            &render::Viewer::current(),
+        ));
         shown.set_printers(&render::printers(&self.state));
     }
 

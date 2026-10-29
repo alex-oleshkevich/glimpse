@@ -71,7 +71,11 @@ fn retired_keys_are_dropped_and_the_rest_of_the_document_still_loads() {
     write(
         &path,
         "[regional]\nlanguage = \"ru\"\nunits = \"kelvin\"\n\n[idle]\nenabled = false\n\n\
-         [lock.clock]\ntime-format = \"%I\"\ndate-format = \"%d\"\n",
+         [lock.clock]\nenabled = false\ntime-format = \"%I\"\ndate-format = \"%d\"\n\n\
+         [lock.status]\nenabled = false\n\n[lock.media]\nenabled = false\n\n\
+         [lock.session]\nenabled = false\nactions = [\"suspend\"]\n\n\
+         [lock.notifications]\nenabled = false\nprivacy = \"count\"\n\n\
+         [lock]\npam-service = \"login\"\n",
     );
 
     let config = load_files(&[path]).expect("an old document still loads");

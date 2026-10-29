@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-29 00:08+0100\n"
+"POT-Creation-Date: 2026-10-29 12:16+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -41,7 +41,7 @@ msgstr ""
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:69 crates/glimpse-panel/src/app.rs:317
+#: crates/glimpse-agents/src/session.rs:73 crates/glimpse-panel/src/app.rs:317
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:962
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -49,7 +49,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:107
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:157
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:207
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:125
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:124
 msgid "Cancel"
 msgstr ""
 
@@ -231,57 +231,66 @@ msgstr ""
 msgid "Can't verify passwords"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:46
+#: crates/glimpse-agents/src/session.rs:49
 msgid "The requested power action is unavailable or inhibited"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:53
+#: crates/glimpse-agents/src/session.rs:56
 #: crates/glimpse-panel/src/applets/exec/mod.rs:391
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:161
 msgid "Restart"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:53
+#: crates/glimpse-agents/src/session.rs:56
 msgid "Restart?"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:54
+#: crates/glimpse-agents/src/session.rs:57
 msgid "Power off"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:54
+#: crates/glimpse-agents/src/session.rs:57
 msgid "Power off?"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:59
+#: crates/glimpse-agents/src/session.rs:58
+#: crates/glimpse-widgets/blueprints/session_popover.blp:33
+msgid "Log out"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:58
+msgid "Log out?"
+msgstr ""
+
+#: crates/glimpse-agents/src/session.rs:63
 msgid "Unsaved work in open apps may be lost"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:177
+#: crates/glimpse-agents/src/session.rs:181
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
 msgid "Delay"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:178
+#: crates/glimpse-agents/src/session.rs:182
 msgid "Block"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:182
+#: crates/glimpse-agents/src/session.rs:186
 msgid "{kind}: {application}"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:206
-#: crates/glimpse-agents/src/session.rs:228
-#: crates/glimpse-agents/src/session.rs:237
+#: crates/glimpse-agents/src/session.rs:210
+#: crates/glimpse-agents/src/session.rs:236
+#: crates/glimpse-agents/src/session.rs:251
 msgid "The power service did not answer in time"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:223
+#: crates/glimpse-agents/src/session.rs:231
 msgid "The session is locked"
 msgstr ""
 
-#: crates/glimpse-agents/src/session.rs:241
+#: crates/glimpse-agents/src/session.rs:255
 msgid "The power action failed"
 msgstr ""
 
@@ -329,11 +338,6 @@ msgstr ""
 msgid ""
 "Can't verify passwords. Switch to a text console (Ctrl+Alt+F2), log in, and "
 "run glimpse-lock check."
-msgstr ""
-
-#: crates/glimpse-lock/src/chips.rs:38
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
-msgid "Notifications"
 msgstr ""
 
 #: crates/glimpse-lock/src/notify.rs:16
@@ -387,11 +391,11 @@ msgstr ""
 msgid "Couldn't power off the system"
 msgstr ""
 
-#: crates/glimpse-lock/src/session.rs:136
+#: crates/glimpse-lock/src/session.rs:116
 msgid "Blocked by {who}: {why}"
 msgstr ""
 
-#: crates/glimpse-lock/src/status.rs:39
+#: crates/glimpse-lock/src/status.rs:29
 msgid "Keyboard layout: {layout}"
 msgstr ""
 
@@ -515,8 +519,8 @@ msgid "Open event"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/agenda.rs:194
-#: crates/glimpse-panel/src/applets/printing/render.rs:161
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:235
+#: crates/glimpse-panel/src/applets/printing/render.rs:330
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:359
 #: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr ""
@@ -882,7 +886,7 @@ msgid "Display"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:335
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:154
+#: crates/glimpse-panel/src/applets/printing/render.rs:130
 msgid "Printer"
 msgstr ""
 
@@ -920,6 +924,7 @@ msgid "Open in browser"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:202
+#: crates/glimpse-panel/src/applets/printing/render.rs:139
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:109
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:88
 msgid "Color"
@@ -1277,9 +1282,9 @@ msgid "Paused"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/mpris/render.rs:34
-#: crates/glimpse-panel/src/applets/printing/render.rs:133
-#: crates/glimpse-panel/src/applets/printing/render.rs:191
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+#: crates/glimpse-panel/src/applets/printing/render.rs:302
+#: crates/glimpse-panel/src/applets/printing/render.rs:360
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:407
 msgid "Stopped"
 msgstr ""
 
@@ -1451,10 +1456,10 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:232
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
-#: crates/glimpse-panel/src/applets/printing/render.rs:163
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:250
+#: crates/glimpse-panel/src/applets/printing/render.rs:133
+#: crates/glimpse-panel/src/applets/printing/render.rs:332
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:374
 #: crates/glimpse-widgets/src/display_list/mod.rs:157
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:155
 msgid "Status"
 msgstr ""
 
@@ -1655,8 +1660,8 @@ msgid "Technology"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/power/render.rs:160
-#: crates/glimpse-panel/src/applets/printing/render.rs:160
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:234
+#: crates/glimpse-panel/src/applets/printing/render.rs:329
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:358
 #: crates/glimpse-widgets/src/display_list/mod.rs:167
 msgid "Model"
 msgstr ""
@@ -1802,9 +1807,9 @@ msgid "Could not retry the print job"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:112
-#: crates/glimpse-panel/src/applets/printing/render.rs:132
-#: crates/glimpse-panel/src/applets/printing/render.rs:165
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:250
+#: crates/glimpse-panel/src/applets/printing/render.rs:301
+#: crates/glimpse-panel/src/applets/printing/render.rs:334
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:374
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:12
 msgid "Printing"
 msgstr ""
@@ -1817,43 +1822,139 @@ msgstr ""
 msgid "The print server is unreachable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:58
+#: crates/glimpse-panel/src/applets/printing/render.rs:59
 msgid "page {done} of {total}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:77
+#: crates/glimpse-panel/src/applets/printing/render.rs:78
 msgid ""
 "{document}\n"
 "{printer}\n"
 "{pages}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:120
-msgid "{status}: {reason}"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/printing/render.rs:130
-msgid "Queued"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/printing/render.rs:131
-msgid "Held"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/printing/render.rs:134
-msgid "Completed"
+msgid "Held until"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:135
-msgid "Cancelled"
+msgid "Pages"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:136
+msgid "Sheets"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:137
+msgid "Copies"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:138
+msgid "Sides"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:140
+msgid "Paper"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:141
+msgid "Submitted"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:143
+msgid "Submitted by"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:151
+msgid "From"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:168
+msgid "{done} of {total}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:193
+msgid "One-sided"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:194
+msgid "Two-sided"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:195
+msgid "Two-sided, short edge"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:202
+msgid "Full color"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:203
+msgid "Grayscale"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:204
+msgid "Black and white"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:213
+msgid "Custom"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:245
+msgid "{date}, {time}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:255
+msgid "Daytime"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:256
+msgid "Evening"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:257
+msgid "Night"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:258
+msgid "Weekend"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:259
+msgid "Second shift"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:260
+msgid "Third shift"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:289
+msgid "{status}: {reason}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:299
+msgid "Queued"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:300
+msgid "Held"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:303
+msgid "Completed"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:304
+msgid "Cancelled"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:305
 msgid "Aborted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:182
-#: crates/glimpse-panel/src/applets/printing/render/tests.rs:278
+#: crates/glimpse-panel/src/applets/printing/render.rs:351
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:402
 msgid "Not accepting jobs"
 msgstr ""
 
@@ -1989,28 +2090,17 @@ msgstr ""
 msgid "Hibernate this session?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:65
-#: crates/glimpse-panel/src/applets/session/render.rs:67
-#: crates/glimpse-widgets/blueprints/session_popover.blp:33
-msgid "Log out"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:66
-msgid ""
-"This closes the current session. Applications may not shut down gracefully."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:94
+#: crates/glimpse-panel/src/applets/session/render.rs:90
 msgid "{windows} open window is still running."
 msgid_plural "{windows} open windows are still running."
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:117
+#: crates/glimpse-panel/src/applets/session/render.rs:113
 msgid "Signed in today"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:119
+#: crates/glimpse-panel/src/applets/session/render.rs:115
 msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] ""
@@ -2645,6 +2735,10 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/notification_header.blp:56
 #: crates/glimpse-widgets/src/notification_card/imp.rs:183
 msgid "Dismiss"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
+msgid "Notifications"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/notifications_popover.blp:26
@@ -3402,7 +3496,7 @@ msgid "Not reaching any display"
 msgstr ""
 
 #: crates/glimpse-widgets/src/display_popover/mod.rs:323
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:123
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:122
 msgid "Resume"
 msgstr ""
 
@@ -3451,7 +3545,7 @@ msgid "Hibernate key"
 msgstr ""
 
 #: crates/glimpse-widgets/src/lib.rs:320
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:122
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:121
 msgid "Pause"
 msgstr ""
 
@@ -3493,12 +3587,8 @@ msgid_plural "Delete {n} items for good?"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:124
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:123
 msgid "Retry"
-msgstr ""
-
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:214
-msgid "Page {current} of {total}"
 msgstr ""
 
 #: crates/glimpse-widgets/src/privacy_popover/mod.rs:92

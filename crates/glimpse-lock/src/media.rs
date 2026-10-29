@@ -10,14 +10,7 @@ pub fn art_path(players: &MprisPlayers) -> Option<&str> {
     current(players)?.art.as_deref()
 }
 
-pub fn track_of(
-    players: &MprisPlayers,
-    enabled: bool,
-    art: Option<&(String, gdk::Texture)>,
-) -> Option<Track> {
-    if !enabled {
-        return None;
-    }
+pub fn track_of(players: &MprisPlayers, art: Option<&(String, gdk::Texture)>) -> Option<Track> {
     let current = current(players)?;
     Some(Track {
         title: current.title.clone().unwrap_or_default(),

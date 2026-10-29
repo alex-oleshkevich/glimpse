@@ -25,7 +25,7 @@ pub struct Look {
     pub color: gdk::RGBA,
     pub fit: gtk4::ContentFit,
     pub dim: f64,
-    pub clock: Option<(String, String)>,
+    pub clock: (String, String),
     pub user: Option<String>,
     pub avatar: Option<gdk::Texture>,
     pub prompt_output: String,
@@ -607,15 +607,10 @@ impl Shared {
         stage.stage.set_fit(look.fit);
         stage.stage.set_dim(look.dim);
         let clock = stage.stage.clock();
-        match &look.clock {
-            Some((time, date)) => {
-                clock.set_formats(time, date);
-                if let Some(now) = now() {
-                    clock.set_time(&now);
-                }
-                clock.set_visible(true);
-            }
-            None => clock.set_visible(false),
+        let (time, date) = &look.clock;
+        clock.set_formats(time, date);
+        if let Some(now) = now() {
+            clock.set_time(&now);
         }
         stage.stage.set_user(look.user.as_deref());
         stage.stage.set_avatar(look.avatar.as_ref());

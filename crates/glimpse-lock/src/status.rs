@@ -15,16 +15,6 @@ pub struct Status {
     pub layout: Option<IndicatorSpec>,
 }
 
-pub fn shown(status: &Status, enabled: bool) -> Status {
-    match enabled {
-        true => status.clone(),
-        false => Status {
-            layout: status.layout.clone(),
-            ..Status::default()
-        },
-    }
-}
-
 pub fn layout(layouts: &KeyboardLayouts) -> Option<IndicatorSpec> {
     if layouts.layouts.len() < 2 {
         return None;

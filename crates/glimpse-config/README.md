@@ -142,7 +142,9 @@ only way it asks. **`TWELVE` is `%-I:%M %p`, not `%l:%M %p`**, since `%l` is spa
 carries a leading space into the middle of a sentence.
 **These resolvers answer `C` — 24-hour, metric — unless `setlocale(LC_ALL, "")` has already run**,
 each binary's own job, since `setlocale` mutates process-global state read from tokio worker
-threads. **Retired keys — a `[regional]` table, `[lock.clock] time-format` — are dropped at load
+threads. **Retired keys — a `[regional]` table, `[lock.clock] time-format`, `[lock] pam-service`,
+the lock's per-element `enabled` switches, `[lock.status]`, `[lock.notifications]`, `[lock.media]`
+and `[lock.session]` — are dropped at load
 with a warning**, so a document written for them keeps loading.
 
 ## Not here

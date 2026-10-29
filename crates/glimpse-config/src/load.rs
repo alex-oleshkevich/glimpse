@@ -17,7 +17,27 @@ pub(crate) const PANEL_FILE: &str = "panel.toml";
 pub(crate) const PANEL_DROPINS: &str = "panel.d";
 const FOLDER_NAME: &str = "glimpse";
 const WRITE_ATTEMPTS: usize = 3;
-const RETIRED: [&[&str]; 2] = [&["regional"], &["lock", "clock", "time-format"]];
+const LOCALE: &str = "language, times and units follow LANG and LC_*";
+const SHOWN: &str = "the lock screen always shows it";
+const RETIRED: [(&[&str], &str); 8] = [
+    (&["regional"], LOCALE),
+    (&["lock", "clock", "time-format"], LOCALE),
+    (
+        &["lock", "status"],
+        "the lock screen always shows the battery and keyboard layout",
+    ),
+    (&["lock", "clock", "enabled"], SHOWN),
+    (&["lock", "notifications"], SHOWN),
+    (
+        &["lock", "pam-service"],
+        "the lock screen always checks passwords through /etc/pam.d/glimpse-lock",
+    ),
+    (&["lock", "media"], SHOWN),
+    (
+        &["lock", "session"],
+        "the lock screen always offers suspend, restart and power off",
+    ),
+];
 const CONFIG_STUB: &str = concat!(
     "#:schema ",
     env!("GLIMPSE_DATA_DIR_DEFAULT"),
@@ -413,7 +433,7 @@ fn is_config_table(key: &str) -> bool {
 
 fn retire(table: &mut toml::Table) -> bool {
     let mut retired = false;
-    for path in RETIRED {
+    for (path, reason) in RETIRED {
         let Some((last, parents)) = path.split_last() else {
             continue;
         };
@@ -426,7 +446,7 @@ fn retire(table: &mut toml::Table) -> bool {
         if current.and_then(|table| table.remove(*last)).is_some() {
             tracing::warn!(
                 key = path.join("."),
-                "this key is no longer read: language, times and units follow LANG and LC_*; remove it"
+                "this key is no longer read: {reason}; remove it"
             );
             retired = true;
         }

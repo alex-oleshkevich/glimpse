@@ -5,7 +5,6 @@ use rustix::fs::StatVfsMountFlags;
 
 const CHKPWD_DIRS: [&str; 4] = ["/run/wrappers/bin", "/usr/bin", "/usr/sbin", "/sbin"];
 const PAM_DIRS: [&str; 2] = ["/etc/pam.d", "/usr/lib/pam.d"];
-const NOT_A_SERVICE: &str = "not a PAM service name";
 const SHADOW: &str = "/etc/shadow";
 const DAC_CAPS: u64 = (1 << 1) | (1 << 2);
 const SECBIT_NOROOT: i32 = 1;
@@ -209,14 +208,7 @@ fn pam_stack_in(
     exists: impl Fn(&Path) -> bool,
     read: impl Fn(&Path) -> Option<String>,
 ) -> Check {
-    let name = format!("pam.d/{}", glimpse_utils::clean(service, 64));
-    if service.is_empty()
-        || service.starts_with('.')
-        || service.contains('/')
-        || service.contains('\0')
-    {
-        return Check::new(name, Err(NOT_A_SERVICE.to_owned()));
-    }
+    let name = format!("pam.d/{service}");
     let path = pam_path(service, dirs, &exists);
     let text = path.as_deref().and_then(&read);
     let outcome = pam_file(text.as_deref())
@@ -227,9 +219,9 @@ fn pam_stack_in(
     Check::new(name, outcome)
 }
 
-pub fn startup(pam_service: &str) -> Vec<Check> {
+pub fn startup() -> Vec<Check> {
     let mut checks = own();
-    checks.push(pam_stack(pam_service));
+    checks.push(pam_stack(crate::auth::SERVICE));
     checks
 }
 

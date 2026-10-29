@@ -49,8 +49,8 @@ matches that copy, and otherwise keeps it and prints a warning naming it.
 
 ## PAM
 
-`/etc/pam.d/glimpse-lock` is the PAM service the lock screen authenticates against (its
-[`pam-service`](/config/services/lock) setting). It allows authentication and account checks
+`/etc/pam.d/glimpse-lock` is the PAM service the lock screen authenticates against. It allows
+authentication and account checks
 through the system's usual stack and denies password changes and sessions, because the lock screen
 only ever checks a password. The install script picks the variant for the distribution: on a system
 with `/etc/pam.d/common-auth` and no `/etc/pam.d/system-auth` it installs the `common-auth` variant

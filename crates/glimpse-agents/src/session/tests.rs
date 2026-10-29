@@ -225,21 +225,27 @@ async fn execution_rechecks_lock_capability_and_preserves_backend_errors() {
     let backend = backend(&server).await;
     let client = bus.connection().await;
     backend.locked.store(true, Ordering::SeqCst);
-    assert!(execute(&client, Action::Reboot).await.is_err());
+    assert!(execute(&client, &client, Action::Reboot).await.is_err());
+    assert!(
+        execute(&client, &client, Action::LogOut).await.is_err(),
+        "a locked session never logs out"
+    );
     backend.locked.store(false, Ordering::SeqCst);
     *backend.capability.lock().expect("capability") = "inhibited".into();
-    assert!(execute(&client, Action::Reboot).await.is_err());
+    assert!(execute(&client, &client, Action::Reboot).await.is_err());
     assert!(backend.calls.lock().expect("calls").is_empty());
     *backend.capability.lock().expect("capability") = "challenge".into();
     backend.lock_on_capability.store(true, Ordering::SeqCst);
-    assert!(execute(&client, Action::Reboot).await.is_err());
+    assert!(execute(&client, &client, Action::Reboot).await.is_err());
     assert!(backend.calls.lock().expect("calls").is_empty());
     backend.lock_on_capability.store(false, Ordering::SeqCst);
     backend.locked.store(false, Ordering::SeqCst);
-    execute(&client, Action::Reboot).await.expect("reboot");
+    execute(&client, &client, Action::Reboot)
+        .await
+        .expect("reboot");
     backend.fail.store(true, Ordering::SeqCst);
     assert!(
-        execute(&client, Action::PowerOff)
+        execute(&client, &client, Action::PowerOff)
             .await
             .expect_err("failure")
             .contains("backend failed")

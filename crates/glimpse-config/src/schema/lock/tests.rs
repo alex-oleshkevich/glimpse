@@ -47,19 +47,3 @@ fn dim_dark_outside_its_range_is_refused() {
         .to_string();
     assert!(error.contains("must be between 0.0 and 1.0"), "{error}");
 }
-
-#[test]
-fn an_unknown_session_action_is_refused() {
-    let error = load("[lock.session]\nactions = [\"hibernate\"]\n")
-        .expect_err("hibernate is not an action")
-        .to_string();
-    assert!(error.contains("hibernate"), "{error}");
-}
-
-#[test]
-fn an_unknown_privacy_level_is_refused() {
-    let error = load("[lock.notifications]\nprivacy = \"summaries\"\n")
-        .expect_err("summaries is not a privacy level")
-        .to_string();
-    assert!(error.contains("summaries"), "{error}");
-}

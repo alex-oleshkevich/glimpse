@@ -51,16 +51,6 @@ impl Action {
     }
 }
 
-impl From<glimpse_config::LockSessionAction> for Action {
-    fn from(action: glimpse_config::LockSessionAction) -> Self {
-        match action {
-            glimpse_config::LockSessionAction::Suspend => Self::Suspend,
-            glimpse_config::LockSessionAction::Reboot => Self::Reboot,
-            glimpse_config::LockSessionAction::PowerOff => Self::PowerOff,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Answers {
     pub suspend: String,
@@ -93,24 +83,14 @@ pub fn state(
     }
 }
 
-pub fn states(
-    config: &glimpse_config::LockSession,
-    answers: &Answers,
-) -> HashMap<&'static str, SessionActionState> {
-    let allowed: Vec<Action> = if config.enabled {
-        config.actions.iter().copied().map(Action::from).collect()
-    } else {
-        Vec::new()
-    };
+pub fn states(answers: &Answers) -> HashMap<&'static str, SessionActionState> {
     ACTIONS
         .into_iter()
         .map(|action| {
-            let value = if allowed.contains(&action) {
-                state(answers.answer(action), &answers.inhibitors, action)
-            } else {
-                hidden()
-            };
-            (action.key(), value)
+            (
+                action.key(),
+                state(answers.answer(action), &answers.inhibitors, action),
+            )
         })
         .collect()
 }

@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ExpanderRow, Fact, Row, RowTone, none_if_empty, reconcile};
+use crate::{ActionRow, ExpanderRow, Row, RowTone, none_if_empty, reconcile};
 
 pub use imp::{Job, Printer};
 
@@ -98,7 +98,6 @@ impl PrintingPopover {
             dress_job,
         );
         imp.jobs.set_visible(!jobs.is_empty());
-        imp.jobs.set_count(Some(jobs.len().to_string().as_str()));
     }
 
     fn render_printers(&self) {
@@ -148,13 +147,7 @@ fn dress_job(row: &ExpanderRow, job: &Job) {
     let Some(facts) = details.first_child().and_downcast::<gtk4::Box>() else {
         return;
     };
-    crate::set_facts(
-        &facts,
-        &[
-            Fact::new(gettext("Printer"), job.printer.clone()),
-            Fact::new(gettext("Status"), job_status(job)),
-        ],
-    );
+    crate::set_facts(&facts, &job.facts);
     let shown = [job.pausable, job.resumable, job.retryable, job.cancellable];
     let mut child = facts.next_sibling();
     for visible in shown {
@@ -208,15 +201,6 @@ fn dress_printer(widget: &gtk4::Widget, printer: &Printer) {
 
 const NETWORK_ICON: &str = "printer-network-symbolic";
 const LOCAL_ICON: &str = "printer-symbolic";
-
-fn job_status(job: &Job) -> String {
-    match job.progress {
-        Some((current, total)) => gettext("Page {current} of {total}")
-            .replace("{current}", &current.to_string())
-            .replace("{total}", &total.to_string()),
-        None => job.status.clone(),
-    }
-}
 
 #[cfg(test)]
 mod tests;

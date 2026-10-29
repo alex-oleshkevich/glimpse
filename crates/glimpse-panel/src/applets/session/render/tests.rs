@@ -98,17 +98,19 @@ fn action_mapping_refuses_unknown_widget_signals() {
 }
 
 #[test]
-fn lock_suspend_reboot_and_power_off_do_not_confirm_locally() {
+fn only_hibernate_confirms_locally() {
     let state = SessionActionsState::default();
     assert!(confirm(&state, SessionAction::Lock).is_none());
     assert!(confirm(&state, SessionAction::Suspend).is_none());
+    assert!(
+        confirm(&state, SessionAction::LogOut).is_none(),
+        "log out is confirmed by agents, the same dialog as restart"
+    );
     assert!(confirm(&state, SessionAction::Reboot).is_none());
     assert!(confirm(&state, SessionAction::PowerOff).is_none());
     let (title, _, accept) = confirm(&state, SessionAction::Hibernate).expect("hibernate");
     assert_eq!(title, "Hibernate");
     assert_eq!(accept, "Hibernate");
-    let (title, _, _) = confirm(&state, SessionAction::LogOut).expect("log out");
-    assert_eq!(title, "Log out");
 }
 
 #[test]

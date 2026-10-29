@@ -55,7 +55,6 @@ const ART_SIDE: i32 = 128;
 
 pub struct AppInit {
     pub config: Config,
-    pub pam_service: auth::Service,
     pub theme: Theme,
     pub standalone: bool,
     pub cant_verify: bool,
@@ -139,7 +138,6 @@ pub struct App {
     styles: Styles,
     machine: Lifecycle,
     user: Option<String>,
-    pam_service: auth::Service,
     unlocked: Arc<AtomicBool>,
     logind: Option<UnboundedSender<Request>>,
     notices: Option<UnboundedSender<Notice>>,
@@ -256,7 +254,6 @@ impl SimpleComponent for App {
             styles,
             machine,
             user: init.user,
-            pam_service: init.pam_service,
             unlocked: init.unlocked,
             logind,
             notices,
@@ -304,10 +301,8 @@ impl SimpleComponent for App {
             AppInput::ConfigVerdict(verdict) => self.actions.report(verdict),
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
-                self.pam_service.reload(&config.lock.pam_service);
                 let redecode = background::redecodes(&self.config, &config);
                 let recolor = self.config.lock.background.color != config.lock.background.color;
-                let session_changed = self.config.lock.session != config.lock.session;
                 self.config = config;
                 if recolor {
                     self.color = raster::color(&self.config.lock.background.color);
@@ -317,10 +312,6 @@ impl SimpleComponent for App {
                         .configure(background::variants(&self.config));
                     self.decode(&sender);
                     self.warm();
-                }
-                if session_changed {
-                    self.session =
-                        session::states(&self.config.lock.session, &self.session_answers);
                 }
                 self.styles
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
@@ -453,7 +444,7 @@ impl SimpleComponent for App {
                 }
             }
             AppInput::Art(generation, path, loaded) => {
-                let current = self.art_wanted().map(ToOwned::to_owned);
+                let current = media::art_path(&self.mpris_players).map(ToOwned::to_owned);
                 match self.art.take(
                     generation,
                     path,
@@ -469,7 +460,7 @@ impl SimpleComponent for App {
             }
             AppInput::SessionAnswers(answers) => {
                 self.session_answers = answers;
-                self.session = session::states(&self.config.lock.session, &self.session_answers);
+                self.session = session::states(&self.session_answers);
                 self.restage();
             }
             AppInput::SessionRequested(action, id) => {
@@ -662,15 +653,14 @@ impl App {
             sender.input(finished(failed));
             return;
         };
-        let mut result =
-            match auth::spawn(self.pam_service.name().to_owned(), user.clone(), password) {
-                Ok(result) => result,
-                Err(error) => {
-                    tracing::error!(%error, "cannot start an authentication thread");
-                    sender.input(finished(failed));
-                    return;
-                }
-            };
+        let mut result = match auth::spawn(auth::SERVICE.to_owned(), user.clone(), password) {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::error!(%error, "cannot start an authentication thread");
+                sender.input(finished(failed));
+                return;
+            }
+        };
         let sender = sender.clone();
         relm4::spawn(async move {
             match tokio::time::timeout(auth::TIMEOUT, &mut result).await {
@@ -712,23 +702,17 @@ impl App {
             color: self.color,
             fit: raster::content_fit(background.fit),
             dim: background::dim(background.dim, background.dim_dark, dark),
-            clock: lock.clock.enabled.then(|| {
-                (
-                    glimpse_config::clock(glimpse_config::twelve_hour()).to_owned(),
-                    lock.clock.date_format.clone(),
-                )
-            }),
+            clock: (
+                glimpse_config::clock(glimpse_config::twelve_hour()).to_owned(),
+                lock.clock.date_format.clone(),
+            ),
             user: self.display_name.clone().or_else(|| self.user.clone()),
             avatar: self.avatar.shown.clone(),
             prompt_output: lock.prompt_output.clone(),
             session: self.session.clone(),
-            track: media::track_of(
-                &self.mpris_players,
-                lock.media.enabled,
-                self.art.shown.as_ref(),
-            ),
+            track: media::track_of(&self.mpris_players, self.art.shown.as_ref()),
             notifications: self.chip_groups(),
-            status: status::shown(&self.status, lock.status.enabled),
+            status: self.status.clone(),
         }
     }
 
@@ -771,15 +755,8 @@ impl App {
         self.surfaces.is_some() && self.machine.is_locking()
     }
 
-    fn art_wanted(&self) -> Option<&str> {
-        match self.config.lock.media.enabled {
-            true => media::art_path(&self.mpris_players),
-            false => None,
-        }
-    }
-
     fn load_art(&mut self, sender: &ComponentSender<Self>) {
-        let wanted = self.art_wanted().map(ToOwned::to_owned);
+        let wanted = media::art_path(&self.mpris_players).map(ToOwned::to_owned);
         let Some(request) = self
             .art
             .request(wanted.as_deref(), self.lock_active(), Instant::now())
@@ -811,14 +788,13 @@ impl App {
     }
 
     fn chip_groups(&self) -> Vec<glimpse_widgets::ChipGroup> {
-        let notifications = &self.config.lock.notifications;
-        if !notifications.enabled || self.notif_unavailable {
+        if self.notif_unavailable {
             return Vec::new();
         }
         let Some(since) = self.lock_started else {
             return Vec::new();
         };
-        chips::groups_of(&self.notif_records, since, notifications.privacy)
+        chips::groups_of(&self.notif_records, since)
     }
 
     fn restage(&self) {

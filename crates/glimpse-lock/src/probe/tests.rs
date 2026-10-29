@@ -103,27 +103,23 @@ fn the_pam_stack_is_looked_up_in_etc_before_usr_lib() {
 }
 
 #[test]
-fn a_missing_pam_service_refuses_at_startup() {
-    let missing = "glimpse-lock-no-such-service-for-tests";
-    assert!(!failures(&startup(missing)).is_empty());
-    assert!(!pam_stack(missing).passed());
+fn a_missing_pam_service_fails_its_check() {
+    assert!(!pam_stack("glimpse-lock-no-such-service-for-tests").passed());
 }
 
 #[test]
-fn a_malformed_pam_service_is_refused_for_its_name_alone() {
+fn the_shipped_pam_service_passes() {
     let shipped = include_str!("../../../../data/pam.d/glimpse-lock");
-    let stack = |name: &str| pam_stack_in(name, &PAM_DIRS, |_| true, |_| Some(shipped.to_owned()));
     assert_eq!(
-        stack("glimpse-lock").outcome,
+        pam_stack_in(
+            crate::auth::SERVICE,
+            &PAM_DIRS,
+            |_| true,
+            |_| Some(shipped.to_owned())
+        )
+        .outcome,
         Ok(Some("/etc/pam.d/glimpse-lock".to_owned()))
     );
-    for name in [".hidden", "a\0b", "..", ".", "/abs", "a/b", "../passwd", ""] {
-        assert_eq!(
-            stack(name).outcome,
-            Err(NOT_A_SERVICE.to_owned()),
-            "{name:?} must be refused as a name"
-        );
-    }
 }
 
 #[test]

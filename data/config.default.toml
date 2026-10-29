@@ -116,7 +116,6 @@ blur-radius = 24
 downscale-factor = 4
 
 [lock]
-pam-service = "glimpse-lock"
 prompt-output = "focused"
 
 [lock.background]
@@ -127,26 +126,7 @@ dim = 0.35
 dim-dark = 0.5
 
 [lock.clock]
-enabled = true
-date-format = "%A, {day} %B"
-
-[lock.status]
-enabled = true
-
-[lock.notifications]
-enabled = true
-privacy = "apps"
-
-[lock.media]
-enabled = true
-
-[lock.session]
-enabled = true
-actions = [
-    "suspend",
-    "reboot",
-    "power-off",
-]
+date-format = "%A, %-d %B"
 
 [places]
 trash = true

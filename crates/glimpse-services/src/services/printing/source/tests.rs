@@ -269,3 +269,43 @@ fn a_job_with_only_none_has_no_reason() {
     )]);
     assert_eq!(job.reason, "");
 }
+
+#[test]
+fn a_job_reads_its_template_attributes_and_creation_time() {
+    let job = job_with(vec![
+        ("copies", IppValue::Integer(2)),
+        (
+            "sides",
+            IppValue::Keyword("two-sided-long-edge".try_into().expect("a keyword")),
+        ),
+        (
+            "media",
+            IppValue::Keyword("iso_a4_210x297mm".try_into().expect("a keyword")),
+        ),
+        ("time-at-creation", IppValue::Integer(1_793_278_920)),
+        (
+            "job-originating-user-name",
+            IppValue::NameWithoutLanguage("maria".try_into().expect("a name")),
+        ),
+        (
+            "job-hold-until",
+            IppValue::Keyword("night".try_into().expect("a keyword")),
+        ),
+    ]);
+    assert_eq!(job.copies, Some(2));
+    assert_eq!(job.sides, "two-sided-long-edge");
+    assert_eq!(job.media, "iso_a4_210x297mm");
+    assert_eq!(
+        job.created.map(|created| created.timestamp()),
+        Some(1_793_278_920)
+    );
+    assert_eq!(job.user, "maria");
+    assert_eq!(job.hold_until, "night");
+    assert!(job.color_mode.is_empty() && job.host.is_empty());
+}
+
+#[test]
+fn a_zero_creation_time_is_unknown() {
+    let job = job_with(vec![("time-at-creation", IppValue::Integer(0))]);
+    assert_eq!(job.created, None);
+}

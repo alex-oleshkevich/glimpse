@@ -261,7 +261,7 @@ fn a_lock_window_reports_painted_once_it_draws() {
         color: gdk::RGBA::BLACK,
         fit: gtk4::ContentFit::Cover,
         dim: 0.0,
-        clock: None,
+        clock: (String::new(), String::new()),
         user: None,
         avatar: None,
         prompt_output: FOCUSED.to_owned(),

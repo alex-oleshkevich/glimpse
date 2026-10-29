@@ -53,9 +53,9 @@ pub async fn turns_true(hints: impl Stream<Item = bool>, cap: Duration) -> bool 
     .unwrap_or(false)
 }
 
-pub async fn check(pam_service: &str) -> Result<()> {
+pub async fn check() -> Result<()> {
     let mut checks = service_checks().await;
-    checks.extend(probe::startup(pam_service));
+    checks.extend(probe::startup());
     checks.push(Check {
         name: "user".to_owned(),
         outcome: crate::user::current().map(Some),
