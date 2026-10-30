@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.1\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-29 21:55+0100\n"
+"POT-Creation-Date: 2026-10-30 15:48+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -110,7 +110,7 @@ msgid "Sign in to “{name}”"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:118
-#: crates/glimpse-agents/src/obex/mod.rs:132
+#: crates/glimpse-agents/src/obex/mod.rs:134
 msgid "this device"
 msgstr ""
 
