@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.1\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-29 16:34+0100\n"
+"POT-Creation-Date: 2026-10-29 21:55+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3215,8 +3215,7 @@ msgid "Copy and Close"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
-msgid "Copy"
+msgid "Copy (Window)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:146
@@ -3453,6 +3452,10 @@ msgstr ""
 #: crates/glimpse-widgets/src/audio_popover/mod.rs:410
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
 msgid "Unmute"
+msgstr ""
+
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
+msgid "Copy"
 msgstr ""
 
 #: crates/glimpse-widgets/src/display_list/mod.rs:133

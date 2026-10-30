@@ -279,6 +279,98 @@ fn file_marks_remain_editable_and_answers_survive_failed_saves() {
 
 #[test]
 #[ignore = "needs a display"]
+fn finishing_with_a_pending_crop_exports_the_cropped_picture() {
+    glib::set_application_name("Screenshot test");
+    gtk4::init().expect("display");
+    adw::init().expect("libadwaita");
+    glimpse_widgets::register_resources().expect("resources");
+    let app = adw::Application::builder()
+        .application_id("me.aresa.Glimpse.Shot.CropFinishTest")
+        .build();
+    app.register(gio::Cancellable::NONE).expect("register");
+    let scratch = tempfile::tempdir().expect("scratch");
+    let output = scratch.path().join("cropped.png");
+    let image = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/every_mark.png");
+    let doc = load(&image).expect("PNG");
+    let (frame_width, frame_height) = match &doc.source {
+        Source::File { frame, .. } => (frame.width, frame.height),
+        _ => panic!("the sample is a file"),
+    };
+    let crop = Rect {
+        x: BufferPx(8),
+        y: BufferPx(12),
+        width: BufferPx(40),
+        height: BufferPx(24),
+    };
+    assert!(
+        crop.width.0 < frame_width as i32 && crop.height.0 < frame_height as i32,
+        "crop must be smaller than the {frame_width}x{frame_height} frame"
+    );
+    let face = open(
+        &app,
+        adw::ApplicationWindow::builder().application(&app).build(),
+        Setup {
+            json: false,
+            output: Some(output.clone()),
+            scale: ScaleMode::Buffer,
+            config: ScreenshotConfig::default(),
+            prompt: None,
+            timeout: None,
+        },
+        Opened {
+            editor: Editor::new(
+                doc,
+                Style {
+                    color: PaletteColor::Red,
+                    stroke: Stroke::Medium,
+                },
+            ),
+            target: None,
+            taken: None,
+            saved: true,
+        },
+        &gio::Menu::new().upcast::<gio::MenuModel>(),
+        None,
+    );
+    face.edit(|editor| editor.pending_crop = Some(crop));
+    assert_eq!(
+        face.sheet
+            .read(|editor| (editor.doc.crop, editor.pending_crop)),
+        Some((None, Some(crop))),
+        "a dragged crop stays pending until finish"
+    );
+    let wait_for = |ready: &dyn Fn() -> bool| {
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !ready() && std::time::Instant::now() < until {
+            let context = glib::MainContext::default();
+            while context.pending() {
+                context.iteration(false);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(ready(), "operation settled");
+    };
+    face.finish(FinishKey::Save);
+    wait_for(&|| output.exists() && matches!(*face.phase.borrow(), Phase::Editing { .. }));
+    assert_eq!(
+        face.sheet
+            .read(|editor| (editor.doc.crop, editor.pending_crop)),
+        Some((None, Some(crop))),
+        "finishing does not apply the crop on screen"
+    );
+    let bytes = std::fs::read(&output).expect("saved");
+    assert!(bytes.len() >= 24, "PNG header");
+    let width = u32::from_be_bytes(bytes[16..20].try_into().expect("width"));
+    let height = u32::from_be_bytes(bytes[20..24].try_into().expect("height"));
+    assert_eq!(
+        (width, height),
+        (crop.width.0 as u32, crop.height.0 as u32),
+        "buffer scale exports the pending crop, not the {frame_width}x{frame_height} frame"
+    );
+}
+
+#[test]
+#[ignore = "needs a display"]
 fn text_entry_has_a_readable_height_and_grows_with_lines() {
     gtk4::init().expect("nested display");
     adw::init().expect("libadwaita");

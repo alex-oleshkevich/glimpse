@@ -272,6 +272,14 @@ impl Editor {
         true
     }
 
+    pub fn exported(&self) -> Document {
+        let mut doc = self.doc.clone();
+        if let Some(crop) = self.pending_crop {
+            doc.crop = Some(crop);
+        }
+        doc
+    }
+
     pub fn shown(&self) -> Rect<BufferPx> {
         let (width, height) = frame_size(&self.doc);
         let whole = Rect {

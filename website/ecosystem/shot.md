@@ -63,11 +63,13 @@ ovals, numbered steps, text, a highlighter, a pen, crop, and blur for anything p
 | --- | --- |
 | <kbd>Enter</kbd> | copy the picture and close |
 | <kbd>Shift</kbd>+<kbd>Enter</kbd> | save it and close |
-| <kbd>Ctrl</kbd>+<kbd>C</kbd> | copy it and keep editing |
+| <kbd>Ctrl</kbd>+<kbd>C</kbd> | copy it and close |
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | save it and keep editing |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | choose where to save it |
 | <kbd>Ctrl</kbd>+<kbd>E</kbd> | move it into a normal window to keep working |
 | <kbd>Esc</kbd> | close without saving |
+
+In the window that <kbd>Ctrl</kbd>+<kbd>E</kbd> opens, <kbd>Ctrl</kbd>+<kbd>C</kbd> copies the picture and keeps the window open.
 
 Saved pictures go to `Screenshots` inside your Pictures folder, named after the time they were
 taken, for example `Screenshot from 2026-10-15 21-19-04.png`. Change the folder or the name in the

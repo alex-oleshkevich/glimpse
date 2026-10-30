@@ -851,7 +851,7 @@ impl ResultFace {
     }
 
     fn doc(&self) -> Option<Document> {
-        self.sheet.read(|editor| editor.doc.clone())
+        self.sheet.read(|editor| editor.exported())
     }
 
     fn is_dirty(&self) -> bool {

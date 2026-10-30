@@ -61,10 +61,12 @@ of an optional value as a flag.
 waits in `Countdown` until a `Tick` at or past the deadline.
 `Finish(key, destination)` queues `Encode`, then `Write`/`Copy`/`Share`, and emits them one at a
 time, the next only after `Effected(Ok)` of the previous; `Effected(Write(actual))` carries the path
-actually written, and a queued `Share` is rewritten to it. A closing key ends in `Done`; Ctrl+C and
-Ctrl+S return to `Editing` with the results and a toast, so Esc afterwards ends `Saved`/`Copied`,
-never `Cancelled`. A failed effect ends `Failed` headless and returns to `Editing` with a toast in a
-GUI face, marks and earlier results kept. `Notify` is emitted on completion only when the face asks.
+actually written, and a queued `Share` is rewritten to it. Every export reads `Editor::exported`,
+the document with a pending crop in place of its own, so finishing never applies the crop on
+screen. A closing key ends in `Done`. Ctrl+S, and Ctrl+C in the Result window, return to `Editing`
+with the results and a toast, so Esc afterwards ends `Saved`/`Copied`, never `Cancelled`.
+A failed effect ends `Failed` headless and returns to `Editing` with a toast in a GUI face, marks and
+earlier results kept. `Notify` is emitted on completion only when the face asks.
 
 Adapters ask the compositor for the focused output and windows when the capture happens, so a
 delay ends on what was focused then. Clipboard ownership goes through `hold`; file naming uses
@@ -180,6 +182,7 @@ waits for the compositor before the capture, and the overlay is hidden before th
   | --- | --- |
   | Tap or hold `n`, `b`, `r` | select Number, Blur, or Rect; a hold borrows the tool and restores the previous one when released, except from Crop or Text |
   | Enter | commit typed text, else apply a pending crop, else copy and close; a held Enter never copies |
+  | Ctrl+C | copy and close, cropped to a pending crop; skipped while typing |
   | Shift+Enter | break the line while typing, else save to the default path and close |
   | Space | take the whole output while a region is dragged |
   | Scroll | step the size of Text, Number, Arrow, Line or Blur from Thin to Thick for the next mark |

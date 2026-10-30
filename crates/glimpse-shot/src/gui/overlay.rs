@@ -286,7 +286,7 @@ impl Run {
     }
 
     fn doc(&self) -> Option<Document> {
-        self.ui()?.canvas.read(|editor| editor.doc.clone())
+        self.ui()?.canvas.read(|editor| editor.exported())
     }
 
     fn toast(&self, text: &str) {
@@ -857,7 +857,7 @@ impl Run {
                 run.finish(FinishKey::SaveAsClose)
             });
             bind("<Control><Shift>s", true, Run::save_as);
-            bind("<Control>c", true, |run| run.finish(FinishKey::Copy));
+            bind("<Control>c", true, |run| run.finish(FinishKey::CopyClose));
             bind("<Control>s", true, |run| run.finish(FinishKey::Save));
             bind("<Control>e", true, |run| {
                 run.finish(FinishKey::OpenInWindow)
