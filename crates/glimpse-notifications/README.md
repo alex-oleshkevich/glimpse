@@ -40,11 +40,12 @@ sender's window — by process, else by application id, since an XWayland or san
 to another process — and activates the notification with an activation token taken before the card
 leaves the pointer; right click hides only the popup;
 close dismisses it into history; a named action invokes the sender action. Activation and actions go
-through the service, which alone decides whether the record closes; the popup hides on either, and a
-`resident` card keeps only its history entry. `resident` governs only what an action does, never the
-popup's lifetime. A zero-timeout or critical notification has no timer and stays until it is acted
-on or closed; a positive `expire_timeout` is the popup's lifetime in milliseconds, and `-1` falls back to
-`hide-delay`. A replacement that loses stickiness while hovered starts paused.
+through the service, which alone decides whether the record closes; the popup hides on activation,
+and on a named action unless the card is `resident`, which then stays until closed or right-clicked.
+`resident` never changes the popup's timer. A zero-timeout or critical notification has no timer and
+stays until it is acted on or closed; a positive `expire_timeout` is the popup's lifetime in
+milliseconds, and `-1` falls back to `hide-delay`. A replacement that loses stickiness while hovered
+starts paused.
 
 The exit fade reads the card's opacity **before** `reset()`: resetting the entry animation writes its
 start value, 0, to the frame, so a start value read afterwards fades from nothing.

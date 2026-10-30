@@ -34,6 +34,7 @@ pub(crate) struct Config {
     pub idle: Duration,
     pub downloads: Option<PathBuf>,
     pub special: fn() -> Option<PathBuf>,
+    pub launch: fn(&str) -> Result<(), glib::Error>,
     pub home: PathBuf,
     pub root: PathBuf,
     pub reactivate: Duration,
@@ -47,6 +48,7 @@ impl Default for Config {
             idle: Duration::from_secs(600),
             downloads: None,
             special: || glib::user_special_dir(glib::UserDirectory::Downloads),
+            launch: |uri| gio::AppInfo::launch_default_for_uri(uri, None::<&gio::AppLaunchContext>),
             home: glib::home_dir(),
             root: glib::user_cache_dir().join("obexd"),
             reactivate: Duration::from_secs(2),
@@ -146,6 +148,7 @@ impl Agent {
             source,
             downloads,
             file: name.clone(),
+            launch: self.config.launch,
         };
         let follow = notify::follow(
             subscription,

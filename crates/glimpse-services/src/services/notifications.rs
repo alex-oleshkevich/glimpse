@@ -668,11 +668,11 @@ async fn resolve_sender(
 }
 
 fn process_desktop_entry(pid: Option<i32>) -> Option<String> {
-    let pid = pid?;
-    let executable =
-        std::fs::read_link(Path::new("/proc").join(pid.to_string()).join("exe")).ok()?;
-    let app_id = executable.file_name()?.to_str()?;
-    DesktopAppInfo::new(&format!("{app_id}.desktop")).map(|_| app_id.to_owned())
+    let pid = u32::try_from(pid?).ok()?;
+    glimpse_utils::process::exe_name(pid)
+        .into_iter()
+        .chain(glimpse_utils::process::unit_app_ids(pid))
+        .find(|app_id| DesktopAppInfo::new(&format!("{app_id}.desktop")).is_some())
 }
 
 fn desktop_name(app_id: &str) -> Option<String> {

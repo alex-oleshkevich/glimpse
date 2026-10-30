@@ -18,7 +18,9 @@ colorchoice-clap.workspace = true
 futures-util.workspace = true
 gettext-rs.workspace = true
 gio.workspace = true
+gio-unix = { workspace = true, features = ["v2_60"] }
 glib.workspace = true
+glimpse-compositors.workspace = true
 glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-utils.workspace = true
@@ -27,6 +29,7 @@ gtk-mcp-agent = { workspace = true, optional = true }
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true
 relm4.workspace = true
+rustix.workspace = true
 shadow-rs.workspace = true
 tokio.workspace = true
 thiserror.workspace = true

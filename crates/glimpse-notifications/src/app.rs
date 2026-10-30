@@ -307,8 +307,10 @@ impl SimpleComponent for App {
             }
             Input::Invoke(id, action) => {
                 let token = activation_token(&self.root);
-                let delta = self.state.hide(id);
-                self.apply(delta, &sender);
+                if !self.state.record(id).is_some_and(|record| record.resident) {
+                    let delta = self.state.hide(id);
+                    self.apply(delta, &sender);
+                }
                 if let Some(services) = &self.services {
                     invoke(services.notifications.clone(), id, action, token);
                 }

@@ -17,10 +17,10 @@ use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use glimpse_dbus::obex::{SERVICE, Transfer1Proxy};
 
 use super::{file, read};
+use crate::notifications::{Signal, signal};
 
 const APP_NAME: &str = "Bluetooth";
 const ICON: &str = "bluetooth-symbolic";
-const NOTIFICATIONS: &str = "org.freedesktop.Notifications";
 const DEADLINE: Duration = Duration::from_secs(5);
 
 pub(super) struct Notify {
@@ -126,49 +126,16 @@ impl Notify {
     }
 
     pub(super) async fn watch(&self) -> zbus::Result<Watch> {
-        let rule = MatchRule::builder()
-            .msg_type(Type::Signal)
-            .sender(NOTIFICATIONS)?
-            .interface(NOTIFICATIONS)?
-            .build()
-            .to_owned();
         Ok(Watch {
-            signals: glimpse_dbus::events(
-                MessageStream::for_match_rule(rule, &self.connection, None)
-                    .await?
-                    .filter_map(|message| future::ready(message.ok())),
-            ),
+            signals: crate::notifications::signals(&self.connection).await?,
         })
     }
-}
-
-pub(super) enum Signal {
-    Action(u32, String),
-    Closed(u32),
 }
 
 pub(super) enum Reply {
     Action(String),
     Closed,
     Lost,
-}
-
-fn signal(message: &Message) -> Option<Signal> {
-    let header = message.header();
-    if header.interface()?.as_str() != NOTIFICATIONS {
-        return None;
-    }
-    match header.member()?.as_str() {
-        "ActionInvoked" => {
-            let (id, key) = message.body().deserialize::<(u32, String)>().ok()?;
-            Some(Signal::Action(id, key))
-        }
-        "NotificationClosed" => {
-            let (id, _) = message.body().deserialize::<(u32, u32)>().ok()?;
-            Some(Signal::Closed(id))
-        }
-        _ => None,
-    }
 }
 
 pub(super) async fn wait_reply(watch: &mut Watch, id: u32) -> Reply {
@@ -292,12 +259,15 @@ pub(super) struct Receive {
     pub(super) source: PathBuf,
     pub(super) downloads: PathBuf,
     pub(super) file: String,
+    pub(super) launch: fn(&str) -> Result<(), glib::Error>,
 }
 
 impl Receive {
     async fn land(&self, notify: &Notify) {
         match file::relocate(&self.source, &self.downloads, &self.file).await {
-            Ok(target) => show_received(notify, &target, &self.downloads, &self.file).await,
+            Ok(target) => {
+                show_received(notify, &target, &self.downloads, &self.file, self.launch).await
+            }
             Err(error) => {
                 tracing::warn!(%error, file = %self.file, "obex: could not move the received file to the downloads");
                 notify.failed(&self.file).await;
@@ -423,7 +393,13 @@ fn percent(size: u64, transferred: u64) -> u8 {
     ((transferred.min(size) * 100) / size) as u8
 }
 
-async fn show_received(notify: &Notify, target: &Path, downloads: &Path, file: &str) {
+async fn show_received(
+    notify: &Notify,
+    target: &Path,
+    downloads: &Path,
+    file: &str,
+    launch: fn(&str) -> Result<(), glib::Error>,
+) {
     let mut watch = match notify.watch().await {
         Ok(watch) => watch,
         Err(error) => {
@@ -439,8 +415,8 @@ async fn show_received(notify: &Notify, target: &Path, downloads: &Path, file: &
         Reply::Closed | Reply::Lost => None,
     };
     match action.as_deref() {
-        Some("default") => open(target).await,
-        Some("folder") => open(downloads).await,
+        Some("default") => open(target, launch).await,
+        Some("folder") => open(downloads, launch).await,
         _ => {}
     }
     if action.is_some() {
@@ -448,13 +424,10 @@ async fn show_received(notify: &Notify, target: &Path, downloads: &Path, file: &
     }
 }
 
-async fn open(target: &Path) {
+async fn open(target: &Path, launch: fn(&str) -> Result<(), glib::Error>) {
     use gio::prelude::FileExt;
     let uri = gio::File::for_path(target).uri();
-    let result = tokio::task::spawn_blocking(move || {
-        gio::AppInfo::launch_default_for_uri(&uri, None::<&gio::AppLaunchContext>)
-    })
-    .await;
+    let result = tokio::task::spawn_blocking(move || launch(&uri)).await;
     match result {
         Ok(Ok(())) => {}
         Ok(Err(error)) => {

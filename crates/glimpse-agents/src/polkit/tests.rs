@@ -407,7 +407,12 @@ async fn a_polkit_cancel_drops_the_request_it_names() {
         .object_server()
         .at(
             PATH,
-            agent::Agent::new(server.clone(), input, Arc::new(Mutex::new(HashSet::new()))),
+            agent::Agent::new(
+                server.clone(),
+                None,
+                input,
+                Arc::new(Mutex::new(HashSet::new())),
+            ),
         )
         .await
         .expect("export");
@@ -423,12 +428,12 @@ async fn a_polkit_cancel_drops_the_request_it_names() {
         .expect("proxy");
     let begin_a = {
         let proxy = proxy.clone();
-        tokio::spawn(async move { call_begin(&proxy, "cookie-a").await })
+        tokio::spawn(async move { call_begin(&proxy, "cookie-a", HashMap::new()).await })
     };
     let ask_a = recv_ask(&mut receiver).await;
     let begin_b = {
         let proxy = proxy.clone();
-        tokio::spawn(async move { call_begin(&proxy, "cookie-b").await })
+        tokio::spawn(async move { call_begin(&proxy, "cookie-b", HashMap::new()).await })
     };
     let ask_b = recv_ask(&mut receiver).await;
     let mut queue = Queue::default();
@@ -881,7 +886,7 @@ async fn a_cancel_after_the_ask_opens_no_helper() {
         .object_server()
         .at(
             PATH,
-            agent::Agent::new(server.clone(), input, Arc::clone(&cancelled)),
+            agent::Agent::new(server.clone(), None, input, Arc::clone(&cancelled)),
         )
         .await
         .expect("export");
@@ -896,7 +901,8 @@ async fn a_cancel_after_the_ask_opens_no_helper() {
         .await
         .expect("proxy");
     let proxy_begin = proxy.clone();
-    let mut begin = tokio::spawn(async move { call_begin(&proxy_begin, "cookie-a").await });
+    let mut begin =
+        tokio::spawn(async move { call_begin(&proxy_begin, "cookie-a", HashMap::new()).await });
     let ask = recv_ask(&mut receiver).await;
     proxy
         .cancel_authentication("cookie-a")
@@ -1151,13 +1157,17 @@ trait AuthenticationAgent {
     fn cancel_authentication(&self, cookie: &str) -> zbus::Result<()>;
 }
 
-async fn call_begin(proxy: &AuthenticationAgentProxy<'_>, cookie: &str) -> zbus::Result<()> {
+async fn call_begin(
+    proxy: &AuthenticationAgentProxy<'_>,
+    cookie: &str,
+    details: HashMap<&str, &str>,
+) -> zbus::Result<()> {
     proxy
         .begin_authentication(
             "org.freedesktop.fwupd.update-internal",
             "Authentication is required to update the system firmware",
             "",
-            HashMap::new(),
+            details,
             cookie,
             Vec::new(),
         )
@@ -1283,4 +1293,438 @@ async fn peer_ping(bus: &zbus::Connection, destination: &zbus::names::UniqueName
         .ping()
         .await
         .expect("ping");
+}
+
+#[test]
+fn descends_walks_the_parent_chain_and_stops() {
+    use super::requester::descends;
+
+    let parents = HashMap::from([(30, 20), (20, 10), (10, 1), (50, 60), (60, 50)]);
+    let parent = |pid: u32| parents.get(&pid).copied();
+    assert!(descends(30, 30, parent));
+    assert!(descends(30, 10, parent));
+    assert!(!descends(30, 99, parent));
+    assert!(!descends(50, 99, parent));
+}
+
+#[test]
+fn the_single_requester_window_is_found_on_the_process_or_an_ancestor() {
+    use super::requester::{Windows, window_of};
+
+    let parents = HashMap::from([(30, 20), (20, 10), (10, 1), (50, 60), (60, 50)]);
+    let parent = |pid: u32| parents.get(&pid).copied();
+    let windows = |owners: Vec<(u64, u32)>| Windows {
+        focused: None,
+        owners,
+    };
+    assert_eq!(
+        window_of(&windows(vec![(7, 30), (9, 5)]), 30, parent),
+        Some(7)
+    );
+    assert_eq!(
+        window_of(&windows(vec![(8, 10), (9, 5)]), 30, parent),
+        Some(8)
+    );
+    assert_eq!(
+        window_of(&windows(vec![(7, 20), (8, 20)]), 30, parent),
+        None
+    );
+    assert_eq!(window_of(&windows(vec![(9, 5)]), 30, parent), None);
+    assert_eq!(window_of(&windows(vec![(9, 5)]), 50, parent), None);
+}
+
+#[derive(Debug, Clone, Default)]
+struct Posted {
+    app: String,
+    actions: Vec<String>,
+    desktop_entry: Option<String>,
+}
+
+struct FakeNotifications {
+    posted: Arc<Mutex<Vec<Posted>>>,
+    closes: Arc<Mutex<Vec<u32>>>,
+    next: std::sync::atomic::AtomicU32,
+}
+
+#[zbus::interface(name = "org.freedesktop.Notifications")]
+impl FakeNotifications {
+    #[allow(clippy::too_many_arguments)]
+    fn notify(
+        &self,
+        app_name: String,
+        _replaces_id: u32,
+        _app_icon: String,
+        _summary: String,
+        _body: String,
+        actions: Vec<String>,
+        hints: HashMap<String, OwnedValue>,
+        _expire_timeout: i32,
+    ) -> u32 {
+        let text = |key: &str| {
+            hints
+                .get(key)
+                .and_then(|value| <&str>::try_from(&**value).ok())
+                .map(str::to_owned)
+        };
+        self.posted.lock().expect("posted").push(Posted {
+            app: app_name,
+            actions,
+            desktop_entry: text("desktop-entry"),
+        });
+        self.next.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    fn close_notification(&self, id: u32) {
+        self.closes.lock().expect("closes").push(id);
+    }
+
+    #[zbus(signal)]
+    async fn action_invoked(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: u32,
+        action: &str,
+    ) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn notification_closed(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: u32,
+        reason: u32,
+    ) -> zbus::Result<()>;
+}
+
+struct FakeCompositor {
+    focused: Option<u64>,
+    windows: Vec<(u64, i32)>,
+    focuses: Arc<Mutex<Vec<u64>>>,
+}
+
+#[zbus::interface(name = "me.aresa.Glimpse.Compositor1")]
+impl FakeCompositor {
+    #[zbus(property)]
+    fn focus(&self) -> HashMap<String, OwnedValue> {
+        self.focused
+            .map(|id| HashMap::from([("window".to_owned(), OwnedValue::from(id))]))
+            .unwrap_or_default()
+    }
+
+    #[zbus(property)]
+    fn windows(&self) -> Vec<HashMap<String, OwnedValue>> {
+        self.windows
+            .iter()
+            .map(|(id, pid)| {
+                HashMap::from([
+                    ("id".to_owned(), OwnedValue::from(*id)),
+                    ("pid".to_owned(), OwnedValue::from(*pid)),
+                ])
+            })
+            .collect()
+    }
+
+    fn focus_window(&self, id: u64) {
+        self.focuses.lock().expect("focuses").push(id);
+    }
+}
+
+const NOTIFICATIONS_PATH: &str = "/org/freedesktop/Notifications";
+
+struct Deferral {
+    _system: glimpse_dbus::testing::PrivateBus,
+    _session: glimpse_dbus::testing::PrivateBus,
+    service: zbus::Connection,
+    proxy: AuthenticationAgentProxy<'static>,
+    receiver: relm4::Receiver<Input>,
+    posted: Arc<Mutex<Vec<Posted>>>,
+    closes: Arc<Mutex<Vec<u32>>>,
+    focuses: Arc<Mutex<Vec<u64>>>,
+    child: std::process::Child,
+}
+
+impl Drop for Deferral {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn requester_process() -> std::process::Child {
+    use std::os::unix::process::CommandExt;
+
+    let mut command = std::process::Command::new("sleep");
+    command.arg("30");
+    unsafe {
+        command.pre_exec(|| {
+            rustix::process::setsid()
+                .map(drop)
+                .map_err(std::io::Error::from)
+        });
+    }
+    command.spawn().expect("requester process")
+}
+
+impl Deferral {
+    async fn start(layout: impl FnOnce(i32) -> (Option<u64>, Vec<(u64, i32)>)) -> Self {
+        let child = requester_process();
+        let pid = i32::try_from(child.id()).expect("pid");
+        let (focused, windows) = layout(pid);
+        let system = glimpse_dbus::testing::PrivateBus::start();
+        let session = glimpse_dbus::testing::PrivateBus::start();
+        let service = session.connection().await;
+        let posted = Arc::new(Mutex::new(Vec::new()));
+        let closes = Arc::new(Mutex::new(Vec::new()));
+        let focuses = Arc::new(Mutex::new(Vec::new()));
+        service
+            .object_server()
+            .at(
+                glimpse_compositors::contract::OBJECT_PATH,
+                FakeCompositor {
+                    focused,
+                    windows,
+                    focuses: Arc::clone(&focuses),
+                },
+            )
+            .await
+            .expect("compositor");
+        service
+            .object_server()
+            .at(
+                NOTIFICATIONS_PATH,
+                FakeNotifications {
+                    posted: Arc::clone(&posted),
+                    closes: Arc::clone(&closes),
+                    next: std::sync::atomic::AtomicU32::new(0),
+                },
+            )
+            .await
+            .expect("notifications");
+        for name in [
+            glimpse_compositors::contract::BUS_NAME,
+            "org.freedesktop.Notifications",
+        ] {
+            glimpse_dbus::own_name(&service, name)
+                .await
+                .expect("own the bus name");
+        }
+        let server = system.connection().await;
+        let (input, receiver) = relm4::channel();
+        server
+            .object_server()
+            .at(
+                PATH,
+                agent::Agent::new(
+                    server.clone(),
+                    Some(session.connection().await),
+                    input,
+                    Arc::new(Mutex::new(HashSet::new())),
+                ),
+            )
+            .await
+            .expect("export");
+        let unique = server.unique_name().expect("unique name").clone();
+        let client = system.connection().await;
+        let proxy = AuthenticationAgentProxy::builder(&client)
+            .destination(unique)
+            .expect("destination")
+            .path(PATH)
+            .expect("path")
+            .build()
+            .await
+            .expect("proxy");
+        Self {
+            _system: system,
+            _session: session,
+            service,
+            proxy,
+            receiver,
+            posted,
+            closes,
+            focuses,
+            child,
+        }
+    }
+
+    fn begin(&self, cookie: &'static str) -> tokio::task::JoinHandle<zbus::Result<()>> {
+        let proxy = self.proxy.clone();
+        let pid = self.child.id().to_string();
+        tokio::spawn(async move {
+            call_begin(
+                &proxy,
+                cookie,
+                HashMap::from([("polkit.subject-pid", pid.as_str())]),
+            )
+            .await
+        })
+    }
+
+    async fn posted(&self) -> Posted {
+        eventually(Duration::from_secs(2), || {
+            self.posted.lock().expect("posted").first().cloned()
+        })
+        .await
+        .expect("a notification")
+    }
+
+    async fn quiet(&mut self) {
+        assert!(
+            tokio::time::timeout(Duration::from_millis(300), self.receiver.recv())
+                .await
+                .is_err(),
+            "an input arrived"
+        );
+    }
+
+    async fn notifications(&self) -> zbus::object_server::InterfaceRef<FakeNotifications> {
+        self.service
+            .object_server()
+            .interface::<_, FakeNotifications>(NOTIFICATIONS_PATH)
+            .await
+            .expect("notifications")
+    }
+
+    async fn emit_action(&self, id: u32, action: &str) {
+        let interface = self.notifications().await;
+        FakeNotifications::action_invoked(interface.signal_emitter(), id, action)
+            .await
+            .expect("action invoked");
+    }
+
+    async fn emit_closed(&self, id: u32, reason: u32) {
+        let interface = self.notifications().await;
+        FakeNotifications::notification_closed(interface.signal_emitter(), id, reason)
+            .await
+            .expect("notification closed");
+    }
+
+    async fn closed(&self, id: u32, within: Duration) -> bool {
+        eventually(within, || {
+            self.closes
+                .lock()
+                .expect("closes")
+                .contains(&id)
+                .then_some(())
+        })
+        .await
+        .is_some()
+    }
+}
+
+async fn eventually<T>(within: Duration, check: impl Fn() -> Option<T>) -> Option<T> {
+    let deadline = Instant::now() + within;
+    loop {
+        if let Some(value) = check() {
+            return Some(value);
+        }
+        if Instant::now() >= deadline {
+            return None;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+fn background(_: i32) -> (Option<u64>, Vec<(u64, i32)>) {
+    (Some(99), vec![(99, i32::MAX)])
+}
+
+async fn cancelled_within(begin: tokio::task::JoinHandle<zbus::Result<()>>, within: Duration) {
+    let error = tokio::time::timeout(within, begin)
+        .await
+        .expect("begin returned in time")
+        .expect("task")
+        .expect_err("cancelled");
+    assert!(is_cancelled(&error));
+}
+
+#[tokio::test]
+async fn a_background_request_waits_behind_a_notification_until_authenticate() {
+    let mut fixture = Deferral::start(background).await;
+    let begin = fixture.begin("cookie-a");
+    let posted = fixture.posted().await;
+    assert_eq!(posted.app, "Authentication");
+    assert_eq!(
+        posted.desktop_entry.as_deref(),
+        Some("me.aresa.Glimpse.Agents")
+    );
+    assert_eq!(
+        posted.actions,
+        ["default", "Authenticate", "authenticate", "Authenticate"]
+    );
+    fixture.quiet().await;
+    fixture.emit_action(1, "authenticate").await;
+    let _ask = recv_ask(&mut fixture.receiver).await;
+    assert!(fixture.closed(1, Duration::from_secs(1)).await);
+    begin.abort();
+}
+
+#[tokio::test]
+async fn dismissing_the_notification_cancels_the_request() {
+    let mut fixture = Deferral::start(background).await;
+    let begin = fixture.begin("cookie-a");
+    fixture.posted().await;
+    fixture.emit_closed(1, 2).await;
+    cancelled_within(begin, Duration::from_secs(2)).await;
+    fixture.quiet().await;
+}
+
+#[tokio::test]
+async fn a_polkit_cancel_closes_the_notification_at_once() {
+    let fixture = Deferral::start(background).await;
+    let begin = fixture.begin("cookie-a");
+    fixture.posted().await;
+    fixture
+        .proxy
+        .cancel_authentication("cookie-a")
+        .await
+        .expect("cancel");
+    assert!(fixture.closed(1, Duration::from_secs(1)).await);
+    cancelled_within(begin, Duration::from_secs(1)).await;
+}
+
+#[tokio::test]
+async fn the_requester_exiting_closes_the_notification() {
+    let mut fixture = Deferral::start(background).await;
+    let begin = fixture.begin("cookie-a");
+    fixture.posted().await;
+    fixture.child.kill().expect("kill");
+    fixture.child.wait().expect("wait");
+    assert!(fixture.closed(1, Duration::from_secs(1)).await);
+    cancelled_within(begin, Duration::from_secs(1)).await;
+}
+
+#[tokio::test]
+async fn show_focuses_the_single_requester_window_and_keeps_waiting() {
+    let mut fixture = Deferral::start(|pid| (Some(99), vec![(7, pid), (99, i32::MAX)])).await;
+    let begin = fixture.begin("cookie-a");
+    let posted = fixture.posted().await;
+    assert_eq!(posted.actions.len(), 6);
+    assert_eq!(posted.actions[4], "focus");
+    fixture.emit_action(1, "focus").await;
+    let focused = eventually(Duration::from_secs(1), || {
+        let focuses = fixture.focuses.lock().expect("focuses").clone();
+        (!focuses.is_empty()).then_some(focuses)
+    })
+    .await;
+    assert_eq!(focused, Some(vec![7]));
+    assert!(fixture.closes.lock().expect("closes").is_empty());
+    fixture.quiet().await;
+    fixture.emit_action(1, "authenticate").await;
+    let _ask = recv_ask(&mut fixture.receiver).await;
+    begin.abort();
+}
+
+#[tokio::test]
+async fn no_show_button_when_the_requester_has_several_windows() {
+    let fixture = Deferral::start(|pid| (Some(99), vec![(7, pid), (8, pid), (99, i32::MAX)])).await;
+    let begin = fixture.begin("cookie-a");
+    let posted = fixture.posted().await;
+    assert!(!posted.actions.iter().any(|action| action == "focus"));
+    begin.abort();
+}
+
+#[tokio::test]
+async fn a_request_from_the_focused_app_skips_the_notification() {
+    let mut fixture = Deferral::start(|pid| (Some(7), vec![(7, pid)])).await;
+    let begin = fixture.begin("cookie-a");
+    let _ask = recv_ask(&mut fixture.receiver).await;
+    assert!(fixture.posted.lock().expect("posted").is_empty());
+    begin.abort();
 }
