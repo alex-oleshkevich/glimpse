@@ -2,6 +2,7 @@ pub mod args;
 pub mod i18n;
 pub mod log;
 pub mod markup;
+pub mod process;
 pub mod selection;
 pub mod size;
 pub mod text;

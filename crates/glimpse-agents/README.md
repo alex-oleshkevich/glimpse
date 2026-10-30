@@ -87,6 +87,12 @@ device names pass `glimpse_utils::clean` with a cap and are set with plain `set_
 The first polkit detail is Command, read from `/proc/<subject-pid>/cmdline` (falling back to the caller
 PID when the subject PID is absent) because polkitd forwards no command line.
 
+**A polkit request waits behind a notification when its requester is in the background.** The dialog
+shows at once when the subject process (else the caller) has a controlling terminal or descends from
+the focused window's process, or when any of that is unknown. Otherwise a resident notification's
+actions open the dialog or focus the requester's single window; closing it, a polkit cancel or the
+requester's exit cancels the request.
+
 **Secrets never reach a log.** Passwords, PINs, passkeys and polkit cookies are redacted from every
 `Debug` output, input messages print no request key, and a collected secret is a `Zeroizing` string.
 

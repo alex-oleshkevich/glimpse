@@ -1,21 +1,30 @@
 use std::collections::{HashMap, HashSet};
+use std::pin::pin;
 use std::sync::{Arc, Mutex};
 
+use futures_util::StreamExt;
 use gettextrs::gettext;
+use glimpse_compositors::client::Compositor1Proxy;
+use glimpse_utils::clean;
 use relm4::Sender;
-use tokio::sync::oneshot;
+use tokio::io::unix::AsyncFd;
+use tokio::sync::{Notify, oneshot};
 use zbus::zvariant::{OwnedValue, Value};
 
-use glimpse_dbus::DEADLINE;
 use glimpse_dbus::accounts::{AccountsProxy, AccountsUserProxy};
 use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use glimpse_dbus::polkit::AuthorityProxy;
+use glimpse_dbus::{DEADLINE, Delivery};
 
 use crate::ask::{Ask, Input, Prompt, Reply, Source};
+use crate::notifications::{self, Signal};
+use crate::polkit::requester::{self, Background};
 use crate::polkit::{Outcome, request, resolve_identities, unix_users};
 
 pub const PATH: &str = "/org/freedesktop/PolicyKit1/AuthenticationAgent";
 
+const AUTHENTICATE: &str = "authenticate";
+const FOCUS: &str = "focus";
 const AGENTS_NAME: &str = "me.aresa.Glimpse.Agents";
 const ALREADY_EXISTS: &str = "org.freedesktop.PolicyKit1.Error.Failed";
 
@@ -27,13 +36,16 @@ enum AgentError {
 
 pub struct Agent {
     system: zbus::Connection,
+    session: Option<zbus::Connection>,
     input: Sender<Input>,
     cancelled: Arc<Mutex<HashSet<String>>>,
+    cancel: Notify,
 }
 
 impl Agent {
     pub(crate) fn new(
         system: zbus::Connection,
+        session: Option<zbus::Connection>,
         input: Sender<Input>,
         cancelled: Arc<Mutex<HashSet<String>>>,
     ) -> Self {
@@ -41,6 +53,8 @@ impl Agent {
             system,
             input,
             cancelled,
+            session,
+            cancel: Notify::new(),
         }
     }
 
@@ -63,6 +77,138 @@ impl Agent {
         }
         Ok(())
     }
+
+    async fn defer(
+        &self,
+        session: &zbus::Connection,
+        cookie: &str,
+        body: &str,
+        watched: Option<u32>,
+        background: Background,
+    ) -> bool {
+        let mut gone = Box::pin(exited(watched));
+        if futures_util::FutureExt::now_or_never(&mut gone).is_some() {
+            return false;
+        }
+        let Ok(proxy) = FreedesktopNotificationsProxy::new(session).await else {
+            return true;
+        };
+        let capabilities = tokio::time::timeout(DEADLINE, proxy.get_capabilities()).await;
+        let Ok(Ok(capabilities)) = capabilities else {
+            return true;
+        };
+        if !capabilities.iter().any(|name| name == "actions") {
+            return true;
+        }
+        let Ok(mut signals) = notifications::signals(session).await else {
+            return true;
+        };
+        let Background { window, app } = background;
+        let authenticate = gettext("Authenticate");
+        let show = window.map(|_| match &app {
+            Some(app) => gettext("Show {app}").replace("{app}", &app.name),
+            None => gettext("Show Window"),
+        });
+        let mut actions = vec![
+            "default",
+            authenticate.as_str(),
+            AUTHENTICATE,
+            authenticate.as_str(),
+        ];
+        if let Some(show) = &show {
+            actions.extend([FOCUS, show.as_str()]);
+        }
+        let mut hints = HashMap::from([
+            ("urgency", Value::U8(1)),
+            ("resident", Value::Bool(true)),
+            ("desktop-entry", Value::from(AGENTS_NAME)),
+        ]);
+        if let Some(image) = app.as_ref().and_then(|app| app.image.as_deref()) {
+            hints.insert("image-path", Value::from(image));
+        }
+        let summary = gettext("Authentication required");
+        let header = gettext("Authentication");
+        let text = gtk4::glib::markup_escape_text(&clean(body, 240));
+        let sent = tokio::time::timeout(
+            DEADLINE,
+            proxy.notify(
+                &header,
+                0,
+                "dialog-password-symbolic",
+                &summary,
+                &text,
+                &actions,
+                hints,
+                0,
+            ),
+        )
+        .await;
+        let Ok(Ok(id)) = sent else {
+            return true;
+        };
+        let show = loop {
+            let mut cancel = pin!(self.cancel.notified());
+            cancel.as_mut().enable();
+            if self.cancelled().contains(cookie) {
+                break false;
+            }
+            tokio::select! {
+                delivery = signals.next() => match delivery {
+                    Some(Delivery::Item(Signal::Action(got, key))) if got == id && key == FOCUS => {
+                        if let Some(window) = window {
+                            focus(session, window).await;
+                        }
+                    }
+                    Some(Delivery::Item(Signal::Action(got, _))) if got == id => break true,
+                    Some(Delivery::Item(Signal::Closed(got, 2))) if got == id => return false,
+                    Some(Delivery::Item(Signal::Closed(got, _))) if got == id => return true,
+                    Some(Delivery::Item(Signal::OwnerChanged)) => break true,
+                    Some(Delivery::Item(_)) => {}
+                    Some(Delivery::Missed) | None => break true,
+                },
+                () = &mut cancel => {}
+                () = &mut gone => break false,
+            }
+        };
+        let _ = tokio::time::timeout(DEADLINE, proxy.close_notification(id)).await;
+        show
+    }
+}
+
+async fn focus(session: &zbus::Connection, window: u64) {
+    let focused = tokio::time::timeout(DEADLINE, async {
+        Compositor1Proxy::new(session)
+            .await?
+            .focus_window(window)
+            .await
+    })
+    .await;
+    if !matches!(focused, Ok(Ok(()))) {
+        tracing::debug!(window, "could not focus the requesting window");
+    }
+}
+
+async fn exited(pid: Option<u32>) {
+    let Some(pid) = pid
+        .and_then(|pid| i32::try_from(pid).ok())
+        .and_then(rustix::process::Pid::from_raw)
+    else {
+        return std::future::pending().await;
+    };
+    match rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()) {
+        Ok(fd) => match AsyncFd::new(fd) {
+            Ok(fd) => {
+                let _ = fd.readable().await;
+            }
+            Err(_) => std::future::pending().await,
+        },
+        Err(rustix::io::Errno::SRCH) => {}
+        Err(_) => std::future::pending().await,
+    }
+}
+
+fn pid_detail(details: &HashMap<String, String>, key: &str) -> Option<u32> {
+    details.get(key)?.parse::<u32>().ok().filter(|pid| *pid > 1)
 }
 
 #[zbus::interface(name = "org.freedesktop.PolicyKit1.AuthenticationAgent")]
@@ -77,16 +223,27 @@ impl Agent {
         cookie: String,
         identities: Vec<(String, HashMap<String, OwnedValue>)>,
     ) -> Result<(), AgentError> {
+        let subject = pid_detail(&details, "polkit.subject-pid");
+        let caller = pid_detail(&details, "polkit.caller-pid");
         let identities = admin_identities(&self.system, &identities).await;
         let (reply, answer) = oneshot::channel();
+        let request = request(&action_id, &message, details, cookie.clone(), identities).await;
+        let body = request.message.clone();
         let ask = Ask {
             source: Source::Polkit,
             key: cookie.clone(),
-            prompt: Prompt::Polkit(
-                request(&action_id, &message, details, cookie.clone(), identities).await,
-            ),
+            prompt: Prompt::Polkit(request),
             reply: Reply::Polkit(reply),
         };
+        if let Some(session) = self.session.as_ref()
+            && let Some(background) = requester::background(session, subject.or(caller)).await
+            && !self
+                .defer(session, &cookie, &body, caller.or(subject), background)
+                .await
+        {
+            self.take_cancelled(&cookie);
+            return Err(cancelled());
+        }
         self.begin(&cookie, ask).await?;
         if self.cancelled().contains(&cookie) {
             let _ = self.input.send(Input::Withdraw {
@@ -104,6 +261,7 @@ impl Agent {
 
     async fn cancel_authentication(&self, cookie: String) -> Result<(), AgentError> {
         self.cancelled().insert(cookie.clone());
+        self.cancel.notify_waiters();
         let _ = self.input.send(Input::Withdraw {
             source: Source::Polkit,
             key: Some(cookie),
@@ -239,7 +397,10 @@ pub(crate) async fn serve_with(
 ) {
     if let Err(error) = system
         .object_server()
-        .at(PATH, Agent::new(system.clone(), input, cancelled))
+        .at(
+            PATH,
+            Agent::new(system.clone(), session.clone(), input, cancelled),
+        )
         .await
     {
         tracing::warn!(%error, "could not export the polkit agent");

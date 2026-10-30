@@ -37,6 +37,7 @@ pub enum Outcome {
 }
 
 pub mod agent;
+pub(crate) mod requester;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

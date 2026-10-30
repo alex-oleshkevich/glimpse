@@ -17,10 +17,10 @@ use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use glimpse_dbus::obex::{SERVICE, Transfer1Proxy};
 
 use super::{file, read};
+use crate::notifications::Signal;
 
 const APP_NAME: &str = "Bluetooth";
 const ICON: &str = "bluetooth-symbolic";
-const NOTIFICATIONS: &str = "org.freedesktop.Notifications";
 const DEADLINE: Duration = Duration::from_secs(5);
 
 pub(super) struct Notify {
@@ -30,7 +30,7 @@ pub(super) struct Notify {
 }
 
 pub(super) struct Watch {
-    signals: BoxStream<'static, Delivery<Message>>,
+    signals: BoxStream<'static, Delivery<Signal>>,
 }
 
 impl Notify {
@@ -126,25 +126,10 @@ impl Notify {
     }
 
     pub(super) async fn watch(&self) -> zbus::Result<Watch> {
-        let rule = MatchRule::builder()
-            .msg_type(Type::Signal)
-            .sender(NOTIFICATIONS)?
-            .interface(NOTIFICATIONS)?
-            .build()
-            .to_owned();
         Ok(Watch {
-            signals: glimpse_dbus::events(
-                MessageStream::for_match_rule(rule, &self.connection, None)
-                    .await?
-                    .filter_map(|message| future::ready(message.ok())),
-            ),
+            signals: crate::notifications::signals(&self.connection).await?,
         })
     }
-}
-
-pub(super) enum Signal {
-    Action(u32, String),
-    Closed(u32),
 }
 
 pub(super) enum Reply {
@@ -153,32 +138,15 @@ pub(super) enum Reply {
     Lost,
 }
 
-fn signal(message: &Message) -> Option<Signal> {
-    let header = message.header();
-    if header.interface()?.as_str() != NOTIFICATIONS {
-        return None;
-    }
-    match header.member()?.as_str() {
-        "ActionInvoked" => {
-            let (id, key) = message.body().deserialize::<(u32, String)>().ok()?;
-            Some(Signal::Action(id, key))
-        }
-        "NotificationClosed" => {
-            let (id, _) = message.body().deserialize::<(u32, u32)>().ok()?;
-            Some(Signal::Closed(id))
-        }
-        _ => None,
-    }
-}
-
 pub(super) async fn wait_reply(watch: &mut Watch, id: u32) -> Reply {
     while let Some(delivery) = watch.signals.next().await {
-        let Delivery::Item(message) = delivery else {
+        let Delivery::Item(signal) = delivery else {
             return Reply::Lost;
         };
-        match signal(&message) {
-            Some(Signal::Action(got, key)) if got == id => return Reply::Action(key),
-            Some(Signal::Closed(got)) if got == id => return Reply::Closed,
+        match signal {
+            Signal::Action(got, key) if got == id => return Reply::Action(key),
+            Signal::Closed(got, _) if got == id => return Reply::Closed,
+            Signal::OwnerChanged => return Reply::Lost,
             _ => {}
         }
     }
