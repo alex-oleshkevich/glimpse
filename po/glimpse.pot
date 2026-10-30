@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.1\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-30 16:14+0100\n"
+"POT-Creation-Date: 2026-10-30 20:57+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -209,27 +209,27 @@ msgstr ""
 msgid "Could not receive “{file}”"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/agent.rs:106
+#: crates/glimpse-agents/src/polkit/agent.rs:107
 msgid "Authenticate"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/agent.rs:108
+#: crates/glimpse-agents/src/polkit/agent.rs:109
 msgid "Show {app}"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/agent.rs:109
+#: crates/glimpse-agents/src/polkit/agent.rs:110
 msgid "Show Window"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/agent.rs:128
+#: crates/glimpse-agents/src/polkit/agent.rs:129
 msgid "Authentication required"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/agent.rs:129
+#: crates/glimpse-agents/src/polkit/agent.rs:130
 msgid "Authentication"
 msgstr ""
 
-#: crates/glimpse-agents/src/polkit/agent.rs:325
+#: crates/glimpse-agents/src/polkit/agent.rs:316
 msgid ""
 "Another authentication agent is running; glimpse can't ask for admin "
 "passwords"

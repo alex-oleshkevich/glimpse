@@ -18,7 +18,7 @@ use glimpse_dbus::{DEADLINE, Delivery};
 
 use crate::ask::{Ask, Input, Prompt, Reply, Source};
 use crate::notifications::{self, Signal};
-use crate::polkit::requester::{self, Windows};
+use crate::polkit::requester::{self, Background};
 use crate::polkit::{Outcome, request, resolve_identities, unix_users};
 
 pub const PATH: &str = "/org/freedesktop/PolicyKit1/AuthenticationAgent";
@@ -83,26 +83,27 @@ impl Agent {
         session: &zbus::Connection,
         cookie: &str,
         body: &str,
-        requester: Option<u32>,
-        watched: [Option<u32>; 2],
-        windows: Option<&Windows>,
+        watched: Option<u32>,
+        background: Background,
     ) -> bool {
-        let [first, second] = watched;
-        let mut gone =
-            futures_util::future::select(Box::pin(exited(first)), Box::pin(exited(second)));
+        let mut gone = Box::pin(exited(watched));
         if futures_util::FutureExt::now_or_never(&mut gone).is_some() {
             return false;
         }
         let Ok(proxy) = FreedesktopNotificationsProxy::new(session).await else {
             return true;
         };
+        let capabilities = tokio::time::timeout(DEADLINE, proxy.get_capabilities()).await;
+        let Ok(Ok(capabilities)) = capabilities else {
+            return true;
+        };
+        if !capabilities.iter().any(|name| name == "actions") {
+            return true;
+        }
         let Ok(mut signals) = notifications::signals(session).await else {
             return true;
         };
-        let app = requester::app(requester).await;
-        let window = windows.zip(requester).and_then(|(windows, pid)| {
-            requester::window_of(windows, pid, glimpse_utils::process::parent)
-        });
+        let Background { window, app } = background;
         let authenticate = gettext("Authenticate");
         let show = window.map(|_| match &app {
             Some(app) => gettext("Show {app}").replace("{app}", &app.name),
@@ -153,20 +154,20 @@ impl Agent {
             }
             tokio::select! {
                 delivery = signals.next() => match delivery {
-                    Some(Delivery::Item(message)) => match notifications::signal(&message) {
-                        Some(Signal::Action(got, key)) if got == id && key == FOCUS => {
-                            if let Some(window) = window {
-                                focus(session, window).await;
-                            }
+                    Some(Delivery::Item(Signal::Action(got, key))) if got == id && key == FOCUS => {
+                        if let Some(window) = window {
+                            focus(session, window).await;
                         }
-                        Some(Signal::Action(got, _)) if got == id => break true,
-                        Some(Signal::Closed(got)) if got == id => return false,
-                        _ => {}
-                    },
+                    }
+                    Some(Delivery::Item(Signal::Action(got, _))) if got == id => break true,
+                    Some(Delivery::Item(Signal::Closed(got, 2))) if got == id => return false,
+                    Some(Delivery::Item(Signal::Closed(got, _))) if got == id => return true,
+                    Some(Delivery::Item(Signal::OwnerChanged)) => break true,
+                    Some(Delivery::Item(_)) => {}
                     Some(Delivery::Missed) | None => break true,
                 },
                 () = &mut cancel => {}
-                _ = &mut gone => break false,
+                () = &mut gone => break false,
             }
         };
         let _ = tokio::time::timeout(DEADLINE, proxy.close_notification(id)).await;
@@ -224,7 +225,6 @@ impl Agent {
     ) -> Result<(), AgentError> {
         let subject = pid_detail(&details, "polkit.subject-pid");
         let caller = pid_detail(&details, "polkit.caller-pid");
-        let requester = subject.or(caller);
         let identities = admin_identities(&self.system, &identities).await;
         let (reply, answer) = oneshot::channel();
         let request = request(&action_id, &message, details, cookie.clone(), identities).await;
@@ -235,23 +235,14 @@ impl Agent {
             prompt: Prompt::Polkit(request),
             reply: Reply::Polkit(reply),
         };
-        if let Some(session) = self.session.as_ref() {
-            let windows = requester::windows(session).await;
-            if !requester::foreground(windows.as_ref(), requester)
-                && !self
-                    .defer(
-                        session,
-                        &cookie,
-                        &body,
-                        requester,
-                        [subject, caller],
-                        windows.as_ref(),
-                    )
-                    .await
-            {
-                self.take_cancelled(&cookie);
-                return Err(cancelled());
-            }
+        if let Some(session) = self.session.as_ref()
+            && let Some(background) = requester::background(session, subject.or(caller)).await
+            && !self
+                .defer(session, &cookie, &body, caller.or(subject), background)
+                .await
+        {
+            self.take_cancelled(&cookie);
+            return Err(cancelled());
         }
         self.begin(&cookie, ask).await?;
         if self.cancelled().contains(&cookie) {

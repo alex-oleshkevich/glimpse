@@ -1374,6 +1374,12 @@ impl FakeNotifications {
         self.next.fetch_add(1, Ordering::SeqCst) + 1
     }
 
+    fn get_capabilities(&self) -> Vec<String> {
+        ["actions", "body", "persistence"]
+            .map(str::to_owned)
+            .to_vec()
+    }
+
     fn close_notification(&self, id: u32) {
         self.closes.lock().expect("closes").push(id);
     }
@@ -1544,15 +1550,29 @@ impl Deferral {
     }
 
     fn begin(&self, cookie: &'static str) -> tokio::task::JoinHandle<zbus::Result<()>> {
-        let proxy = self.proxy.clone();
         let pid = self.child.id().to_string();
+        self.begin_with(
+            cookie,
+            HashMap::from([("polkit.subject-pid", pid.as_str())]),
+        )
+    }
+
+    fn begin_with(
+        &self,
+        cookie: &'static str,
+        details: HashMap<&str, &str>,
+    ) -> tokio::task::JoinHandle<zbus::Result<()>> {
+        let proxy = self.proxy.clone();
+        let details: HashMap<String, String> = details
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value.to_owned()))
+            .collect();
         tokio::spawn(async move {
-            call_begin(
-                &proxy,
-                cookie,
-                HashMap::from([("polkit.subject-pid", pid.as_str())]),
-            )
-            .await
+            let details = details
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str()))
+                .collect();
+            call_begin(&proxy, cookie, details).await
         })
     }
 
@@ -1621,8 +1641,8 @@ async fn eventually<T>(within: Duration, check: impl Fn() -> Option<T>) -> Optio
     }
 }
 
-fn background(_: i32) -> (Option<u64>, Vec<(u64, i32)>) {
-    (Some(99), vec![(99, i32::MAX)])
+fn background(pid: i32) -> (Option<u64>, Vec<(u64, i32)>) {
+    (Some(99), vec![(5, pid), (6, pid), (99, i32::MAX)])
 }
 
 async fn cancelled_within(begin: tokio::task::JoinHandle<zbus::Result<()>>, within: Duration) {
@@ -1726,5 +1746,59 @@ async fn a_request_from_the_focused_app_skips_the_notification() {
     let begin = fixture.begin("cookie-a");
     let _ask = recv_ask(&mut fixture.receiver).await;
     assert!(fixture.posted.lock().expect("posted").is_empty());
+    begin.abort();
+}
+
+#[tokio::test]
+async fn a_close_the_user_did_not_make_opens_the_dialog() {
+    let mut fixture = Deferral::start(background).await;
+    let begin = fixture.begin("cookie-a");
+    fixture.posted().await;
+    fixture.emit_closed(1, 3).await;
+    let _ask = recv_ask(&mut fixture.receiver).await;
+    begin.abort();
+}
+
+#[tokio::test]
+async fn the_subject_exiting_does_not_cancel_while_the_caller_waits() {
+    let mut subject = requester_process();
+    let subject_pid = i32::try_from(subject.id()).expect("pid");
+    let mut fixture = Deferral::start(move |_| {
+        (
+            Some(99),
+            vec![(5, subject_pid), (6, subject_pid), (99, i32::MAX)],
+        )
+    })
+    .await;
+    let subject_text = subject.id().to_string();
+    let caller_text = fixture.child.id().to_string();
+    let begin = fixture.begin_with(
+        "cookie-a",
+        HashMap::from([
+            ("polkit.subject-pid", subject_text.as_str()),
+            ("polkit.caller-pid", caller_text.as_str()),
+        ]),
+    );
+    fixture.posted().await;
+    subject.kill().expect("kill");
+    subject.wait().expect("wait");
+    assert!(!fixture.closed(1, Duration::from_millis(500)).await);
+    fixture.quiet().await;
+    fixture.emit_action(1, "authenticate").await;
+    let _ask = recv_ask(&mut fixture.receiver).await;
+    begin.abort();
+}
+
+#[tokio::test]
+async fn a_notification_daemon_restart_opens_the_dialog() {
+    let mut fixture = Deferral::start(background).await;
+    let begin = fixture.begin("cookie-a");
+    fixture.posted().await;
+    fixture
+        .service
+        .release_name("org.freedesktop.Notifications")
+        .await
+        .expect("release");
+    let _ask = recv_ask(&mut fixture.receiver).await;
     begin.abort();
 }

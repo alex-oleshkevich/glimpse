@@ -17,7 +17,7 @@ use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
 use glimpse_dbus::obex::{SERVICE, Transfer1Proxy};
 
 use super::{file, read};
-use crate::notifications::{Signal, signal};
+use crate::notifications::Signal;
 
 const APP_NAME: &str = "Bluetooth";
 const ICON: &str = "bluetooth-symbolic";
@@ -30,7 +30,7 @@ pub(super) struct Notify {
 }
 
 pub(super) struct Watch {
-    signals: BoxStream<'static, Delivery<Message>>,
+    signals: BoxStream<'static, Delivery<Signal>>,
 }
 
 impl Notify {
@@ -140,12 +140,13 @@ pub(super) enum Reply {
 
 pub(super) async fn wait_reply(watch: &mut Watch, id: u32) -> Reply {
     while let Some(delivery) = watch.signals.next().await {
-        let Delivery::Item(message) = delivery else {
+        let Delivery::Item(signal) = delivery else {
             return Reply::Lost;
         };
-        match signal(&message) {
-            Some(Signal::Action(got, key)) if got == id => return Reply::Action(key),
-            Some(Signal::Closed(got)) if got == id => return Reply::Closed,
+        match signal {
+            Signal::Action(got, key) if got == id => return Reply::Action(key),
+            Signal::Closed(got, _) if got == id => return Reply::Closed,
+            Signal::OwnerChanged => return Reply::Lost,
             _ => {}
         }
     }

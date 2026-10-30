@@ -23,6 +23,8 @@ pub trait FreedesktopNotifications {
 
     fn close_notification(&self, id: u32) -> zbus::Result<()>;
 
+    fn get_capabilities(&self) -> zbus::Result<Vec<String>>;
+
     #[zbus(signal)]
     fn action_invoked(&self, id: u32, action_key: String) -> zbus::Result<()>;
 

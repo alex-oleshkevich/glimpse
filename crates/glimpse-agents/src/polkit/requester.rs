@@ -12,20 +12,18 @@ pub(crate) struct Windows {
     pub(super) owners: Vec<(u64, u32)>,
 }
 
-pub(crate) async fn windows(session: &zbus::Connection) -> Option<Windows> {
+async fn windows(session: &zbus::Connection) -> Option<Windows> {
     let proxy = Compositor1Proxy::builder(session)
         .cache_properties(CacheProperties::No)
         .build()
         .await
         .ok()?;
-    let focus = tokio::time::timeout(glimpse_dbus::DEADLINE, proxy.focus())
-        .await
-        .ok()?
-        .ok()?;
-    let items = tokio::time::timeout(glimpse_dbus::DEADLINE, proxy.windows())
-        .await
-        .ok()?
-        .ok()?;
+    let (focus, items) = tokio::time::timeout(glimpse_dbus::DEADLINE, async {
+        tokio::try_join!(proxy.focus(), proxy.windows())
+    })
+    .await
+    .ok()?
+    .ok()?;
     let owners: Vec<(u64, u32)> = items
         .iter()
         .filter_map(|item| {
@@ -46,16 +44,9 @@ pub(crate) async fn windows(session: &zbus::Connection) -> Option<Windows> {
     Some(Windows { focused, owners })
 }
 
-pub(crate) fn foreground(windows: Option<&Windows>, pid: Option<u32>) -> bool {
-    let Some(pid) = pid else {
-        return true;
-    };
-    if glimpse_utils::process::has_terminal(pid) {
-        return true;
-    }
-    windows
-        .and_then(|windows| windows.focused)
-        .is_none_or(|focused| descends(pid, focused, glimpse_utils::process::parent))
+pub(crate) struct App {
+    pub(crate) name: String,
+    pub(crate) image: Option<String>,
 }
 
 fn ancestors(pid: u32, parent: impl Fn(u32) -> Option<u32>) -> impl Iterator<Item = u32> {
@@ -89,27 +80,54 @@ pub(super) fn window_of(
         .flatten()
 }
 
-pub(crate) struct App {
-    pub(crate) name: String,
-    pub(crate) image: Option<String>,
-}
-
 enum Icon {
     File(String),
     Names(Vec<String>),
 }
 
-pub(crate) async fn app(pid: Option<u32>) -> Option<App> {
+pub(crate) struct Background {
+    pub(crate) window: Option<u64>,
+    pub(crate) app: Option<App>,
+}
+
+pub(crate) async fn background(session: &zbus::Connection, pid: Option<u32>) -> Option<Background> {
     let pid = pid?;
-    let (name, icon) = tokio::task::spawn_blocking(move || desktop_app(pid))
+    let terminal = tokio::task::spawn_blocking(move || glimpse_utils::process::has_terminal(pid))
         .await
-        .ok()??;
-    let image = match icon {
-        Some(Icon::File(path)) => Some(path),
-        Some(Icon::Names(names)) => theme_file(names).await,
+        .ok()?;
+    if terminal {
+        return None;
+    }
+    let windows = windows(session).await?;
+    let focused = windows.focused?;
+    let (window, found) = tokio::task::spawn_blocking(move || {
+        let parent = glimpse_utils::process::parent;
+        if descends(pid, focused, parent) {
+            return None;
+        }
+        let window = window_of(&windows, pid, parent);
+        let owns = ancestors(pid, parent)
+            .any(|current| windows.owners.iter().any(|(_, owner)| *owner == current));
+        let found = desktop_app(pid);
+        if !owns && found.is_none() {
+            return None;
+        }
+        Some((window, found))
+    })
+    .await
+    .ok()??;
+    let app = match found {
+        Some((name, icon)) => {
+            let image = match icon {
+                Some(Icon::File(path)) => Some(path),
+                Some(Icon::Names(names)) => theme_file(names).await,
+                None => None,
+            };
+            Some(App { name, image })
+        }
         None => None,
     };
-    Some(App { name, image })
+    Some(Background { window, app })
 }
 
 fn desktop_app(pid: u32) -> Option<(String, Option<Icon>)> {
@@ -146,7 +164,7 @@ async fn theme_file(names: Vec<String>) -> Option<String> {
         return None;
     }
     let (tx, rx) = tokio::sync::oneshot::channel();
-    glib::MainContext::default().invoke(move || {
+    glib::idle_add_once(move || {
         let _ = tx.send(lookup(&names));
     });
     tokio::time::timeout(glimpse_dbus::DEADLINE, rx)
