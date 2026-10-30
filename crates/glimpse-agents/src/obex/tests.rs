@@ -471,7 +471,6 @@ impl Harness {
             idle: options.idle,
             downloads: options.downloads,
             special: || None,
-            launch: |_| Ok(()),
             home: options.home,
             root: options.config_root.unwrap_or_else(|| options.root.clone()),
             reactivate: Duration::from_secs(2),

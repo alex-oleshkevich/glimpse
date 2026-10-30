@@ -259,15 +259,12 @@ pub(super) struct Receive {
     pub(super) source: PathBuf,
     pub(super) downloads: PathBuf,
     pub(super) file: String,
-    pub(super) launch: fn(&str) -> Result<(), glib::Error>,
 }
 
 impl Receive {
     async fn land(&self, notify: &Notify) {
         match file::relocate(&self.source, &self.downloads, &self.file).await {
-            Ok(target) => {
-                show_received(notify, &target, &self.downloads, &self.file, self.launch).await
-            }
+            Ok(target) => show_received(notify, &target, &self.downloads, &self.file).await,
             Err(error) => {
                 tracing::warn!(%error, file = %self.file, "obex: could not move the received file to the downloads");
                 notify.failed(&self.file).await;
@@ -393,13 +390,7 @@ fn percent(size: u64, transferred: u64) -> u8 {
     ((transferred.min(size) * 100) / size) as u8
 }
 
-async fn show_received(
-    notify: &Notify,
-    target: &Path,
-    downloads: &Path,
-    file: &str,
-    launch: fn(&str) -> Result<(), glib::Error>,
-) {
+async fn show_received(notify: &Notify, target: &Path, downloads: &Path, file: &str) {
     let mut watch = match notify.watch().await {
         Ok(watch) => watch,
         Err(error) => {
@@ -415,8 +406,8 @@ async fn show_received(
         Reply::Closed | Reply::Lost => None,
     };
     match action.as_deref() {
-        Some("default") => open(target, launch).await,
-        Some("folder") => open(downloads, launch).await,
+        Some("default") => open(target).await,
+        Some("folder") => open(downloads).await,
         _ => {}
     }
     if action.is_some() {
@@ -424,10 +415,13 @@ async fn show_received(
     }
 }
 
-async fn open(target: &Path, launch: fn(&str) -> Result<(), glib::Error>) {
+async fn open(target: &Path) {
     use gio::prelude::FileExt;
     let uri = gio::File::for_path(target).uri();
-    let result = tokio::task::spawn_blocking(move || launch(&uri)).await;
+    let result = tokio::task::spawn_blocking(move || {
+        gio::AppInfo::launch_default_for_uri(&uri, None::<&gio::AppLaunchContext>)
+    })
+    .await;
     match result {
         Ok(Ok(())) => {}
         Ok(Err(error)) => {
