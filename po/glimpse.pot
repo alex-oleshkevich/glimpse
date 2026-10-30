@@ -110,7 +110,7 @@ msgid "Sign in to “{name}”"
 msgstr ""
 
 #: crates/glimpse-agents/src/app/view.rs:118
-#: crates/glimpse-agents/src/obex/mod.rs:132
+#: crates/glimpse-agents/src/obex/mod.rs:134
 msgid "this device"
 msgstr ""
 
