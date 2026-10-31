@@ -1353,7 +1353,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-agents"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1385,7 +1385,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-calendar"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1406,7 +1406,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-compositor-hyprland"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "clap",
  "dirs",
@@ -1425,7 +1425,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-compositor-niri"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "clap",
  "futures-util",
@@ -1441,7 +1441,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-compositors"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "futures-util",
  "glimpse-dbus",
@@ -1454,7 +1454,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-config"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "chrono",
  "config",
@@ -1477,7 +1477,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-dbus"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -1494,7 +1494,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-idle"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1514,7 +1514,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-lens"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anstream",
  "anyhow",
@@ -1540,7 +1540,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-lock"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1572,7 +1572,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-notifications"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1599,7 +1599,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-package"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "tempfile",
  "toml",
@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-panel"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-services"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -1687,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-settings-daemon"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1707,7 +1707,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-shot"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anstream",
  "anyhow",
@@ -1744,7 +1744,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-sunset"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1766,7 +1766,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-utils"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "ammonia",
  "anstream",
@@ -1778,7 +1778,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-wallpaper"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1808,7 +1808,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-wayland"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "futures-util",
  "glib",
@@ -1825,7 +1825,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-weather"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1844,7 +1844,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-widgets"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1867,7 +1867,7 @@ dependencies = [
 
 [[package]]
 name = "glimpsectl"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anstream",
  "anstyle",
