@@ -69,6 +69,26 @@ fn rejects_wrong_key_types() {
         HashMap::from([("value".into(), OwnedValue::from(1_u32))]),
         "value has the wrong type",
     );
+    invalid(
+        HashMap::from([("percent".into(), string("yes"))]),
+        "percent has the wrong type",
+    );
+}
+
+#[test]
+fn percent_defaults_to_false_and_alone_shows_nothing() {
+    let message = parse(HashMap::from([("label".into(), string("Caps Lock"))])).expect("label");
+    assert!(!message.percent);
+    let message = parse(HashMap::from([
+        ("value".into(), OwnedValue::from(0.45)),
+        ("percent".into(), OwnedValue::from(true)),
+    ]))
+    .expect("value with percent");
+    assert!(message.percent);
+    invalid(
+        HashMap::from([("percent".into(), OwnedValue::from(true))]),
+        "nothing to show",
+    );
 }
 
 #[test]

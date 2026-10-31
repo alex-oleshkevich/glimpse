@@ -12,6 +12,7 @@ pub async fn osd_show(
     icon: Option<&str>,
     label: Option<&str>,
     value: Option<u32>,
+    percent: bool,
 ) -> Result<()> {
     let osd = proxy::<OsdProxy>(connection).await?;
     let mut values = HashMap::new();
@@ -23,6 +24,9 @@ pub async fn osd_show(
     }
     if let Some(value) = value {
         values.insert("value", Value::from(f64::from(value) / 100.0));
+    }
+    if percent {
+        values.insert("percent", Value::from(true));
     }
     within(osd.show(values))
         .await

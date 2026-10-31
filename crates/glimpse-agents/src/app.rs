@@ -100,11 +100,6 @@ impl OsdSurface {
             generation: 0,
         }
     }
-
-    fn hide(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-        self.window.set_visible(false);
-    }
 }
 
 impl Surface {
@@ -213,7 +208,7 @@ impl SimpleComponent for App {
     fn update(&mut self, input: Input, sender: ComponentSender<Self>) {
         let osd = matches!(
             &input,
-            Input::Osd(_) | Input::OsdHide | Input::OsdExpired(_)
+            Input::Osd(_) | Input::OsdHide | Input::OsdExpired(_) | Input::OsdGone(_)
         );
         self.ingest(input, sender.input_sender());
         if osd {
@@ -309,16 +304,28 @@ impl App {
                 self.osd_config = config.osd;
                 self.osd_monitor = config.notifications.monitor;
                 if !self.osd_config.enabled {
-                    self.hide_osd();
+                    self.hide_osd(sender);
                 }
             }
             Input::Osd(message) => self.show_osd(message, sender),
-            Input::OsdHide => self.hide_osd(),
+            Input::OsdHide => self.hide_osd(sender),
             Input::OsdExpired(generation) => {
-                if let Some(surface) = &self.osd
-                    && surface.generation == generation
+                if self
+                    .osd
+                    .as_ref()
+                    .is_some_and(|s| s.generation == generation)
                 {
-                    surface.window.set_visible(false);
+                    self.hide_osd(sender);
+                }
+            }
+            Input::OsdGone(generation) => {
+                if self
+                    .osd
+                    .as_ref()
+                    .is_some_and(|s| s.generation == generation)
+                    && let Some(surface) = self.osd.take()
+                {
+                    surface.window.destroy();
                 }
             }
             Input::Ask(ask) => {
@@ -330,7 +337,7 @@ impl App {
                 self.session.locked = Some(locked);
                 if locked {
                     self.cancel_session();
-                    self.hide_osd();
+                    self.hide_osd(sender);
                 }
                 self.queue.lock(locked);
             }
@@ -659,6 +666,7 @@ impl App {
         surface.view.set_label(message.label);
         surface.view.set_has_value(message.value.is_some());
         surface.view.set_value(message.value.unwrap_or(0.0));
+        surface.view.set_show_percent(message.percent);
         for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
             surface.window.set_anchor(edge, false);
         }
@@ -671,6 +679,7 @@ impl App {
             .and_then(glimpse_widgets::monitor_by_connector);
         surface.window.set_monitor(monitor.as_ref());
         let mapped = surface.view.is_mapped();
+        surface.window.remove_css_class("closing");
         surface.window.set_visible(true);
         if mapped {
             surface.view.announce();
@@ -683,10 +692,23 @@ impl App {
         });
     }
 
-    fn hide_osd(&mut self) {
-        if let Some(surface) = &mut self.osd {
-            surface.hide();
+    fn hide_osd(&mut self, sender: &Sender<Input>) {
+        let Some(mut surface) = self.osd.take() else {
+            return;
+        };
+        let duration = glimpse_widgets::duration_ms();
+        if self.headless || duration == 0 || !surface.window.settings().is_gtk_enable_animations() {
+            surface.window.destroy();
+            return;
         }
+        surface.generation = surface.generation.wrapping_add(1);
+        surface.window.add_css_class("closing");
+        let generation = surface.generation;
+        let sender = sender.clone();
+        glib::timeout_add_local_once(Duration::from_millis(u64::from(duration)), move || {
+            sender.emit(Input::OsdGone(generation));
+        });
+        self.osd = Some(surface);
     }
 
     fn cancel_pairing(&self, device: String) {

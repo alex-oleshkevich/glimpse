@@ -2139,6 +2139,16 @@ window.osd-surface .osd-view {
     }
 }
 
+window.osd-surface.closing .osd-view {
+    animation: osd-view-out var(--gl-duration, 150ms) ease-in forwards;
+}
+
+@keyframes osd-view-out {
+    to {
+        opacity: 0;
+    }
+}
+
 .osd-view__icon {
     -gtk-icon-size: 2rem;
 }
@@ -2174,7 +2184,8 @@ progressbar.osd-view__meter progress {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .osd-view {
+    .osd-view,
+    window.osd-surface.closing .osd-view {
         animation: none;
     }
 }

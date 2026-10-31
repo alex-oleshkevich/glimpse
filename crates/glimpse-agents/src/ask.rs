@@ -47,6 +47,7 @@ pub enum Input {
     Osd(crate::osd::Message),
     OsdHide,
     OsdExpired(u64),
+    OsdGone(u64),
     SessionRequest(crate::session::Request),
     SessionReady {
         id: u64,
@@ -85,6 +86,7 @@ impl fmt::Debug for Input {
             Self::Osd(_) => f.write_str("Osd"),
             Self::OsdHide => f.write_str("OsdHide"),
             Self::OsdExpired(_) => f.write_str("OsdExpired"),
+            Self::OsdGone(_) => f.write_str("OsdGone"),
             Self::SessionRequest(_) => f.write_str("SessionRequest"),
             Self::SessionReady { .. } => f.write_str("SessionReady"),
             Self::SessionResponse { .. } => f.write_str("SessionResponse"),

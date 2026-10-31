@@ -28,6 +28,8 @@ pub struct OsdView {
     value: Cell<f64>,
     #[property(name = "has-value", get, set = Self::set_has_value, explicit_notify)]
     has_value: Cell<bool>,
+    #[property(name = "show-percent", get, set = Self::set_show_percent, explicit_notify)]
+    show_percent: Cell<bool>,
 }
 
 impl OsdView {
@@ -68,6 +70,15 @@ impl OsdView {
         self.obj().notify_has_value();
     }
 
+    fn set_show_percent(&self, show_percent: bool) {
+        if self.show_percent.get() == show_percent {
+            return;
+        }
+        self.show_percent.set(show_percent);
+        self.sync();
+        self.obj().notify_show_percent();
+    }
+
     fn sync(&self) {
         let name = self.icon_name.borrow();
         let name = (!name.is_empty()).then_some(name.as_str());
@@ -89,8 +100,9 @@ impl OsdView {
         if self.meter.get_visible() != has_value {
             self.meter.set_visible(has_value);
         }
-        if self.percent.get_visible() != has_value {
-            self.percent.set_visible(has_value);
+        let show_percent = has_value && self.show_percent.get();
+        if self.percent.get_visible() != show_percent {
+            self.percent.set_visible(show_percent);
         }
         let fraction = value.clamp(0.0, 1.0);
         if self.meter.fraction() != fraction {

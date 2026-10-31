@@ -131,6 +131,8 @@ pub enum OsdCommand {
             help = "Level as a percent, from 0 to 200"
         )]
         value: Option<u32>,
+        #[arg(long, help = "Show the level as a percent number")]
+        percent: bool,
     },
     #[command(about = "Hide the on-screen display")]
     Hide,

@@ -14,6 +14,7 @@ pub struct Message {
     pub icon: String,
     pub label: String,
     pub value: Option<f64>,
+    pub percent: bool,
 }
 
 pub struct Server {
@@ -81,10 +82,23 @@ fn parse(values: HashMap<String, OwnedValue>) -> fdo::Result<Message> {
             Ok(value)
         })
         .transpose()?;
+    let percent = values
+        .get("percent")
+        .map(|value| {
+            bool::try_from(value)
+                .map_err(|_| fdo::Error::InvalidArgs("percent has the wrong type".into()))
+        })
+        .transpose()?
+        .unwrap_or(false);
     if icon.is_empty() && label.is_empty() && value.is_none() {
         return Err(fdo::Error::InvalidArgs("nothing to show".into()));
     }
-    Ok(Message { icon, label, value })
+    Ok(Message {
+        icon,
+        label,
+        value,
+        percent,
+    })
 }
 
 #[cfg(test)]

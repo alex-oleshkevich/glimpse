@@ -24,10 +24,14 @@ fn renders_optional_content_and_overamplification() {
     assert!(imp.icon.get_visible());
     assert!(imp.label.get_visible());
     assert!(imp.meter.get_visible());
-    assert!(imp.percent.get_visible());
+    assert!(!imp.percent.get_visible());
+    assert!(!view.show_percent());
     assert_eq!(imp.meter.fraction(), 0.45);
-    assert_eq!(imp.percent.text(), "45%");
     assert!(!imp.root.has_css_class("osd-view--over"));
+
+    view.set_show_percent(true);
+    assert!(imp.percent.get_visible());
+    assert_eq!(imp.percent.text(), "45%");
 
     view.set_value(1.3);
     assert_eq!(imp.meter.fraction(), 1.0);

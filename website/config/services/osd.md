@@ -29,7 +29,7 @@ locked.
 Volume, brightness and layout keybinds need no OSD command: the panel shows the change. Use
 `glimpsectl osd show --icon <icon> --label <label> --value <percent>` for custom cases such as Caps
 Lock. Each option is optional; send an icon, a label, a value or a mix of them. The value is a percent
-from 0 to 200.
+from 0 to 200; add `--percent` to print it as a number beside the meter.
 
 ```sh
 glimpsectl osd show --icon input-keyboard-symbolic --label "Caps Lock on"
