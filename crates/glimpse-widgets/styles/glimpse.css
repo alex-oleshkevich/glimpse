@@ -2128,6 +2128,8 @@ window.osd-surface .osd-view {
 
 .osd-view {
     padding: 0.9rem 1.4rem;
+    border: none;
+    box-shadow: inset 0 0 0 1px alpha(white, 0.06), 0 1px 3px alpha(black, 0.35), 0 6px 20px alpha(black, 0.35);
     animation: osd-view-in var(--gl-duration, 150ms) var(--gl-ease, ease-out);
 }
 
