@@ -1,19 +1,6 @@
 name: Release
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/release.yml
-      - flake.nix
-      - flake.lock
-      - nix/**
-      - data/**
-      - crates/glimpse-package/**
-      - scripts/package-*.sh
-      - scripts/render-pkgbuild.sh
-      - scripts/test-*-docker.sh
-      - PKGBUILD
-      - install.sh
   push:
     tags: ["v*"]
   workflow_dispatch:
@@ -26,8 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: release-${{ github.ref }}
 
 env:
   BUILD_DEPS: >-
@@ -48,18 +34,13 @@ jobs:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_TAG: ${{ github.ref_name }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${INPUT_TAG:-$REF_TAG}" >> "$GITHUB_OUTPUT"
-            echo "ref=${INPUT_TAG:-$REF_TAG}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tag=${INPUT_TAG:-$REF_TAG}" >> "$GITHUB_OUTPUT"
+          echo "ref=${INPUT_TAG:-$REF_TAG}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.resolve-tag.outputs.ref }}
       - uses: extractions/setup-just@v4
-      - if: github.event_name != 'pull_request'
-        env:
+      - env:
           TAG: ${{ steps.resolve-tag.outputs.tag }}
         run: just release-verify "$TAG"
 

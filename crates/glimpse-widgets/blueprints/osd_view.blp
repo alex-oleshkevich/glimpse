@@ -1,0 +1,57 @@
+using Gtk 4.0;
+
+template $OsdView: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  Gtk.Box root {
+    spacing: 16;
+
+    styles [
+      "pill-surface",
+      "pill-surface--pill",
+      "osd-view",
+    ]
+
+    Gtk.Image icon {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "osd-view__icon",
+      ]
+    }
+
+    Gtk.Label label {
+      visible: false;
+      valign: center;
+      ellipsize: end;
+      max-width-chars: 32;
+      single-line-mode: true;
+
+      styles [
+        "osd-view__label",
+      ]
+    }
+
+    Gtk.ProgressBar meter {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "osd-view__meter",
+      ]
+    }
+
+    Gtk.Label percent {
+      visible: false;
+      valign: center;
+      xalign: 1;
+
+      styles [
+        "osd-view__percent",
+      ]
+    }
+  }
+}

@@ -7,6 +7,7 @@ pub mod dev;
 pub mod doctor;
 pub mod idle;
 pub mod notifications;
+pub mod osd;
 pub mod package_manager;
 pub mod panel;
 pub mod run;
@@ -28,6 +29,7 @@ pub use idle::{idle_release, idle_status};
 pub use notifications::{
     notifications_clear, notifications_dismiss, notifications_dnd, notifications_list,
 };
+pub use osd::{osd_hide, osd_show};
 pub use panel::panel;
 pub use run::applets_run;
 pub use session::{session_action, session_declare, session_suspend};

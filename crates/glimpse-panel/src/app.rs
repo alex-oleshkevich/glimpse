@@ -26,6 +26,7 @@ use crate::{
     attached::{AttachedRegistry, SharedRegistry},
     components::{self, panel},
     config_alert::{self, Problems},
+    osd,
     services::PanelServices,
 };
 
@@ -86,6 +87,7 @@ pub struct App {
     services: Option<PanelServices>,
     services_start: JoinHandle<()>,
     exec_watch: Option<JoinHandle<()>>,
+    osd: Option<JoinHandle<()>>,
     attached: SharedRegistry,
     problems: Problems,
     actions: ComponentActions,
@@ -162,6 +164,7 @@ impl SimpleComponent for App {
             services: None,
             services_start,
             exec_watch: None,
+            osd: None,
             attached,
             problems,
             actions,
@@ -221,6 +224,9 @@ impl SimpleComponent for App {
                     self.attached.clone(),
                     sender.clone(),
                 ));
+                if let Some(session) = services.session.as_ref() {
+                    self.osd = Some(osd::spawn(&services.handles, session.clone()));
+                }
                 self.alert = Some(config_alert::spawn(
                     services.handles.notifications.clone(),
                     self.problems.body(),
@@ -291,6 +297,9 @@ impl SimpleComponent for App {
         self.services_start.abort();
         if let Some(watch) = self.exec_watch.take() {
             watch.abort();
+        }
+        if let Some(task) = self.osd.take() {
+            task.abort();
         }
         if let Some(services) = self.services.take() {
             relm4::spawn(services.shutdown());

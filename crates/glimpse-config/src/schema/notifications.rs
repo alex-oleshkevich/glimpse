@@ -13,7 +13,8 @@ pub struct Notifications {
     /// Whether new notifications pop up on screen. Turned off, they still go to the history.
     pub enabled: bool,
     /// The connector name of the monitor popups appear on, e.g. `DP-1`. Unset, or naming a
-    /// monitor that is not connected, uses the focused monitor.
+    /// monitor that is not connected, uses the focused monitor. The on-screen display appears
+    /// there too.
     #[serde(deserialize_with = "optional_monitor")]
     pub monitor: Option<String>,
     /// The corner or edge of the monitor popups stack from.

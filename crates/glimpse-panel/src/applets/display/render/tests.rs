@@ -293,6 +293,28 @@ fn coalescer_is_idle_again_once_nothing_was_queued() {
     );
 }
 
+#[test]
+fn coalescer_reports_the_newest_request_until_it_goes_idle() {
+    let mut coalescer = Coalescer::new();
+    assert_eq!(coalescer.latest(), None);
+    assert_eq!(coalescer.request(10), Some(10));
+    assert_eq!(coalescer.request(20), None);
+    assert_eq!(coalescer.request(30), None);
+    assert_eq!(coalescer.latest(), Some(30));
+    assert_eq!(coalescer.completed(), Some(30));
+    assert_eq!(
+        coalescer.latest(),
+        Some(30),
+        "the newest value is still on its way"
+    );
+    assert_eq!(coalescer.completed(), None);
+    assert_eq!(
+        coalescer.latest(),
+        None,
+        "idle again: the service holds the value"
+    );
+}
+
 fn focused_output(connector: &str, label: Option<&str>, focused: bool) -> OutputInfo {
     OutputInfo {
         connector: connector.to_owned(),

@@ -9,6 +9,7 @@ fn device(id: &str, volume: u32, muted: bool, default: bool) -> AudioDevice {
         id: AudioDeviceId::new(id),
         index: 0,
         name: id.to_owned(),
+        port: None,
         icon_name: None,
         form_factor: None,
         volume,
@@ -232,4 +233,211 @@ async fn a_refused_volume_command_wakes_the_applet_and_the_next_wake_restores_th
     ));
     applet.handle(&ctx, &Input::Woken);
     assert_eq!(applet.state, audio.snapshot());
+}
+
+fn snapshot(outputs: Vec<AudioDevice>) -> AudioState {
+    AudioState {
+        outputs,
+        ..AudioState::default()
+    }
+}
+
+fn idle(volume: u32) -> Audio {
+    let (stopped, audio) = Running::<glimpse_services::Audio>::build(
+        &glimpse_config::Config::default(),
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+    );
+    drop(stopped);
+    started(
+        audio,
+        NotificationsProvider::unavailable("no bus in tests").handle(),
+        volume,
+    )
+}
+
+fn volume(applet: &Audio) -> Option<u32> {
+    applet.state.default_output().map(|one| one.volume)
+}
+
+#[tokio::test]
+async fn a_stale_snapshot_between_notches_never_lowers_the_next_target() {
+    let mut applet = idle(50);
+    let now = Instant::now();
+    let mut targets = Vec::new();
+
+    for _ in 0..3 {
+        targets.push(applet.adjust(Direction::Up).map(|(_, target)| target));
+        applet.settle(snapshot(vec![device("speakers", 55, false, true)]), now);
+    }
+
+    assert_eq!(targets, [Some(55), Some(60), Some(65)]);
+    assert_eq!(volume(&applet), Some(65));
+}
+
+#[tokio::test]
+async fn a_snapshot_that_reaches_the_target_clears_the_pending_volume() {
+    let mut applet = idle(50);
+    let now = Instant::now();
+    applet.adjust(Direction::Up);
+    applet.adjust(Direction::Up);
+
+    applet.settle(snapshot(vec![device("speakers", 60, false, true)]), now);
+    assert!(applet.pending.borrow().is_none());
+
+    applet.settle(snapshot(vec![device("speakers", 30, false, true)]), now);
+    assert_eq!(volume(&applet), Some(30));
+}
+
+#[tokio::test]
+async fn a_change_of_default_output_clears_the_pending_volume() {
+    let mut applet = idle(50);
+    let now = Instant::now();
+    applet.adjust(Direction::Up);
+
+    applet.settle(
+        snapshot(vec![
+            device("speakers", 50, false, false),
+            device("headset", 40, false, true),
+        ]),
+        now,
+    );
+
+    assert!(applet.pending.borrow().is_none());
+    assert_eq!(volume(&applet), Some(40));
+}
+
+#[tokio::test]
+async fn a_pending_volume_expires_when_no_snapshot_reaches_it() {
+    let mut applet = idle(50);
+    applet.adjust(Direction::Up);
+
+    applet.settle(
+        snapshot(vec![device("speakers", 50, false, true)]),
+        Instant::now() + PENDING_TTL,
+    );
+
+    assert!(applet.pending.borrow().is_none());
+    assert_eq!(volume(&applet), Some(50));
+}
+
+fn app_volume(applet: &Audio, id: &str) -> Option<(u32, bool)> {
+    applet
+        .state
+        .app(&AudioAppId::new(id))
+        .and_then(|app| app.playback.as_ref())
+        .map(|role| (role.volume, role.muted))
+}
+
+fn with_app(volume: u32, muted: bool) -> AudioState {
+    AudioState {
+        apps: vec![app(
+            "firefox",
+            Some(role("speakers", volume, muted, true)),
+            None,
+        )],
+        ..AudioState::default()
+    }
+}
+
+#[tokio::test]
+async fn a_stale_snapshot_after_a_popover_slider_release_does_not_snap_back() {
+    let mut applet = idle(40);
+    let now = Instant::now();
+    remember(
+        &applet.pending,
+        Target::Device(AudioDirection::Output, AudioDeviceId::new("speakers")),
+        Some(70),
+        None,
+    );
+
+    applet.settle(snapshot(vec![device("speakers", 40, false, true)]), now);
+    assert_eq!(volume(&applet), Some(70));
+
+    applet.settle(snapshot(vec![device("speakers", 70, false, true)]), now);
+    assert_eq!(volume(&applet), Some(70));
+    assert!(applet.pending.borrow().is_none());
+}
+
+#[tokio::test]
+async fn a_stale_snapshot_after_an_input_slider_release_does_not_snap_back() {
+    let mut applet = idle(40);
+    let now = Instant::now();
+    remember(
+        &applet.pending,
+        Target::Device(AudioDirection::Input, AudioDeviceId::new("mic")),
+        Some(80),
+        None,
+    );
+    let stale = AudioState {
+        inputs: vec![device("mic", 20, false, true)],
+        ..AudioState::default()
+    };
+
+    applet.settle(stale, now);
+
+    assert_eq!(applet.state.default_input().map(|one| one.volume), Some(80));
+}
+
+#[tokio::test]
+async fn two_quick_mute_clicks_end_unmuted_even_with_stale_snapshots() {
+    let mut applet = idle(40);
+    let target = || Target::Device(AudioDirection::Output, AudioDeviceId::new("speakers"));
+    let stale = || snapshot(vec![device("speakers", 40, false, true)]);
+
+    let first = flip(stale(), &applet.pending, target()).expect("the target exists");
+    applet.settle(stale(), Instant::now());
+    assert!(applet.state.default_output().is_some_and(|one| one.muted));
+    let second = flip(stale(), &applet.pending, target()).expect("the target exists");
+    applet.settle(stale(), Instant::now());
+
+    assert_eq!((first, second), (true, false));
+    assert!(applet.state.default_output().is_some_and(|one| !one.muted));
+}
+
+#[tokio::test]
+async fn a_stale_snapshot_after_an_app_slider_release_does_not_snap_back() {
+    let mut applet = idle(40);
+    let now = Instant::now();
+    remember(
+        &applet.pending,
+        Target::App(AudioAppId::new("firefox"), AudioDirection::Output),
+        Some(90),
+        None,
+    );
+
+    applet.settle(with_app(30, false), now);
+    assert_eq!(app_volume(&applet, "firefox"), Some((90, false)));
+
+    applet.settle(with_app(90, false), now);
+    assert_eq!(app_volume(&applet, "firefox"), Some((90, false)));
+    assert!(applet.pending.borrow().is_none());
+}
+
+#[tokio::test]
+async fn two_quick_app_mute_clicks_end_unmuted() {
+    let mut applet = idle(40);
+    let target = || Target::App(AudioAppId::new("firefox"), AudioDirection::Output);
+
+    let first = flip(with_app(30, false), &applet.pending, target()).expect("the target exists");
+    applet.settle(with_app(30, false), Instant::now());
+    assert_eq!(app_volume(&applet, "firefox"), Some((30, true)));
+    let second = flip(with_app(30, false), &applet.pending, target()).expect("the target exists");
+    applet.settle(with_app(30, false), Instant::now());
+
+    assert_eq!((first, second), (true, false));
+    assert_eq!(app_volume(&applet, "firefox"), Some((30, false)));
+}
+
+#[tokio::test]
+async fn a_pending_app_override_clears_when_the_app_goes_away_or_expires() {
+    let mut applet = idle(40);
+    let target = || Target::App(AudioAppId::new("firefox"), AudioDirection::Output);
+    remember(&applet.pending, target(), Some(90), None);
+    applet.settle(AudioState::default(), Instant::now());
+    assert!(applet.pending.borrow().is_none());
+
+    remember(&applet.pending, target(), Some(90), None);
+    applet.settle(with_app(30, false), Instant::now() + PENDING_TTL);
+    assert!(applet.pending.borrow().is_none());
+    assert_eq!(app_volume(&applet, "firefox"), Some((30, false)));
 }

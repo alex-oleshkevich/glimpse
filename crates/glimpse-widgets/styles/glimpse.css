@@ -1687,6 +1687,11 @@ window.blurred .notification-stack__strip {
     background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
 }
 
+window.blurred .osd-view {
+    background-color: color-mix(in srgb, var(--gl-surface, #36363a) var(--gl-blur-opacity, 60%), transparent);
+    backdrop-filter: blur(var(--gl-blur-radius, 0.75rem));
+}
+
 window.blurred .notification--activatable:hover {
     background-color: color-mix(
         in srgb,
@@ -2001,7 +2006,7 @@ window.blurred .notification--activatable:hover {
     }
 }
 
-.shot-surface {
+.pill-surface {
     background-color: var(--gl-surface);
     color: var(--gl-surface-fg);
     border: 1px solid var(--gl-border);
@@ -2013,7 +2018,7 @@ window.blurred .notification--activatable:hover {
     padding: 0.3rem 0.5rem;
 }
 
-.shot-result-toolbar .shot-surface {
+.shot-result-toolbar .pill-surface {
     background-color: transparent;
     box-shadow: none;
     border: 0;
@@ -2030,6 +2035,14 @@ window.blurred .notification--activatable:hover {
 
 window.shot-flash {
     background-color: transparent;
+}
+
+window.shot-countdown-surface {
+    background: transparent;
+}
+
+window.shot-countdown-surface > * {
+    margin: 3rem;
 }
 
 .shot-text-entry {
@@ -2104,13 +2117,85 @@ window.shot-flash {
     min-height: 0.35rem;
 }
 
-.shot-pill {
+.pill-surface--pill {
     border-radius: 999px;
     padding: 0.4rem 0.9rem;
 }
 
-.shot-pill--compact {
-    padding: 0.15rem 0.25rem 0.15rem 1rem;
+.pill-surface--compact {
+    padding: 0.15rem 0.2rem 0.15rem 1rem;
+}
+
+window.osd-surface {
+    background: transparent;
+}
+
+window.osd-surface .osd-view {
+    margin: 3rem;
+}
+
+.osd-view {
+    padding: 0.9rem 1.4rem;
+    border: none;
+    box-shadow: inset 0 0 0 1px alpha(white, 0.06), 0 1px 3px alpha(black, 0.35), 0 6px 20px alpha(black, 0.35);
+    animation: osd-view-in var(--gl-duration, 150ms) var(--gl-ease, ease-out);
+}
+
+@keyframes osd-view-in {
+    from {
+        opacity: 0;
+    }
+}
+
+window.osd-surface.closing .osd-view {
+    animation: osd-view-out var(--gl-duration, 150ms) ease-in forwards;
+}
+
+@keyframes osd-view-out {
+    to {
+        opacity: 0;
+    }
+}
+
+.osd-view__icon {
+    -gtk-icon-size: 2rem;
+}
+
+.osd-view__label {
+    font-size: 1.15rem;
+}
+
+progressbar.osd-view__meter {
+    min-width: 16rem;
+}
+
+progressbar.osd-view__meter trough {
+    min-height: 0.45rem;
+    border-radius: 999px;
+    background-color: var(--meter-row-trough, alpha(white, 0.22));
+}
+
+progressbar.osd-view__meter progress {
+    min-height: 0.45rem;
+    border-radius: 999px;
+    background-color: var(--gl-surface-fg, #ffffff);
+}
+
+.osd-view--over progressbar.osd-view__meter progress {
+    background-color: var(--gl-warning-text, #ffc252);
+}
+
+.osd-view__percent {
+    min-width: 3.5rem;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .osd-view,
+    window.osd-surface.closing .osd-view {
+        animation: none;
+    }
 }
 
 .shot-readout {

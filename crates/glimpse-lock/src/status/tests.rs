@@ -119,6 +119,7 @@ fn layouts(codes: &[&str], current: Option<u8>) -> KeyboardLayouts {
             })
             .collect(),
         current,
+        restored: false,
     }
 }
 

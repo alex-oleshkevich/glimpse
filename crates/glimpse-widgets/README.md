@@ -12,6 +12,9 @@ binding registers the GType before `init_template` resolves the class by name, o
 The preview host compiles to `$TMPDIR/glimpse-preview-{pid}.ui`, so two previews never share a file.
 The calling example registers the types its blueprint names.
 
+`OsdView` only renders the supplied icon, capped plain-text label and optional level; producers own
+when it appears. Announcements are explicit, so property updates never speak intermediate content.
+
 ## Recurring rules
 
 - **Every setter compares before it writes**; `gio::Icon` compares with `Icon::equal`.

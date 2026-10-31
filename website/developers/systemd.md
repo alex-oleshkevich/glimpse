@@ -16,7 +16,7 @@ Services with configuration also reread it on their own when a file changes.
 | `glimpse-wallpaper.service` | None | On failure |
 | `glimpse-lock.service` | None | Always, no start limit; skipped while the Wayland display socket is missing |
 | `glimpse-notifications.service` | `me.aresa.Glimpse.Notifications`, `org.freedesktop.Notifications` | On failure |
-| `glimpse-agents.service` | `me.aresa.Glimpse.Agents` | On failure |
+| `glimpse-agents.service` | `me.aresa.Glimpse.Agents`, `me.aresa.Glimpse.Osd` | On failure |
 | `glimpse-idle.service` | `me.aresa.Glimpse.Idle`, `me.aresa.Glimpse.Idle.Portal`, `org.freedesktop.ScreenSaver` | On failure |
 | `glimpse-settings-daemon.service` | `me.aresa.Glimpse.Settings` | On failure |
 | `glimpse-compositor-niri.service` | `me.aresa.Glimpse.Compositor` | On failure, except exit 4 (name already owned); requires `NIRI_SOCKET` and a successful probe |

@@ -1047,9 +1047,7 @@ impl Brightness {
 
         if self.sources[index].inflight {
             if let Some((_, superseded)) = self.sources[index].queued.take() {
-                let _ = superseded.send(Err(CommandError::Unavailable(
-                    "superseded by a newer level".to_owned(),
-                )));
+                let _ = superseded.send(Ok(()));
             }
             self.sources[index].queued = Some((value, reply));
             return;

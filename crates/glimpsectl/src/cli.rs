@@ -99,6 +99,9 @@ pub enum Command {
 
     #[command(subcommand, about = "Restart, power off or suspend the system")]
     Session(SessionCommand),
+
+    #[command(subcommand, about = "Show or hide the on-screen display")]
+    Osd(OsdCommand),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
@@ -111,6 +114,28 @@ pub enum SessionCommand {
     PowerOff,
     #[command(about = "Suspend the system immediately")]
     Suspend,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum OsdCommand {
+    #[command(about = "Show the on-screen display")]
+    Show {
+        #[arg(long, help = "Themed icon name")]
+        icon: Option<String>,
+        #[arg(long, help = "Label text")]
+        label: Option<String>,
+        #[arg(
+            long,
+            value_name = "PERCENT",
+            value_parser = clap::value_parser!(u32).range(0..=200),
+            help = "Level as a percent, from 0 to 200"
+        )]
+        value: Option<u32>,
+        #[arg(long, help = "Show the level as a percent number")]
+        percent: bool,
+    },
+    #[command(about = "Hide the on-screen display")]
+    Hide,
 }
 
 #[derive(Debug, Subcommand)]

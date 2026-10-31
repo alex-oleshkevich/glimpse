@@ -142,6 +142,7 @@ fn capturing_app(name: &str) -> AudioState {
             id: AudioDeviceId::new("mic"),
             index: 0,
             name: "mic".to_owned(),
+            port: None,
             icon_name: None,
             form_factor: None,
             volume: 100,

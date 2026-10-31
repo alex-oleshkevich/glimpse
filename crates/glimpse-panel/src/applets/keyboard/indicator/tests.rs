@@ -28,6 +28,7 @@ async fn a_refused_layout_switch_puts_the_badge_back() {
     applet.layouts = Some(KeyboardLayouts {
         layouts: vec![layout("us"), layout("de")],
         current: Some(0),
+        restored: false,
     });
     let context = glib::MainContext::new();
 

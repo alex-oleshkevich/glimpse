@@ -6,6 +6,7 @@ mod cli;
 mod clipboard_provider;
 mod components;
 mod config_alert;
+mod osd;
 mod selection;
 mod services;
 use anyhow::Result;

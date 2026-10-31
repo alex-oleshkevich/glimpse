@@ -38,6 +38,7 @@ fn raw_device(index: u32, pa_name: &str, is_monitor: bool) -> RawDevice {
         index,
         pa_name: pa_name.to_owned(),
         label: pa_name.to_owned(),
+        port: None,
         icon_name: None,
         form_factor: None,
         volume: 100,

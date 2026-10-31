@@ -1,7 +1,8 @@
 # glimpse-agents
 
 The one process that answers system prompts for the session: the polkit authentication agent, the
-NetworkManager secret agent and the BlueZ pairing agent, all drawing into one dialog.
+NetworkManager secret agent and the BlueZ pairing agent, all drawing into one dialog, and the
+on-screen display.
 
 **The session interface is exported before the bus name is owned.** `me.aresa.Glimpse.Agents` is
 requested with `DoNotQueue` before agents register or windows exist. The system-bus agents start
@@ -18,6 +19,10 @@ bound to it is ordered before it — the compositor unit of `niri-session` or uw
 the logind session otherwise**: a session wrapper such as `niri-session` runs its own teardown after
 its compositor unit stops, and killing the session scope skips that teardown and leaves the next
 login refused.
+
+**The on-screen display renders exactly what `Osd1.Show` sends and keeps no state.** It is
+click-through on the overlay layer and appears at `[osd] edge` on the `[notifications] monitor`.
+It never shows while the session is locked.
 
 **One process owns every prompt, and one dialog shows at a time.** Agents never touch GTK: each
 turns its D-Bus call into an `Ask` sent to the app and awaits a oneshot reply. The app keeps one

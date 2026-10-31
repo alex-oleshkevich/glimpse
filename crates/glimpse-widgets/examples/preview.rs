@@ -21,6 +21,7 @@ fn ensure_types() {
 
     for widget in [
         glimpse_widgets::Bars::static_type(),
+        glimpse_widgets::OsdView::static_type(),
         glimpse_widgets::Sparkline::static_type(),
         glimpse_widgets::Row::static_type(),
         glimpse_widgets::ActionRow::static_type(),

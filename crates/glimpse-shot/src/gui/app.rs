@@ -472,6 +472,7 @@ impl Shell {
                 gui.output.clone()
             },
             config,
+            osd_edge: document.osd.edge,
             snapshot,
             tool: gui.tool,
         })
@@ -803,6 +804,7 @@ impl Shell {
             marks: Vec::new(),
             output: None,
             config,
+            osd_edge: document.osd.edge,
             snapshot,
             tool: None,
         };

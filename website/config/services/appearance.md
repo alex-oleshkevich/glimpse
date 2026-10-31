@@ -56,12 +56,13 @@ With `niri` 26.04 or newer you don't enable anything on the compositor side: it 
 that asks. Its `blur {}` section sets the strength for all of them.
 
 By default `niri` blurs these surfaces against the wallpaper only, ignoring the windows behind them.
-To blur what is actually underneath the bar, popovers, notifications and dialogs, add this layer rule:
+To blur what is actually underneath the bar, popovers, notifications, dialogs and the on-screen
+display, add this layer rule:
 
 ```kdl
 // ~/.config/niri/config.kdl
 layer-rule {
-    match namespace="^glimpse-(popover|notifications|panel|agents)$"
+    match namespace="^glimpse-(popover|notifications|panel|agents|osd)$"
     background-effect {
         xray false
     }

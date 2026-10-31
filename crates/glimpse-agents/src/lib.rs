@@ -7,6 +7,7 @@ pub mod lock;
 pub mod network;
 pub(crate) mod notifications;
 pub mod obex;
+pub mod osd;
 pub mod polkit;
 pub mod queue;
 pub mod session;

@@ -1,5 +1,6 @@
 use std::fmt;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use glimpse_config::Config;
 use glimpse_dbus::{
@@ -48,6 +49,7 @@ pub struct Handles {
     pub kdeconnect: KdeconnectHandle,
     pub privacy: PrivacyHandle,
     pub exec: ExecHandle,
+    pub osd_quiet: Arc<AtomicUsize>,
 }
 
 pub struct PanelServices {
@@ -219,6 +221,7 @@ impl PanelServices {
                 weather: weather.handle(),
                 calendar: calendar.handle(),
                 idle: idle.handle(),
+                osd_quiet: Arc::new(AtomicUsize::new(0)),
             },
             compositor_service,
             keyboard_service,
