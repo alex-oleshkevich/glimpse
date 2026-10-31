@@ -17,6 +17,7 @@ fn layouts(current: Option<u8>) -> KeyboardLayouts {
             },
         ],
         current,
+        restored: false,
     }
 }
 
@@ -29,6 +30,7 @@ fn hidden_below_two_layouts() {
             name: "English (US)".to_owned(),
         }],
         current: Some(0),
+        restored: false,
     })));
     assert!(shown(Some(&layouts(Some(0)))));
 }

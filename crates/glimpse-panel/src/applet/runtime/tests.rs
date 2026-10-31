@@ -429,6 +429,7 @@ fn an_applet_reaches_its_group() {
         config("%H:%M"),
         Catcher::new(None, glimpse_config::Position::Top),
         slot("probe"),
+        Arc::new(AtomicUsize::new(0)),
     );
     settle();
 
@@ -508,6 +509,7 @@ fn an_applet_reaches_its_group() {
         config("%H"),
         Catcher::new(None, glimpse_config::Position::Top),
         slot("exploding"),
+        Arc::new(AtomicUsize::new(0)),
     );
     settle();
     assert!(
@@ -524,6 +526,7 @@ fn an_applet_reaches_its_group() {
         config("%H"),
         Catcher::new(None, glimpse_config::Position::Top),
         slot("strip"),
+        Arc::new(AtomicUsize::new(0)),
     );
     settle();
 
@@ -556,6 +559,7 @@ fn an_applet_reaches_its_group() {
     );
 
     a_raise_opens_a_popover_and_never_closes_one();
+    an_audio_popover_quiets_osd_only_while_open();
     a_bluetooth_popover_signal_reaches_the_service();
     an_applet_action_injects_what_a_pointer_would();
     a_clock_interval_repaints_its_group();
@@ -577,6 +581,7 @@ fn an_applet_action_injects_what_a_pointer_would() {
         config("%H"),
         Catcher::new(None, glimpse_config::Position::Top),
         slot("actioned"),
+        Arc::new(AtomicUsize::new(0)),
     );
     settle();
     seen();
@@ -660,6 +665,7 @@ fn a_raise_opens_a_popover_and_never_closes_one() {
         config("%H"),
         Rc::clone(&catcher),
         slot("raiser"),
+        Arc::new(AtomicUsize::new(0)),
     );
     settle();
 
@@ -698,6 +704,43 @@ fn a_raise_opens_a_popover_and_never_closes_one() {
     raise();
     press(&group(&handle), 1);
     assert!(catcher.closing(), "a press still toggles");
+}
+
+fn an_audio_popover_quiets_osd_only_while_open() {
+    let catcher = Catcher::new(None, glimpse_config::Position::Top);
+    let osd_quiet = Arc::new(AtomicUsize::new(0));
+    let handle = AppletHandle::launch(
+        "quieter".to_owned(),
+        None,
+        Box::new(|_| Box::new(Raiser)),
+        glimpse_config::AppletKind::Audio(Default::default()).into(),
+        Rc::clone(&catcher),
+        slot("quieter"),
+        Arc::clone(&osd_quiet),
+    );
+    settle();
+    assert_eq!(osd_quiet.load(Ordering::Relaxed), 0);
+
+    let send = |input| {
+        let _ = handle._controller.sender().send(input);
+        settle();
+    };
+    let raise = || send(HostInput::PopoverRequested);
+
+    raise();
+    assert_eq!(osd_quiet.load(Ordering::Relaxed), 1);
+
+    raise();
+    assert_eq!(osd_quiet.load(Ordering::Relaxed), 1);
+
+    send(HostInput::PopoverToggled);
+    assert_eq!(osd_quiet.load(Ordering::Relaxed), 0);
+
+    raise();
+    assert_eq!(osd_quiet.load(Ordering::Relaxed), 1);
+    drop(handle);
+    settle();
+    assert_eq!(osd_quiet.load(Ordering::Relaxed), 0);
 }
 
 fn a_bluetooth_popover_signal_reaches_the_service() {
@@ -816,6 +859,7 @@ fn a_clock_interval_repaints_its_group() {
         settings,
         Catcher::new(None, Position::Top),
         slot("ticking-clock"),
+        Arc::new(AtomicUsize::new(0)),
     );
     let window = gtk4::Window::new();
     window.set_child(Some(&handle.widget));

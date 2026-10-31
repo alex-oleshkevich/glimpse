@@ -42,6 +42,7 @@ pub struct KeyboardLayout {
 pub struct KeyboardLayouts {
     pub layouts: Vec<KeyboardLayout>,
     pub current: Option<u8>,
+    pub restored: bool,
 }
 
 const NAME_CAP: usize = 128;
@@ -111,6 +112,8 @@ pub struct Keyboard {
     operations: HashMap<u64, Option<StoreKey>>,
     operation_id: u64,
     barrier: Option<KeyboardBarrier>,
+    pending_restore: Option<(u64, u8)>,
+    restored: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -166,6 +169,8 @@ impl Service for Keyboard {
             operations: HashMap::new(),
             operation_id: 0,
             barrier: None,
+            pending_restore: None,
+            restored: false,
         }
     }
 
@@ -216,16 +221,27 @@ impl Keyboard {
         self.store.clear();
         self.focused = None;
         self.operations.clear();
+        self.pending_restore = None;
         if self.served.is_some() {
             ctx.degraded(reason);
         }
     }
 
     fn published(&self) -> KeyboardLayouts {
-        self.served
-            .as_ref()
-            .map(|served| payload(served, &self.config.labels, &self.language_codes))
-            .unwrap_or_default()
+        self.served.as_ref().map_or_else(
+            || KeyboardLayouts {
+                restored: self.restored,
+                ..KeyboardLayouts::default()
+            },
+            |served| {
+                payload(
+                    served,
+                    &self.config.labels,
+                    &self.language_codes,
+                    self.restored,
+                )
+            },
+        )
     }
 
     fn publish(&mut self) {
@@ -258,6 +274,17 @@ impl Keyboard {
             && let Some(key) = remember_key(self.config.remember, self.focused.as_ref())
         {
             self.store.entry(key).or_insert(index);
+        }
+        if switched {
+            let new_current = state
+                .keyboard
+                .current
+                .and_then(|index| u8::try_from(index).ok());
+            self.restored =
+                matches!(self.pending_restore, Some((_, index)) if Some(index) == new_current);
+            if self.restored {
+                self.pending_restore = None;
+            }
         }
         self.publish();
         if moved {
@@ -294,6 +321,7 @@ impl Keyboard {
         self.operation_id += 1;
         let id = self.operation_id;
         self.operations.insert(id, Some(key));
+        self.pending_restore = Some((id, index));
         let provider = self.provider.clone();
         let barrier = self.barrier.clone();
         ctx.spawn_detached(move |ctx| async move {
@@ -379,6 +407,12 @@ impl Keyboard {
     }
 
     fn finished(&mut self, ctx: &Ctx<Self>, id: u64, succeeded: bool) {
+        if self
+            .pending_restore
+            .is_some_and(|(pending, _)| pending == id)
+        {
+            self.pending_restore = None;
+        }
         let Some(key) = self.operations.remove(&id) else {
             return;
         };
@@ -414,6 +448,7 @@ fn payload(
     layouts: &Served,
     labels: &BTreeMap<String, String>,
     codes: &BTreeMap<String, String>,
+    restored: bool,
 ) -> KeyboardLayouts {
     let count = layouts.names.len().max(layouts.codes.len());
     let items = (0..count)
@@ -435,6 +470,7 @@ fn payload(
     KeyboardLayouts {
         layouts: items,
         current,
+        restored,
     }
 }
 

@@ -203,5 +203,9 @@ async fn run(cli: Cli) -> Result<()> {
                 .context("cannot reach the system bus")?;
             commands::session_suspend(&system).await
         }
+        Command::Osd(OsdCommand::Show { icon, label, value }) => {
+            commands::osd_show(bus()?, icon.as_deref(), label.as_deref(), value).await
+        }
+        Command::Osd(OsdCommand::Hide) => commands::osd_hide(bus()?).await,
     }
 }

@@ -283,7 +283,7 @@ impl DisplayPopover {
         });
 
         imp.temperature.set_value(state.temperature as f64);
-        self.show_temperature(state.temperature as f64);
+        self.show_temperature(imp.temperature.value());
 
         let schedules = schedules(&state);
         let current = schedules

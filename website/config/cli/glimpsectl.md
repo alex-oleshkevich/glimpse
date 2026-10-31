@@ -23,6 +23,7 @@ Commands:
   panel          Inspect and control the panel
   doctor         Check the configuration and every provider
   session        Restart, power off or suspend the system
+  osd            Show or hide the on-screen display
   help           Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1001,6 +1002,47 @@ Suspend the system immediately
 
 ```text
 Usage: glimpsectl session suspend [OPTIONS]
+
+Options:
+  -h, --help                 Print help
+```
+
+## `glimpsectl osd`
+
+Show or hide the on-screen display
+
+```text
+Usage: glimpsectl osd [OPTIONS] <COMMAND>
+
+Commands:
+  show  Show the on-screen display
+  hide  Hide the on-screen display
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl osd show`
+
+Show the on-screen display
+
+```text
+Usage: glimpsectl osd show [OPTIONS]
+
+Options:
+      --icon <ICON>          Themed icon name
+      --label <LABEL>        Label text
+      --value <PERCENT>      Level as a percent, from 0 to 200
+  -h, --help                 Print help
+```
+
+### `glimpsectl osd hide`
+
+Hide the on-screen display
+
+```text
+Usage: glimpsectl osd hide [OPTIONS]
 
 Options:
   -h, --help                 Print help

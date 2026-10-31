@@ -6,9 +6,9 @@ use std::time::Duration;
 
 use adw::prelude::*;
 use futures_util::StreamExt as _;
-use glimpse_config::{Config, Documents, Reload, Theme, watch_config};
+use glimpse_config::{Config, Documents, NotificationEdge, Reload, Theme, watch_config};
 use glimpse_widgets::{Styles, color_scheme};
-use gtk4::glib;
+use gtk4::{cairo, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{ComponentParts, ComponentSender, Receiver, Sender, SimpleComponent};
 use tokio::runtime::Handle;
@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 use crate::ask::{Input, Prompt, Reply, Source};
 use crate::dialog::{AgentDialog, Response};
 use crate::queue::Queue;
-use crate::{bluetooth, network};
+use crate::{bluetooth, network, osd};
 
 pub use view::view_for;
 
@@ -40,6 +40,9 @@ pub struct App {
     session_focus: bool,
     session_focus_timer: Option<JoinHandle<()>>,
     surface: Option<Surface>,
+    osd: Option<OsdSurface>,
+    osd_config: glimpse_config::Osd,
+    osd_monitor: Option<String>,
     closing: Option<(gtk4::Window, glib::JoinHandle<()>)>,
     shown: Option<Head>,
     typed: String,
@@ -65,6 +68,43 @@ struct Surface {
     window: gtk4::Window,
     backdrop: gtk4::Box,
     dialog: AgentDialog,
+}
+
+struct OsdSurface {
+    window: gtk4::Window,
+    view: glimpse_widgets::OsdView,
+    generation: u64,
+}
+
+impl OsdSurface {
+    fn new(blur: bool) -> Self {
+        let window = gtk4::Window::new();
+        window.init_layer_shell();
+        window.set_namespace(Some("glimpse-osd"));
+        window.set_layer(Layer::Overlay);
+        window.set_keyboard_mode(KeyboardMode::None);
+        window.set_exclusive_zone(0);
+        window.add_css_class("osd-surface");
+        let view = glimpse_widgets::OsdView::new();
+        view.connect_map(|view| view.announce());
+        window.set_child(Some(&view));
+        window.connect_realize(|window| {
+            if let Some(surface) = window.surface() {
+                surface.set_input_region(Some(&cairo::Region::create()));
+            }
+        });
+        glimpse_widgets::blur::apply(&window, blur);
+        Self {
+            window,
+            view,
+            generation: 0,
+        }
+    }
+
+    fn hide(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+        self.window.set_visible(false);
+    }
 }
 
 impl Surface {
@@ -109,10 +149,11 @@ impl SimpleComponent for App {
         let watch_sender = sender.input_sender().clone();
         init.runtime.spawn(async move {
             let mut configs = Box::pin(watch_config(Documents::Config, watched, None));
-            while let Some(Reload::Changed(config)) = configs.next().await {
-                if watch_sender
-                    .send(Input::ConfigChanged(Box::new(config)))
-                    .is_err()
+            while let Some(reload) = configs.next().await {
+                if let Reload::Changed(config) = reload
+                    && watch_sender
+                        .send(Input::ConfigChanged(Box::new(config)))
+                        .is_err()
                 {
                     break;
                 }
@@ -150,6 +191,7 @@ impl SimpleComponent for App {
             session_focus: false,
             session_focus_timer: None,
             surface: None,
+            osd: None,
             closing: None,
             shown: None,
             typed: String::new(),
@@ -158,6 +200,8 @@ impl SimpleComponent for App {
             paired: None,
             headless: false,
             blur: blurred(&init.config),
+            osd_config: init.config.osd,
+            osd_monitor: init.config.notifications.monitor,
             user: init.session,
             system: init.system,
             runtime: init.runtime,
@@ -167,7 +211,14 @@ impl SimpleComponent for App {
     }
 
     fn update(&mut self, input: Input, sender: ComponentSender<Self>) {
+        let osd = matches!(
+            &input,
+            Input::Osd(_) | Input::OsdHide | Input::OsdExpired(_)
+        );
         self.ingest(input, sender.input_sender());
+        if osd {
+            return;
+        }
         self.render_with(sender.input_sender());
     }
 }
@@ -193,6 +244,9 @@ impl App {
             session_focus: false,
             session_focus_timer: None,
             surface: None,
+            osd: None,
+            osd_config: glimpse_config::Osd::default(),
+            osd_monitor: None,
             closing: None,
             shown: None,
             typed: String::new(),
@@ -249,6 +303,23 @@ impl App {
                 if let Some(surface) = &self.session_surface {
                     glimpse_widgets::blur::apply(&surface.window, self.blur);
                 }
+                if let Some(surface) = &self.osd {
+                    glimpse_widgets::blur::apply(&surface.window, self.blur);
+                }
+                self.osd_config = config.osd;
+                self.osd_monitor = config.notifications.monitor;
+                if !self.osd_config.enabled {
+                    self.hide_osd();
+                }
+            }
+            Input::Osd(message) => self.show_osd(message, sender),
+            Input::OsdHide => self.hide_osd(),
+            Input::OsdExpired(generation) => {
+                if let Some(surface) = &self.osd
+                    && surface.generation == generation
+                {
+                    surface.window.set_visible(false);
+                }
             }
             Input::Ask(ask) => {
                 self.cancel_session();
@@ -259,6 +330,7 @@ impl App {
                 self.session.locked = Some(locked);
                 if locked {
                     self.cancel_session();
+                    self.hide_osd();
                 }
                 self.queue.lock(locked);
             }
@@ -577,6 +649,46 @@ impl App {
         }
     }
 
+    fn show_osd(&mut self, message: osd::Message, sender: &Sender<Input>) {
+        if !self.osd_config.enabled || self.session.locked == Some(true) || self.headless {
+            return;
+        }
+        let blur = self.blur;
+        let surface = self.osd.get_or_insert_with(|| OsdSurface::new(blur));
+        surface.view.set_icon_name(message.icon);
+        surface.view.set_label(message.label);
+        surface.view.set_has_value(message.value.is_some());
+        surface.view.set_value(message.value.unwrap_or(0.0));
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            surface.window.set_anchor(edge, false);
+        }
+        for &edge in anchors(self.osd_config.edge) {
+            surface.window.set_anchor(edge, true);
+        }
+        let monitor = self
+            .osd_monitor
+            .as_deref()
+            .and_then(glimpse_widgets::monitor_by_connector);
+        surface.window.set_monitor(monitor.as_ref());
+        let mapped = surface.view.is_mapped();
+        surface.window.set_visible(true);
+        if mapped {
+            surface.view.announce();
+        }
+        surface.generation = surface.generation.wrapping_add(1);
+        let generation = surface.generation;
+        let sender = sender.clone();
+        glib::timeout_add_local_once(Duration::from_millis(self.osd_config.duration), move || {
+            sender.emit(Input::OsdExpired(generation));
+        });
+    }
+
+    fn hide_osd(&mut self) {
+        if let Some(surface) = &mut self.osd {
+            surface.hide();
+        }
+    }
+
     fn cancel_pairing(&self, device: String) {
         let system = self.system.clone();
         self.runtime.spawn(async move {
@@ -643,6 +755,17 @@ fn surface(blur: bool) -> gtk4::Window {
     window.add_css_class("agent-surface");
     glimpse_widgets::blur::apply(&window, blur);
     window
+}
+
+fn anchors(edge: NotificationEdge) -> &'static [Edge] {
+    match edge {
+        NotificationEdge::TopLeft => &[Edge::Top, Edge::Left],
+        NotificationEdge::TopCenter => &[Edge::Top],
+        NotificationEdge::TopRight => &[Edge::Top, Edge::Right],
+        NotificationEdge::BottomLeft => &[Edge::Bottom, Edge::Left],
+        NotificationEdge::BottomCenter => &[Edge::Bottom],
+        NotificationEdge::BottomRight => &[Edge::Bottom, Edge::Right],
+    }
 }
 
 fn blurred(config: &Config) -> bool {

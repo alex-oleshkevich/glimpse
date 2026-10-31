@@ -167,6 +167,7 @@ pub mod network_manager;
 pub mod night_light;
 pub mod notifications;
 pub mod obex;
+pub mod osd;
 pub mod polkit;
 pub mod power_profiles;
 pub mod session;

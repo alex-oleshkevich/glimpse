@@ -66,6 +66,7 @@ fn main() {
             "resources/widgets/forecast_hour.ui",
         ),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
+        ("blueprints/osd_view.blp", "resources/widgets/osd_view.ui"),
         (
             "blueprints/workspaces_popover.blp",
             "resources/widgets/workspaces_popover.ui",

@@ -148,17 +148,20 @@ pub fn native_step(percent: u8, max: u32) -> u32 {
 pub struct Coalescer<T> {
     in_flight: bool,
     pending: Option<T>,
+    latest: Option<T>,
 }
 
-impl<T> Coalescer<T> {
+impl<T: Copy> Coalescer<T> {
     pub fn new() -> Self {
         Self {
             in_flight: false,
             pending: None,
+            latest: None,
         }
     }
 
     pub fn request(&mut self, value: T) -> Option<T> {
+        self.latest = Some(value);
         if self.in_flight {
             self.pending = Some(value);
             return None;
@@ -174,8 +177,15 @@ impl<T> Coalescer<T> {
                 self.in_flight = true;
                 Some(value)
             }
-            None => None,
+            None => {
+                self.latest = None;
+                None
+            }
         }
+    }
+
+    pub fn latest(&self) -> Option<T> {
+        self.latest
     }
 }
 

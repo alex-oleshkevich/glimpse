@@ -37,6 +37,7 @@ pub struct Device {
     pub id: DeviceId,
     pub index: u32,
     pub name: String,
+    pub port: Option<String>,
     pub icon_name: Option<String>,
     pub form_factor: Option<String>,
     pub volume: u32,

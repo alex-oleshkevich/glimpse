@@ -45,6 +45,7 @@ mod notification_stack;
 mod notification_text_body;
 mod notifications_popover;
 mod now_playing;
+mod osd_view;
 mod pager;
 mod panel;
 mod password_prompt;
@@ -132,7 +133,7 @@ pub use lens::{Lens, zoomed};
 pub use lock_clock::LockClock;
 pub use lock_stage::LockStage;
 pub use meter_row::MeterRow;
-pub use monitors::watch_monitors;
+pub use monitors::{monitor_by_connector, watch_monitors};
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
     Ask as NetworkAsk, Details as NetworkDetails, Entry as NetworkEntry, Line as NetworkLine,
@@ -147,6 +148,7 @@ pub use notification_stack::NotificationStack;
 pub use notification_text_body::NotificationTextBody;
 pub use notifications_popover::{Group, NotificationsPopover};
 pub use now_playing::NowPlaying;
+pub use osd_view::OsdView;
 pub use pager::{Focus, Pager, Shape, Slot};
 pub use panel::Panel;
 pub use password_prompt::{MessageKind, PasswordPrompt};

@@ -32,6 +32,7 @@ fn device(id: &str, index: u32, default: bool) -> Device {
         id: DeviceId::new(id),
         index,
         name: id.to_owned(),
+        port: None,
         icon_name: None,
         form_factor: None,
         volume: 100,

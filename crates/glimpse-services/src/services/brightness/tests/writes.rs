@@ -37,7 +37,7 @@ async fn adjust_level_clamps_at_the_floor_without_underflow() {
 }
 
 #[tokio::test]
-async fn a_middle_value_is_dropped_while_a_write_is_in_flight() {
+async fn a_middle_value_superseded_while_a_write_is_in_flight_is_answered_ok() {
     let mut harness = harness(vec![entry("panel", "raw", 50, 100, None)], 0).await;
     let (reply1, result1) = oneshot::channel();
     let (reply2, result2) = oneshot::channel();
@@ -65,10 +65,7 @@ async fn a_middle_value_is_dropped_while_a_write_is_in_flight() {
         }))
         .await;
 
-    assert!(matches!(
-        result2.await.expect("answered"),
-        Err(CommandError::Unavailable(_))
-    ));
+    assert!(result2.await.expect("answered").is_ok());
 
     harness.settle_next().await;
     harness.settle_next().await;

@@ -1,5 +1,6 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gettextrs::{gettext, ngettext};
 use glimpse_config::{Applet as AppletConfig, AppletKind};
@@ -22,10 +23,25 @@ use super::render;
 
 const ICON: &str = "audio-volume-high-symbolic";
 const APPS_SHOWN: usize = 6;
+const PENDING_TTL: Duration = Duration::from_millis(500);
+
+#[derive(PartialEq)]
+enum Target {
+    Device(AudioDirection, AudioDeviceId),
+    App(AudioAppId, AudioDirection),
+}
+
+struct Pending {
+    target: Target,
+    volume: Option<u32>,
+    muted: Option<bool>,
+    at: Instant,
+}
 
 pub struct Audio {
     state: AudioState,
     audio: AudioHandle,
+    pending: Rc<RefCell<Option<Pending>>>,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
     scroll_step: i32,
@@ -47,7 +63,7 @@ impl Applet for Audio {
 
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
-            Input::Woken => self.state = self.audio.snapshot(),
+            Input::Woken => self.settle(self.audio.snapshot(), Instant::now()),
             Input::Pointer(Pointer::Scroll(direction)) => self.nudge(ctx, *direction),
             Input::Pointer(Pointer::Press(Button::Middle)) => self.toggle_mute(ctx),
             Input::Tick | Input::Pointer(_) => return,
@@ -64,6 +80,7 @@ impl Applet for Audio {
 
         shown.connect_level_changed({
             let audio = self.audio.clone();
+            let pending = Rc::clone(&self.pending);
             let notifications = self.notifications.clone();
             let opener = seat.opener();
             move |_, dir, value| {
@@ -71,15 +88,23 @@ impl Applet for Audio {
                     return;
                 };
                 let audio = audio.clone();
-                let snapshot = audio.snapshot();
-                let Some(id) = default_device(&snapshot, direction).map(|device| device.id.clone())
+                let state = effective(&audio, &pending);
+                let Some(id) = default_device(&state, direction).map(|device| device.id.clone())
                 else {
                     return;
                 };
                 let percent = value.round().clamp(0.0, 100.0) as u32;
+                remember(
+                    &pending,
+                    Target::Device(direction, id.clone()),
+                    Some(percent),
+                    None,
+                );
+                opener.wake();
                 tell(
                     &notifications,
                     &opener,
+                    &pending,
                     "audio.set_device_volume",
                     gettext("Could not change the volume"),
                     async move { audio.set_device_volume(direction, id, percent).await },
@@ -89,9 +114,10 @@ impl Applet for Audio {
 
         shown.connect_level_toggled({
             let audio = self.audio.clone();
+            let pending = Rc::clone(&self.pending);
             let notifications = self.notifications.clone();
             let opener = seat.opener();
-            move |_, dir, muted| {
+            move |_, dir, _| {
                 let Some(direction) = direction_of(dir) else {
                     return;
                 };
@@ -101,9 +127,15 @@ impl Applet for Audio {
                 else {
                     return;
                 };
+                let Some(muted) = flip(snapshot, &pending, Target::Device(direction, id.clone()))
+                else {
+                    return;
+                };
+                opener.wake();
                 tell(
                     &notifications,
                     &opener,
+                    &pending,
                     "audio.set_device_muted",
                     gettext("Could not change that setting"),
                     async move { audio.set_device_muted(direction, id, muted).await },
@@ -136,6 +168,7 @@ impl Applet for Audio {
 
         shown.connect_app_level_changed({
             let audio = self.audio.clone();
+            let pending = Rc::clone(&self.pending);
             let notifications = self.notifications.clone();
             let opener = seat.opener();
             move |_, app, dir, value| {
@@ -145,9 +178,17 @@ impl Applet for Audio {
                 let audio = audio.clone();
                 let app = AudioAppId::new(app);
                 let percent = value.round().clamp(0.0, 100.0) as u32;
+                remember(
+                    &pending,
+                    Target::App(app.clone(), direction),
+                    Some(percent),
+                    None,
+                );
+                opener.wake();
                 tell(
                     &notifications,
                     &opener,
+                    &pending,
                     "audio.set_app_volume",
                     gettext("Could not change the volume"),
                     async move { audio.set_app_volume(direction, app, percent).await },
@@ -157,17 +198,27 @@ impl Applet for Audio {
 
         shown.connect_app_level_toggled({
             let audio = self.audio.clone();
+            let pending = Rc::clone(&self.pending);
             let notifications = self.notifications.clone();
             let opener = seat.opener();
-            move |_, app, dir, muted| {
+            move |_, app, dir, _| {
                 let Some(direction) = direction_of(dir) else {
                     return;
                 };
                 let audio = audio.clone();
                 let app = AudioAppId::new(app);
+                let Some(muted) = flip(
+                    audio.snapshot(),
+                    &pending,
+                    Target::App(app.clone(), direction),
+                ) else {
+                    return;
+                };
+                opener.wake();
                 tell(
                     &notifications,
                     &opener,
+                    &pending,
                     "audio.set_app_muted",
                     gettext("Could not change that setting"),
                     async move { audio.set_app_muted(direction, app, muted).await },
@@ -222,6 +273,7 @@ impl Applet for Audio {
 fn tell<F, T>(
     notifications: &NotificationsProviderHandle,
     opener: &Opener,
+    pending: &Rc<RefCell<Option<Pending>>>,
     operation: &'static str,
     summary: String,
     future: F,
@@ -236,8 +288,10 @@ fn tell<F, T>(
         summary,
     };
     let opener = opener.clone();
+    let pending = Rc::clone(pending);
     relm4::spawn_local(async move {
         if let Err(error) = future.await {
+            *pending.borrow_mut() = None;
             opener.wake();
             report_failure(operation, report, wording(&error), error).await;
         }
@@ -437,7 +491,108 @@ fn details(state: &AudioState, id: &AudioAppId) -> Option<AudioDetails> {
     })
 }
 
+fn fields<'a>(state: &'a mut AudioState, target: &Target) -> Option<(&'a mut u32, &'a mut bool)> {
+    match target {
+        Target::Device(direction, id) => {
+            let devices = match direction {
+                AudioDirection::Output => &mut state.outputs,
+                AudioDirection::Input => &mut state.inputs,
+            };
+            devices
+                .iter_mut()
+                .find(|device| device.default && device.id == *id)
+                .map(|device| (&mut device.volume, &mut device.muted))
+        }
+        Target::App(id, direction) => state
+            .apps
+            .iter_mut()
+            .find(|app| app.id == *id)
+            .and_then(|app| match direction {
+                AudioDirection::Output => app.playback.as_mut(),
+                AudioDirection::Input => app.capture.as_mut(),
+            })
+            .map(|role| (&mut role.volume, &mut role.muted)),
+    }
+}
+
+fn apply(state: &mut AudioState, slot: &mut Option<Pending>, now: Instant) {
+    let Some(pending) = slot.as_mut() else {
+        return;
+    };
+    let Some((volume, muted)) = fields(state, &pending.target) else {
+        *slot = None;
+        return;
+    };
+    if now.saturating_duration_since(pending.at) >= PENDING_TTL {
+        *slot = None;
+        return;
+    }
+    if pending.volume == Some(*volume) {
+        pending.volume = None;
+    }
+    if pending.muted == Some(*muted) {
+        pending.muted = None;
+    }
+    if pending.volume.is_none() && pending.muted.is_none() {
+        *slot = None;
+        return;
+    }
+    if let Some(target) = pending.volume {
+        *volume = target;
+    }
+    if let Some(target) = pending.muted {
+        *muted = target;
+    }
+}
+
+fn remember(
+    slot: &RefCell<Option<Pending>>,
+    target: Target,
+    volume: Option<u32>,
+    muted: Option<bool>,
+) {
+    let mut slot = slot.borrow_mut();
+    let at = Instant::now();
+    match slot.as_mut() {
+        Some(pending) if pending.target == target => {
+            if volume.is_some() {
+                pending.volume = volume;
+            }
+            if muted.is_some() {
+                pending.muted = muted;
+            }
+            pending.at = at;
+        }
+        _ => {
+            *slot = Some(Pending {
+                target,
+                volume,
+                muted,
+                at,
+            })
+        }
+    }
+}
+
+fn effective(audio: &AudioHandle, slot: &RefCell<Option<Pending>>) -> AudioState {
+    let mut state = audio.snapshot();
+    apply(&mut state, &mut slot.borrow_mut(), Instant::now());
+    state
+}
+
+fn flip(mut state: AudioState, slot: &RefCell<Option<Pending>>, target: Target) -> Option<bool> {
+    apply(&mut state, &mut slot.borrow_mut(), Instant::now());
+    let muted = !*fields(&mut state, &target)?.1;
+    remember(slot, target, None, Some(muted));
+    Some(muted)
+}
+
 impl Audio {
+    fn settle(&mut self, snapshot: AudioState, now: Instant) {
+        self.state = snapshot;
+        apply(&mut self.state, &mut self.pending.borrow_mut(), now);
+    }
+
     fn adjust(&mut self, direction: Direction) -> Option<(AudioDeviceId, u32)> {
         let step = match direction {
             Direction::Up | Direction::Right => self.scroll_step,
@@ -453,7 +608,14 @@ impl Audio {
             return None;
         }
         device.volume = target;
-        Some((device.id.clone(), target))
+        let id = device.id.clone();
+        remember(
+            &self.pending,
+            Target::Device(AudioDirection::Output, id.clone()),
+            Some(target),
+            None,
+        );
+        Some((id, target))
     }
 
     fn nudge(&mut self, ctx: &Ctx, direction: Direction) {
@@ -464,6 +626,7 @@ impl Audio {
         tell(
             &self.notifications,
             &ctx.opener(),
+            &self.pending,
             "audio.set_volume",
             gettext("Could not change the volume"),
             async move {
@@ -482,9 +645,16 @@ impl Audio {
         let id = device.id.clone();
         device.muted = !device.muted;
         let muted = device.muted;
+        remember(
+            &self.pending,
+            Target::Device(AudioDirection::Output, id.clone()),
+            None,
+            Some(muted),
+        );
         tell(
             &self.notifications,
             &ctx.opener(),
+            &self.pending,
             "audio.set_device_muted",
             gettext("Could not change that setting"),
             async move {
@@ -500,6 +670,7 @@ impl Audio {
         Self {
             state,
             audio,
+            pending: Rc::new(RefCell::new(None)),
             notifications,
             tooltip_format: None,
             scroll_step: 5,

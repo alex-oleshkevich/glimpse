@@ -21,8 +21,8 @@ use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::blur;
 use glimpse_widgets::color_scheme;
 use glimpse_widgets::{
-    Action, Body, Notification, NotificationCard, Styles, Urgency, notification_icon,
-    notification_image,
+    Action, Body, Notification, NotificationCard, Styles, Urgency, monitor_by_connector,
+    notification_icon, notification_image,
 };
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -704,7 +704,10 @@ impl App {
         for &edge in anchors(placement.edge) {
             self.root.set_anchor(edge, true);
         }
-        let monitor = placement.connector.as_deref().and_then(gdk_monitor);
+        let monitor = placement
+            .connector
+            .as_deref()
+            .and_then(monitor_by_connector);
         self.root.set_monitor(monitor.as_ref());
     }
 
@@ -775,7 +778,7 @@ impl App {
         else {
             return;
         };
-        let Some(monitor) = gdk_monitor(connector) else {
+        let Some(monitor) = monitor_by_connector(connector) else {
             return;
         };
         let Some(id) = height_overflow(
@@ -914,14 +917,6 @@ fn height_overflow(visible: &[u32], surface_height: i32, output_height: i32) -> 
     (surface_height > output_height && visible.len() > 1)
         .then(|| visible.last().copied())
         .flatten()
-}
-
-fn gdk_monitor(connector: &str) -> Option<gdk::Monitor> {
-    let display = gdk::Display::default()?;
-    let monitors = display.monitors();
-    (0..monitors.n_items())
-        .filter_map(|index| monitors.item(index).and_downcast::<gdk::Monitor>())
-        .find(|monitor| monitor.connector().as_deref() == Some(connector))
 }
 
 fn expire(notifications: NotificationsHandle, id: u32) {

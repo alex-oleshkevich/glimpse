@@ -445,6 +445,7 @@ struct RawDevice {
     index: u32,
     pa_name: String,
     label: String,
+    pub port: Option<String>,
     icon_name: Option<String>,
     form_factor: Option<String>,
     volume: u32,
@@ -519,6 +520,7 @@ fn finish_device(raw: RawDevice, default_name: Option<&str>) -> Device {
         id: DeviceId::new(raw.pa_name),
         index: raw.index,
         name: raw.label,
+        port: raw.port,
         icon_name: raw.icon_name,
         form_factor: raw.form_factor,
         volume: raw.volume,
@@ -556,6 +558,11 @@ fn sink_to_raw(info: &SinkInfo) -> RawDevice {
         index: info.index,
         pa_name: name,
         label,
+        port: info
+            .active_port
+            .as_ref()
+            .and_then(|port| port.description.as_deref())
+            .map(|text| cap(text, NAME_CAP)),
         icon_name: proplist_str(&info.proplist, properties::DEVICE_ICON_NAME),
         form_factor: proplist_str(&info.proplist, properties::DEVICE_FORM_FACTOR),
         volume: volume_to_percent(info.volume.max()),
@@ -575,6 +582,11 @@ fn source_to_raw(info: &SourceInfo) -> RawDevice {
         index: info.index,
         pa_name: name,
         label,
+        port: info
+            .active_port
+            .as_ref()
+            .and_then(|port| port.description.as_deref())
+            .map(|text| cap(text, NAME_CAP)),
         icon_name: proplist_str(&info.proplist, properties::DEVICE_ICON_NAME),
         form_factor: proplist_str(&info.proplist, properties::DEVICE_FORM_FACTOR),
         volume: volume_to_percent(info.volume.max()),

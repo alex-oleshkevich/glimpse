@@ -4,7 +4,7 @@ mod render;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use gettextrs::gettext;
@@ -22,6 +22,14 @@ use crate::applet::{Applet, Ctx, Input, Opener, spawn_command};
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
 const ART: i32 = 192;
+const PENDING_TTL: Duration = Duration::from_secs(2);
+const PENDING_MATCH: f64 = 1.0;
+
+struct Pending {
+    player: String,
+    position: f64,
+    at: Instant,
+}
 
 pub struct ResolvedIcon {
     pub entry: Option<String>,
@@ -34,6 +42,7 @@ pub struct Mpris {
     tooltip_format: Option<String>,
     players: Vec<PlayerStatus>,
     ticking: Option<bool>,
+    pending: Rc<RefCell<Option<Pending>>>,
     art: Rc<RefCell<Art<gdk::Texture>>>,
     opener: Option<Opener>,
     icons: HashMap<String, ResolvedIcon>,
@@ -92,9 +101,15 @@ impl Applet for Mpris {
 
         player.scrubber().connect_seek({
             let (service, held) = (self.service.clone(), self.aimed.clone());
+            let pending = Rc::clone(&self.pending);
             move |_, seconds| {
                 let service = service.clone();
                 aimed(&held, |player| {
+                    *pending.borrow_mut() = Some(Pending {
+                        player: player.clone(),
+                        position: seconds,
+                        at: Instant::now(),
+                    });
                     spawn_command("mpris.set_position", async move {
                         service
                             .set_position(player, (seconds * 1_000_000.0) as i64)
@@ -151,6 +166,7 @@ impl Mpris {
             tooltip_format: None,
             players,
             ticking: None,
+            pending: Rc::new(RefCell::new(None)),
             art: Rc::default(),
             opener: None,
             icons: HashMap::new(),
@@ -337,7 +353,13 @@ impl Mpris {
 
         let scrubber = playing.scrubber();
         scrubber.set_duration(render::seconds(player.length_us.unwrap_or_default()));
-        scrubber.set_position(render::seconds(render::position(player, Utc::now())));
+        let published = render::seconds(render::position(player, Utc::now()));
+        scrubber.set_position(aimed_position(
+            &self.pending,
+            &player.id,
+            published,
+            Instant::now(),
+        ));
         scrubber.set_seekable(player.can.seek);
 
         let transport = playing.transport();
@@ -416,6 +438,27 @@ fn aimed(held: &RefCell<String>, act: impl FnOnce(String)) {
     if !player.is_empty() {
         act(player);
     }
+}
+
+fn aimed_position(
+    pending: &RefCell<Option<Pending>>,
+    player: &str,
+    published: f64,
+    now: Instant,
+) -> f64 {
+    let mut slot = pending.borrow_mut();
+    let Some(held) = slot.as_ref() else {
+        return published;
+    };
+    let target = held.position;
+    let stale = now.saturating_duration_since(held.at) >= PENDING_TTL;
+    let reached = (published - target).abs() <= PENDING_MATCH;
+    let aimed = held.player == player;
+    if !aimed || reached || stale {
+        *slot = None;
+        return published;
+    }
+    target
 }
 
 fn cycled(repeat: Repeat) -> Repeat {

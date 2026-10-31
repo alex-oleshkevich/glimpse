@@ -1772,7 +1772,7 @@ fn overlay_text_entry() -> (gtk4::ScrolledWindow, gtk4::TextView) {
     scroller.set_halign(gtk4::Align::Start);
     scroller.set_valign(gtk4::Align::Start);
     scroller.set_visible(false);
-    scroller.add_css_class("shot-surface");
+    scroller.add_css_class("osd");
     text.buffer().connect_changed(glib::clone!(
         #[weak]
         text,

@@ -11,6 +11,7 @@ use clap::Parser;
 use cli::{Cli, Command};
 use glimpse_agents::{app, dialog};
 use glimpse_config::{Documents, PANEL_STYLESHEET};
+use glimpse_dbus::osd::{OSD_BUS_NAME, OSD_PATH};
 use glimpse_utils::{init_app_tracing, init_translations};
 use gtk4::prelude::ApplicationExt;
 use relm4::{RELM_THREADS, RelmApp};
@@ -142,13 +143,24 @@ async fn connect(
         .object_server()
         .at(
             glimpse_dbus::session::SESSION_PATH,
-            glimpse_agents::session::Server::new(input),
+            glimpse_agents::session::Server::new(input.clone()),
         )
         .await
         .context("export the session interface")?;
     glimpse_dbus::own_name(&session, NAME)
         .await
         .with_context(|| format!("cannot own {NAME}; another glimpse-agents is running"))?;
+    session
+        .object_server()
+        .at(OSD_PATH, glimpse_agents::osd::Server::new(input))
+        .await
+        .context("export the on-screen display interface")?;
+    if glimpse_dbus::own_name(&session, OSD_BUS_NAME)
+        .await
+        .is_err()
+    {
+        tracing::warn!("cannot own me.aresa.Glimpse.Osd; the on-screen display is off");
+    }
     let system = zbus::Connection::system()
         .await
         .context("connect to the system bus")?;

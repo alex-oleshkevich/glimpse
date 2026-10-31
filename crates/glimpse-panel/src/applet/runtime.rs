@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use glimpse_config::{Applet as AppletConfig, Position};
 use glimpse_widgets::{IndicatorGroup, IndicatorSpec, Severity};
@@ -156,6 +157,21 @@ impl AppletStatus {
 
 pub type Builder = Box<dyn FnOnce(&Ctx) -> Box<dyn Applet>>;
 
+struct Quiet(Arc<AtomicUsize>);
+
+impl Quiet {
+    fn new(counter: Arc<AtomicUsize>) -> Self {
+        counter.fetch_add(1, Ordering::Relaxed);
+        Self(counter)
+    }
+}
+
+impl Drop for Quiet {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 pub struct AppletInit {
     pub name: String,
     pub output: Option<String>,
@@ -163,6 +179,7 @@ pub struct AppletInit {
     pub config: AppletConfig,
     pub catcher: Rc<Catcher>,
     pub slot: SlotInfo,
+    pub osd_quiet: Arc<AtomicUsize>,
 }
 
 #[derive(Debug)]
@@ -199,6 +216,8 @@ pub struct AppletRuntime {
     indicators: Vec<IndicatorStatus>,
     action: gio::SimpleAction,
     published: Option<glib::Variant>,
+    osd_quiet: Arc<AtomicUsize>,
+    quiet: Option<Quiet>,
 }
 
 impl Component for AppletRuntime {
@@ -291,6 +310,8 @@ impl Component for AppletRuntime {
             indicators: Vec::new(),
             action,
             published: None,
+            osd_quiet: init.osd_quiet,
+            quiet: None,
         };
         model.configure(init.config);
         model.deliver(None);
@@ -475,6 +496,13 @@ impl AppletRuntime {
     }
 
     fn publish(&mut self) {
+        let quiet = self.up() && matches!(self.kind.as_deref(), Some("audio" | "display"));
+        if quiet && self.quiet.is_none() {
+            self.quiet = Some(Quiet::new(Arc::clone(&self.osd_quiet)));
+        } else if !quiet {
+            self.quiet = None;
+        }
+
         let status = AppletStatus {
             slot: self.slot.clone(),
             kind: self.kind.clone(),
@@ -646,6 +674,7 @@ impl AppletHandle {
         config: AppletConfig,
         catcher: Rc<Catcher>,
         slot: SlotInfo,
+        osd_quiet: Arc<AtomicUsize>,
     ) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
@@ -655,6 +684,7 @@ impl AppletHandle {
                 config,
                 catcher,
                 slot,
+                osd_quiet,
             })
             .detach();
 

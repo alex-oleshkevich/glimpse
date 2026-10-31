@@ -79,3 +79,45 @@ fn returning_to_a_path_accepts_only_its_latest_requested_image() {
     assert!(art.land(new_a, Some(3)));
     assert_eq!(art.texture(), Some(&3));
 }
+
+#[test]
+fn a_seek_holds_the_scrubber_until_the_player_reports_it() {
+    let at = Instant::now();
+    let pending = RefCell::new(Some(Pending {
+        player: "spotify".to_owned(),
+        position: 105.0,
+        at,
+    }));
+    let tick = at + Duration::from_millis(900);
+
+    assert_eq!(
+        aimed_position(&pending, "spotify", 100.4, tick),
+        105.0,
+        "a tick computed from the pre-seek position must not pull the knob back"
+    );
+    assert_eq!(aimed_position(&pending, "spotify", 105.8, tick), 105.8);
+    assert!(pending.borrow().is_none());
+}
+
+#[test]
+fn a_seek_is_forgotten_after_its_deadline_or_when_the_player_changes() {
+    let at = Instant::now();
+    let pending = RefCell::new(Some(Pending {
+        player: "a".to_owned(),
+        position: 105.0,
+        at,
+    }));
+    assert_eq!(
+        aimed_position(&pending, "a", 100.0, at + PENDING_TTL),
+        100.0
+    );
+    assert!(pending.borrow().is_none());
+
+    let pending = RefCell::new(Some(Pending {
+        player: "a".to_owned(),
+        position: 105.0,
+        at,
+    }));
+    assert_eq!(aimed_position(&pending, "b", 20.0, at), 20.0);
+    assert!(pending.borrow().is_none());
+}

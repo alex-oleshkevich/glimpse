@@ -2,6 +2,14 @@ use std::rc::Rc;
 
 use gtk4::{gdk, gio, prelude::*};
 
+pub fn monitor_by_connector(connector: &str) -> Option<gdk::Monitor> {
+    let display = gdk::Display::default()?;
+    let monitors = display.monitors();
+    (0..monitors.n_items())
+        .filter_map(|index| monitors.item(index).and_downcast::<gdk::Monitor>())
+        .find(|monitor| monitor.connector().as_deref() == Some(connector))
+}
+
 pub fn watch_monitors(changed: impl Fn() + 'static) {
     let Some(display) = gdk::Display::default() else {
         return;

@@ -13,6 +13,7 @@ mod mpris;
 mod network;
 mod night_light;
 mod notifications;
+mod osd;
 mod panels;
 mod places;
 mod removable;
@@ -51,6 +52,7 @@ pub use mpris::Mpris as MprisConfig;
 pub use network::Network as NetworkSettings;
 pub use night_light::{MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
+pub use osd::*;
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;
 pub use removable::Removable;
@@ -77,6 +79,7 @@ pub struct Config {
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
     pub notifications: Notifications,
+    pub osd: Osd,
     pub wallpaper: Wallpaper,
     pub lock: Lock,
     pub places: Places,
@@ -146,6 +149,7 @@ impl Default for Config {
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),
+            osd: Osd::default(),
             wallpaper: Wallpaper::default(),
             lock: Lock::default(),
             places: Places::default(),

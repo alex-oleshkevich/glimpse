@@ -84,7 +84,8 @@ inactive privacy, stays running and answers every command `Unsupported`; an owne
 served degrades the service and keeps the last state. **Urgency is derived here so every client
 sees one answer** — a workspace is urgent when any window on it is. **keyboard** derives badges
 unless labels override them. Layout memory follows `[keyboard] remember` (window, app or global),
-uses ordered provider events, and resets when the provider disconnects.
+uses ordered provider events, and resets when the provider disconnects. A layout change that lands
+the index a restore asked for is published with `restored`; any other layout change is not.
 
 **calendar** — a local path is watched, `http(s)` is polled, and a `file://` holding a one-line feed URL does both. **A failure
 reason never contains the uri.** `failing` lists a source at once when its failure needs the user —

@@ -151,6 +151,14 @@
         "suppress": []
       }
     },
+    "osd": {
+      "$ref": "#/$defs/Osd",
+      "default": {
+        "duration": 1500,
+        "edge": "bottom-center",
+        "enabled": true
+      }
+    },
     "places": {
       "$ref": "#/$defs/Places",
       "default": {
@@ -842,7 +850,7 @@
           "minimum": 1
         },
         "monitor": {
-          "description": "The connector name of the monitor popups appear on, e.g. `DP-1`. Unset, or naming a\nmonitor that is not connected, uses the focused monitor.",
+          "description": "The connector name of the monitor popups appear on, e.g. `DP-1`. Unset, or naming a\nmonitor that is not connected, uses the focused monitor. The on-screen display appears\nthere too.",
           "type": [
             "string",
             "null"
@@ -856,6 +864,30 @@
           "items": {
             "type": "string"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Osd": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "description": "Milliseconds the display stays after the last change.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 1500,
+          "maximum": 10000,
+          "minimum": 500
+        },
+        "edge": {
+          "description": "The corner or edge of the monitor the display appears at. It appears on the monitor\nnotifications use.",
+          "$ref": "#/$defs/NotificationEdge",
+          "default": "bottom-center"
+        },
+        "enabled": {
+          "description": "Whether the on-screen display appears for volume, brightness and keyboard layout changes.",
+          "type": "boolean",
+          "default": true
         }
       },
       "additionalProperties": false

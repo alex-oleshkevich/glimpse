@@ -11,6 +11,7 @@ use std::fmt;
 use std::mem::Discriminant;
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::applet::catcher::Catcher;
 use crate::applet::runtime::{AppletHandle, SlotInfo};
@@ -323,6 +324,7 @@ impl Panel {
                                 applet,
                                 Rc::clone(&self.catcher),
                                 slot_info(config, zone, index, &name),
+                                Arc::clone(&config.handles.osd_quiet),
                             )
                         }),
                     }),

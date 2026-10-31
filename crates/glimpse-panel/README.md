@@ -214,6 +214,10 @@ service event reconcile it. **A command that fails wakes its own applet**, becau
 publishes nothing when a rejected command leaves its state byte-identical — the optimistic flip
 would otherwise stand until something unrelated moved.
 
+**The panel reports audio, brightness and layout changes to `me.aresa.Glimpse.Osd`.** It sends no
+volume or brightness level while its own audio or display popover is open, and nothing for a
+per-window layout restore.
+
 **One substituter renders every `{token}` format.** `applets/tokens.rs::render` walks the template
 once, resolving each token through a closure the applet supplies — chained `String::replace` is the
 wrong shape, since each replacement would run over the previous one's output.

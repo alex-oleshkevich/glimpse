@@ -178,6 +178,7 @@ export default withMermaid(
             items: [
               { text: "Appearance and location", link: "/config/services/appearance" },
               { text: "Notifications", link: "/config/services/notifications" },
+              { text: "On-screen display", link: "/config/services/osd" },
               { text: "Lock screen", link: "/config/services/lock" },
               { text: "Idle", link: "/config/services/idle" },
               { text: "Night light", link: "/config/services/night-light" },

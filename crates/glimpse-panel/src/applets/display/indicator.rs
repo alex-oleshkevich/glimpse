@@ -1,6 +1,7 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, DisplayAppletConfig};
@@ -29,9 +30,11 @@ use crate::applet::{
 use super::render::{self, Coalescer};
 
 const NIGHT_LIGHT_ICON: &str = "night-light-symbolic";
+const TEMPERATURE_SETTLE: Duration = Duration::from_millis(3_500);
 
 type LevelCoalescers = Rc<RefCell<HashMap<String, Rc<RefCell<Coalescer<u32>>>>>>;
 type TemperatureCoalescer = Rc<RefCell<Coalescer<u32>>>;
+type PendingTemperature = Rc<Cell<Option<(u32, Instant)>>>;
 
 pub struct Display {
     state: BrightnessState,
@@ -49,6 +52,7 @@ pub struct Display {
     pinned: RefCell<Option<String>>,
     level_coalescers: LevelCoalescers,
     temperature_coalescer: TemperatureCoalescer,
+    pending_temperature: PendingTemperature,
 }
 
 impl Applet for Display {
@@ -120,8 +124,10 @@ impl Applet for Display {
         shown.connect_night_light_toggled({
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
+            let pending = Rc::clone(&self.pending_temperature);
             let resync = resync.clone();
             move |_, on| {
+                pending.set(None);
                 let night_light = night_light.clone();
                 let notifications = notifications.clone();
                 let resync = resync.clone();
@@ -175,8 +181,10 @@ impl Applet for Display {
         shown.connect_night_light_paused({
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
+            let pending = Rc::clone(&self.pending_temperature);
             let resync = resync.clone();
             move |_, paused| {
+                pending.set(None);
                 let night_light = night_light.clone();
                 let notifications = notifications.clone();
                 let resync = resync.clone();
@@ -198,11 +206,13 @@ impl Applet for Display {
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
             let coalescer = Rc::clone(&self.temperature_coalescer);
+            let pending = Rc::clone(&self.pending_temperature);
             let resync = resync.clone();
             move |_, value| {
                 let value = value.round().max(0.0) as u32;
                 dispatch_temperature(
                     &coalescer,
+                    &pending,
                     night_light.clone(),
                     notifications.clone(),
                     resync.clone(),
@@ -215,11 +225,13 @@ impl Applet for Display {
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
             let coalescer = Rc::clone(&self.temperature_coalescer);
+            let pending = Rc::clone(&self.pending_temperature);
             let resync = resync.clone();
             move |_, value| {
                 let value = value.round().max(0.0) as u32;
                 dispatch_temperature(
                     &coalescer,
+                    &pending,
                     night_light.clone(),
                     notifications.clone(),
                     resync.clone(),
@@ -313,11 +325,13 @@ fn dispatch_level(
     };
     relm4::spawn_local(async move {
         loop {
-            if let Err(error) = brightness.set_level(key.clone(), value).await {
+            let result = brightness.set_level(key.clone(), value).await;
+            let next = coalescer.borrow_mut().completed();
+            if let Err(error) = result {
                 resync.run();
                 report_brightness_failure(&notifications, "brightness.set_level", error).await;
             }
-            match coalescer.borrow_mut().completed() {
+            match next {
                 Some(pending) => value = pending,
                 None => break,
             }
@@ -327,24 +341,32 @@ fn dispatch_level(
 
 fn dispatch_temperature(
     coalescer: &TemperatureCoalescer,
+    pending: &PendingTemperature,
     night_light: NightLightProviderHandle,
     notifications: NotificationsProviderHandle,
     resync: Resync,
     value: u32,
 ) {
+    pending.set(Some((value, Instant::now())));
     let coalescer = Rc::clone(coalescer);
     let Some(mut value) = coalescer.borrow_mut().request(value) else {
         return;
     };
+    let pending = Rc::clone(pending);
     relm4::spawn_local(async move {
         loop {
-            if let Err(error) = night_light.set_temperature(value).await {
+            let result = night_light.set_temperature(value).await;
+            let next = coalescer.borrow_mut().completed();
+            if let Err(error) = result {
+                if next.is_none() {
+                    pending.set(None);
+                }
                 resync.run();
                 report_night_light_failure(&notifications, "night_light.set_temperature", error)
                     .await;
             }
-            match coalescer.borrow_mut().completed() {
-                Some(pending) => value = pending,
+            match next {
+                Some(queued) => value = queued,
                 None => break,
             }
         }
@@ -468,6 +490,28 @@ impl Display {
         });
     }
 
+    fn level(&self, source: &glimpse_services::BrightnessSource) -> u32 {
+        self.level_coalescers
+            .borrow()
+            .get(&source.id)
+            .and_then(|coalescer| coalescer.borrow().latest())
+            .unwrap_or(source.current)
+    }
+
+    fn temperature(&self, published: u32) -> u32 {
+        match self.pending_temperature.get() {
+            Some((kelvin, since))
+                if kelvin != published && since.elapsed() < TEMPERATURE_SETTLE =>
+            {
+                kelvin
+            }
+            _ => {
+                self.pending_temperature.set(None);
+                published
+            }
+        }
+    }
+
     pub fn start(
         brightness: BrightnessHandle,
         night_light: NightLightProviderHandle,
@@ -498,6 +542,7 @@ impl Display {
             pinned: RefCell::new(None),
             level_coalescers: Rc::new(RefCell::new(HashMap::new())),
             temperature_coalescer: Rc::new(RefCell::new(Coalescer::new())),
+            pending_temperature: Rc::new(Cell::new(None)),
         }
     }
 
@@ -519,7 +564,7 @@ impl Display {
                 key: source.id.clone(),
                 name: render::source_name(source, &self.outputs),
                 icon: render::source_icon(source.kind).to_owned(),
-                value: source.current as f64,
+                value: self.level(source) as f64,
                 maximum: source.max as f64,
                 floor: source.floor as f64,
             })
@@ -532,7 +577,7 @@ impl Display {
             .as_ref()
             .map(|snapshot| NightLight {
                 enabled: render::switch_on(&snapshot.schedule),
-                temperature: snapshot.temperature,
+                temperature: self.temperature(snapshot.temperature),
                 schedule: render::night_mode(&snapshot.schedule, &snapshot.configured).to_owned(),
                 fixed_hours: snapshot.schedule == "schedule" || snapshot.configured == "schedule",
                 serving: snapshot.serving,

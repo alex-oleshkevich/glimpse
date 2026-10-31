@@ -50,6 +50,7 @@ fn hyprland_layouts_publish_uppercase_codes() {
         ),
         &BTreeMap::new(),
         &codes(),
+        false,
     );
     assert_eq!(
         published.layouts,
@@ -73,6 +74,7 @@ fn an_unknown_name_uses_its_first_two_letters() {
         &served(&["Unknown layout"], &[], Some(0)),
         &BTreeMap::new(),
         &codes(),
+        false,
     );
     assert_eq!(published.layouts[0].code, "UN");
     assert_eq!(published.layouts[0].name, "Unknown layout");
@@ -86,6 +88,7 @@ fn a_label_overrides_the_derived_badge_case_insensitively() {
             &served(&["English (US)"], &["us"], Some(0)),
             &labels,
             &codes(),
+            false,
         );
         assert_eq!(published.layouts[0].code, "custom");
         assert_eq!(published.layouts[0].name, "English (US)");
@@ -96,7 +99,12 @@ fn a_label_overrides_the_derived_badge_case_insensitively() {
 fn a_names_only_layout_matches_short_code_labels_case_insensitively() {
     for key in ["EN", "en", "eNGLISH (us)"] {
         let labels = BTreeMap::from([(key.to_owned(), "custom".to_owned())]);
-        let published = payload(&served(&["English (US)"], &[], Some(0)), &labels, &codes());
+        let published = payload(
+            &served(&["English (US)"], &[], Some(0)),
+            &labels,
+            &codes(),
+            false,
+        );
         assert_eq!(published.layouts[0].code, "custom", "label key: {key}");
         assert_eq!(published.layouts[0].name, "English (US)");
     }
@@ -108,6 +116,7 @@ fn a_current_past_the_end_is_dropped() {
         &served(&["English (US)"], &["us"], Some(4)),
         &BTreeMap::new(),
         &codes(),
+        false,
     );
     assert_eq!(published.current, None);
 }
@@ -119,6 +128,7 @@ fn names_are_capped_by_characters() {
         &served(&[&long], &["ru"], Some(0)),
         &BTreeMap::new(),
         &codes(),
+        false,
     );
     assert_eq!(published.layouts[0].name.chars().count(), NAME_CAP);
 }
@@ -388,6 +398,7 @@ struct Held {
     service: Keyboard,
     ctx: Ctx<Keyboard>,
     events: mpsc::Receiver<Input<Keyboard>>,
+    layouts: watch::Receiver<KeyboardLayouts>,
     rig: Rig,
 }
 
@@ -396,7 +407,7 @@ impl Held {
         let rig = Rig::start(two_layouts()).await;
         let cancel = CancellationToken::new();
         let (events, inbox) = mpsc::channel(8);
-        let (published, _state) = watch::channel(KeyboardLayouts::default());
+        let (published, layouts) = watch::channel(KeyboardLayouts::default());
         let (health, _health) = watch::channel(ServiceState::Starting);
         let ctx = Ctx::<Keyboard>::new(
             events,
@@ -419,6 +430,7 @@ impl Held {
             service,
             ctx,
             events: inbox,
+            layouts,
             rig,
         }
     }
@@ -632,7 +644,9 @@ async fn a_failed_restore_does_not_suppress_the_next_shortcut() {
     held.completed().await;
     assert!(held.service.operations.is_empty());
     held.follow(layouts_of(2, &names, Some(0))).await;
+    assert!(!held.layouts.borrow().restored);
     held.follow(layouts_of(2, &names, Some(1))).await;
+    assert!(!held.layouts.borrow().restored);
     assert_eq!(held.service.store.get(&StoreKey::Window(2)), Some(&1));
 }
 
@@ -652,4 +666,63 @@ async fn a_restore_finishes_when_the_native_target_is_superseded_before_observat
     assert!(held.service.operations.is_empty());
     assert_eq!(held.service.store.get(&StoreKey::Window(2)), Some(&0));
     assert_eq!(held.rig.calls(), ["switch_keyboard_layout 1"]);
+    held.follow(layouts_of(2, &names, Some(1))).await;
+    assert!(!held.layouts.borrow().restored);
+}
+
+#[tokio::test]
+async fn an_unrelated_shortcut_does_not_consume_a_pending_restore() {
+    let mut held = Held::start(Remember::Window).await;
+    let names = ["English (US)", "Polish", "German"];
+    held.follow(layouts_of(1, &names, Some(2))).await;
+    held.service.store.insert(StoreKey::Window(2), 1);
+    held.follow(layouts_of(2, &names, Some(2))).await;
+
+    held.follow(layouts_of(2, &names, Some(0))).await;
+    assert_eq!(held.layouts.borrow().current, Some(0));
+    assert!(!held.layouts.borrow().restored);
+
+    held.follow(layouts_of(2, &names, Some(1))).await;
+    assert_eq!(held.layouts.borrow().current, Some(1));
+    assert!(held.layouts.borrow().restored);
+    held.completed().await;
+}
+
+#[tokio::test]
+async fn a_restore_driven_change_publishes_restored_and_a_later_keybind_does_not() {
+    let mut held = Held::start(Remember::Window).await;
+    let names = ["English (US)", "Polish"];
+    held.follow(layouts_of(1, &names, Some(0))).await;
+    held.follow(layouts_of(2, &names, Some(0))).await;
+    held.follow(layouts_of(2, &names, Some(1))).await;
+    held.follow(layouts_of(1, &names, Some(1))).await;
+    until(
+        &mut held.rig.served.shared.recorded(),
+        "window 1 restores its layout",
+        |count| *count >= 1,
+    )
+    .await;
+    assert_eq!(held.rig.calls(), ["switch_keyboard_layout 0"]);
+
+    held.follow(layouts_of(1, &names, Some(0))).await;
+    let restored = held.layouts.borrow().clone();
+    assert!(restored.restored, "a restore-driven change is marked");
+    assert_eq!(restored.current, Some(0));
+
+    held.completed().await;
+    held.follow(layouts_of(1, &names, Some(1))).await;
+    let switched = held.layouts.borrow().clone();
+    assert!(
+        !switched.restored,
+        "a later keybind change is not a restore"
+    );
+    assert_eq!(switched.current, Some(1));
+
+    held.follow(layouts_of(1, &names, Some(0))).await;
+    let again = held.layouts.borrow().clone();
+    assert!(
+        !again.restored,
+        "returning to the restored layout by keybind is not a restore"
+    );
+    assert_eq!(again.current, Some(0));
 }

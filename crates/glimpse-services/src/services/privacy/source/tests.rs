@@ -20,6 +20,7 @@ fn device(id: &str) -> Device {
         id: DeviceId::new(id),
         index: 0,
         name: id.to_owned(),
+        port: None,
         icon_name: None,
         form_factor: None,
         volume: 100,
