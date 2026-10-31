@@ -184,6 +184,7 @@ fn a_cancelled_run_answers_once_as_cancelled_and_stays_off_the_app() {
         marks: Vec::new(),
         output: None,
         config: glimpse_config::ScreenshotConfig::default(),
+        osd_edge: glimpse_config::NotificationEdge::default(),
         snapshot: None,
         tool: None,
     };

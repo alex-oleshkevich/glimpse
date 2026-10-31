@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.1\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-31 13:51+0100\n"
+"POT-Creation-Date: 2026-10-31 13:58+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2416,66 +2416,66 @@ msgstr ""
 msgid "--portal needs a screen target"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:522
-#: crates/glimpse-shot/src/gui/app.rs:652
-#: crates/glimpse-shot/src/gui/app.rs:936 crates/glimpse-shot/src/notify.rs:288
+#: crates/glimpse-shot/src/gui/app.rs:523
+#: crates/glimpse-shot/src/gui/app.rs:653
+#: crates/glimpse-shot/src/gui/app.rs:938 crates/glimpse-shot/src/notify.rs:288
 #: crates/glimpse-shot/src/notify/tests.rs:305
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:569
+#: crates/glimpse-shot/src/gui/app.rs:570
 msgid "The clipboard holds no image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:775
+#: crates/glimpse-shot/src/gui/app.rs:776
 msgid "There is no window to capture"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:844
+#: crates/glimpse-shot/src/gui/app.rs:846
 msgid "That window has closed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:861
+#: crates/glimpse-shot/src/gui/app.rs:863
 msgid "Images"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:871
+#: crates/glimpse-shot/src/gui/app.rs:873
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
 msgid "Open Image"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:896
+#: crates/glimpse-shot/src/gui/app.rs:898
 msgid "The image must be a local file"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1012
+#: crates/glimpse-shot/src/gui/app.rs:1014
 msgid "Untitled window"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:1104
+#: crates/glimpse-shot/src/gui/app.rs:1106
 msgid "Screenshot failed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:379
+#: crates/glimpse-shot/src/gui/overlay.rs:385
 msgid "Waiting to take a screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1077
+#: crates/glimpse-shot/src/gui/overlay.rs:1083
 #: crates/glimpse-shot/src/gui/result.rs:925
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1638
+#: crates/glimpse-shot/src/gui/overlay.rs:1644
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1800
+#: crates/glimpse-shot/src/gui/overlay.rs:1817
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1801
+#: crates/glimpse-shot/src/gui/overlay.rs:1818
 msgid "Copied"
 msgstr ""
 

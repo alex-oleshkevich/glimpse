@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use adw::prelude::*;
 use chrono::{DateTime, Local};
 use gettextrs::gettext;
-use glimpse_config::ScreenshotConfig;
+use glimpse_config::{NotificationEdge, ScreenshotConfig};
 use glimpse_shot::doc::document::{Document, Mark, Source, Style, Tool};
 use glimpse_shot::doc::esc::EscOutcome;
 use glimpse_shot::doc::naming::file_name;
@@ -64,6 +64,7 @@ pub struct Options {
     pub config: ScreenshotConfig,
     pub snapshot: Option<Layout>,
     pub tool: Option<Tool>,
+    pub osd_edge: NotificationEdge,
 }
 
 pub enum Ended {
@@ -351,8 +352,13 @@ impl Run {
 
     fn countdown(self: &Rc<Self>, until: Instant) {
         let window = layer_window(KeyboardMode::None);
-        window.set_anchor(Edge::Top, true);
-        window.set_margin(Edge::Top, 18);
+        window.add_css_class("shot-countdown-surface");
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            window.set_anchor(edge, false);
+        }
+        for edge in anchors(self.options.osd_edge) {
+            window.set_anchor(*edge, true);
+        }
         let output = match &self.options.target {
             Target::Screen(name) => Some(name.clone()),
             _ => self
@@ -1721,6 +1727,17 @@ fn layer_window(keyboard: KeyboardMode) -> gtk4::Window {
     window
 }
 
+fn anchors(edge: NotificationEdge) -> &'static [Edge] {
+    match edge {
+        NotificationEdge::TopLeft => &[Edge::Top, Edge::Left],
+        NotificationEdge::TopCenter => &[Edge::Top],
+        NotificationEdge::TopRight => &[Edge::Top, Edge::Right],
+        NotificationEdge::BottomLeft => &[Edge::Bottom, Edge::Left],
+        NotificationEdge::BottomCenter => &[Edge::Bottom],
+        NotificationEdge::BottomRight => &[Edge::Bottom, Edge::Right],
+    }
+}
+
 fn monitor_named(connector: &str) -> Option<gdk::Monitor> {
     let display = gdk::Display::default()?;
     display
@@ -1772,7 +1789,7 @@ fn overlay_text_entry() -> (gtk4::ScrolledWindow, gtk4::TextView) {
     scroller.set_halign(gtk4::Align::Start);
     scroller.set_valign(gtk4::Align::Start);
     scroller.set_visible(false);
-    scroller.add_css_class("osd");
+    scroller.add_css_class("pill-surface");
     text.buffer().connect_changed(glib::clone!(
         #[weak]
         text,

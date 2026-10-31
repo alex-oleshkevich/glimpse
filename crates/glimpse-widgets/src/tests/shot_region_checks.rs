@@ -37,5 +37,5 @@ fn shot_region_widgets() {
         imp.hint.text(),
         "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
     );
-    assert!(imp.hint.has_css_class("osd") && imp.hint.has_css_class("osd--pill"));
+    assert!(imp.hint.has_css_class("pill-surface") && imp.hint.has_css_class("pill-surface--pill"));
 }

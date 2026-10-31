@@ -2006,7 +2006,7 @@ window.blurred .notification--activatable:hover {
     }
 }
 
-.osd {
+.pill-surface {
     background-color: var(--gl-surface);
     color: var(--gl-surface-fg);
     border: 1px solid var(--gl-border);
@@ -2018,7 +2018,7 @@ window.blurred .notification--activatable:hover {
     padding: 0.3rem 0.5rem;
 }
 
-.shot-result-toolbar .osd {
+.shot-result-toolbar .pill-surface {
     background-color: transparent;
     box-shadow: none;
     border: 0;
@@ -2035,6 +2035,14 @@ window.blurred .notification--activatable:hover {
 
 window.shot-flash {
     background-color: transparent;
+}
+
+window.shot-countdown-surface {
+    background: transparent;
+}
+
+window.shot-countdown-surface > * {
+    margin: 3rem;
 }
 
 .shot-text-entry {
@@ -2109,13 +2117,13 @@ window.shot-flash {
     min-height: 0.35rem;
 }
 
-.osd--pill {
+.pill-surface--pill {
     border-radius: 999px;
     padding: 0.4rem 0.9rem;
 }
 
-.osd--compact {
-    padding: 0.15rem 0.25rem 0.15rem 1rem;
+.pill-surface--compact {
+    padding: 0.15rem 0.2rem 0.15rem 1rem;
 }
 
 window.osd-surface {
