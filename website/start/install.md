@@ -71,6 +71,13 @@ and SDK files are left alone. The `.deb` and `.rpm`
 packages are the supported route. On Arch Linux the script prints the AUR command without
 installing; on NixOS it refuses and points you to the flake module.
 
+Every package and tarball on the releases page carries a build attestation from the release
+workflow. To check that a file you downloaded was built by this repository from a release tag:
+
+```sh
+gh attestation verify glimpse-<version>-x86_64.tar.zst --repo alex-oleshkevich/glimpse
+```
+
 If you would rather not pipe a script into a shell, download the package for your distribution from
 the [releases page](https://github.com/alex-oleshkevich/glimpse/releases) and install it yourself.
 
