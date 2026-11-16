@@ -274,7 +274,7 @@ jobs:
         env:
           TAG: ${{ needs.verify.outputs.tag }}
         run: |
-          pacman -Sy --noconfirm --needed just openssh git
+          pacman -Syu --noconfirm --needed just openssh git
           version="${TAG#v}"
           b2sum="$(cut -d' ' -f1 "dist/glimpse-${version}-x86_64.tar.zst.b2")"
           just release-pkgbuild "$version" "$b2sum"
