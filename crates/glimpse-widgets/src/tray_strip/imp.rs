@@ -58,11 +58,7 @@ impl ObjectImpl for TrayStrip {
         strip.add_css_class("tray-strip");
         strip.set_visible(false);
 
-        if let Some(layout) = strip.layout_manager().and_downcast::<gtk4::BoxLayout>() {
-            layout.set_spacing(super::SPACING as u32);
-        }
-
-        let shown = gtk4::Box::new(gtk4::Orientation::Horizontal, super::SPACING);
+        let shown = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
         shown.set_parent(&*strip);
         self.visible_box.replace(Some(shown));
 
@@ -74,7 +70,7 @@ impl ObjectImpl for TrayStrip {
         chevron.set_parent(&*strip);
         self.chevron.replace(Some(chevron.clone()));
 
-        let hidden = gtk4::Box::new(gtk4::Orientation::Horizontal, super::SPACING);
+        let hidden = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
         let drawer = gtk4::Revealer::builder()
             .transition_type(gtk4::RevealerTransitionType::SlideLeft)
             .reveal_child(false)
