@@ -52,6 +52,108 @@ fn a_window_numbers_itself_by_position_rather_than_by_its_address() {
 }
 
 #[test]
+fn a_window_stays_focused_while_a_popover_holds_the_keyboard() {
+    let workspaces = [workspace(4, "DP-1", true, true)];
+    let mut held = None;
+    hold_focus(
+        &mut [window(1, false), window(2, true)],
+        &workspaces,
+        &mut held,
+    );
+
+    let mut windows = [window(1, false), window(2, false)];
+    hold_focus(&mut windows, &workspaces, &mut held);
+
+    assert!(
+        windows[1].focused,
+        "keyboard focus moving to a layer surface must not leave the pager with no focused item"
+    );
+    assert!(!windows[0].focused);
+}
+
+#[test]
+fn a_held_window_lets_go_once_its_workspace_loses_focus() {
+    let mut held = None;
+    hold_focus(
+        &mut [window(2, true)],
+        &[workspace(4, "DP-1", true, true)],
+        &mut held,
+    );
+
+    let mut windows = [window(2, false)];
+    hold_focus(
+        &mut windows,
+        &[
+            workspace(4, "DP-1", false, true),
+            workspace(5, "DP-1", true, false),
+        ],
+        &mut held,
+    );
+
+    assert!(
+        !windows[0].focused,
+        "focus moved to another workspace, not to a layer surface"
+    );
+}
+
+#[test]
+fn a_closed_window_is_not_held() {
+    let workspaces = [workspace(4, "DP-1", true, true)];
+    let mut held = None;
+    hold_focus(&mut [window(2, true)], &workspaces, &mut held);
+
+    hold_focus(&mut [window(3, false)], &workspaces, &mut held);
+
+    assert_eq!(held, None);
+}
+
+#[test]
+fn a_focused_empty_workspace_stays_focused_when_the_focus_report_goes_away() {
+    let mut held = None;
+    hold_workspace(&mut [workspace(4, "DP-1", true, true)], &mut held);
+
+    let mut workspaces = [workspace(4, "DP-1", false, true)];
+    hold_workspace(&mut workspaces, &mut held);
+
+    assert!(
+        workspaces[0].focused,
+        "a popover taking the keyboard must not leave the pager with no focused workspace"
+    );
+}
+
+#[test]
+fn a_held_workspace_lets_go_when_it_is_no_longer_active() {
+    let mut held = None;
+    hold_workspace(&mut [workspace(4, "DP-1", true, true)], &mut held);
+
+    let mut workspaces = [
+        workspace(4, "DP-1", false, false),
+        workspace(5, "DP-1", false, true),
+    ];
+    hold_workspace(&mut workspaces, &mut held);
+
+    assert!(
+        !workspaces[0].focused,
+        "another workspace took over the output"
+    );
+}
+
+#[test]
+fn a_removed_workspace_is_not_held() {
+    let mut held = None;
+    hold_workspace(&mut [workspace(4, "DP-1", true, true)], &mut held);
+
+    let mut workspaces = [workspace(5, "DP-1", false, true)];
+    hold_workspace(&mut workspaces, &mut held);
+
+    assert!(
+        !workspaces[0].focused,
+        "the held workspace no longer exists"
+    );
+    assert_eq!(held, None);
+}
+
+#[test]
 fn an_unnamed_workspace_is_named_by_its_index() {
     let mut unnamed = workspace(7, "DP-1", false, false);
     unnamed.index = Some(4);

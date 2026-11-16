@@ -25,6 +25,8 @@ pub struct Pager {
     workspaces: Vec<WorkspaceInfo>,
     windows: Vec<WindowInfo>,
     outputs: Vec<OutputInfo>,
+    held_workspace: Option<u64>,
+    held_window: Option<u64>,
     compositor: CompositorHandle,
 }
 
@@ -99,6 +101,8 @@ impl Applet for Pager {
             .unwrap_or_default();
         self.windows = state.windows.map(|value| value.windows).unwrap_or_default();
         self.outputs = state.outputs.map(|value| value.outputs).unwrap_or_default();
+        hold_workspace(&mut self.workspaces, &mut self.held_workspace);
+        hold_focus(&mut self.windows, &self.workspaces, &mut self.held_window);
         self.render();
     }
 }
@@ -106,17 +110,25 @@ impl Applet for Pager {
 impl Pager {
     pub fn start(compositor: CompositorHandle) -> Self {
         let state = compositor.snapshot();
+        let mut workspaces = state
+            .workspaces
+            .map(|value| value.workspaces)
+            .unwrap_or_default();
+        let mut windows = state.windows.map(|value| value.windows).unwrap_or_default();
+        let mut held_workspace = None;
+        let mut held_window = None;
+        hold_workspace(&mut workspaces, &mut held_workspace);
+        hold_focus(&mut windows, &workspaces, &mut held_window);
         Self {
             strip: Strip::new(),
             shown: glib::WeakRef::new(),
             settings: Rc::new(RefCell::new(PagerConfig::default())),
             output: None,
-            workspaces: state
-                .workspaces
-                .map(|value| value.workspaces)
-                .unwrap_or_default(),
-            windows: state.windows.map(|value| value.windows).unwrap_or_default(),
+            workspaces,
+            windows,
             outputs: state.outputs.map(|value| value.outputs).unwrap_or_default(),
+            held_workspace,
+            held_window,
             compositor,
         }
     }
@@ -211,6 +223,36 @@ impl Pager {
             }
         }
     }
+}
+
+fn hold_workspace(workspaces: &mut [WorkspaceInfo], held: &mut Option<u64>) {
+    if let Some(focused) = workspaces.iter().find(|workspace| workspace.focused) {
+        *held = Some(focused.id);
+        return;
+    }
+    let Some(workspace) =
+        held.and_then(|id| workspaces.iter_mut().find(|workspace| workspace.id == id))
+    else {
+        *held = None;
+        return;
+    };
+    workspace.focused = workspace.active;
+}
+
+fn hold_focus(windows: &mut [WindowInfo], workspaces: &[WorkspaceInfo], held: &mut Option<u64>) {
+    if let Some(focused) = windows.iter().find(|window| window.focused) {
+        *held = Some(focused.id);
+        return;
+    }
+    let Some(window) = held.and_then(|id| windows.iter_mut().find(|window| window.id == id)) else {
+        *held = None;
+        return;
+    };
+    window.focused = window.workspace.is_some_and(|id| {
+        workspaces
+            .iter()
+            .any(|workspace| workspace.id == id && workspace.focused)
+    });
 }
 
 fn template(settings: &PagerConfig, focused: bool, urgent: bool) -> &str {
