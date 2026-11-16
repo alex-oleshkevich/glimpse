@@ -122,7 +122,7 @@
 .tray-strip,
 .tray-strip > box,
 .tray-strip revealer > box {
-    border-spacing: 0.25rem;
+    border-spacing: 0.0625rem;
 }
 
 .panel--vertical {
