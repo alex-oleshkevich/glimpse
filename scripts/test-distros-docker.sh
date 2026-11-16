@@ -58,6 +58,7 @@ case "$distro" in
     opensuse)
         package=(/artifacts/*opensuse*.rpm)
         [[ ${#package[@]} -eq 1 ]]
+        zypper --non-interactive dup --no-recommends
         zypper --non-interactive install --no-recommends diffutils
         zypper --non-interactive install --no-recommends --allow-unsigned-rpm "${package[0]}"
         ;;
