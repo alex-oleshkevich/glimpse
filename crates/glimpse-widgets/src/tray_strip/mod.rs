@@ -4,7 +4,6 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{Indicator, IndicatorSpec, reconcile::by_key};
 
-pub(crate) const SPACING: i32 = 4;
 const CHEVRON_OPEN: &str = "tray-strip__chevron--open";
 const CHEVRON_MARKED: &str = "tray-strip__chevron--marked";
 
@@ -224,6 +223,7 @@ impl TrayStrip {
 
     fn chip(&self, key: &str) -> Indicator {
         let indicator = Indicator::new();
+        indicator.add_css_class("tray-strip__chip");
         let key = key.to_owned();
 
         let click = gtk4::GestureClick::new();

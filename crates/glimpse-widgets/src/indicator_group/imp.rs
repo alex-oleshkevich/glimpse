@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use crate::indicator::Indicator;
 
-const SPACING: u32 = 4;
 const PRIMARY_BUTTON: u32 = 1;
 
 #[derive(Debug, Default)]
@@ -51,9 +50,6 @@ impl ObjectImpl for IndicatorGroup {
         obj.add_css_class("indicator-group");
         obj.set_visible(false);
         obj.set_focusable(true);
-        if let Some(layout) = obj.layout_manager().and_downcast::<gtk4::BoxLayout>() {
-            layout.set_spacing(SPACING);
-        }
 
         let click = gtk4::GestureClick::new();
         click.set_button(0);

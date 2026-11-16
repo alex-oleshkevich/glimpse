@@ -117,6 +117,14 @@
     min-width: 0.0625rem;
 }
 
+.panel-section,
+.indicator-group,
+.tray-strip,
+.tray-strip > box,
+.tray-strip revealer > box {
+    border-spacing: 0.25rem;
+}
+
 .panel--vertical {
     padding: 0.4rem 0;
 }
@@ -127,7 +135,8 @@
     min-height: 0.0625rem;
 }
 
-.indicator-group {
+.indicator-group,
+.tray-strip__chip {
     min-width: 1.5rem;
     min-height: 1.5rem;
     padding: 0.28rem 0.4rem;
@@ -139,11 +148,13 @@
         color var(--gl-duration) var(--gl-ease);
 }
 
-.indicator-group:hover {
+.indicator-group:hover,
+.tray-strip__chip:hover {
     background-color: var(--gl-hover);
 }
 
-.indicator-group:active {
+.indicator-group:active,
+.tray-strip__chip:active {
     background-color: var(--gl-active);
 }
 
@@ -1429,13 +1440,6 @@ window.notification-popup {
 .player-row__toggle:hover {
     background-color: var(--gl-active);
     color: var(--gl-surface-fg);
-}
-
-/* A tray icon is an application's own artwork, not a symbolic glyph, and reads smaller than one at
-   the same box; without this the image falls back to GTK's default while the slot stays 1.5rem.
-   Keep in step with `ICON_SIZE` in the tray applet, which decodes pixmaps to this measurement. */
-.tray-strip .indicator__icon {
-    -gtk-icon-size: 1.25rem;
 }
 
 .tray-strip__chevron,

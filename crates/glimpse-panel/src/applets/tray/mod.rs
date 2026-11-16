@@ -11,9 +11,9 @@ use gtk4::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-/// The slot a chip's icon occupies, before the output's scale is applied. `-gtk-icon-size` in the
-/// stylesheet is the same measurement; a mismatch shows up as a blurry pixmap, not as an error.
-const ICON_SIZE: i32 = 20;
+/// The slot a chip's icon occupies, before the output's scale is applied: GTK's default icon size,
+/// which every other indicator uses too. A mismatch shows up as a blurry pixmap, not as an error.
+const ICON_SIZE: i32 = 16;
 
 use crate::applet::{Applet, Button, Ctx, Input, spawn_command};
 
