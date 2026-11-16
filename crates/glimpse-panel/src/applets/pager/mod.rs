@@ -25,8 +25,7 @@ pub struct Pager {
     workspaces: Vec<WorkspaceInfo>,
     windows: Vec<WindowInfo>,
     outputs: Vec<OutputInfo>,
-    held_workspace: Option<u64>,
-    held_window: Option<u64>,
+    held: Held,
     compositor: CompositorHandle,
 }
 
@@ -101,8 +100,7 @@ impl Applet for Pager {
             .unwrap_or_default();
         self.windows = state.windows.map(|value| value.windows).unwrap_or_default();
         self.outputs = state.outputs.map(|value| value.outputs).unwrap_or_default();
-        hold_workspace(&mut self.workspaces, &mut self.held_workspace);
-        hold_focus(&mut self.windows, &self.workspaces, &mut self.held_window);
+        self.held.hold(&mut self.workspaces, &mut self.windows);
         self.render();
     }
 }
@@ -115,10 +113,8 @@ impl Pager {
             .map(|value| value.workspaces)
             .unwrap_or_default();
         let mut windows = state.windows.map(|value| value.windows).unwrap_or_default();
-        let mut held_workspace = None;
-        let mut held_window = None;
-        hold_workspace(&mut workspaces, &mut held_workspace);
-        hold_focus(&mut windows, &workspaces, &mut held_window);
+        let mut held = Held::default();
+        held.hold(&mut workspaces, &mut windows);
         Self {
             strip: Strip::new(),
             shown: glib::WeakRef::new(),
@@ -127,8 +123,7 @@ impl Pager {
             workspaces,
             windows,
             outputs: state.outputs.map(|value| value.outputs).unwrap_or_default(),
-            held_workspace,
-            held_window,
+            held,
             compositor,
         }
     }
@@ -225,34 +220,51 @@ impl Pager {
     }
 }
 
-fn hold_workspace(workspaces: &mut [WorkspaceInfo], held: &mut Option<u64>) {
-    if let Some(focused) = workspaces.iter().find(|workspace| workspace.focused) {
-        *held = Some(focused.id);
-        return;
-    }
-    let Some(workspace) =
-        held.and_then(|id| workspaces.iter_mut().find(|workspace| workspace.id == id))
-    else {
-        *held = None;
-        return;
-    };
-    workspace.focused = workspace.active;
+#[derive(Debug, Default)]
+struct Held {
+    workspace: Option<u64>,
+    window: Option<u64>,
 }
 
-fn hold_focus(windows: &mut [WindowInfo], workspaces: &[WorkspaceInfo], held: &mut Option<u64>) {
-    if let Some(focused) = windows.iter().find(|window| window.focused) {
-        *held = Some(focused.id);
-        return;
+impl Held {
+    fn hold(&mut self, workspaces: &mut [WorkspaceInfo], windows: &mut [WindowInfo]) {
+        self.hold_workspace(workspaces);
+        self.hold_window(windows, workspaces);
     }
-    let Some(window) = held.and_then(|id| windows.iter_mut().find(|window| window.id == id)) else {
-        *held = None;
-        return;
-    };
-    window.focused = window.workspace.is_some_and(|id| {
-        workspaces
-            .iter()
-            .any(|workspace| workspace.id == id && workspace.focused)
-    });
+
+    fn hold_workspace(&mut self, workspaces: &mut [WorkspaceInfo]) {
+        if let Some(focused) = workspaces.iter().find(|workspace| workspace.focused) {
+            self.workspace = Some(focused.id);
+            return;
+        }
+        let Some(workspace) = self
+            .workspace
+            .and_then(|id| workspaces.iter_mut().find(|workspace| workspace.id == id))
+        else {
+            self.workspace = None;
+            return;
+        };
+        workspace.focused = workspace.active;
+    }
+
+    fn hold_window(&mut self, windows: &mut [WindowInfo], workspaces: &[WorkspaceInfo]) {
+        if let Some(focused) = windows.iter().find(|window| window.focused) {
+            self.window = Some(focused.id);
+            return;
+        }
+        let Some(window) = self
+            .window
+            .and_then(|id| windows.iter_mut().find(|window| window.id == id))
+        else {
+            self.window = None;
+            return;
+        };
+        window.focused = window.workspace.is_some_and(|id| {
+            workspaces
+                .iter()
+                .any(|workspace| workspace.id == id && workspace.focused)
+        });
+    }
 }
 
 fn template(settings: &PagerConfig, focused: bool, urgent: bool) -> &str {

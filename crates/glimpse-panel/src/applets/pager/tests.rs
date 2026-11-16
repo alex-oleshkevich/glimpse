@@ -54,15 +54,11 @@ fn a_window_numbers_itself_by_position_rather_than_by_its_address() {
 #[test]
 fn a_window_stays_focused_while_a_popover_holds_the_keyboard() {
     let workspaces = [workspace(4, "DP-1", true, true)];
-    let mut held = None;
-    hold_focus(
-        &mut [window(1, false), window(2, true)],
-        &workspaces,
-        &mut held,
-    );
+    let mut held = Held::default();
+    held.hold_window(&mut [window(1, false), window(2, true)], &workspaces);
 
     let mut windows = [window(1, false), window(2, false)];
-    hold_focus(&mut windows, &workspaces, &mut held);
+    held.hold_window(&mut windows, &workspaces);
 
     assert!(
         windows[1].focused,
@@ -73,21 +69,16 @@ fn a_window_stays_focused_while_a_popover_holds_the_keyboard() {
 
 #[test]
 fn a_held_window_lets_go_once_its_workspace_loses_focus() {
-    let mut held = None;
-    hold_focus(
-        &mut [window(2, true)],
-        &[workspace(4, "DP-1", true, true)],
-        &mut held,
-    );
+    let mut held = Held::default();
+    held.hold_window(&mut [window(2, true)], &[workspace(4, "DP-1", true, true)]);
 
     let mut windows = [window(2, false)];
-    hold_focus(
+    held.hold_window(
         &mut windows,
         &[
             workspace(4, "DP-1", false, true),
             workspace(5, "DP-1", true, false),
         ],
-        &mut held,
     );
 
     assert!(
@@ -99,21 +90,21 @@ fn a_held_window_lets_go_once_its_workspace_loses_focus() {
 #[test]
 fn a_closed_window_is_not_held() {
     let workspaces = [workspace(4, "DP-1", true, true)];
-    let mut held = None;
-    hold_focus(&mut [window(2, true)], &workspaces, &mut held);
+    let mut held = Held::default();
+    held.hold_window(&mut [window(2, true)], &workspaces);
 
-    hold_focus(&mut [window(3, false)], &workspaces, &mut held);
+    held.hold_window(&mut [window(3, false)], &workspaces);
 
-    assert_eq!(held, None);
+    assert_eq!(held.window, None);
 }
 
 #[test]
 fn a_focused_empty_workspace_stays_focused_when_the_focus_report_goes_away() {
-    let mut held = None;
-    hold_workspace(&mut [workspace(4, "DP-1", true, true)], &mut held);
+    let mut held = Held::default();
+    held.hold_workspace(&mut [workspace(4, "DP-1", true, true)]);
 
     let mut workspaces = [workspace(4, "DP-1", false, true)];
-    hold_workspace(&mut workspaces, &mut held);
+    held.hold_workspace(&mut workspaces);
 
     assert!(
         workspaces[0].focused,
@@ -123,14 +114,14 @@ fn a_focused_empty_workspace_stays_focused_when_the_focus_report_goes_away() {
 
 #[test]
 fn a_held_workspace_lets_go_when_it_is_no_longer_active() {
-    let mut held = None;
-    hold_workspace(&mut [workspace(4, "DP-1", true, true)], &mut held);
+    let mut held = Held::default();
+    held.hold_workspace(&mut [workspace(4, "DP-1", true, true)]);
 
     let mut workspaces = [
         workspace(4, "DP-1", false, false),
         workspace(5, "DP-1", false, true),
     ];
-    hold_workspace(&mut workspaces, &mut held);
+    held.hold_workspace(&mut workspaces);
 
     assert!(
         !workspaces[0].focused,
@@ -140,17 +131,17 @@ fn a_held_workspace_lets_go_when_it_is_no_longer_active() {
 
 #[test]
 fn a_removed_workspace_is_not_held() {
-    let mut held = None;
-    hold_workspace(&mut [workspace(4, "DP-1", true, true)], &mut held);
+    let mut held = Held::default();
+    held.hold_workspace(&mut [workspace(4, "DP-1", true, true)]);
 
     let mut workspaces = [workspace(5, "DP-1", false, true)];
-    hold_workspace(&mut workspaces, &mut held);
+    held.hold_workspace(&mut workspaces);
 
     assert!(
         !workspaces[0].focused,
         "the held workspace no longer exists"
     );
-    assert_eq!(held, None);
+    assert_eq!(held.workspace, None);
 }
 
 #[test]
