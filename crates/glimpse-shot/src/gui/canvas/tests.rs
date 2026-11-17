@@ -127,15 +127,24 @@ fn a_dragged_crop_waits_for_enter_and_applying_it_is_one_undo_step() {
 
 #[test]
 #[ignore = "needs a display"]
-fn an_applied_output_crop_is_centered_and_undo_restores_the_full_view() {
+fn an_applied_crop_keeps_the_view_and_undo_and_recrop_do_not_move_it() {
     gtk4::init().expect("display");
     let mut editor = editor();
+    let same = |editor: &Editor, before: &View| {
+        let now = editor.view();
+        [at(0, 0), at(50, 20)]
+            .into_iter()
+            .all(|point| now.to_logical(point) == before.to_logical(point))
+    };
+    let before = editor.view();
     editor.pending_crop = Some(crop(50, 20, 50, 20));
     assert!(editor.apply_crop());
-    assert_eq!(editor.view().to_logical(at(50, 20)), (0.0, 10.0));
+    assert!(same(&editor, &before), "applying moves nothing");
     assert_eq!(editor.doc.exported_rect(), crop(50, 20, 50, 20));
+    editor.set_tool(Tool::Crop);
+    assert!(same(&editor, &before), "re-entering the crop moves nothing");
     editor.undo();
-    assert_eq!(editor.view().to_logical(at(0, 0)), (0.0, 0.0));
+    assert!(same(&editor, &before), "undo moves nothing");
 }
 
 #[test]
@@ -236,6 +245,36 @@ fn a_pending_crop_dims_only_the_image_and_an_applied_one_is_all_that_shows() {
         pixel(&plain, 200, 20, 80),
         "no dim after apply"
     );
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn an_applied_overlay_crop_shows_a_checkerboard_outside_and_the_image_inside() {
+    gtk4::init().expect("display");
+    let mut doc = document();
+    if let Source::Output { frame, .. } = &mut doc.source {
+        frame.pixels = glib::Bytes::from_owned(vec![0x80u8; 200 * 100 * 4]);
+    }
+    let style = Style {
+        color: PaletteColor::Red,
+        stroke: Stroke::Medium,
+    };
+    let mut editor = Editor::new(doc, style);
+    let plain = rendered(&mut editor, 200, 100);
+
+    editor.pending_crop = Some(crop(0, 0, 30, 100));
+    assert!(editor.apply_crop());
+    let applied = rendered(&mut editor, 200, 100);
+    assert_eq!(
+        pixel(&applied, 200, 20, 80),
+        pixel(&plain, 200, 20, 80),
+        "the image inside the crop is untouched"
+    );
+    let first = pixel(&applied, 200, 150, 80);
+    let second = pixel(&applied, 200, 158, 80);
+    assert_ne!(first, second, "neighboring cells alternate");
+    assert_ne!(first, pixel(&plain, 200, 150, 80));
+    assert_ne!(second, pixel(&plain, 200, 158, 80));
 }
 
 #[test]

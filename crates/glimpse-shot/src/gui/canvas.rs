@@ -18,6 +18,9 @@ const TOOL_HOLD: Duration = Duration::from_millis(200);
 const WINDOW_MARGIN: f64 = 48.0;
 const TYPING: MarkId = MarkId::MAX;
 const SCRIM: gdk::RGBA = gdk::RGBA::new(0.0, 0.0, 0.0, 0.6);
+const CHECKER_LIGHT: gdk::RGBA = gdk::RGBA::new(0.32, 0.32, 0.32, 1.0);
+const CHECKER_DARK: gdk::RGBA = gdk::RGBA::new(0.24, 0.24, 0.24, 1.0);
+const CHECKER_CELL: f64 = 8.0;
 
 pub type Selection = (f64, f64, f64, f64);
 
@@ -299,20 +302,21 @@ impl Editor {
     }
 
     pub fn view(&self) -> View {
+        if !self.fitted {
+            let frame = frame_size(&self.doc);
+            return match &self.doc.source {
+                Source::Window { scale, .. } => View::fit(
+                    frame,
+                    self.area,
+                    1.0 / scale.0.max(f64::MIN_POSITIVE),
+                    WINDOW_MARGIN,
+                ),
+                _ => View::fit(frame, self.area, f64::INFINITY, 0.0),
+            };
+        }
         let shown = self.shown();
         let size = (f64::from(shown.width.0), f64::from(shown.height.0));
-        let fit = match &self.doc.source {
-            Source::Window { scale, .. } if !self.fitted => View::fit(
-                size,
-                self.area,
-                1.0 / scale.0.max(f64::MIN_POSITIVE),
-                WINDOW_MARGIN,
-            ),
-            Source::Output { .. } if !self.fitted && self.doc.crop.is_none() => {
-                return View::fit(frame_size(&self.doc), self.area, f64::INFINITY, 0.0);
-            }
-            _ => View::fit(size, self.area, f64::INFINITY, 0.0),
-        };
+        let fit = View::fit(size, self.area, f64::INFINITY, 0.0);
         View {
             x: fit.x - f64::from(shown.x.0) * fit.factor,
             y: fit.y - f64::from(shown.y.0) * fit.factor,
@@ -853,6 +857,15 @@ impl Editor {
         snapshot.save();
         snapshot.translate(&graphene::Point::new(view.x as f32, view.y as f32));
         snapshot.scale(factor, factor);
+        if !self.fitted && pending.is_none() && doc.crop.is_some() {
+            let cell = (CHECKER_CELL / view.factor) as f32;
+            let tile = graphene::Rect::new(0.0, 0.0, 2.0 * cell, 2.0 * cell);
+            snapshot.push_repeat(&frame, Some(&tile));
+            snapshot.append_color(&CHECKER_LIGHT, &tile);
+            snapshot.append_color(&CHECKER_DARK, &graphene::Rect::new(0.0, 0.0, cell, cell));
+            snapshot.append_color(&CHECKER_DARK, &graphene::Rect::new(cell, cell, cell, cell));
+            snapshot.pop();
+        }
         let clip = match (pending, doc.crop) {
             (None, Some(crop)) => Some(rect(crop)),
             _ => None,
