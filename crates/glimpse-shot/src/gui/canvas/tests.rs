@@ -412,6 +412,141 @@ fn editor() -> Editor {
 
 #[test]
 #[ignore = "needs a display"]
+fn zooming_keeps_the_point_under_the_pointer() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    let before = editor.view();
+    let under = before.to_buffer(60.0, 40.0);
+    assert!(editor.zoom_at(2.0, 60.0, 40.0));
+    let after = editor.view();
+    assert_eq!(after.to_buffer(60.0, 40.0), under);
+    assert!((after.factor - before.factor * 1.25 * 1.25).abs() < 1e-9);
+    assert!(editor.zoomed());
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn zoom_never_goes_below_fit_and_returning_to_fit_clears_it() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    let original = editor.view();
+    assert!(!editor.zoom_at(-1.0, 60.0, 40.0));
+    assert!(!editor.zoomed());
+    assert_eq!(editor.view(), original);
+
+    assert!(editor.zoom_at(3.0, 60.0, 40.0));
+    assert!(editor.zoomed());
+    assert!(editor.zoom_at(-3.0, 60.0, 40.0));
+    assert!(!editor.zoomed());
+    assert_eq!(editor.view(), original);
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn a_mark_drawn_while_zoomed_lands_on_the_same_pixels() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    editor.doc.marks.clear();
+    editor.history = History::new(0);
+    editor.set_tool(Tool::Line);
+    assert!(editor.zoom_at(2.0, 100.0, 50.0));
+    let view = editor.view();
+    let (from, to) = (at(50, 30), at(120, 70));
+    let (ax, ay) = view.to_logical(from);
+    let (bx, by) = view.to_logical(to);
+    editor.press(ax, ay);
+    editor.motion(bx, by, false);
+    editor.release(bx, by, false);
+    match &editor.doc.marks.last().expect("a mark").1 {
+        Mark::Line {
+            from: start,
+            to: end,
+            ..
+        } => assert_eq!((*start, *end), (from, to)),
+        other => panic!("expected a line, got {other:?}"),
+    }
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn panning_is_clamped_to_the_frame() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    assert!(!editor.pan_by(10.0, 10.0));
+    assert!(editor.zoom_at(3.0, 100.0, 50.0));
+    editor.pan_by(1e6, 1e6);
+    assert_eq!(editor.view().to_logical(at(0, 0)), (0.0, 0.0));
+    editor.pan_by(-1e6, -1e6);
+    let view = editor.view();
+    assert_eq!(view.to_logical(at(200, 100)), (200.0, 100.0));
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn picking_another_target_resets_the_zoom() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    assert!(editor.zoom_at(2.0, 60.0, 40.0));
+    editor.panning = true;
+    editor.replace_source(Source::Window {
+        id: 1,
+        app_id: None,
+        title: None,
+        scale: Scale(1.0),
+        frame: Frame {
+            connector: "eDP-1".to_owned(),
+            width: 40,
+            height: 20,
+            pixels: glib::Bytes::from_owned(vec![0xffu8; 40 * 20 * 4]),
+            alpha: true,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
+        },
+    });
+    assert!(!editor.zoomed());
+    assert!(!editor.panning);
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn applying_a_crop_resets_the_zoom() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    let fitted = editor.view();
+    assert!(editor.zoom_at(2.0, 60.0, 40.0));
+    editor.panning = true;
+    editor.pending_crop = Some(crop(20, 20, 100, 50));
+    assert!(editor.apply_crop());
+    assert!(!editor.zoomed());
+    assert!(!editor.panning);
+    assert_eq!(editor.view(), fitted);
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn discarding_a_crop_resets_the_zoom() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    assert!(editor.zoom_at(2.0, 60.0, 40.0));
+    editor.panning = true;
+    editor.pending_crop = Some(crop(20, 20, 100, 50));
+    assert_eq!(editor.escape(), EscOutcome::DiscardCrop);
+    assert!(!editor.zoomed());
+    assert!(!editor.panning);
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn panning_shows_a_grab_cursor() {
+    gtk4::init().expect("display");
+    let mut editor = editor();
+    editor.panning = true;
+    assert_eq!(editor.hover(30.0, 30.0), "grab");
+    editor.panning = false;
+    assert_eq!(editor.hover(30.0, 30.0), "crosshair");
+}
+
+#[test]
+#[ignore = "needs a display"]
 fn resize_starts_at_the_handle_without_a_jump_and_undoes_once() {
     gtk4::init().expect("display");
     let mut editor = editor();

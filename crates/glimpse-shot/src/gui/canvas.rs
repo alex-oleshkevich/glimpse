@@ -21,6 +21,9 @@ const SCRIM: gdk::RGBA = gdk::RGBA::new(0.0, 0.0, 0.0, 0.6);
 const CHECKER_LIGHT: gdk::RGBA = gdk::RGBA::new(0.32, 0.32, 0.32, 1.0);
 const CHECKER_DARK: gdk::RGBA = gdk::RGBA::new(0.24, 0.24, 0.24, 1.0);
 const CHECKER_CELL: f64 = 8.0;
+const MAX_ZOOM: f64 = 8.0;
+const ZOOM_STEP: f64 = 1.25;
+const ZOOM_EPSILON: f64 = 1.0 + 1e-9;
 
 pub type Selection = (f64, f64, f64, f64);
 
@@ -56,6 +59,20 @@ impl View {
             self.x + f64::from(point.x.0) * self.factor,
             self.y + f64::from(point.y.0) * self.factor,
         )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ZoomLevel {
+    Fit,
+    Actual,
+}
+
+fn pan_bound(offset: f64, size: f64, area: f64) -> f64 {
+    if size <= area {
+        (area - size) / 2.0
+    } else {
+        offset.clamp(area - size, 0.0)
     }
 }
 
@@ -134,6 +151,8 @@ pub struct Editor {
     pub picking_region: bool,
     pub flash: f64,
     pub fitted: bool,
+    zoom: Option<View>,
+    pub panning: bool,
     pub pending_crop: Option<Rect<BufferPx>>,
     cache: Cache,
     gesture: Option<Gesture>,
@@ -158,6 +177,8 @@ impl Editor {
             picking_region: false,
             flash: 0.0,
             fitted: false,
+            zoom: None,
+            panning: false,
             pending_crop: None,
             gesture: None,
             pointer: (0.0, 0.0),
@@ -175,6 +196,8 @@ impl Editor {
         self.history = History::new(0);
         self.gesture = None;
         self.pending_crop = None;
+        self.zoom = None;
+        self.panning = false;
         self.set_tool(self.start);
     }
 
@@ -272,6 +295,8 @@ impl Editor {
         if self.doc.crop != Some(crop) {
             self.apply(Op::SetCrop(Some(crop)));
         }
+        self.zoom = None;
+        self.panning = false;
         true
     }
 
@@ -303,16 +328,7 @@ impl Editor {
 
     pub fn view(&self) -> View {
         if !self.fitted {
-            let frame = frame_size(&self.doc);
-            return match &self.doc.source {
-                Source::Window { scale, .. } => View::fit(
-                    frame,
-                    self.area,
-                    1.0 / scale.0.max(f64::MIN_POSITIVE),
-                    WINDOW_MARGIN,
-                ),
-                _ => View::fit(frame, self.area, f64::INFINITY, 0.0),
-            };
+            return self.zoomed_view().unwrap_or_else(|| self.fit_view());
         }
         let shown = self.shown();
         let size = (f64::from(shown.width.0), f64::from(shown.height.0));
@@ -321,6 +337,105 @@ impl Editor {
             x: fit.x - f64::from(shown.x.0) * fit.factor,
             y: fit.y - f64::from(shown.y.0) * fit.factor,
             factor: fit.factor,
+        }
+    }
+
+    fn fit_view(&self) -> View {
+        let frame = frame_size(&self.doc);
+        match &self.doc.source {
+            Source::Window { scale, .. } => View::fit(
+                frame,
+                self.area,
+                1.0 / scale.0.max(f64::MIN_POSITIVE),
+                WINDOW_MARGIN,
+            ),
+            _ => View::fit(frame, self.area, f64::INFINITY, 0.0),
+        }
+    }
+
+    fn source_scale(&self) -> f64 {
+        match &self.doc.source {
+            Source::Output { scale, .. } | Source::Window { scale, .. } => {
+                scale.0.max(f64::MIN_POSITIVE)
+            }
+            Source::File { .. } => 1.0,
+        }
+    }
+
+    fn zoomed_view(&self) -> Option<View> {
+        let zoom = self.zoom?;
+        let fit = self.fit_view();
+        let factor = zoom
+            .factor
+            .min((MAX_ZOOM / self.source_scale()).max(fit.factor));
+        if factor <= fit.factor * ZOOM_EPSILON {
+            return None;
+        }
+        let frame = frame_size(&self.doc);
+        Some(View {
+            x: pan_bound(zoom.x, frame.0 * factor, self.area.0),
+            y: pan_bound(zoom.y, frame.1 * factor, self.area.1),
+            factor,
+        })
+    }
+
+    pub fn zoomed(&self) -> bool {
+        !self.fitted && self.zoomed_view().is_some()
+    }
+
+    pub fn pointer(&self) -> (f64, f64) {
+        self.pointer
+    }
+
+    fn zoom_factor(&mut self, factor: f64, x: f64, y: f64) -> bool {
+        if self.fitted {
+            return false;
+        }
+        let before = self.view();
+        let fit = self.fit_view();
+        let max = (MAX_ZOOM / self.source_scale()).max(fit.factor);
+        let factor = factor.clamp(fit.factor, max);
+        self.zoom = if factor <= fit.factor * ZOOM_EPSILON {
+            None
+        } else {
+            let ratio = factor / before.factor;
+            Some(View {
+                x: x - (x - before.x) * ratio,
+                y: y - (y - before.y) * ratio,
+                factor,
+            })
+        };
+        self.view() != before
+    }
+
+    pub fn zoom_at(&mut self, steps: f64, x: f64, y: f64) -> bool {
+        let factor = self.view().factor * ZOOM_STEP.powf(steps);
+        self.zoom_factor(factor, x, y)
+    }
+
+    pub fn zoom_by_center(&mut self, steps: f64) -> bool {
+        self.zoom_at(steps, self.area.0 / 2.0, self.area.1 / 2.0)
+    }
+
+    pub fn pan_by(&mut self, dx: f64, dy: f64) -> bool {
+        let Some(zoom) = self.zoomed_view().filter(|_| !self.fitted) else {
+            return false;
+        };
+        self.zoom = Some(View {
+            x: zoom.x + dx,
+            y: zoom.y + dy,
+            factor: zoom.factor,
+        });
+        self.view() != zoom
+    }
+
+    pub fn zoom_to(&mut self, level: ZoomLevel) -> bool {
+        match level {
+            ZoomLevel::Fit => self.zoom.take().is_some(),
+            ZoomLevel::Actual => {
+                let factor = 1.0 / self.source_scale();
+                self.zoom_factor(factor, self.area.0 / 2.0, self.area.1 / 2.0)
+            }
         }
     }
 
@@ -347,7 +462,11 @@ impl Editor {
         match outcome {
             EscOutcome::DiscardText => self.typing = None,
             EscOutcome::AbortDrag => self.gesture = None,
-            EscOutcome::DiscardCrop => self.pending_crop = None,
+            EscOutcome::DiscardCrop => {
+                self.pending_crop = None;
+                self.zoom = None;
+                self.panning = false;
+            }
             EscOutcome::Deselect => self.doc.selected = None,
             EscOutcome::CloseList => self.list_open = false,
             EscOutcome::Cancel => {}
@@ -479,6 +598,9 @@ impl Editor {
     }
 
     pub fn cursor_at(&self, x: f64, y: f64) -> &'static str {
+        if self.panning {
+            return "grab";
+        }
         if self.picking_region {
             return "crosshair";
         }

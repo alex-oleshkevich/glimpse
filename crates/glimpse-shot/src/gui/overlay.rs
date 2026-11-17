@@ -24,8 +24,8 @@ use gtk4::{gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use super::canvas::{
-    Canvas, Editor, palette, palette_index, pressed_spring_tool, resize_text_entry, set_cursor,
-    stroke, text_entry, tool_name, tool_named,
+    Canvas, Editor, ZoomLevel, palette, palette_index, pressed_spring_tool, resize_text_entry,
+    set_cursor, stroke, text_entry, tool_name, tool_named,
 };
 use super::{barrier, desktop_entry};
 use crate::adapters::clipboard::HoldClipboard;
@@ -561,6 +561,48 @@ impl Run {
             }
         });
 
+        let pan = gtk4::GestureDrag::new();
+        pan.set_button(gdk::BUTTON_PRIMARY);
+        pan.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        let last = Rc::new(Cell::new((0.0, 0.0)));
+        let weak = Rc::downgrade(self);
+        let origin = Rc::clone(&last);
+        pan.connect_drag_begin(move |gesture, _, _| {
+            let panning = weak
+                .upgrade()
+                .and_then(|run| run.ui())
+                .and_then(|ui| ui.canvas.read(|editor| editor.panning).map(|p| (ui, p)))
+                .filter(|(_, panning)| *panning);
+            let Some((ui, _)) = panning else {
+                gesture.set_state(gtk4::EventSequenceState::Denied);
+                return;
+            };
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
+            origin.set((0.0, 0.0));
+            set_cursor(&ui.canvas, "grabbing");
+        });
+        let weak = Rc::downgrade(self);
+        let delta = Rc::clone(&last);
+        pan.connect_drag_update(move |_, dx, dy| {
+            let (lx, ly) = delta.replace((dx, dy));
+            if let Some(run) = weak.upgrade()
+                && let Some(ui) = run.ui()
+                && ui.canvas.with(|editor| editor.pan_by(dx - lx, dy - ly)) == Some(true)
+            {
+                run.sync();
+            }
+        });
+        let weak = Rc::downgrade(self);
+        pan.connect_drag_end(move |_, _, _| {
+            if let Some(run) = weak.upgrade()
+                && let Some(ui) = run.ui()
+            {
+                let panning = ui.canvas.read(|editor| editor.panning).unwrap_or(false);
+                set_cursor(&ui.canvas, if panning { "grab" } else { "crosshair" });
+            }
+        });
+        ui.canvas.add_controller(pan);
+
         let drag = gtk4::GestureDrag::new();
         drag.set_button(gdk::BUTTON_PRIMARY);
         let weak = Rc::downgrade(self);
@@ -689,16 +731,44 @@ impl Run {
         );
         let weak = Rc::downgrade(self);
         scroll.connect_scroll(move |controller, _, dy| {
-            if controller.current_event_state().intersects(
-                gdk::ModifierType::SHIFT_MASK
-                    | gdk::ModifierType::CONTROL_MASK
-                    | gdk::ModifierType::ALT_MASK,
-            ) {
-                return glib::Propagation::Proceed;
-            }
+            let state = controller.current_event_state();
             let Some(run) = weak.upgrade() else {
                 return glib::Propagation::Proceed;
             };
+            if state.contains(gdk::ModifierType::CONTROL_MASK) {
+                if state.intersects(gdk::ModifierType::SHIFT_MASK | gdk::ModifierType::ALT_MASK)
+                    || run.listing()
+                {
+                    return glib::Propagation::Proceed;
+                }
+                let Some(ui) = run.ui() else {
+                    return glib::Propagation::Proceed;
+                };
+                if ui
+                    .canvas
+                    .read(|editor| editor.picking_region)
+                    .unwrap_or(false)
+                {
+                    return glib::Propagation::Proceed;
+                }
+                run.commit_text();
+                let changed = ui
+                    .canvas
+                    .with(|editor| {
+                        let (px, py) = editor.pointer();
+                        editor.zoom_at(-dy, px, py)
+                    })
+                    .unwrap_or(false);
+                return if changed {
+                    run.sync();
+                    glib::Propagation::Stop
+                } else {
+                    glib::Propagation::Proceed
+                };
+            }
+            if state.intersects(gdk::ModifierType::SHIFT_MASK | gdk::ModifierType::ALT_MASK) {
+                return glib::Propagation::Proceed;
+            }
             let handled = run
                 .ui()
                 .and_then(|ui| ui.canvas.with(|editor| editor.scroll_stroke(dy)))
@@ -845,7 +915,19 @@ impl Run {
         bind("e", true, |run| run.pick_tool("oval"));
         bind("t", true, |run| run.pick_tool("text"));
         bind("s", true, Run::back_to_screen);
-        bind("space", true, Run::whole_screen);
+        bind("space", true, |run| {
+            let Some(ui) = run.ui() else {
+                return;
+            };
+            let zoomed = ui.canvas.read(|editor| editor.zoomed()).unwrap_or(false);
+            if zoomed {
+                ui.canvas.with(|editor| editor.panning = true);
+                set_cursor(&ui.canvas, "grab");
+                run.sync();
+            } else {
+                run.whole_screen();
+            }
+        });
         if self.options.portal.is_none() {
             bind("w", true, Run::open_list);
         }
@@ -880,6 +962,29 @@ impl Run {
             bind("<Control>s", true, |run| run.finish(FinishKey::Save));
             bind("<Control>e", true, |run| {
                 run.finish(FinishKey::OpenInWindow)
+            });
+        }
+        for trigger in ["<Control>0", "<Control>grave"] {
+            bind(trigger, true, |run| {
+                run.zoom(|editor| editor.zoom_to(ZoomLevel::Fit))
+            });
+        }
+        bind("<Control>1", true, |run| {
+            run.zoom(|editor| editor.zoom_to(ZoomLevel::Actual))
+        });
+        for trigger in [
+            "<Control>plus",
+            "<Control>equal",
+            "<Control>KP_Add",
+            "<Control>3",
+        ] {
+            bind(trigger, true, |run| {
+                run.zoom(|editor| editor.zoom_by_center(1.0))
+            });
+        }
+        for trigger in ["<Control>minus", "<Control>KP_Subtract", "<Control>2"] {
+            bind(trigger, true, |run| {
+                run.zoom(|editor| editor.zoom_by_center(-1.0))
             });
         }
         ui.window.add_controller(shortcuts);
@@ -919,6 +1024,16 @@ impl Run {
                 if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space) {
                     run.enter_held.set(false);
                 }
+                if key == gdk::Key::space
+                    && let Some(ui) = run.ui()
+                    && ui
+                        .canvas
+                        .with(|editor| std::mem::replace(&mut editor.panning, false))
+                        == Some(true)
+                {
+                    run.restore_cursor(&ui);
+                    run.sync();
+                }
                 if let Some(tool) = pressed_spring_tool(controller)
                     && let Some(ui) = run.ui()
                     && ui.canvas.with(|editor| editor.tool_key_up(tool)) == Some(true)
@@ -934,11 +1049,36 @@ impl Run {
             if !window.is_active()
                 && let Some(run) = weak.upgrade()
                 && let Some(ui) = run.ui()
-                && ui.canvas.with(Editor::cancel_tool_key).unwrap_or(false)
             {
-                run.sync();
+                let cancelled = ui.canvas.with(Editor::cancel_tool_key).unwrap_or(false);
+                let was_panning = ui
+                    .canvas
+                    .with(|editor| std::mem::replace(&mut editor.panning, false))
+                    .unwrap_or(false);
+                if was_panning {
+                    run.restore_cursor(&ui);
+                }
+                if cancelled || was_panning {
+                    run.sync();
+                }
             }
         });
+    }
+
+    fn restore_cursor(&self, ui: &Ui) {
+        let (x, y) = ui
+            .canvas
+            .read(|editor| editor.pointer())
+            .unwrap_or((0.0, 0.0));
+        set_cursor(&ui.canvas, ui.canvas.hover(x, y).unwrap_or("crosshair"));
+    }
+
+    fn zoom(self: &Rc<Self>, change: fn(&mut Editor) -> bool) {
+        self.commit_text();
+        if let Some(ui) = self.ui() {
+            ui.canvas.with(change);
+        }
+        self.sync();
     }
 
     fn listing(&self) -> bool {

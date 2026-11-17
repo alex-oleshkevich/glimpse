@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.17.1\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-11-17 14:45+0100\n"
+"POT-Creation-Date: 2026-11-17 16:04+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2462,20 +2462,20 @@ msgstr ""
 msgid "Waiting to take a screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1098
+#: crates/glimpse-shot/src/gui/overlay.rs:1238
 #: crates/glimpse-shot/src/gui/result.rs:943
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1665
+#: crates/glimpse-shot/src/gui/overlay.rs:1805
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1838
+#: crates/glimpse-shot/src/gui/overlay.rs:1978
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1839
+#: crates/glimpse-shot/src/gui/overlay.rs:1979
 msgid "Copied"
 msgstr ""
 
