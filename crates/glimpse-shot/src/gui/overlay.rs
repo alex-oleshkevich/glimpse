@@ -24,8 +24,8 @@ use gtk4::{gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use super::canvas::{
-    Canvas, Editor, palette, palette_index, resize_text_entry, set_cursor, spring_tool, stroke,
-    text_entry, tool_name, tool_named,
+    Canvas, Editor, palette, palette_index, pressed_spring_tool, resize_text_entry, set_cursor,
+    stroke, text_entry, tool_name, tool_named,
 };
 use super::{barrier, desktop_entry};
 use crate::adapters::clipboard::HoldClipboard;
@@ -813,7 +813,10 @@ impl Run {
         let shortcuts = gtk4::ShortcutController::new();
         let bind = |trigger: &str, letter: bool, act: fn(&Rc<Run>)| {
             let weak = Rc::downgrade(self);
-            let enter = trigger.ends_with("Return") || trigger.ends_with("Enter");
+            let enter = matches!(
+                trigger,
+                "Return" | "KP_Enter" | "<Shift>Return" | "<Shift>KP_Enter" | "<Shift>space"
+            );
             let action = gtk4::CallbackAction::new(move |_, _| {
                 let Some(run) = weak.upgrade() else {
                     return glib::Propagation::Proceed;
@@ -836,6 +839,10 @@ impl Run {
         bind("h", true, |run| run.pick_tool("highlighter"));
         bind("f", true, |run| run.pick_tool("filled-rect"));
         bind("o", true, |run| run.pick_tool("oval"));
+        bind("d", true, |run| run.pick_tool("line"));
+        bind("q", true, |run| run.pick_tool("freehand"));
+        bind("g", true, |run| run.pick_tool("highlighter"));
+        bind("e", true, |run| run.pick_tool("oval"));
         bind("t", true, |run| run.pick_tool("text"));
         bind("s", true, Run::back_to_screen);
         bind("space", true, Run::whole_screen);
@@ -849,19 +856,25 @@ impl Run {
         bind("5", true, |run| run.pick_color(4));
         bind("bracketleft", true, |run| run.step_stroke(-1));
         bind("bracketright", true, |run| run.step_stroke(1));
+        bind("grave", true, |run| run.step_stroke(-1));
+        bind("asciitilde", true, |run| run.step_stroke(1));
         bind("<Control>z", true, |run| run.edit(Editor::undo));
         bind("<Control><Shift>z", true, |run| run.edit(Editor::redo));
         bind("Delete", true, |run| run.edit(Editor::delete));
+        bind("x", true, |run| run.edit(Editor::delete));
+        bind("BackSpace", true, |run| run.edit(Editor::delete));
         if self.options.portal.is_none() {
             bind("Escape", false, Run::escape);
             bind("Return", true, Run::enter);
             bind("KP_Enter", true, Run::enter);
+            bind("<Shift>space", true, Run::enter);
             bind("<Shift>Return", true, |run| {
                 run.finish(FinishKey::SaveAsClose)
             });
             bind("<Shift>KP_Enter", true, |run| {
                 run.finish(FinishKey::SaveAsClose)
             });
+            bind("<Alt>s", true, |run| run.finish(FinishKey::SaveAsClose));
             bind("<Control><Shift>s", true, Run::save_as);
             bind("<Control>c", true, |run| run.finish(FinishKey::CopyClose));
             bind("<Control>s", true, |run| run.finish(FinishKey::Save));
@@ -874,8 +887,8 @@ impl Run {
         let released = gtk4::EventControllerKey::new();
         released.set_propagation_phase(gtk4::PropagationPhase::Capture);
         let weak = Rc::downgrade(self);
-        released.connect_key_pressed(move |_, key, _, state| {
-            let Some(tool) = spring_tool(key) else {
+        released.connect_key_pressed(move |controller, _, _, state| {
+            let Some(tool) = pressed_spring_tool(controller) else {
                 return glib::Propagation::Proceed;
             };
             if state.intersects(
@@ -901,12 +914,12 @@ impl Run {
             glib::Propagation::Stop
         });
         let weak = Rc::downgrade(self);
-        released.connect_key_released(move |_, key, _, _| {
+        released.connect_key_released(move |controller, key, _, _| {
             if let Some(run) = weak.upgrade() {
-                if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter) {
+                if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space) {
                     run.enter_held.set(false);
                 }
-                if let Some(tool) = spring_tool(key)
+                if let Some(tool) = pressed_spring_tool(controller)
                     && let Some(ui) = run.ui()
                     && ui.canvas.with(|editor| editor.tool_key_up(tool)) == Some(true)
                 {
@@ -973,7 +986,9 @@ impl Run {
         key: gdk::Key,
         state: gdk::ModifierType,
     ) -> glib::Propagation {
-        if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter) && self.listing() {
+        if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space) && self.listing()
+            || key == gdk::Key::space && self.typing()
+        {
             return glib::Propagation::Proceed;
         }
         let pending_crop = self
@@ -1573,16 +1588,22 @@ enum PortalKey {
 }
 
 fn portal_key(key: gdk::Key, state: gdk::ModifierType, pending_crop: bool) -> Option<PortalKey> {
-    let modified = state.intersects(
-        gdk::ModifierType::SHIFT_MASK
-            | gdk::ModifierType::CONTROL_MASK
+    let others = state.intersects(
+        gdk::ModifierType::CONTROL_MASK
             | gdk::ModifierType::ALT_MASK
             | gdk::ModifierType::SUPER_MASK
             | gdk::ModifierType::HYPER_MASK
             | gdk::ModifierType::META_MASK,
     );
-    if modified {
+    if others {
         return None;
+    }
+    if state.contains(gdk::ModifierType::SHIFT_MASK) {
+        return match key {
+            gdk::Key::space if pending_crop => Some(PortalKey::ApplyCrop),
+            gdk::Key::space => Some(PortalKey::Share),
+            _ => None,
+        };
     }
     match key {
         gdk::Key::Return | gdk::Key::KP_Enter if pending_crop => Some(PortalKey::ApplyCrop),

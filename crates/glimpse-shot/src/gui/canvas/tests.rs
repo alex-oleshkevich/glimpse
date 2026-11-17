@@ -424,14 +424,23 @@ fn wheel_steps_only_the_size_bearing_tools() {
 }
 
 #[test]
+fn spring_tool_maps_latin_keys_and_ignores_others() {
+    for (key, tool) in [
+        (gdk::Key::n, Some(Tool::Number)),
+        (gdk::Key::z, Some(Tool::Number)),
+        (gdk::Key::b, Some(Tool::Blur)),
+        (gdk::Key::r, Some(Tool::Rect)),
+        (gdk::Key::a, None),
+    ] {
+        assert_eq!(spring_tool(|candidate| candidate == key), tool);
+    }
+}
+
+#[test]
 #[ignore = "needs a display"]
 fn tool_keys_tap_to_select_and_hold_to_borrow() {
     gtk4::init().expect("display");
     let mut editor = editor();
-    assert_eq!(spring_tool(gdk::Key::n), Some(Tool::Number));
-    assert_eq!(spring_tool(gdk::Key::b), Some(Tool::Blur));
-    assert_eq!(spring_tool(gdk::Key::r), Some(Tool::Rect));
-
     assert!(editor.tool_key_down(Tool::Number));
     assert_eq!(editor.tool, Tool::Number);
     assert!(!editor.tool_key_up(Tool::Number));

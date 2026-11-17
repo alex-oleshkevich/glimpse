@@ -699,7 +699,7 @@ impl Shell {
         let shortcuts = gtk4::ShortcutController::new();
         let weak = Rc::downgrade(self);
         shortcuts.add_shortcut(gtk4::Shortcut::new(
-            gtk4::ShortcutTrigger::parse_string("Return|KP_Enter"),
+            gtk4::ShortcutTrigger::parse_string("Return|KP_Enter|<Shift>space"),
             Some(gtk4::CallbackAction::new(move |_, _| {
                 if let Some(shell) = weak.upgrade() {
                     shell.take();

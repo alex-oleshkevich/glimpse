@@ -3238,16 +3238,16 @@ msgid "Arrow (A)"
 msgstr "Šipka (A)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
-msgid "Line (L)"
-msgstr "Čára (L)"
+msgid "Line (L, D)"
+msgstr "Čára (L, D)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
-msgid "Freehand (P)"
-msgstr "Volné kreslení (P)"
+msgid "Freehand (P, Q)"
+msgstr "Volné kreslení (P, Q)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
-msgid "Highlighter (H)"
-msgstr "Zvýrazňovač (H)"
+msgid "Highlighter (H, G)"
+msgstr "Zvýrazňovač (H, G)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
@@ -3258,12 +3258,12 @@ msgid "Filled Rectangle (F)"
 msgstr "Vyplněný obdélník (F)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
-msgid "Oval (O)"
-msgstr "Ovál (O)"
+msgid "Oval (O, E)"
+msgstr "Ovál (O, E)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
-msgid "Number (N)"
-msgstr "Číslo (N)"
+msgid "Number (N, Z)"
+msgstr "Číslo (N, Z)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
@@ -3298,28 +3298,28 @@ msgid "White (5)"
 msgstr "Bílá (5)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
-msgid "Thin line ([ and ])"
-msgstr "Tenká čára ([ a ])"
+msgid "Thin line ([ and ], ` and ~)"
+msgstr "Tenká čára ([ a ], ` a ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
-msgid "Medium line ([ and ])"
-msgstr "Střední čára ([ a ])"
+msgid "Medium line ([ and ], ` and ~)"
+msgstr "Střední čára ([ a ], ` a ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
-msgid "Thick line ([ and ])"
-msgstr "Silná čára ([ a ])"
+msgid "Thick line ([ and ], ` and ~)"
+msgstr "Silná čára ([ a ], ` a ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
-msgid "Apply Crop (Enter)"
-msgstr "Použít oříznutí (Enter)"
+msgid "Apply Crop (Enter, Shift+Space)"
+msgstr "Použít oříznutí (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr "Použít oříznutí"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
-msgid "Copy and close (Enter)"
-msgstr "Kopírovat a zavřít (Enter)"
+msgid "Copy and close (Enter, Shift+Space)"
+msgstr "Kopírovat a zavřít (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"

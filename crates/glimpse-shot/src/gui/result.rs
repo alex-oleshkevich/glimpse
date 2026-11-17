@@ -23,8 +23,8 @@ use glimpse_widgets::{ShotBanner, ShotResultPage};
 use gtk4::{gdk, gio, glib};
 
 use super::canvas::{
-    Editor, Sheet, palette, palette_index, resize_text_entry, set_cursor, spring_tool, stroke,
-    text_entry, tool_name, tool_named,
+    Editor, Sheet, palette, palette_index, pressed_spring_tool, resize_text_entry, set_cursor,
+    stroke, text_entry, tool_name, tool_named,
 };
 use super::overlay::{Ended, result_line};
 use crate::adapters::clipboard::HoldClipboard;
@@ -545,6 +545,10 @@ impl ResultFace {
             ("f", "filled-rect"),
             ("o", "oval"),
             ("t", "text"),
+            ("d", "line"),
+            ("q", "freehand"),
+            ("g", "highlighter"),
+            ("e", "oval"),
         ] {
             bind(
                 key,
@@ -564,15 +568,20 @@ impl ResultFace {
         }
         bind("bracketleft", Box::new(|face| face.step_stroke(-1)));
         bind("bracketright", Box::new(|face| face.step_stroke(1)));
+        bind("grave", Box::new(|face| face.step_stroke(-1)));
+        bind("asciitilde", Box::new(|face| face.step_stroke(1)));
         bind("<Control>z", Box::new(|face| face.edit(Editor::undo)));
         bind(
             "<Control><Shift>z",
             Box::new(|face| face.edit(Editor::redo)),
         );
         bind("Delete", Box::new(|face| face.edit(Editor::delete)));
+        bind("x", Box::new(|face| face.edit(Editor::delete)));
+        bind("BackSpace", Box::new(|face| face.edit(Editor::delete)));
         bind("Escape", Box::new(|face| face.escape()));
         bind("Return", Box::new(|face| face.enter()));
         bind("KP_Enter", Box::new(|face| face.enter()));
+        bind("<Shift>space", Box::new(|face| face.enter()));
         bind(
             "<Shift>Return",
             Box::new(|face| face.finish(FinishKey::SaveAsClose)),
@@ -581,10 +590,15 @@ impl ResultFace {
             "<Shift>KP_Enter",
             Box::new(|face| face.finish(FinishKey::SaveAsClose)),
         );
+        bind(
+            "<Alt>s",
+            Box::new(|face| face.finish(FinishKey::SaveAsClose)),
+        );
         bind("<Control><Shift>s", Box::new(|face| face.save_as()));
         bind("<Control>c", Box::new(|face| face.finish(FinishKey::Copy)));
         bind("<Control>s", Box::new(|face| face.finish(FinishKey::Save)));
         bind("<Control>0", Box::new(|face| face.page.set_zoom("fit")));
+        bind("<Control>grave", Box::new(|face| face.page.set_zoom("fit")));
         bind("<Control>1", Box::new(|face| face.page.set_zoom("actual")));
         bind(
             "<Control>plus|<Control>equal|<Control>KP_Add",
@@ -594,15 +608,18 @@ impl ResultFace {
             "<Control>minus|<Control>KP_Subtract",
             Box::new(|face| face.page.zoom_by(-1.0)),
         );
+        bind("<Control>2", Box::new(|face| face.page.zoom_by(-1.0)));
+        bind("<Control>3", Box::new(|face| face.page.zoom_by(1.0)));
         bind("<Control>w", Box::new(|face| face.request_close(false)));
         bind("<Control>n", Box::new(|face| face.request_close(true)));
+        bind("<Control>t", Box::new(|face| face.request_close(true)));
         self.page.add_controller(shortcuts);
 
         let released = gtk4::EventControllerKey::new();
         released.set_propagation_phase(gtk4::PropagationPhase::Capture);
         let weak = Rc::downgrade(self);
-        released.connect_key_pressed(move |_, key, _, state| {
-            if key == gdk::Key::space {
+        released.connect_key_pressed(move |controller, key, _, state| {
+            if key == gdk::Key::space && !state.contains(gdk::ModifierType::SHIFT_MASK) {
                 let Some(face) = weak.upgrade().filter(|face| face.picture.has_focus()) else {
                     return glib::Propagation::Proceed;
                 };
@@ -611,7 +628,7 @@ impl ResultFace {
                 }
                 return glib::Propagation::Stop;
             }
-            let Some(tool) = spring_tool(key) else {
+            let Some(tool) = pressed_spring_tool(controller) else {
                 return glib::Propagation::Proceed;
             };
             if state.intersects(
@@ -635,15 +652,16 @@ impl ResultFace {
             glib::Propagation::Stop
         });
         let weak = Rc::downgrade(self);
-        released.connect_key_released(move |_, key, _, _| {
+        released.connect_key_released(move |controller, key, _, _| {
             if let Some(face) = weak.upgrade() {
-                if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter) {
+                if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space) {
                     face.enter_held.set(false);
                 }
                 if key == gdk::Key::space && face.space_held.replace(false) {
                     face.sync();
                 }
-                if let Some(tool) = spring_tool(key)
+                let tool = pressed_spring_tool(controller);
+                if let Some(tool) = tool
                     && face.sheet.with(|editor| editor.tool_key_up(tool)) == Some(true)
                 {
                     face.sync();

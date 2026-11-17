@@ -93,6 +93,23 @@ fn portal_keys_only_share_apply_crop_or_refuse() {
         portal_key(gdk::Key::Escape, none, false),
         Some(PortalKey::Refuse)
     );
+    assert_eq!(
+        portal_key(gdk::Key::space, gdk::ModifierType::SHIFT_MASK, false),
+        Some(PortalKey::Share)
+    );
+    assert_eq!(
+        portal_key(gdk::Key::space, gdk::ModifierType::SHIFT_MASK, true),
+        Some(PortalKey::ApplyCrop)
+    );
+    assert_eq!(portal_key(gdk::Key::space, none, false), None);
+    assert_eq!(
+        portal_key(
+            gdk::Key::space,
+            gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::SHIFT_MASK,
+            false
+        ),
+        None
+    );
     for (key, state) in [
         (gdk::Key::Return, gdk::ModifierType::SHIFT_MASK),
         (gdk::Key::c, gdk::ModifierType::CONTROL_MASK),

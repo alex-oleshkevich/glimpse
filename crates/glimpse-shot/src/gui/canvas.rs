@@ -966,13 +966,28 @@ pub fn tool_named(name: &str) -> Option<Tool> {
     clap::ValueEnum::from_str(name, false).ok()
 }
 
-pub fn spring_tool(key: gdk::Key) -> Option<Tool> {
-    match key {
-        gdk::Key::n | gdk::Key::N => Some(Tool::Number),
-        gdk::Key::b | gdk::Key::B => Some(Tool::Blur),
-        gdk::Key::r | gdk::Key::R => Some(Tool::Rect),
-        _ => None,
-    }
+pub fn spring_tool(matches: impl Fn(gdk::Key) -> bool) -> Option<Tool> {
+    let table = [
+        (gdk::Key::n, Tool::Number),
+        (gdk::Key::N, Tool::Number),
+        (gdk::Key::z, Tool::Number),
+        (gdk::Key::Z, Tool::Number),
+        (gdk::Key::b, Tool::Blur),
+        (gdk::Key::B, Tool::Blur),
+        (gdk::Key::r, Tool::Rect),
+        (gdk::Key::R, Tool::Rect),
+    ];
+    table
+        .into_iter()
+        .find(|(key, _)| matches(*key))
+        .map(|(_, tool)| tool)
+}
+
+pub fn pressed_spring_tool(controller: &gtk4::EventControllerKey) -> Option<Tool> {
+    let event = controller
+        .current_event()
+        .and_then(|event| event.downcast::<gdk::KeyEvent>().ok())?;
+    spring_tool(|key| event.matches(key, gdk::ModifierType::empty()) != gdk::KeyMatch::None)
 }
 
 pub fn set_cursor(widget: &impl IsA<gtk4::Widget>, name: &str) {

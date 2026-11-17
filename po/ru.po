@@ -3249,16 +3249,16 @@ msgid "Arrow (A)"
 msgstr "Стрелка (A)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
-msgid "Line (L)"
-msgstr "Линия (L)"
+msgid "Line (L, D)"
+msgstr "Линия (L, D)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
-msgid "Freehand (P)"
-msgstr "От руки (P)"
+msgid "Freehand (P, Q)"
+msgstr "От руки (P, Q)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
-msgid "Highlighter (H)"
-msgstr "Маркер (H)"
+msgid "Highlighter (H, G)"
+msgstr "Маркер (H, G)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
@@ -3269,12 +3269,12 @@ msgid "Filled Rectangle (F)"
 msgstr "Залитый прямоугольник (F)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
-msgid "Oval (O)"
-msgstr "Овал (O)"
+msgid "Oval (O, E)"
+msgstr "Овал (O, E)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
-msgid "Number (N)"
-msgstr "Номер (N)"
+msgid "Number (N, Z)"
+msgstr "Номер (N, Z)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
@@ -3309,28 +3309,28 @@ msgid "White (5)"
 msgstr "Белый (5)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
-msgid "Thin line ([ and ])"
-msgstr "Тонкая линия ([ и ])"
+msgid "Thin line ([ and ], ` and ~)"
+msgstr "Тонкая линия ([ и ], ` и ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
-msgid "Medium line ([ and ])"
-msgstr "Средняя линия ([ и ])"
+msgid "Medium line ([ and ], ` and ~)"
+msgstr "Средняя линия ([ и ], ` и ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
-msgid "Thick line ([ and ])"
-msgstr "Толстая линия ([ и ])"
+msgid "Thick line ([ and ], ` and ~)"
+msgstr "Толстая линия ([ и ], ` и ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
-msgid "Apply Crop (Enter)"
-msgstr "Применить обрезку (Enter)"
+msgid "Apply Crop (Enter, Shift+Space)"
+msgstr "Применить обрезку (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr "Применить обрезку"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
-msgid "Copy and close (Enter)"
-msgstr "Копировать и закрыть (Enter)"
+msgid "Copy and close (Enter, Shift+Space)"
+msgstr "Копировать и закрыть (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"

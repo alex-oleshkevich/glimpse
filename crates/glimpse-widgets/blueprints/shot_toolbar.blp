@@ -97,7 +97,7 @@ template $ShotToolbar: Gtk.Widget {
       }
 
       Gtk.ToggleButton line {
-        tooltip-text: _("Line (L)");
+        tooltip-text: _("Line (L, D)");
         group: crop;
 
         Gtk.Image {
@@ -109,7 +109,7 @@ template $ShotToolbar: Gtk.Widget {
       }
 
       Gtk.ToggleButton freehand {
-        tooltip-text: _("Freehand (P)");
+        tooltip-text: _("Freehand (P, Q)");
         group: crop;
 
         Gtk.Image {
@@ -121,7 +121,7 @@ template $ShotToolbar: Gtk.Widget {
       }
 
       Gtk.ToggleButton highlighter {
-        tooltip-text: _("Highlighter (H)");
+        tooltip-text: _("Highlighter (H, G)");
         group: crop;
 
         Gtk.Image {
@@ -161,7 +161,7 @@ template $ShotToolbar: Gtk.Widget {
       }
 
       Gtk.ToggleButton oval {
-        tooltip-text: _("Oval (O)");
+        tooltip-text: _("Oval (O, E)");
         group: crop;
 
         Gtk.Image {
@@ -175,7 +175,7 @@ template $ShotToolbar: Gtk.Widget {
       }
 
       Gtk.ToggleButton number {
-        tooltip-text: _("Number (N)");
+        tooltip-text: _("Number (N, Z)");
         group: crop;
 
         Gtk.Image {
@@ -363,7 +363,7 @@ template $ShotToolbar: Gtk.Widget {
 
       Adw.Toggle {
         name: "thin";
-        tooltip: _("Thin line ([ and ])");
+        tooltip: _("Thin line ([ and ], ` and ~)");
 
         child: Gtk.Box {
           halign: center;
@@ -379,7 +379,7 @@ template $ShotToolbar: Gtk.Widget {
 
       Adw.Toggle {
         name: "medium";
-        tooltip: _("Medium line ([ and ])");
+        tooltip: _("Medium line ([ and ], ` and ~)");
 
         child: Gtk.Box {
           halign: center;
@@ -395,7 +395,7 @@ template $ShotToolbar: Gtk.Widget {
 
       Adw.Toggle {
         name: "thick";
-        tooltip: _("Thick line ([ and ])");
+        tooltip: _("Thick line ([ and ], ` and ~)");
 
         child: Gtk.Box {
           halign: center;
@@ -411,7 +411,7 @@ template $ShotToolbar: Gtk.Widget {
     }
 
     Gtk.Button apply_crop {
-      tooltip-text: _("Apply Crop (Enter)");
+      tooltip-text: _("Apply Crop (Enter, Shift+Space)");
       valign: center;
       visible: false;
 
@@ -473,7 +473,7 @@ template $ShotToolbar: Gtk.Widget {
       spacing: 2;
 
       Adw.SplitButton copy_close {
-        tooltip-text: _("Copy and close (Enter)");
+        tooltip-text: _("Copy and close (Enter, Shift+Space)");
         dropdown-tooltip: _("More ways to finish");
         icon-name: "edit-copy-symbolic";
         menu-model: finish_menu;

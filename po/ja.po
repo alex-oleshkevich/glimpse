@@ -3202,16 +3202,16 @@ msgid "Arrow (A)"
 msgstr "矢印 (A)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
-msgid "Line (L)"
-msgstr "直線 (L)"
+msgid "Line (L, D)"
+msgstr "直線 (L, D)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
-msgid "Freehand (P)"
-msgstr "フリーハンド (P)"
+msgid "Freehand (P, Q)"
+msgstr "フリーハンド (P, Q)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
-msgid "Highlighter (H)"
-msgstr "蛍光ペン (H)"
+msgid "Highlighter (H, G)"
+msgstr "蛍光ペン (H, G)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
@@ -3222,12 +3222,12 @@ msgid "Filled Rectangle (F)"
 msgstr "塗りつぶし四角形 (F)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
-msgid "Oval (O)"
-msgstr "楕円 (O)"
+msgid "Oval (O, E)"
+msgstr "楕円 (O, E)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
-msgid "Number (N)"
-msgstr "番号 (N)"
+msgid "Number (N, Z)"
+msgstr "番号 (N, Z)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
@@ -3262,28 +3262,28 @@ msgid "White (5)"
 msgstr "白 (5)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
-msgid "Thin line ([ and ])"
-msgstr "細い線 ([ と ])"
+msgid "Thin line ([ and ], ` and ~)"
+msgstr "細い線 ([ と ], ` と ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
-msgid "Medium line ([ and ])"
-msgstr "中くらいの線 ([ と ])"
+msgid "Medium line ([ and ], ` and ~)"
+msgstr "中くらいの線 ([ と ], ` と ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
-msgid "Thick line ([ and ])"
-msgstr "太い線 ([ と ])"
+msgid "Thick line ([ and ], ` and ~)"
+msgstr "太い線 ([ と ], ` と ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
-msgid "Apply Crop (Enter)"
-msgstr "切り抜きを適用 (Enter)"
+msgid "Apply Crop (Enter, Shift+Space)"
+msgstr "切り抜きを適用 (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr "切り抜きを適用"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
-msgid "Copy and close (Enter)"
-msgstr "コピーして閉じる (Enter)"
+msgid "Copy and close (Enter, Shift+Space)"
+msgstr "コピーして閉じる (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"

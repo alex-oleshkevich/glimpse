@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.17.1\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-11-16 20:43+0100\n"
+"POT-Creation-Date: 2026-11-17 14:45+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -43,7 +43,7 @@ msgstr ""
 #: crates/glimpse-agents/src/app/view.rs:40
 #: crates/glimpse-agents/src/session.rs:73 crates/glimpse-panel/src/app.rs:326
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
-#: crates/glimpse-shot/src/gui/result.rs:962
+#: crates/glimpse-shot/src/gui/result.rs:980
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
 #: crates/glimpse-widgets/blueprints/network_popover.blp:160
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:107
@@ -2462,20 +2462,20 @@ msgstr ""
 msgid "Waiting to take a screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1083
-#: crates/glimpse-shot/src/gui/result.rs:925
+#: crates/glimpse-shot/src/gui/overlay.rs:1098
+#: crates/glimpse-shot/src/gui/result.rs:943
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1644
+#: crates/glimpse-shot/src/gui/overlay.rs:1665
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1817
+#: crates/glimpse-shot/src/gui/overlay.rs:1838
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1818
+#: crates/glimpse-shot/src/gui/overlay.rs:1839
 msgid "Copied"
 msgstr ""
 
@@ -2489,7 +2489,7 @@ msgid "Saved as “{name}”"
 msgstr ""
 
 #: crates/glimpse-shot/src/gui/prefs.rs:226
-#: crates/glimpse-shot/src/gui/result.rs:1077
+#: crates/glimpse-shot/src/gui/result.rs:1095
 msgid "Copied to clipboard"
 msgstr ""
 
@@ -2498,42 +2498,42 @@ msgstr ""
 msgid "Choose Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:723
+#: crates/glimpse-shot/src/gui/result.rs:741
 msgid "A screenshot has unsaved changes"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:867
+#: crates/glimpse-shot/src/gui/result.rs:885
 msgid "A file name cannot be empty or contain “/”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:872
+#: crates/glimpse-shot/src/gui/result.rs:890
 msgid ""
 "There is no Pictures folder to save into; choose a folder in Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:958
+#: crates/glimpse-shot/src/gui/result.rs:976
 msgid "Discard this screenshot?"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:959
+#: crates/glimpse-shot/src/gui/result.rs:977
 msgid "It has not been saved or copied."
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:963
+#: crates/glimpse-shot/src/gui/result.rs:981
 msgid "Discard"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:964
+#: crates/glimpse-shot/src/gui/result.rs:982
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:505
 msgid "Save"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1126
+#: crates/glimpse-shot/src/gui/result.rs:1144
 msgid "Saved “{name}”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1134
+#: crates/glimpse-shot/src/gui/result.rs:1152
 #: crates/glimpse-shot/src/notify.rs:415
 #: crates/glimpse-shot/src/notify/tests.rs:321
 msgid "Show in Folder"
@@ -3313,15 +3313,15 @@ msgid "Arrow (A)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
-msgid "Line (L)"
+msgid "Line (L, D)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
-msgid "Freehand (P)"
+msgid "Freehand (P, Q)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
-msgid "Highlighter (H)"
+msgid "Highlighter (H, G)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
@@ -3333,11 +3333,11 @@ msgid "Filled Rectangle (F)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
-msgid "Oval (O)"
+msgid "Oval (O, E)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
-msgid "Number (N)"
+msgid "Number (N, Z)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
@@ -3373,19 +3373,19 @@ msgid "White (5)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
-msgid "Thin line ([ and ])"
+msgid "Thin line ([ and ], ` and ~)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
-msgid "Medium line ([ and ])"
+msgid "Medium line ([ and ], ` and ~)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
-msgid "Thick line ([ and ])"
+msgid "Thick line ([ and ], ` and ~)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
-msgid "Apply Crop (Enter)"
+msgid "Apply Crop (Enter, Shift+Space)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
@@ -3393,7 +3393,7 @@ msgid "Apply Crop"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
-msgid "Copy and close (Enter)"
+msgid "Copy and close (Enter, Shift+Space)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477

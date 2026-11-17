@@ -3246,16 +3246,16 @@ msgid "Arrow (A)"
 msgstr "Стрэлка (A)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
-msgid "Line (L)"
-msgstr "Лінія (L)"
+msgid "Line (L, D)"
+msgstr "Лінія (L, D)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
-msgid "Freehand (P)"
-msgstr "Адвольнае маляванне (P)"
+msgid "Freehand (P, Q)"
+msgstr "Адвольнае маляванне (P, Q)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
-msgid "Highlighter (H)"
-msgstr "Маркер (H)"
+msgid "Highlighter (H, G)"
+msgstr "Маркер (H, G)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
@@ -3266,12 +3266,12 @@ msgid "Filled Rectangle (F)"
 msgstr "Запоўнены прамавугольнік (F)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
-msgid "Oval (O)"
-msgstr "Авал (O)"
+msgid "Oval (O, E)"
+msgstr "Авал (O, E)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
-msgid "Number (N)"
-msgstr "Нумар (N)"
+msgid "Number (N, Z)"
+msgstr "Нумар (N, Z)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
@@ -3306,28 +3306,28 @@ msgid "White (5)"
 msgstr "Белы (5)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
-msgid "Thin line ([ and ])"
-msgstr "Тонкая лінія ([ і ])"
+msgid "Thin line ([ and ], ` and ~)"
+msgstr "Тонкая лінія ([ і ], ` і ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
-msgid "Medium line ([ and ])"
-msgstr "Сярэдняя лінія ([ і ])"
+msgid "Medium line ([ and ], ` and ~)"
+msgstr "Сярэдняя лінія ([ і ], ` і ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
-msgid "Thick line ([ and ])"
-msgstr "Тоўстая лінія ([ і ])"
+msgid "Thick line ([ and ], ` and ~)"
+msgstr "Тоўстая лінія ([ і ], ` і ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
-msgid "Apply Crop (Enter)"
-msgstr "Ужыць абрэзку (Enter)"
+msgid "Apply Crop (Enter, Shift+Space)"
+msgstr "Ужыць абрэзку (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr "Ужыць абрэзку"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
-msgid "Copy and close (Enter)"
-msgstr "Скапіяваць і закрыць (Enter)"
+msgid "Copy and close (Enter, Shift+Space)"
+msgstr "Скапіяваць і закрыць (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"

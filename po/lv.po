@@ -3244,16 +3244,16 @@ msgid "Arrow (A)"
 msgstr "Bulta (A)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:100
-msgid "Line (L)"
-msgstr "Līnija (L)"
+msgid "Line (L, D)"
+msgstr "Līnija (L, D)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:112
-msgid "Freehand (P)"
-msgstr "Brīvroka (P)"
+msgid "Freehand (P, Q)"
+msgstr "Brīvroka (P, Q)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:124
-msgid "Highlighter (H)"
-msgstr "Marķieris (H)"
+msgid "Highlighter (H, G)"
+msgstr "Marķieris (H, G)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
 msgid "Rectangle (R)"
@@ -3264,12 +3264,12 @@ msgid "Filled Rectangle (F)"
 msgstr "Aizpildīts taisnstūris (F)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
-msgid "Oval (O)"
-msgstr "Ovāls (O)"
+msgid "Oval (O, E)"
+msgstr "Ovāls (O, E)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
-msgid "Number (N)"
-msgstr "Numurs (N)"
+msgid "Number (N, Z)"
+msgstr "Numurs (N, Z)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
 msgid "Text (T)"
@@ -3304,28 +3304,28 @@ msgid "White (5)"
 msgstr "Balta (5)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:366
-msgid "Thin line ([ and ])"
-msgstr "Tieva līnija ([ un ])"
+msgid "Thin line ([ and ], ` and ~)"
+msgstr "Tieva līnija ([ un ], ` un ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:382
-msgid "Medium line ([ and ])"
-msgstr "Vidēja līnija ([ un ])"
+msgid "Medium line ([ and ], ` and ~)"
+msgstr "Vidēja līnija ([ un ], ` un ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:398
-msgid "Thick line ([ and ])"
-msgstr "Bieza līnija ([ un ])"
+msgid "Thick line ([ and ], ` and ~)"
+msgstr "Bieza līnija ([ un ], ` un ~)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:414
-msgid "Apply Crop (Enter)"
-msgstr "Lietot apgriešanu (Enter)"
+msgid "Apply Crop (Enter, Shift+Space)"
+msgstr "Lietot apgriešanu (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:424
 msgid "Apply Crop"
 msgstr "Lietot apgriešanu"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:476
-msgid "Copy and close (Enter)"
-msgstr "Kopēt un aizvērt (Enter)"
+msgid "Copy and close (Enter, Shift+Space)"
+msgstr "Kopēt un aizvērt (Enter, Shift+Space)"
 
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:477
 msgid "More ways to finish"
