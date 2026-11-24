@@ -622,6 +622,7 @@ pub struct RevealArgs {
     #[arg(
         long = "for",
         value_name = "MS",
+        value_parser = clap::value_parser!(u32).range(1..),
         help = "Conceal after this many milliseconds"
     )]
     pub duration: Option<u32>,

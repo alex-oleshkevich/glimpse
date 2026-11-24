@@ -96,7 +96,7 @@ pub struct Panel {
     linger: u64,
     dwell: u64,
     reach: Rc<Cell<Reach>>,
-    reported: Option<(bool, bool)>,
+    reported: Option<Output>,
 }
 
 struct Slot {
@@ -253,8 +253,9 @@ impl fmt::Debug for Input {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Output {
-    Presence { pinned: bool, visible: bool },
+pub struct Output {
+    pub pinned: bool,
+    pub visible: bool,
 }
 
 #[relm4::component(pub)]
@@ -360,20 +361,20 @@ impl SimpleComponent for Panel {
 
         model.apply(&config);
         let realized = model.reach.clone();
+        let input = sender.input_sender().clone();
         window.connect_realize(move |window| {
             let Some(surface) = window.surface() else {
                 return;
             };
             let layout = realized.clone();
-            surface.connect_layout(move |surface, _, _| reach(surface, layout.get()));
-        });
-        window.present();
-        if let Some(surface) = window.surface() {
-            let input = sender.input_sender().clone();
-            surface.connect_layout(move |_, _, _| {
+            let input = input.clone();
+            surface.connect_layout(move |surface, _, _| {
+                reach(surface, layout.get());
                 let _ = input.send(Input::Layout);
             });
-        }
+        });
+        window.present();
+        model.region();
         model.refresh();
         model.report(&sender);
 
@@ -384,8 +385,11 @@ impl SimpleComponent for Panel {
         let steps = match message {
             Input::Configure(config) => {
                 self.apply(&config);
+                self.region();
                 self.refresh();
-                self.follow(&config)
+                let mut steps = self.presence.pin(config.pinned);
+                steps.extend(self.presence.hold(Hold::Command, config.held));
+                steps
             }
             Input::ClosePopover => {
                 self.catcher.close();
@@ -422,19 +426,17 @@ impl SimpleComponent for Panel {
 }
 
 impl Panel {
-    fn follow(&mut self, config: &Config) -> Vec<Step> {
-        let mut steps = self.presence.pin(config.pinned);
-        if config.held != self.presence.held(Hold::Command) {
-            steps.extend(self.presence.hold(Hold::Command, config.held));
-        }
-        steps
-    }
-
     fn run(&mut self, steps: Vec<Step>, sender: &ComponentSender<Self>) {
         for step in steps {
             match step {
-                Step::Reserve => self.reserve(true),
-                Step::Release => self.reserve(false),
+                Step::Reserve => self
+                    .slide
+                    .drive(&self.reserving, self.reserving.value(), true),
+                Step::Release => {
+                    self.catcher.close();
+                    self.slide
+                        .drive(&self.reserving, self.reserving.value(), false);
+                }
                 Step::SlideIn => self.slide.reveal(true, || {}),
                 Step::SlideOut => {
                     let input = sender.input_sender().clone();
@@ -458,30 +460,16 @@ impl Panel {
     }
 
     fn report(&mut self, sender: &ComponentSender<Self>) {
-        let state = (self.presence.pinned(), self.presence.visible());
-        if self.reported == Some(state) {
-            return;
+        let state = Output {
+            pinned: self.presence.pinned(),
+            visible: self.presence.visible(),
+        };
+        if self.reported.replace(state) != Some(state) {
+            let _ = sender.output(state);
         }
-        self.reported = Some(state);
-        let _ = sender.output(Output::Presence {
-            pinned: state.0,
-            visible: state.1,
-        });
-    }
-
-    fn reserve(&self, reserved: bool) {
-        self.reservation.full.set(self.full_zone());
-        let animation = &self.reserving;
-        animation.set_value_from(animation.value());
-        animation.reset();
-        animation.set_value_to(if reserved { 1.0 } else { 0.0 });
-        animation.set_duration(self.slide.duration());
-        animation.set_easing(glimpse_widgets::Slide::easing(reserved));
-        animation.play();
     }
 
     fn refresh(&self) {
-        self.region();
         let full = self.full_zone();
         self.reservation.full.set(full);
         if self.reserving.state() != adw::AnimationState::Playing && !self.presence.pinned() {
@@ -539,12 +527,7 @@ impl Panel {
         if self.window.monitor().as_ref() != Some(&config.monitor) {
             self.window.set_monitor(Some(&config.monitor));
         }
-        let anchored = match config.position {
-            Position::Top => Edge::Top,
-            Position::Bottom => Edge::Bottom,
-            Position::Left => Edge::Left,
-            Position::Right => Edge::Right,
-        };
+        let anchored = crate::applet::catcher::bar_edge(config.position);
         for (edge, margin) in [
             (Edge::Top, config.margin.top),
             (Edge::Bottom, config.margin.bottom),

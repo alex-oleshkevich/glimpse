@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.18.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-11-24 18:01+0100\n"
+"POT-Creation-Date: 2026-11-24 22:04+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -41,7 +41,7 @@ msgstr ""
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:73 crates/glimpse-panel/src/app.rs:505
+#: crates/glimpse-agents/src/session.rs:73 crates/glimpse-panel/src/app.rs:489
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:980
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -424,16 +424,16 @@ msgstr ""
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:563
+#: crates/glimpse-panel/src/app.rs:547
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:565
+#: crates/glimpse-panel/src/app.rs:549
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:567
+#: crates/glimpse-panel/src/app.rs:551
 msgid "The session manager refused that action."
 msgstr ""
 

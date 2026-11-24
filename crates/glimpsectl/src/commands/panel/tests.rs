@@ -180,7 +180,7 @@ fn visibility_targets_must_match_a_bar_and_bars_report_their_state() {
         .into_iter()
         .map(|bar| bar.state)
         .collect();
-    assert_eq!(states, [Some("shown".into()), Some("revealed".into())]);
+    assert_eq!(states, [Some("shown"), Some("revealed")]);
     assert_eq!(
         decode_bars(&metadata("old", Some(vec![(0, "DP-1", "top")]))).unwrap()[0].state,
         None

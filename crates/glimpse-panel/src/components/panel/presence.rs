@@ -40,10 +40,6 @@ impl Presence {
         self.visible
     }
 
-    pub fn held(&self, hold: Hold) -> bool {
-        self.holds[hold as usize]
-    }
-
     pub fn pin(&mut self, pinned: bool) -> Vec<Step> {
         if pinned == self.pinned {
             return Vec::new();
@@ -104,9 +100,6 @@ impl Presence {
     }
 
     fn hide(&mut self) -> Vec<Step> {
-        if !self.visible {
-            return self.slid();
-        }
         self.visible = false;
         vec![Step::SlideOut]
     }

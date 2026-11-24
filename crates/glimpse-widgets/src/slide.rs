@@ -159,26 +159,24 @@ impl Slide {
         crate::animation_ms(SLIDE_MS)
     }
 
-    pub fn easing(shown: bool) -> adw::Easing {
-        match shown {
-            true => adw::Easing::EaseOutCubic,
-            false => adw::Easing::EaseInCubic,
-        }
-    }
-
     pub fn reveal(&self, shown: bool, done: impl FnOnce() + 'static) {
         let imp = self.imp();
         let Some(animation) = imp.animation.get() else {
             return;
         };
-        let target = if shown { 1.0 } else { 0.0 };
-        imp.done.replace(None);
-        animation.set_value_from(imp.progress.get());
-        animation.reset();
-        animation.set_value_to(target);
-        animation.set_duration(self.duration());
-        animation.set_easing(Self::easing(shown));
         imp.done.replace(Some(Box::new(done)));
+        self.drive(animation, imp.progress.get(), shown);
+    }
+
+    pub fn drive(&self, animation: &adw::TimedAnimation, from: f64, shown: bool) {
+        animation.set_value_from(from);
+        animation.reset();
+        animation.set_value_to(if shown { 1.0 } else { 0.0 });
+        animation.set_duration(self.duration());
+        animation.set_easing(match shown {
+            true => adw::Easing::EaseOutCubic,
+            false => adw::Easing::EaseInCubic,
+        });
         animation.play();
     }
 

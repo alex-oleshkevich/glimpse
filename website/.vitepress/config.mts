@@ -73,6 +73,7 @@ export default withMermaid(
             items: [
               { text: "Overview", link: "/guide/" },
               { text: "Arrange your panels", link: "/guide/panels" },
+              { text: "Hide the panel until you need it", link: "/guide/hide-panel" },
               { text: "Show a world clock next to your clock", link: "/guide/second-instance" },
               { text: "Change how glimpse looks", link: "/guide/theme" },
               { text: "Write a theme", link: "/guide/theming" },

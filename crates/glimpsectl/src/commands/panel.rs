@@ -345,16 +345,11 @@ async fn visibility(
     let bars = decode_visibility(&descriptions)
         .ok_or_else(|| Refused("this panel cannot hide; restart it after updating".into()))?;
     select(&bars, target)?;
-    let output = target.output.clone().unwrap_or_default();
+    let output = target.output.as_deref().unwrap_or_default();
     let edge = target.edge.map(|edge| edge.to_string()).unwrap_or_default();
     within(actions.activate(
         "visibility",
-        vec![Value::from((
-            verb,
-            output.as_str(),
-            edge.as_str(),
-            duration,
-        ))],
+        vec![Value::from((verb, output, edge.as_str(), duration))],
         HashMap::new(),
     ))
     .await
@@ -508,7 +503,7 @@ struct BarRow {
     connector: String,
     position: Position,
     #[serde(skip_serializing_if = "Option::is_none")]
-    state: Option<String>,
+    state: Option<&'static str>,
 }
 
 fn decode_bars(descriptions: &Descriptions) -> Option<Vec<BarRow>> {
@@ -521,13 +516,10 @@ fn decode_bars(descriptions: &Descriptions) -> Option<Vec<BarRow>> {
             let state = visibility
                 .iter()
                 .find(|row| row.0 == index && row.1 == connector)
-                .map(|&(_, _, _, pinned, visible)| {
-                    match (pinned, visible) {
-                        (true, _) => "shown",
-                        (false, true) => "revealed",
-                        (false, false) => "hidden",
-                    }
-                    .to_owned()
+                .map(|&(_, _, _, pinned, visible)| match (pinned, visible) {
+                    (true, _) => "shown",
+                    (false, true) => "revealed",
+                    (false, false) => "hidden",
                 });
             Some(BarRow {
                 index,
@@ -685,7 +677,7 @@ fn print_panels(rows: &[PanelRow], json: bool, watch: bool) -> Result<render::Fl
                         .map(|bars| {
                             bars.iter()
                                 .map(|bar| {
-                                    let state = bar.state.as_deref().unwrap_or("unknown");
+                                    let state = bar.state.unwrap_or("unknown");
                                     format!(
                                         "{}:{}:{}:{state}",
                                         bar.index, bar.connector, bar.position

@@ -228,7 +228,7 @@ point as a dot, and clips to its bounds. A gap is a position on the x axis, not 
 `Slide` measures as its single child through `BinLayout` and draws it translated toward its edge by
 `(1 - progress)` of its size at opacity `progress`, clipped. **It translates in `snapshot` rather than
 changing its size request**, so an animation never reflows the surface or what is tiled beside it.
-At progress 0 it draws nothing, and the child is not targetable below progress 1. `reveal` animates
+At progress 0 it paints only a transparent node, and the child is not targetable below progress 1. `reveal` animates
 from the current progress with `adw::TimedAnimation`, following `gtk-enable-animations` and
 `animation-speed`; **a superseded reveal drops its `done`**, so a caller only hears about the
 animation that finished. `jump` sets progress without animating.

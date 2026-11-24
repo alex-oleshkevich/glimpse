@@ -57,9 +57,12 @@ fn hide_drops_every_hold_so_the_panel_always_leaves() {
         presence.pin(false),
         [Step::Settle, Step::Release, Step::SlideOut]
     );
-    assert!(!presence.held(Hold::Command));
-    assert!(!presence.held(Hold::Popover));
-    assert!(!presence.held(Hold::Pointer));
+    assert_eq!(
+        presence.hold(Hold::Command, true),
+        [Step::Settle, Step::SlideIn, Step::Region]
+    );
+    assert_eq!(presence.hold(Hold::Popover, true), [Step::Settle]);
+    assert_eq!(presence.hold(Hold::Pointer, true), [Step::Settle]);
 }
 
 #[test]

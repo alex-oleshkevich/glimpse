@@ -61,11 +61,7 @@ pub enum AppInput {
     Detached,
     Visibility(Request),
     RevealExpired(Key, u64),
-    Presence {
-        key: Key,
-        pinned: bool,
-        visible: bool,
-    },
+    Presence(Key, panel::Output),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,7 +99,6 @@ struct Overrides {
     pins: HashMap<Key, bool>,
     held: HashMap<Key, u64>,
     serial: u64,
-    shown: HashMap<Key, (bool, bool)>,
 }
 
 impl std::fmt::Debug for AppInput {
@@ -122,7 +117,7 @@ impl std::fmt::Debug for AppInput {
             AppInput::Detached => "Detached",
             AppInput::Visibility(_) => "Visibility",
             AppInput::RevealExpired(..) => "RevealExpired",
-            AppInput::Presence { .. } => "Presence",
+            AppInput::Presence(..) => "Presence",
         })
     }
 }
@@ -324,12 +319,10 @@ impl SimpleComponent for App {
                 }
                 self.overrides.held.remove(&key);
             }
-            AppInput::Presence {
-                key,
-                pinned,
-                visible,
-            } => {
-                self.overrides.shown.insert(key, (pinned, visible));
+            AppInput::Presence(key, presence) => {
+                if let Some(panel) = self.panels.iter_mut().find(|panel| panel.key == key) {
+                    panel.presence = Some(presence);
+                }
                 self.publish_visibility();
                 return;
             }
@@ -368,10 +361,6 @@ impl SimpleComponent for App {
             &self.config,
             self.panels.iter().map(|panel| &panel.key),
         ));
-        let panels = &self.panels;
-        self.overrides
-            .shown
-            .retain(|key, _| panels.iter().any(|panel| panel.key == *key));
         self.publish_visibility();
         if export
             && let Some(connection) = self
@@ -429,16 +418,11 @@ impl App {
             .collect();
         for key in keys {
             match request.verb {
-                Verb::Show => {
+                Verb::Hide => self.unpin(key),
+                Verb::Toggle if pinned(&self.config, &self.overrides, &key) => self.unpin(key),
+                Verb::Show | Verb::Toggle => {
                     self.overrides.pins.insert(key, true);
                 }
-                Verb::Hide => self.unpin(key),
-                Verb::Toggle => match pinned(&self.config, &self.overrides, &key) {
-                    true => self.unpin(key),
-                    false => {
-                        self.overrides.pins.insert(key, true);
-                    }
-                },
                 Verb::Reveal => {
                     self.overrides.serial += 1;
                     let serial = self.overrides.serial;
@@ -473,14 +457,14 @@ impl App {
             .panels
             .iter()
             .filter_map(|panel| {
-                let (pinned, visible) = self.overrides.shown.get(&panel.key).copied()?;
+                let shown = panel.presence.as_ref()?;
                 let config = self.config.panels.get(panel.key.index)?;
                 Some((
                     u32::try_from(panel.key.index).ok()?,
                     panel.key.monitor.clone(),
                     edge_name(config.position).to_owned(),
-                    pinned,
-                    visible,
+                    shown.pinned,
+                    shown.visible,
                 ))
             })
             .collect();
@@ -672,6 +656,7 @@ pub struct Key {
 struct PanelState {
     pub key: Key,
     pub controller: Controller<components::panel::Panel>,
+    pub presence: Option<panel::Output>,
 }
 
 fn edge_name(position: glimpse_config::Position) -> &'static str {
@@ -822,14 +807,12 @@ fn reconcile_panels(
                     let output = key.clone();
                     PanelState {
                         key,
-                        controller: panel::Panel::builder().launch(panel_cfg).forward(
-                            &dialog,
-                            move |panel::Output::Presence { pinned, visible }| AppInput::Presence {
-                                key: output.clone(),
-                                pinned,
-                                visible,
-                            },
-                        ),
+                        controller: panel::Panel::builder()
+                            .launch(panel_cfg)
+                            .forward(&dialog, move |presence| {
+                                AppInput::Presence(output.clone(), presence)
+                            }),
+                        presence: None,
                     }
                 }
             };

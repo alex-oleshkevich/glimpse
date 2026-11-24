@@ -254,7 +254,7 @@ impl Catcher {
         if self.clearance.replace(clearance) == clearance {
             return;
         }
-        self.clear(self.side.get());
+        self.clear();
     }
 
     fn notify_open(&self, open: bool) {
@@ -263,8 +263,8 @@ impl Catcher {
         }
     }
 
-    fn clear(&self, side: Position) {
-        let bar = bar_edge(side);
+    fn clear(&self) {
+        let bar = bar_edge(self.side.get());
         for window in [&self.window, &self.popup] {
             window.set_margin(bar, self.clearance.get());
         }
@@ -332,7 +332,7 @@ impl Catcher {
             self.popup.set_margin(edge, 0);
             self.window.set_margin(edge, 0);
         }
-        self.clear(side);
+        self.clear();
         self.slot.set_margin_start(gutter(side == Position::Right));
         self.slot.set_margin_end(gutter(side == Position::Left));
         self.slot.set_margin_top(gutter(side == Position::Bottom));
@@ -470,7 +470,7 @@ impl Drop for Catcher {
     }
 }
 
-fn bar_edge(side: Position) -> Edge {
+pub(crate) fn bar_edge(side: Position) -> Edge {
     match side {
         Position::Top => Edge::Top,
         Position::Bottom => Edge::Bottom,
