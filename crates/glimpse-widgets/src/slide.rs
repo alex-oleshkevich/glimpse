@@ -155,6 +155,17 @@ impl Slide {
         self.imp().progress.get() > 0.0
     }
 
+    pub fn duration(&self) -> u32 {
+        crate::animation_ms(SLIDE_MS)
+    }
+
+    pub fn easing(shown: bool) -> adw::Easing {
+        match shown {
+            true => adw::Easing::EaseOutCubic,
+            false => adw::Easing::EaseInCubic,
+        }
+    }
+
     pub fn reveal(&self, shown: bool, done: impl FnOnce() + 'static) {
         let imp = self.imp();
         let Some(animation) = imp.animation.get() else {
@@ -165,12 +176,8 @@ impl Slide {
         animation.set_value_from(imp.progress.get());
         animation.reset();
         animation.set_value_to(target);
-        animation.set_duration(crate::animation_ms(SLIDE_MS));
-        animation.set_easing(if shown {
-            adw::Easing::EaseOutCubic
-        } else {
-            adw::Easing::EaseInCubic
-        });
+        animation.set_duration(self.duration());
+        animation.set_easing(Self::easing(shown));
         imp.done.replace(Some(Box::new(done)));
         animation.play();
     }

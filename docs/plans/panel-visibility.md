@@ -121,13 +121,25 @@ unchanged. Content now slides off the real screen edge, and the edge strip sits 
 Without it, the band that stays mapped while hidden would paint the window background over other
 windows.
 
-### 4.2 The exclusive zone follows the pin
+### 4.2 The exclusive zone follows the slide
 
-- Pinned: `auto_exclusive_zone_enable()`.
-- Not pinned: `set_exclusive_zone(0)`.
+- **Full zone:** the surface extent along the axis plus the opposite-edge layer-shell margin, as
+  `Panel::full_zone()` computes it.
+- **Pinning:** the zone animates from its current value up to the full zone in step with the
+  slide-in, with the Slide's duration and EaseOutCubic. At the top it switches to
+  `auto_exclusive_zone_enable()`, so later size changes are tracked.
+- **Unpinning:** the zone animates from its current value down to 0 in step with the slide-out, with
+  EaseInCubic, and ends on `set_exclusive_zone(0)`.
+- **Reveal:** an unpinned reveal overlays and never touches the zone. A reveal that arrives mid
+  slide-out after unpinning slides back in as an overlay with zone 0.
+- **Catcher clearance:** the full zone minus the current zone in pixels, so 0 when fully reserved
+  and the full zone when released.
 - **Init:** the zone is set from the initial pin before `present()`. A panel that starts hidden
   never reserves space, not even for one commit.
-- **Order:** pinning reserves first, then slides in. Unpinning slides out first, then releases.
+- **Why:** tiled windows resize gradually together with the slide. A zone that changed at one end of
+  the slide made them jump and flash.
+- **Order:** `Release` is emitted at the start of unpinning, together with `SlideOut`, and `Reserve`
+  at the start of pinning, together with `SlideIn`.
 
 ### 4.3 Input region
 
@@ -158,8 +170,11 @@ component executes them. It is tested in `presence/tests.rs`.
   own held reveal for the key first.
 - **A hold set while pinned** is recorded and has no visible effect. If the pin is then removed by
   config, the hold applies. If `hide` removes it, `hide` clears the hold.
-- **`slid()`** emits `Release` if and only if the panel is neither pinned nor visible. It works from
-  `(pinned, visible)` alone.
+- **`pin(false)`** from visible returns `[Settle, Release, SlideOut]`, so the zone animates down
+  with the slide-out. The reserved state is the pin itself. **`pin(true)`** from hidden returns
+  `[Settle, Reserve, SlideIn, Region]`, from visible `[Settle, Reserve]`.
+- **`slid()`** never emits `Release`. When the panel is hidden it returns `[Region]`, which
+  recomputes the input region and the catcher clearance.
 - **A superseded slide's `done` is dropped.** `Slide::reveal` called mid-animation replaces the
   callback.
 - **Toggle is resolved in `App`**, not in the panel: `!pins.get(key).unwrap_or(visibility == Show)`.
@@ -267,10 +282,12 @@ Before the plan is final, a live capture from a nested niri replaces this (`docs
 1. The CLI reads `bars`, finds a match and calls `Activate("visibility", ("hide","","",0))`.
 2. `AppInput::Visibility` reaches `App`, which for each match sets `pins[key] = false`, removes
    `held[key]`, sends `ClosePopover` and then `Configure` with `pinned = false, held = false`.
-3. `Presence::pin(false)` returns `[SlideOut]`, and the panel calls `Slide::reveal(false, done)`
-   (`animation_ms(200)`, EaseInCubic).
-4. `done` calls `Presence::slid()`, which returns `[Release, Region]`: `set_exclusive_zone(0)`, a
-   clearance equal to the extent, and an input region that is the strip or empty.
+3. `Presence::pin(false)` returns `[Settle, Release, SlideOut]`. The
+   panel calls `Slide::reveal(false, done)` (`animation_ms(200)`, EaseInCubic) and animates the zone
+   from its current value to 0 with the same duration and easing, so windows resize with the slide.
+4. `done` calls `Presence::slid()`, which returns `[Region]`: `set_exclusive_zone(0)` as the zone
+   animation ends, a clearance equal to the full zone, and an input region that is the strip or
+   empty.
 5. The panel emits `Output::Presence`, and `App` updates the `visibility` state.
 
 **F2: hide while a popover is open.** `pin(false)` drops `Popover` itself, so the slide-out starts at
@@ -303,7 +320,7 @@ once while the catcher fades. F1 follows from step 3.
 **F6: a reload changes `visibility` from `hide` to `show`.**
 1. `ConfigChanged` drops the pins and the held reveals, because `panels` changed.
 2. `reconcile_panels` sends `Configure` with `pinned = true`.
-3. `Presence` gets `pin(true)` and returns `[Reserve, SlideIn, Region]`.
+3. `Presence` gets `pin(true)` and returns `[Settle, Reserve, SlideIn, Region]`.
 
 **F7: monitor hotplug.**
 1. A new `Key` builds a window, and the zone is set from `pinned`.
@@ -316,7 +333,10 @@ records it only for the keys that existed.
 **F8: interrupted slides.**
 - `reveal` arrives during a slide-out: `SlideIn` animates from the current progress, and the old
   `done` is dropped.
-- `hide` arrives during a slide-in: `SlideOut` runs, then `slid()` returns `Release`.
+- `hide` arrives during a slide-in: `[Settle, Release, SlideOut]` runs, the zone animates down from
+  its current value, and `slid()` returns `[Region]`.
+- `reveal` arrives during a slide-out after unpinning: `SlideIn` slides back in as an overlay with
+  zone 0.
 
 ## 7. Types and config
 
@@ -583,6 +603,7 @@ AC-11 Robustness: GIVEN a held reveal WHEN `hide` THEN the hold is gone and a la
 | 2026-11-24 | haiku ×5 | Research: panel window, CLI/IPC, compositor events, animation, prior art |
 | 2026-11-24 | opus (`PlanReview`) | 7 blocking findings, all applied in revision 2: opaque window background, clearance wiped by `layout()`, `title_only`, input region flap and translated bounds, overview hold stuck, F2 contradiction, split toggle ownership. Non-blocking findings applied as well. |
 | 2026-11-24 | user | Revision 3: no compositor binding. The overview chain (old S1), `Hold::Overview` and `reveal = [..]` are removed. CLI `reveal`/`conceal`/`--for` and `Hold::Command` are added, with App-owned held reveals. `edge-reveal` becomes a bool. Review findings tied to the overview (`title_only`, the provider version skew, `FakeNiri` fixtures) no longer apply. |
+| 2026-11-24 | user | Windows flashed on instant resize; the zone now animates with the slide |
 
 ## 13. Struck
 

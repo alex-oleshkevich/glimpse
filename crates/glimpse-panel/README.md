@@ -23,9 +23,12 @@ layer-shell margins. The window is `background: none` so the unused surface pain
 hidden `Slide` still paints a transparent node: GTK skips the frame of a window whose snapshot is
 empty, and with it the buffer that maps the surface and the commit of a new input region.
 
-**The exclusive zone changes only at the ends of a slide.** Pinned is an auto zone, anything else is
-0. Pinning reserves the zone before sliding in and unpinning slides out before releasing it, so
-tiled windows move once, never during the animation. The input region follows the same logic: the
+**The exclusive zone follows the slide.** While pinning, the zone grows from its current value to
+the full zone in step with the slide-in; while unpinning, it shrinks to 0 in step with the slide-out,
+with the slide's duration and easing, so tiled windows resize together with the bar instead of
+jumping at one end. A finished pin ends on an auto zone, which tracks later size changes; a finished
+unpin ends on 0. A reveal overlays and never touches the zone, and the catcher clearance is the full
+zone minus the current one. The input region is separate: the
 whole surface while shown or sliding, a 2 px strip on the anchored edge while hidden with
 edge-reveal, and empty otherwise, so a hidden bar never takes a click. The pointer must rest 150 ms
 on the strip before a reveal, so a pass along the screen edge does not summon the bar.

@@ -19,7 +19,6 @@ pub enum Step {
 #[derive(Debug)]
 pub struct Presence {
     pinned: bool,
-    reserved: bool,
     visible: bool,
     holds: [bool; 3],
 }
@@ -28,7 +27,6 @@ impl Presence {
     pub fn new(pinned: bool) -> Self {
         Self {
             pinned,
-            reserved: pinned,
             visible: pinned,
             holds: [false; 3],
         }
@@ -36,10 +34,6 @@ impl Presence {
 
     pub fn pinned(&self) -> bool {
         self.pinned
-    }
-
-    pub fn reserved(&self) -> bool {
-        self.reserved
     }
 
     pub fn visible(&self) -> bool {
@@ -57,11 +51,11 @@ impl Presence {
         self.pinned = pinned;
         let mut steps = vec![Step::Settle];
         if pinned {
-            self.reserved = true;
             steps.push(Step::Reserve);
             steps.extend(self.show());
         } else {
             self.holds = [false; 3];
+            steps.push(Step::Release);
             steps.extend(self.hide());
         }
         steps
@@ -90,17 +84,11 @@ impl Presence {
         }
     }
 
-    pub fn slid(&mut self) -> Vec<Step> {
-        if self.visible {
-            return Vec::new();
+    pub fn slid(&self) -> Vec<Step> {
+        match self.visible {
+            true => Vec::new(),
+            false => vec![Step::Region],
         }
-        let mut steps = Vec::new();
-        if self.reserved && !self.pinned {
-            self.reserved = false;
-            steps.push(Step::Release);
-        }
-        steps.push(Step::Region);
-        steps
     }
 
     fn idle(&self) -> bool {

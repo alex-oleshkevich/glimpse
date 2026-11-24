@@ -1,4 +1,4 @@
-use adw::gdk;
+use adw::{gdk, prelude::AnimationExt};
 use glimpse_config::{Applet as AppletConfig, Margin, Position, resolve_applet};
 use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -55,12 +55,39 @@ fn reach(surface: &gdk::Surface, reach: Reach) {
     surface.set_input_region(region.as_ref());
 }
 
+struct Reservation {
+    window: gtk::Window,
+    catcher: Rc<Catcher>,
+    full: Cell<i32>,
+}
+
+impl Reservation {
+    fn track(&self, fraction: f64) {
+        let full = self.full.get();
+        let zone = (fraction * f64::from(full)).round() as i32;
+        self.window.set_exclusive_zone(zone);
+        self.catcher.set_clearance(full - zone);
+    }
+
+    fn settle(&self, reserved: bool) {
+        if reserved {
+            self.window.auto_exclusive_zone_enable();
+            self.catcher.set_clearance(0);
+        } else {
+            self.window.set_exclusive_zone(0);
+            self.catcher.set_clearance(self.full.get());
+        }
+    }
+}
+
 pub struct Panel {
     window: gtk::Window,
     bar: glimpse_widgets::Panel,
     slide: glimpse_widgets::Slide,
     applets: Vec<Slot>,
     catcher: Rc<Catcher>,
+    reservation: Rc<Reservation>,
+    reserving: adw::TimedAnimation,
     presence: Presence,
     position: Position,
     margin: Margin,
@@ -281,10 +308,35 @@ impl SimpleComponent for Panel {
 
         let mut presence = Presence::new(config.pinned);
         let _ = presence.hold(Hold::Command, config.held);
-        match presence.reserved() {
-            true => window.auto_exclusive_zone_enable(),
-            false => window.set_exclusive_zone(0),
-        }
+        let reservation = Rc::new(Reservation {
+            window: window.clone(),
+            catcher: catcher.clone(),
+            full: Cell::new(0),
+        });
+        let reserved = if presence.pinned() { 1.0 } else { 0.0 };
+        let reserving = adw::TimedAnimation::new(
+            &window,
+            reserved,
+            reserved,
+            widgets.slide.duration(),
+            adw::CallbackAnimationTarget::new({
+                let reservation = Rc::downgrade(&reservation);
+                move |fraction| {
+                    if let Some(reservation) = reservation.upgrade() {
+                        reservation.track(fraction);
+                    }
+                }
+            }),
+        );
+        reserving.connect_done({
+            let reservation = Rc::downgrade(&reservation);
+            move |animation| {
+                if let Some(reservation) = reservation.upgrade() {
+                    reservation.settle(animation.value_to() >= 1.0);
+                }
+            }
+        });
+        reservation.settle(presence.pinned());
         widgets.slide.jump(presence.visible());
 
         let mut model = Panel {
@@ -293,6 +345,8 @@ impl SimpleComponent for Panel {
             slide: widgets.slide.clone(),
             applets: Vec::new(),
             catcher,
+            reservation,
+            reserving,
             presence,
             position: config.position,
             margin: config.margin,
@@ -379,14 +433,8 @@ impl Panel {
     fn run(&mut self, steps: Vec<Step>, sender: &ComponentSender<Self>) {
         for step in steps {
             match step {
-                Step::Reserve => {
-                    self.window.auto_exclusive_zone_enable();
-                    self.catcher.set_clearance(0);
-                }
-                Step::Release => {
-                    self.window.set_exclusive_zone(0);
-                    self.catcher.set_clearance(self.clearance());
-                }
+                Step::Reserve => self.reserve(true),
+                Step::Release => self.reserve(false),
                 Step::SlideIn => self.slide.reveal(true, || {}),
                 Step::SlideOut => {
                     let input = sender.input_sender().clone();
@@ -421,14 +469,27 @@ impl Panel {
         });
     }
 
+    fn reserve(&self, reserved: bool) {
+        self.reservation.full.set(self.full_zone());
+        let animation = &self.reserving;
+        animation.set_value_from(animation.value());
+        animation.reset();
+        animation.set_value_to(if reserved { 1.0 } else { 0.0 });
+        animation.set_duration(self.slide.duration());
+        animation.set_easing(glimpse_widgets::Slide::easing(reserved));
+        animation.play();
+    }
+
     fn refresh(&self) {
         self.region();
-        if !self.presence.reserved() {
-            self.catcher.set_clearance(self.clearance());
+        let full = self.full_zone();
+        self.reservation.full.set(full);
+        if self.reserving.state() != adw::AnimationState::Playing && !self.presence.pinned() {
+            self.catcher.set_clearance(full);
         }
     }
 
-    fn clearance(&self) -> i32 {
+    fn full_zone(&self) -> i32 {
         match self.position {
             Position::Top => self.window.height() + pixels(self.margin.bottom),
             Position::Bottom => self.window.height() + pixels(self.margin.top),
