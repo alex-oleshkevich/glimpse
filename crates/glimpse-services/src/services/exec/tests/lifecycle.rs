@@ -630,6 +630,42 @@ async fn detach_stops_the_unit_and_unlinks_the_socket() {
 }
 
 #[tokio::test]
+async fn a_dropped_source_spares_the_socket_its_successor_bound() {
+    use futures_util::StreamExt;
+
+    let (_dir, entry, _output) =
+        raw_script("#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n");
+    let test = configured();
+    let socket = test.config.socket_path(1).expect("runtime dir");
+    let launcher = Arc::new(ProcessLauncher::new());
+    let source = spawn::source(
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        spawn::SourceArgs {
+            slot: 1,
+            spawn: 1,
+            id: "me.example.Test".to_owned(),
+            env: BTreeMap::new(),
+            state_base: test.config.state_base.clone(),
+            entry: None,
+            restart: true,
+            stderr: None,
+            unit: launcher::unit_name(&test.config.panel, "me.example.Test", 1, 1),
+            socket: Some(socket.clone()),
+            launcher: Arc::clone(&launcher) as Arc<dyn Launcher>,
+            stop: CancellationToken::new(),
+        },
+    )
+    .await;
+    let mut source = Box::pin(source);
+    assert!(matches!(source.next().await, Some(Event::Started { .. })));
+    drop(source);
+    std::fs::remove_file(&socket).expect("stale socket");
+    let _successor = tokio::net::UnixListener::bind(&socket).expect("successor socket");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(socket.exists(), "the successor's socket was unlinked");
+}
+
+#[tokio::test]
 async fn missing_systemd_fails_the_slot() {
     let (_dir, entry, _output) = script(LOOP);
     let (handle, _sender, cancel, task, _launcher) = running_with(
