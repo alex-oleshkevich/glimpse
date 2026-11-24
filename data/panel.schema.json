@@ -1785,6 +1785,8 @@
             "notifications",
             "privacy"
           ],
+          "edge-reveal": false,
+          "hide-delay-ms": 1000,
           "left": [
             "workspace-name",
             "pager",
@@ -1813,7 +1815,8 @@
             "keyboard",
             "session"
           ],
-          "size": 36
+          "size": 36,
+          "visibility": "show"
         }
       ],
       "items": {
@@ -1914,6 +1917,19 @@
             "type": "string"
           }
         },
+        "edge-reveal": {
+          "description": "Slide a hidden panel in while the pointer rests on its screen edge.",
+          "type": "boolean",
+          "default": false
+        },
+        "hide-delay-ms": {
+          "description": "Milliseconds a revealed panel stays after the pointer leaves it, its popover closes or\n`glimpsectl panel conceal` runs.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 1000,
+          "maximum": 60000,
+          "minimum": 0
+        },
         "left": {
           "description": "Applet names for the start of the panel: the left end, or the top on a side panel.",
           "type": "array",
@@ -1977,6 +1993,11 @@
           "format": "uint32",
           "default": 36,
           "minimum": 0
+        },
+        "visibility": {
+          "description": "Whether the panel is shown when it starts. `glimpsectl panel show`, `hide` and `toggle`\nchange it until the panel restarts or the panel configuration changes.",
+          "$ref": "#/$defs/Visibility",
+          "default": "show"
         }
       },
       "additionalProperties": false
@@ -2100,6 +2121,20 @@
       "required": [
         "label",
         "timezone"
+      ]
+    },
+    "Visibility": {
+      "oneOf": [
+        {
+          "description": "Shown, with its space reserved so windows sit beside it.",
+          "type": "string",
+          "const": "show"
+        },
+        {
+          "description": "Hidden until `glimpsectl panel show`, `reveal` or, with `edge-reveal`, the pointer.",
+          "type": "string",
+          "const": "hide"
+        }
       ]
     }
   }

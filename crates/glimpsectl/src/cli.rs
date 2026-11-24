@@ -595,8 +595,38 @@ pub enum PanelCommand {
     },
     #[command(about = "Reload the selected panel")]
     Reload,
+    #[command(about = "Show the panels and reserve their space")]
+    Show(PanelTarget),
+    #[command(about = "Hide the panels")]
+    Hide(PanelTarget),
+    #[command(about = "Show hidden panels, or hide shown ones")]
+    Toggle(PanelTarget),
+    #[command(about = "Slide hidden panels in over windows until conceal")]
+    Reveal(RevealArgs),
+    #[command(about = "End a reveal")]
+    Conceal(PanelTarget),
     #[command(subcommand, hide = true)]
     Popovers(PopoversCommand),
+}
+
+#[derive(Debug, Args)]
+pub struct PanelTarget {
+    #[arg(long, help = "Output connector")]
+    pub output: Option<String>,
+    #[arg(long, help = "Panel edge")]
+    pub edge: Option<Position>,
+}
+
+#[derive(Debug, Args)]
+pub struct RevealArgs {
+    #[arg(
+        long = "for",
+        value_name = "MS",
+        help = "Conceal after this many milliseconds"
+    )]
+    pub duration: Option<u32>,
+    #[command(flatten)]
+    pub target: PanelTarget,
 }
 
 #[derive(Debug, Subcommand)]

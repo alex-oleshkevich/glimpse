@@ -915,9 +915,14 @@ Inspect and control the panel
 Usage: glimpsectl panel [OPTIONS] <COMMAND>
 
 Commands:
-  list    List running panel instances
-  reload  Reload the selected panel
-  help    Print this message or the help of the given subcommand(s)
+  list     List running panel instances
+  reload   Reload the selected panel
+  show     Show the panels and reserve their space
+  hide     Hide the panels
+  toggle   Show hidden panels, or hide shown ones
+  reveal   Slide hidden panels in over windows until conceal
+  conceal  End a reveal
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help                 Print help
@@ -943,6 +948,72 @@ Reload the selected panel
 Usage: glimpsectl panel reload [OPTIONS]
 
 Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl panel show`
+
+Show the panels and reserve their space
+
+```text
+Usage: glimpsectl panel show [OPTIONS]
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl panel hide`
+
+Hide the panels
+
+```text
+Usage: glimpsectl panel hide [OPTIONS]
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl panel toggle`
+
+Show hidden panels, or hide shown ones
+
+```text
+Usage: glimpsectl panel toggle [OPTIONS]
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl panel reveal`
+
+Slide hidden panels in over windows until conceal
+
+```text
+Usage: glimpsectl panel reveal [OPTIONS]
+
+Options:
+      --for <MS>             Conceal after this many milliseconds
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl panel conceal`
+
+End a reveal
+
+```text
+Usage: glimpsectl panel conceal [OPTIONS]
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
   -h, --help                 Print help
 ```
 
@@ -1034,6 +1105,7 @@ Options:
       --icon <ICON>          Themed icon name
       --label <LABEL>        Label text
       --value <PERCENT>      Level as a percent, from 0 to 200
+      --percent              Show the level as a percent number
   -h, --help                 Print help
 ```
 

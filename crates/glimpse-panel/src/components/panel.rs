@@ -4,12 +4,14 @@ use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, prelude::*},
+    gtk::{self, cairo, glib, prelude::*},
 };
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::mem::Discriminant;
+use std::time::Duration;
 
+use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -17,11 +19,57 @@ use crate::applet::catcher::Catcher;
 use crate::applet::runtime::{AppletHandle, SlotInfo};
 use crate::applets;
 
+mod presence;
+
+use presence::{Hold, Presence, Step};
+
+const DWELL: Duration = Duration::from_millis(150);
+const EDGE_STRIP: i32 = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reach {
+    Whole,
+    Nothing,
+    Edge(Position),
+}
+
+fn reach(surface: &gdk::Surface, reach: Reach) {
+    let (width, height) = (surface.width(), surface.height());
+    let region = match reach {
+        Reach::Whole => None,
+        Reach::Nothing => Some(cairo::Region::create()),
+        Reach::Edge(position) => {
+            let strip = match position {
+                Position::Top => cairo::RectangleInt::new(0, 0, width, EDGE_STRIP),
+                Position::Bottom => {
+                    cairo::RectangleInt::new(0, height - EDGE_STRIP, width, EDGE_STRIP)
+                }
+                Position::Left => cairo::RectangleInt::new(0, 0, EDGE_STRIP, height),
+                Position::Right => {
+                    cairo::RectangleInt::new(width - EDGE_STRIP, 0, EDGE_STRIP, height)
+                }
+            };
+            Some(cairo::Region::create_rectangle(&strip))
+        }
+    };
+    surface.set_input_region(region.as_ref());
+}
+
 pub struct Panel {
     window: gtk::Window,
     bar: glimpse_widgets::Panel,
+    slide: glimpse_widgets::Slide,
     applets: Vec<Slot>,
     catcher: Rc<Catcher>,
+    presence: Presence,
+    position: Position,
+    margin: Margin,
+    edge_reveal: bool,
+    hide_delay: Duration,
+    linger: u64,
+    dwell: u64,
+    reach: Rc<Cell<Reach>>,
+    reported: Option<(bool, bool)>,
 }
 
 struct Slot {
@@ -91,6 +139,10 @@ pub struct Config {
     pub attached: Vec<(Zone, String)>,
     pub applets: BTreeMap<String, AppletConfig>,
     pub blur: bool,
+    pub pinned: bool,
+    pub held: bool,
+    pub edge_reveal: bool,
+    pub hide_delay: Duration,
     pub handles: crate::services::Handles,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
@@ -148,67 +200,262 @@ fn desired(
 pub enum Input {
     Configure(Config),
     ClosePopover,
+    Enter,
+    Leave,
+    Dwell(u64),
+    Expire(u64),
+    Popover(bool),
+    Slid,
+    Layout,
 }
 
 impl fmt::Debug for Input {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Input::Configure(_) => "Configure(..)",
-            Input::ClosePopover => "ClosePopover",
-        })
+        match self {
+            Input::Configure(_) => formatter.write_str("Configure(..)"),
+            Input::ClosePopover => formatter.write_str("ClosePopover"),
+            Input::Enter => formatter.write_str("Enter"),
+            Input::Leave => formatter.write_str("Leave"),
+            Input::Dwell(serial) => write!(formatter, "Dwell({serial})"),
+            Input::Expire(serial) => write!(formatter, "Expire({serial})"),
+            Input::Popover(open) => write!(formatter, "Popover({open})"),
+            Input::Slid => formatter.write_str("Slid"),
+            Input::Layout => formatter.write_str("Layout"),
+        }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Output {
+    Presence { pinned: bool, visible: bool },
 }
 
 #[relm4::component(pub)]
 impl SimpleComponent for Panel {
     type Init = Config;
     type Input = Input;
-    type Output = ();
+    type Output = Output;
 
     view! {
         root = gtk::Window {
-            #[name = "bar"]
-            glimpse_widgets::Panel {}
+            add_css_class: "panel-window",
+
+            #[name = "slide"]
+            glimpse_widgets::Slide {
+                #[name = "bar"]
+                #[wrap(Some)]
+                set_child = &glimpse_widgets::Panel {},
+            }
         }
     }
 
     fn init(
         config: Self::Init,
         root: Self::Root,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         root.init_layer_shell();
         root.set_namespace(Some("glimpse-panel"));
         root.set_layer(Layer::Top);
         root.set_keyboard_mode(KeyboardMode::None);
-        root.auto_exclusive_zone_enable();
+        root.set_decorated(false);
 
         let window = root.clone();
         let widgets = view_output!();
-        let bar = widgets.bar.clone();
+        let catcher = Catcher::new(Some(&config.monitor), config.position);
+        let input = sender.input_sender().clone();
+        catcher.connect_open(move |open| {
+            let _ = input.send(Input::Popover(open));
+        });
+
+        let motion = gtk::EventControllerMotion::new();
+        let input = sender.input_sender().clone();
+        motion.connect_enter(move |_, _, _| {
+            let _ = input.send(Input::Enter);
+        });
+        let input = sender.input_sender().clone();
+        motion.connect_leave(move |_| {
+            let _ = input.send(Input::Leave);
+        });
+        window.add_controller(motion);
+
+        let mut presence = Presence::new(config.pinned);
+        let _ = presence.hold(Hold::Command, config.held);
+        match presence.reserved() {
+            true => window.auto_exclusive_zone_enable(),
+            false => window.set_exclusive_zone(0),
+        }
+        widgets.slide.jump(presence.visible());
+
         let mut model = Panel {
             window: window.clone(),
-            bar: bar.clone(),
+            bar: widgets.bar.clone(),
+            slide: widgets.slide.clone(),
             applets: Vec::new(),
-            catcher: Catcher::new(Some(&config.monitor), config.position),
+            catcher,
+            presence,
+            position: config.position,
+            margin: config.margin,
+            edge_reveal: config.edge_reveal,
+            hide_delay: config.hide_delay,
+            linger: 0,
+            dwell: 0,
+            reach: Rc::new(Cell::new(Reach::Whole)),
+            reported: None,
         };
 
         model.apply(&config);
+        let realized = model.reach.clone();
+        window.connect_realize(move |window| {
+            let Some(surface) = window.surface() else {
+                return;
+            };
+            let layout = realized.clone();
+            surface.connect_layout(move |surface, _, _| reach(surface, layout.get()));
+        });
         window.present();
+        if let Some(surface) = window.surface() {
+            let input = sender.input_sender().clone();
+            surface.connect_layout(move |_, _, _| {
+                let _ = input.send(Input::Layout);
+            });
+        }
+        model.refresh();
+        model.report(&sender);
 
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
-        match message {
-            Input::Configure(config) => self.apply(&config),
-            Input::ClosePopover => self.catcher.close(),
-        }
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
+        let steps = match message {
+            Input::Configure(config) => {
+                self.apply(&config);
+                self.refresh();
+                self.follow(&config)
+            }
+            Input::ClosePopover => {
+                self.catcher.close();
+                Vec::new()
+            }
+            Input::Enter if self.presence.visible() => self.presence.hold(Hold::Pointer, true),
+            Input::Enter => {
+                if self.edge_reveal {
+                    self.dwell += 1;
+                    let serial = self.dwell;
+                    let input = sender.input_sender().clone();
+                    glib::timeout_add_local_once(DWELL, move || {
+                        let _ = input.send(Input::Dwell(serial));
+                    });
+                }
+                Vec::new()
+            }
+            Input::Leave => {
+                self.dwell += 1;
+                self.presence.hold(Hold::Pointer, false)
+            }
+            Input::Dwell(serial) if serial == self.dwell => self.presence.hold(Hold::Pointer, true),
+            Input::Expire(serial) if serial == self.linger => self.presence.expire(),
+            Input::Dwell(_) | Input::Expire(_) => Vec::new(),
+            Input::Popover(open) => self.presence.hold(Hold::Popover, open),
+            Input::Slid => self.presence.slid(),
+            Input::Layout => {
+                self.refresh();
+                Vec::new()
+            }
+        };
+        self.run(steps, &sender);
     }
 }
 
 impl Panel {
+    fn follow(&mut self, config: &Config) -> Vec<Step> {
+        let mut steps = self.presence.pin(config.pinned);
+        if config.held != self.presence.held(Hold::Command) {
+            steps.extend(self.presence.hold(Hold::Command, config.held));
+        }
+        steps
+    }
+
+    fn run(&mut self, steps: Vec<Step>, sender: &ComponentSender<Self>) {
+        for step in steps {
+            match step {
+                Step::Reserve => {
+                    self.window.auto_exclusive_zone_enable();
+                    self.catcher.set_clearance(0);
+                }
+                Step::Release => {
+                    self.window.set_exclusive_zone(0);
+                    self.catcher.set_clearance(self.clearance());
+                }
+                Step::SlideIn => self.slide.reveal(true, || {}),
+                Step::SlideOut => {
+                    let input = sender.input_sender().clone();
+                    self.slide.reveal(false, move || {
+                        let _ = input.send(Input::Slid);
+                    });
+                }
+                Step::Linger => {
+                    self.linger += 1;
+                    let serial = self.linger;
+                    let input = sender.input_sender().clone();
+                    glib::timeout_add_local_once(self.hide_delay, move || {
+                        let _ = input.send(Input::Expire(serial));
+                    });
+                }
+                Step::Settle => self.linger += 1,
+                Step::Region => self.region(),
+            }
+        }
+        self.report(sender);
+    }
+
+    fn report(&mut self, sender: &ComponentSender<Self>) {
+        let state = (self.presence.pinned(), self.presence.visible());
+        if self.reported == Some(state) {
+            return;
+        }
+        self.reported = Some(state);
+        let _ = sender.output(Output::Presence {
+            pinned: state.0,
+            visible: state.1,
+        });
+    }
+
+    fn refresh(&self) {
+        self.region();
+        if !self.presence.reserved() {
+            self.catcher.set_clearance(self.clearance());
+        }
+    }
+
+    fn clearance(&self) -> i32 {
+        match self.position {
+            Position::Top => self.window.height() + pixels(self.margin.bottom),
+            Position::Bottom => self.window.height() + pixels(self.margin.top),
+            Position::Left => self.window.width() + pixels(self.margin.right),
+            Position::Right => self.window.width() + pixels(self.margin.left),
+        }
+    }
+
+    fn region(&self) {
+        let shown = self.presence.visible() || self.slide.shown();
+        let wanted = match (shown, self.edge_reveal) {
+            (true, _) => Reach::Whole,
+            (false, false) => Reach::Nothing,
+            (false, true) => Reach::Edge(self.position),
+        };
+        self.reach.set(wanted);
+        if let Some(surface) = self.window.surface() {
+            reach(&surface, wanted);
+            self.window.queue_draw();
+        }
+    }
+
     fn apply(&mut self, config: &Config) {
+        self.position = config.position;
+        self.margin = config.margin;
+        self.edge_reveal = config.edge_reveal;
+        self.hide_delay = config.hide_delay;
         let (anchors, orientation) = match config.position {
             Position::Top => (
                 [Edge::Top, Edge::Left, Edge::Right],
@@ -231,6 +478,12 @@ impl Panel {
         if self.window.monitor().as_ref() != Some(&config.monitor) {
             self.window.set_monitor(Some(&config.monitor));
         }
+        let anchored = match config.position {
+            Position::Top => Edge::Top,
+            Position::Bottom => Edge::Bottom,
+            Position::Left => Edge::Left,
+            Position::Right => Edge::Right,
+        };
         for (edge, margin) in [
             (Edge::Top, config.margin.top),
             (Edge::Bottom, config.margin.bottom),
@@ -238,8 +491,23 @@ impl Panel {
             (Edge::Right, config.margin.right),
         ] {
             self.window.set_anchor(edge, anchors.contains(&edge));
-            self.window.set_margin(edge, pixels(margin));
+            self.window
+                .set_margin(edge, if edge == anchored { 0 } else { pixels(margin) });
         }
+        let inner = |edge: Edge, margin: u32| if edge == anchored { pixels(margin) } else { 0 };
+        self.bar.set_margin_top(inner(Edge::Top, config.margin.top));
+        self.bar
+            .set_margin_bottom(inner(Edge::Bottom, config.margin.bottom));
+        self.bar
+            .set_margin_start(inner(Edge::Left, config.margin.left));
+        self.bar
+            .set_margin_end(inner(Edge::Right, config.margin.right));
+        self.slide.set_edge(match config.position {
+            Position::Top => gtk::PositionType::Top,
+            Position::Bottom => gtk::PositionType::Bottom,
+            Position::Left => gtk::PositionType::Left,
+            Position::Right => gtk::PositionType::Right,
+        });
         self.bar.set_orientation(orientation);
         self.bar.set_thickness(config.size);
         let inset = match orientation {

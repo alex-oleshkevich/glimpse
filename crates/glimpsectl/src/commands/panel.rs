@@ -9,7 +9,9 @@ use zbus::proxy::CacheProperties;
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::{emit, safe, within, yes_no};
-use crate::cli::{AppletCommand, AppletTarget, PanelCommand, PopoversCommand, Position};
+use crate::cli::{
+    AppletCommand, AppletTarget, PanelCommand, PanelTarget, PopoversCommand, Position,
+};
 use crate::errors::{Gone, Refused};
 use crate::render::{self, Table};
 
@@ -314,11 +316,81 @@ pub async fn panel(
     match command {
         PanelCommand::List { watch } => panel_list(connection, watch, json).await,
         PanelCommand::Reload => panel_reload(connection, app_id).await,
+        PanelCommand::Show(target) => visibility(connection, app_id, "show", &target, 0).await,
+        PanelCommand::Hide(target) => visibility(connection, app_id, "hide", &target, 0).await,
+        PanelCommand::Toggle(target) => visibility(connection, app_id, "toggle", &target, 0).await,
+        PanelCommand::Reveal(args) => {
+            let duration = args.duration.unwrap_or(0);
+            visibility(connection, app_id, "reveal", &args.target, duration).await
+        }
+        PanelCommand::Conceal(target) => {
+            visibility(connection, app_id, "conceal", &target, 0).await
+        }
         PanelCommand::Popovers(PopoversCommand::Close) => {
             let actions = proxy(connection, app_id).await?;
             within(actions.activate("close-popovers", Vec::new(), HashMap::new())).await
         }
     }
+}
+
+async fn visibility(
+    connection: &Connection,
+    app_id: &str,
+    verb: &str,
+    target: &PanelTarget,
+    duration: u32,
+) -> Result<()> {
+    let actions = proxy(connection, app_id).await?;
+    let descriptions = within(actions.describe_all()).await?;
+    let bars = decode_visibility(&descriptions)
+        .ok_or_else(|| Refused("this panel cannot hide; restart it after updating".into()))?;
+    select(&bars, target)?;
+    let output = target.output.clone().unwrap_or_default();
+    let edge = target.edge.map(|edge| edge.to_string()).unwrap_or_default();
+    within(actions.activate(
+        "visibility",
+        vec![Value::from((
+            verb,
+            output.as_str(),
+            edge.as_str(),
+            duration,
+        ))],
+        HashMap::new(),
+    ))
+    .await
+}
+
+type VisibilityRow = (u32, String, String, bool, bool);
+
+fn decode_visibility(descriptions: &Descriptions) -> Option<Vec<VisibilityRow>> {
+    let state = descriptions.get("visibility")?.2.first()?.clone();
+    Vec::<VisibilityRow>::try_from(state).ok()
+}
+
+fn select(bars: &[VisibilityRow], target: &PanelTarget) -> Result<(), Refused> {
+    let matched = bars.iter().any(|(_, connector, edge, _, _)| {
+        target
+            .output
+            .as_ref()
+            .is_none_or(|output| output == connector)
+            && target
+                .edge
+                .is_none_or(|wanted| edge.parse::<Position>() == Ok(wanted))
+    });
+    if matched {
+        return Ok(());
+    }
+    let mut selector = Vec::new();
+    if let Some(output) = &target.output {
+        selector.push(format!("--output {}", safe(output)));
+    }
+    if let Some(edge) = target.edge {
+        selector.push(format!("--edge {edge}"));
+    }
+    Err(Refused(match selector.is_empty() {
+        true => "the panel has no bars".into(),
+        false => format!("no panel matches {}", selector.join(" ")),
+    }))
 }
 
 fn resolve_live<'a>(
@@ -435,18 +507,33 @@ struct BarRow {
     index: u32,
     connector: String,
     position: Position,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state: Option<String>,
 }
 
 fn decode_bars(descriptions: &Descriptions) -> Option<Vec<BarRow>> {
     let state = descriptions.get("bars")?.2.first()?.clone();
+    let visibility = decode_visibility(descriptions).unwrap_or_default();
     Vec::<(u32, String, String)>::try_from(state)
         .ok()?
         .into_iter()
         .map(|(index, connector, position)| {
+            let state = visibility
+                .iter()
+                .find(|row| row.0 == index && row.1 == connector)
+                .map(|&(_, _, _, pinned, visible)| {
+                    match (pinned, visible) {
+                        (true, _) => "shown",
+                        (false, true) => "revealed",
+                        (false, false) => "hidden",
+                    }
+                    .to_owned()
+                });
             Some(BarRow {
                 index,
                 connector: safe(&connector),
                 position: position.parse().ok()?,
+                state,
             })
         })
         .collect()
@@ -598,7 +685,11 @@ fn print_panels(rows: &[PanelRow], json: bool, watch: bool) -> Result<render::Fl
                         .map(|bars| {
                             bars.iter()
                                 .map(|bar| {
-                                    format!("{}:{}:{}", bar.index, bar.connector, bar.position)
+                                    let state = bar.state.as_deref().unwrap_or("unknown");
+                                    format!(
+                                        "{}:{}:{}:{state}",
+                                        bar.index, bar.connector, bar.position
+                                    )
                                 })
                                 .collect::<Vec<_>>()
                                 .join(", ")

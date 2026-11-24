@@ -129,6 +129,7 @@ fn widgets() {
     toggle_disabled_accessibility_check();
     expander_row_checks::geometry();
     blur_checks::check();
+    slide_checks::check(&_styles);
     display_checks::pause();
 }
 
@@ -454,6 +455,7 @@ mod shot_region_checks;
 mod shot_result_page_checks;
 mod shot_toolbar_checks;
 mod shot_window_list_checks;
+mod slide_checks;
 mod slider_row_checks;
 mod source_list_checks;
 mod swatch_checks;

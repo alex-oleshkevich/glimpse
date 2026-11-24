@@ -53,7 +53,7 @@ pub use network::Network as NetworkSettings;
 pub use night_light::{MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
 pub use osd::*;
-pub use panels::{Margin, Panel, Position};
+pub use panels::{Margin, Panel, Position, Visibility};
 pub use places::Places;
 pub use removable::Removable;
 pub use screenshot::{Editor, FileTemplate, PaletteColor, Screenshot as ScreenshotConfig, Stroke};

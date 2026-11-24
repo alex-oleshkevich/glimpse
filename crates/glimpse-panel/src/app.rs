@@ -2,10 +2,11 @@ use adw::gdk::{self, prelude::*};
 use adw::prelude::{AdwDialogExt, AlertDialogExt};
 use futures_util::StreamExt;
 use gettextrs::gettext;
-use glib::prelude::ToVariant;
+use glib::prelude::{StaticVariantType, ToVariant};
 use gtk4::gio;
 use gtk4::prelude::{ActionMapExt, GtkWindowExt, WidgetExt};
 use std::collections::HashMap;
+use std::time::Duration;
 
 use glimpse_config::{
     Config, Documents, PANEL_STYLESHEET, Reload, Theme, unknown_applets, watch_config, watch_theme,
@@ -58,6 +59,51 @@ pub enum AppInput {
     Theme(Reload<Theme>),
     Attached,
     Detached,
+    Visibility(Request),
+    RevealExpired(Key, u64),
+    Presence {
+        key: Key,
+        pinned: bool,
+        visible: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Verb {
+    Show,
+    Hide,
+    Toggle,
+    Reveal,
+    Conceal,
+}
+
+impl Verb {
+    fn parse(verb: &str) -> Option<Self> {
+        match verb {
+            "show" => Some(Self::Show),
+            "hide" => Some(Self::Hide),
+            "toggle" => Some(Self::Toggle),
+            "reveal" => Some(Self::Reveal),
+            "conceal" => Some(Self::Conceal),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Request {
+    pub verb: Verb,
+    pub connector: String,
+    pub edge: String,
+    pub duration_ms: u32,
+}
+
+#[derive(Default)]
+struct Overrides {
+    pins: HashMap<Key, bool>,
+    held: HashMap<Key, u64>,
+    serial: u64,
+    shown: HashMap<Key, (bool, bool)>,
 }
 
 impl std::fmt::Debug for AppInput {
@@ -74,6 +120,9 @@ impl std::fmt::Debug for AppInput {
             AppInput::Theme(_) => "Theme",
             AppInput::Attached => "Attached",
             AppInput::Detached => "Detached",
+            AppInput::Visibility(_) => "Visibility",
+            AppInput::RevealExpired(..) => "RevealExpired",
+            AppInput::Presence { .. } => "Presence",
         })
     }
 }
@@ -92,6 +141,8 @@ pub struct App {
     problems: Problems,
     actions: ComponentActions,
     bars: gio::SimpleAction,
+    visibility: gio::SimpleAction,
+    overrides: Overrides,
     alert: Option<watch::Sender<Option<String>>>,
 }
 
@@ -152,6 +203,31 @@ impl SimpleComponent for App {
         bars.set_enabled(false);
         bars.connect_change_state(|_, _| {});
         relm4::main_application().add_action(&bars);
+        let visibility = gio::SimpleAction::new_stateful(
+            "visibility",
+            Some(&<(String, String, String, u32)>::static_variant_type()),
+            &Vec::<(u32, String, String, bool, bool)>::new().to_variant(),
+        );
+        visibility.connect_change_state(|_, _| {});
+        let input = sender.input_sender().clone();
+        visibility.connect_activate(move |_, parameter| {
+            let Some((verb, connector, edge, duration_ms)) =
+                parameter.and_then(|parameter| parameter.get::<(String, String, String, u32)>())
+            else {
+                return;
+            };
+            let Some(verb) = Verb::parse(&verb) else {
+                tracing::warn!(verb, "unknown panel visibility verb");
+                return;
+            };
+            let _ = input.send(AppInput::Visibility(Request {
+                verb,
+                connector,
+                edge,
+                duration_ms,
+            }));
+        });
+        relm4::main_application().add_action(&visibility);
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let attached = SharedRegistry::default();
@@ -169,6 +245,8 @@ impl SimpleComponent for App {
             problems,
             actions,
             bars,
+            visibility,
+            overrides: Overrides::default(),
             alert: None,
         };
         model.reload_styles();
@@ -183,6 +261,10 @@ impl SimpleComponent for App {
         match msg {
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
+                if config.panels != self.config.panels {
+                    self.overrides.pins.clear();
+                    self.overrides.held.clear();
+                }
                 self.config = config;
                 self.problems.recover();
                 if renamed {
@@ -235,6 +317,22 @@ impl SimpleComponent for App {
                 export = true;
             }
             AppInput::Attached | AppInput::Detached => {}
+            AppInput::Visibility(request) => self.request(&request, &sender),
+            AppInput::RevealExpired(key, serial) => {
+                if self.overrides.held.get(&key) != Some(&serial) {
+                    return;
+                }
+                self.overrides.held.remove(&key);
+            }
+            AppInput::Presence {
+                key,
+                pinned,
+                visible,
+            } => {
+                self.overrides.shown.insert(key, (pinned, visible));
+                self.publish_visibility();
+                return;
+            }
             AppInput::SessionConfirm(request) => {
                 self.close_popovers();
                 self.show_session_dialog(request);
@@ -263,12 +361,18 @@ impl SimpleComponent for App {
             &self.config,
             self.services.as_ref(),
             &self.attached,
+            &self.overrides,
             sender.input_sender().clone(),
         );
         self.bars.set_state(&bars_state(
             &self.config,
             self.panels.iter().map(|panel| &panel.key),
         ));
+        let panels = &self.panels;
+        self.overrides
+            .shown
+            .retain(|key, _| panels.iter().any(|panel| panel.key == *key));
+        self.publish_visibility();
         if export
             && let Some(connection) = self
                 .services
@@ -308,6 +412,81 @@ impl SimpleComponent for App {
 }
 
 impl App {
+    fn request(&mut self, request: &Request, sender: &ComponentSender<Self>) {
+        let keys: Vec<Key> = self
+            .panels
+            .iter()
+            .map(|panel| panel.key.clone())
+            .filter(|key| {
+                (request.connector.is_empty() || request.connector == key.monitor)
+                    && (request.edge.is_empty()
+                        || self
+                            .config
+                            .panels
+                            .get(key.index)
+                            .is_some_and(|panel| edge_name(panel.position) == request.edge))
+            })
+            .collect();
+        for key in keys {
+            match request.verb {
+                Verb::Show => {
+                    self.overrides.pins.insert(key, true);
+                }
+                Verb::Hide => self.unpin(key),
+                Verb::Toggle => match pinned(&self.config, &self.overrides, &key) {
+                    true => self.unpin(key),
+                    false => {
+                        self.overrides.pins.insert(key, true);
+                    }
+                },
+                Verb::Reveal => {
+                    self.overrides.serial += 1;
+                    let serial = self.overrides.serial;
+                    self.overrides.held.insert(key.clone(), serial);
+                    if request.duration_ms > 0 {
+                        let input = sender.input_sender().clone();
+                        glib::timeout_add_local_once(
+                            Duration::from_millis(u64::from(request.duration_ms)),
+                            move || {
+                                let _ = input.send(AppInput::RevealExpired(key, serial));
+                            },
+                        );
+                    }
+                }
+                Verb::Conceal => {
+                    self.overrides.held.remove(&key);
+                }
+            }
+        }
+    }
+
+    fn unpin(&mut self, key: Key) {
+        if let Some(state) = self.panels.iter().find(|panel| panel.key == key) {
+            state.controller.emit(panel::Input::ClosePopover);
+        }
+        self.overrides.held.remove(&key);
+        self.overrides.pins.insert(key, false);
+    }
+
+    fn publish_visibility(&self) {
+        let state: Vec<(u32, String, String, bool, bool)> = self
+            .panels
+            .iter()
+            .filter_map(|panel| {
+                let (pinned, visible) = self.overrides.shown.get(&panel.key).copied()?;
+                let config = self.config.panels.get(panel.key.index)?;
+                Some((
+                    u32::try_from(panel.key.index).ok()?,
+                    panel.key.monitor.clone(),
+                    edge_name(config.position).to_owned(),
+                    pinned,
+                    visible,
+                ))
+            })
+            .collect();
+        self.visibility.set_state(&state.to_variant());
+    }
+
     fn publish_problems(&self) {
         if let Some(alert) = &self.alert {
             alert.send_replace(self.problems.body());
@@ -485,7 +664,7 @@ fn watch_monitors(sender: ComponentSender<App>) {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Key {
+pub struct Key {
     pub index: usize,
     pub monitor: String,
 }
@@ -495,19 +674,31 @@ struct PanelState {
     pub controller: Controller<components::panel::Panel>,
 }
 
+fn edge_name(position: glimpse_config::Position) -> &'static str {
+    match position {
+        glimpse_config::Position::Top => "top",
+        glimpse_config::Position::Bottom => "bottom",
+        glimpse_config::Position::Left => "left",
+        glimpse_config::Position::Right => "right",
+    }
+}
+
+fn pinned(config: &Config, overrides: &Overrides, key: &Key) -> bool {
+    overrides.pins.get(key).copied().unwrap_or_else(|| {
+        config
+            .panels
+            .get(key.index)
+            .is_none_or(|panel| panel.visibility == glimpse_config::Visibility::Show)
+    })
+}
+
 fn bars_state<'a>(config: &Config, keys: impl Iterator<Item = &'a Key>) -> glib::Variant {
     keys.filter_map(|key| {
         let panel = config.panels.get(key.index)?;
-        let position = match panel.position {
-            glimpse_config::Position::Top => "top",
-            glimpse_config::Position::Bottom => "bottom",
-            glimpse_config::Position::Left => "left",
-            glimpse_config::Position::Right => "right",
-        };
         Some((
             u32::try_from(key.index).ok()?,
             key.monitor.clone(),
-            position.to_owned(),
+            edge_name(panel.position).to_owned(),
         ))
     })
     .collect::<Vec<_>>()
@@ -519,6 +710,7 @@ fn reconcile_panels(
     config: &Config,
     services: Option<&PanelServices>,
     attached: &SharedRegistry,
+    overrides: &Overrides,
     dialog: relm4::Sender<AppInput>,
 ) {
     let Some(services) = services else {
@@ -614,6 +806,10 @@ fn reconcile_panels(
                 attached: crate::attached::visible_on(&applets, &layout, index, &key.monitor),
                 applets: config.applets.clone(),
                 blur: config.appearance.blur,
+                pinned: pinned(config, overrides, &key),
+                held: overrides.held.contains_key(&key),
+                edge_reveal: cfg.edge_reveal,
+                hide_delay: Duration::from_millis(u64::from(cfg.hide_delay_ms)),
                 handles: services.handles.clone(),
                 dialog: dialog.clone(),
             };
@@ -622,10 +818,20 @@ fn reconcile_panels(
                     state.controller.emit(panel::Input::Configure(panel_cfg));
                     state
                 }
-                None => PanelState {
-                    key,
-                    controller: panel::Panel::builder().launch(panel_cfg).detach(),
-                },
+                None => {
+                    let output = key.clone();
+                    PanelState {
+                        key,
+                        controller: panel::Panel::builder().launch(panel_cfg).forward(
+                            &dialog,
+                            move |panel::Output::Presence { pinned, visible }| AppInput::Presence {
+                                key: output.clone(),
+                                pinned,
+                                visible,
+                            },
+                        ),
+                    }
+                }
             };
             panels.push(state);
         }

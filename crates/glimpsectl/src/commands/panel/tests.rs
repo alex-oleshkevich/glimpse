@@ -144,6 +144,49 @@ fn live_targets_require_one_match_across_outputs_and_edges() {
     assert!(resolve_live(&duplicated, &target).is_err());
 }
 
+#[test]
+fn visibility_targets_must_match_a_bar_and_bars_report_their_state() {
+    let bars = vec![
+        (0, "DP-1".to_owned(), "top".to_owned(), true, true),
+        (1, "DP-1".to_owned(), "bottom".to_owned(), false, true),
+    ];
+    let mut target = PanelTarget {
+        output: None,
+        edge: Some(Position::Bottom),
+    };
+    assert!(select(&bars, &target).is_ok());
+    target.output = Some("DP-2".into());
+    let refused = select(&bars, &target).unwrap_err().0;
+    assert!(refused.contains("--output DP-2"));
+    assert!(refused.contains("--edge bottom"));
+    assert!(
+        select(
+            &[],
+            &PanelTarget {
+                output: None,
+                edge: None
+            }
+        )
+        .is_err()
+    );
+
+    let mut descriptions = metadata("new", Some(vec![(0, "DP-1", "top"), (1, "DP-1", "bottom")]));
+    descriptions.insert(
+        "visibility".into(),
+        (true, "".try_into().unwrap(), vec![value(Value::from(bars))]),
+    );
+    let states: Vec<_> = decode_bars(&descriptions)
+        .unwrap()
+        .into_iter()
+        .map(|bar| bar.state)
+        .collect();
+    assert_eq!(states, [Some("shown".into()), Some("revealed".into())]);
+    assert_eq!(
+        decode_bars(&metadata("old", Some(vec![(0, "DP-1", "top")]))).unwrap()[0].state,
+        None
+    );
+}
+
 #[tokio::test]
 async fn panel_discovery_includes_custom_ids_only_with_owned_hosts() {
     let bus = PrivateBus::start();
@@ -425,12 +468,14 @@ async fn panel_metadata_reads_empty_bars_and_is_pinned_to_one_owner() {
             BarRow {
                 index: 1,
                 connector: "DP-1".into(),
-                position: Position::Top
+                position: Position::Top,
+                state: None,
             },
             BarRow {
                 index: 2,
                 connector: "DP-1".into(),
-                position: Position::Bottom
+                position: Position::Bottom,
+                state: None,
             }
         ]
     );
