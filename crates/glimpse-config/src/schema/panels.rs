@@ -1,5 +1,5 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -20,6 +20,16 @@ pub struct Panel {
     pub center: Vec<String>,
     /// Applet names for the end of the panel: the right end, or the bottom on a side panel.
     pub right: Vec<String>,
+    /// Whether the panel is shown when it starts. `glimpsectl panel show`, `hide` and `toggle`
+    /// change it until the panel restarts or the panel configuration changes.
+    pub visibility: Visibility,
+    /// Slide a hidden panel in while the pointer rests on its screen edge.
+    pub edge_reveal: bool,
+    /// Milliseconds a revealed panel stays after the pointer leaves it, its popover closes or
+    /// `glimpsectl panel conceal` runs.
+    #[serde(deserialize_with = "hide_delay_ms")]
+    #[schemars(range(max = 60000))]
+    pub hide_delay_ms: u32,
 }
 
 impl Default for Panel {
@@ -46,12 +56,36 @@ impl Default for Panel {
                 "keyboard",
                 "session",
             ]),
+            visibility: Visibility::Show,
+            edge_reveal: false,
+            hide_delay_ms: 1000,
         }
     }
 }
 
 fn names(applets: &[&str]) -> Vec<String> {
     applets.iter().map(|name| (*name).to_owned()).collect()
+}
+
+fn hide_delay_ms<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = u32::deserialize(deserializer)?;
+    (0..=60_000)
+        .contains(&value)
+        .then_some(value)
+        .ok_or_else(|| D::Error::custom("must be between 0 and 60000 milliseconds"))
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum Visibility {
+    /// Shown, with its space reserved so windows sit beside it.
+    #[default]
+    Show,
+    /// Hidden until `glimpsectl panel show`, `reveal` or, with `edge-reveal`, the pointer.
+    Hide,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema, Hash)]

@@ -56,6 +56,27 @@ matches no connected monitor does not appear, and glimpse does not warn you. `gl
 lists every applet on screen with the connector its panel is on; while no panel shows, your
 compositor's own output list (for example `niri msg outputs`) gives the names.
 
+## Hiding the panel
+
+`visibility`, `edge-reveal` and `hide-delay-ms` set how a panel starts and when it hides; the
+[settings table](#settings) lists them. `glimpsectl panel` changes the state while the panel runs:
+
+| Command | What it does |
+| --- | --- |
+| `show` | Slides the panel in and reserves its space, so windows sit beside it |
+| `hide` | Slides the panel out and gives its space back to windows |
+| `toggle` | `show` on a panel that is not shown, `hide` on a shown one |
+| `reveal` | Slides a hidden panel in over windows, which do not move, until `conceal` |
+| `reveal --for MS` | The same, held for MS milliseconds, then it slides out `hide-delay-ms` later |
+| `conceal` | Ends a `reveal` |
+
+Each command takes `--output` and `--edge` to pick a panel; without them it applies to every panel.
+A change lasts until the panel restarts or you edit `[[panels]]`. Key bindings and the overview
+script are in [Hide the panel until you need it](/guide/hide-panel).
+
+A compositor rule that draws a shadow or blur behind the panel's surface, such as a
+`layerrule = blur` line, still draws it while the panel is hidden, since the surface stays in place.
+
 ## Default panel
 
 | Zone | Applets |

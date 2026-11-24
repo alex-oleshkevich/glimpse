@@ -32,6 +32,9 @@
 #     "keyboard",
 #     "session",
 # ]
+# visibility = "show"
+# edge-reveal = false
+# hide-delay-ms = 1000
 
 # [panels.margin]
 # left = 0

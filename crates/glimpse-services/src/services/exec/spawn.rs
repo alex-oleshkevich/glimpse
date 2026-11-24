@@ -74,12 +74,14 @@ impl Drop for SlotStream {
         let unit = self.unit.clone();
         let socket = self.socket.clone();
         let socket_id = self.socket_id;
+        let listener = self.listener.take();
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             runtime.spawn(async move {
                 launcher.stop(&unit).await;
                 if let Some(socket) = socket {
                     unlink_if_ours(&socket, socket_id);
                 }
+                drop(listener);
             });
         }
     }

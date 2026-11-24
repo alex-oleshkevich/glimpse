@@ -3,13 +3,44 @@
 ## Bars and program launches
 
 The read-only GTK `bars` action carries `a(uss)` entries of config index, connector and edge for
-every mapped bar, including empty ones.
+every mapped bar, including empty ones. The `visibility` action takes `(sssu)` of verb, connector,
+edge and milliseconds and carries `a(ussbb)` state of index, connector, edge, pinned and visible per
+bar; it is enabled, and a state change request is ignored.
 
 `popover::launch` starts an argv in a transient user service with no shell, from the panel's
 environment or, when asked, from a clean one built with `env -i`. The service is kept until its
 cgroup empties so whatever a launcher forks survives it. A start job ending other than `done` is an
 error; an unavailable user manager falls back to a direct spawn. Its D-Bus half runs on relm4's
 tokio runtime, since zbus finds no reactor on the GLib executor.
+
+## Visibility
+
+**The panel window stays mapped and never resizes for visibility**; the content slides inside it
+through `Slide`. Animating a margin or the size would reflow tiled windows on every frame. The
+anchored edge's configured margin is a widget margin on the bar, not a layer-shell margin, so the
+content slides off the real screen edge and the edge strip sits on it; the other margins stay
+layer-shell margins. The window is `background: none` so the unused surface paints nothing. A
+hidden `Slide` still paints a transparent node: GTK skips the frame of a window whose snapshot is
+empty, and with it the buffer that maps the surface and the commit of a new input region.
+
+**The exclusive zone follows the slide.** While pinning, the zone grows from its current value to
+the full zone in step with the slide-in; while unpinning, it shrinks to 0 in step with the slide-out,
+with the slide's duration and easing, so tiled windows resize together with the bar instead of
+jumping at one end. A finished pin ends on an auto zone, which tracks later size changes; a finished
+unpin ends on 0. A reveal overlays and never touches the zone, and the catcher clearance is the full
+zone minus the current one. The input region is separate: the
+whole surface while shown or sliding, a 2 px strip on the anchored edge while hidden with
+edge-reveal, and empty otherwise, so a hidden bar never takes a click. The pointer must rest 150 ms
+on the strip before a reveal, so a pass along the screen edge does not summon the bar.
+
+**`Presence` is a pure state machine**: no GTK and no timers, it returns `Step`s the panel
+executes. A shown bar is held by a command (CLI reveal), the pointer or a popover; the last hold
+ending starts the hide-delay linger, and hide drops every hold. The catcher gets a clearance margin
+on its bar edge while the panel reserves no zone, so popovers sit past the bar, and reports open and
+close through `connect_open`.
+
+**The app owns CLI pins and held reveals**, keyed by config index and connector, and drops them when
+`[[panels]]` changes. Toggle flips the pin, not what is on screen.
 
 ## Applets
 

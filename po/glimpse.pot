@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.18.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-11-17 16:04+0100\n"
+"POT-Creation-Date: 2026-11-24 22:04+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -41,7 +41,7 @@ msgstr ""
 
 #: crates/glimpse-agents/blueprints/agent_dialog.blp:102
 #: crates/glimpse-agents/src/app/view.rs:40
-#: crates/glimpse-agents/src/session.rs:73 crates/glimpse-panel/src/app.rs:326
+#: crates/glimpse-agents/src/session.rs:73 crates/glimpse-panel/src/app.rs:489
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:99
 #: crates/glimpse-shot/src/gui/result.rs:980
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:112
@@ -424,16 +424,16 @@ msgstr ""
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:384
+#: crates/glimpse-panel/src/app.rs:547
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:386
+#: crates/glimpse-panel/src/app.rs:549
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:388
+#: crates/glimpse-panel/src/app.rs:551
 msgid "The session manager refused that action."
 msgstr ""
 
@@ -659,7 +659,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-widgets/src/lib.rs:381
+#: crates/glimpse-widgets/src/lib.rs:383
 msgid "{percent}%"
 msgstr ""
 
@@ -2798,7 +2798,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:64
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:323
+#: crates/glimpse-widgets/src/lib.rs:325
 msgid "Play"
 msgstr ""
 
@@ -3567,7 +3567,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:322
+#: crates/glimpse-widgets/src/lib.rs:324
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:121
 msgid "Pause"
 msgstr ""

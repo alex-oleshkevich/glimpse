@@ -13,6 +13,8 @@ const SHOWN: &str = "shown";
 const SHOWN_OPACITY: f64 = 0.5;
 const GUTTER: i32 = 40;
 
+type Opened = Box<dyn Fn(bool)>;
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum State {
     #[default]
@@ -33,7 +35,9 @@ pub struct Catcher {
     state: Cell<State>,
     center: Cell<i32>,
     inset: Cell<i32>,
+    clearance: Cell<i32>,
     dismissed: RefCell<Option<Box<dyn Fn()>>>,
+    opened: RefCell<Option<Opened>>,
     shields: RefCell<Vec<gtk4::Window>>,
 }
 
@@ -81,7 +85,9 @@ impl Catcher {
             state: Cell::default(),
             center: Cell::default(),
             inset: Cell::default(),
+            clearance: Cell::default(),
             dismissed: RefCell::default(),
+            opened: RefCell::default(),
             shields: RefCell::default(),
         });
 
@@ -162,6 +168,7 @@ impl Catcher {
         self.body.append(child.as_ref());
         self.shield();
         self.state.set(State::Opening);
+        self.notify_open(true);
         shade(&self.popup, &self.body, &self.arrow, 0.0);
         self.window.present();
         self.popup.present();
@@ -239,6 +246,30 @@ impl Catcher {
         horizontal(self.side.get())
     }
 
+    pub fn connect_open(&self, opened: impl Fn(bool) + 'static) {
+        self.opened.replace(Some(Box::new(opened)));
+    }
+
+    pub fn set_clearance(&self, clearance: i32) {
+        if self.clearance.replace(clearance) == clearance {
+            return;
+        }
+        self.clear();
+    }
+
+    fn notify_open(&self, open: bool) {
+        if let Some(opened) = self.opened.borrow().as_ref() {
+            opened(open);
+        }
+    }
+
+    fn clear(&self) {
+        let bar = bar_edge(self.side.get());
+        for window in [&self.window, &self.popup] {
+            window.set_margin(bar, self.clearance.get());
+        }
+    }
+
     pub fn reconfigure(
         &self,
         monitor: &gtk4::gdk::Monitor,
@@ -291,16 +322,17 @@ impl Catcher {
                 self.arrow.add_css_class(SIDEWAYS);
             }
         }
-        let (bar, along) = match side {
-            Position::Top => (Edge::Top, Edge::Left),
-            Position::Bottom => (Edge::Bottom, Edge::Left),
-            Position::Left => (Edge::Left, Edge::Top),
-            Position::Right => (Edge::Right, Edge::Top),
+        let bar = bar_edge(side);
+        let along = match side {
+            Position::Top | Position::Bottom => Edge::Left,
+            Position::Left | Position::Right => Edge::Top,
         };
         for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
             self.popup.set_anchor(edge, edge == bar || edge == along);
             self.popup.set_margin(edge, 0);
+            self.window.set_margin(edge, 0);
         }
+        self.clear();
         self.slot.set_margin_start(gutter(side == Position::Right));
         self.slot.set_margin_end(gutter(side == Position::Left));
         self.slot.set_margin_top(gutter(side == Position::Bottom));
@@ -420,9 +452,12 @@ impl Catcher {
         }
         self.unshield();
         shade(&self.popup, &self.body, &self.arrow, 0.0);
-        self.state.set(State::Closed);
+        let was = self.state.replace(State::Closed);
         if let Some(dismissed) = self.dismissed.take() {
             dismissed();
+        }
+        if was != State::Closed {
+            self.notify_open(false);
         }
     }
 }
@@ -432,6 +467,15 @@ impl Drop for Catcher {
         self.unshield();
         self.popup.destroy();
         self.window.destroy();
+    }
+}
+
+pub(crate) fn bar_edge(side: Position) -> Edge {
+    match side {
+        Position::Top => Edge::Top,
+        Position::Bottom => Edge::Bottom,
+        Position::Left => Edge::Left,
+        Position::Right => Edge::Right,
     }
 }
 

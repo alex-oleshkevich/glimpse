@@ -329,7 +329,8 @@
     color: var(--gl-panel);
 }
 
-.popover-catcher {
+.popover-catcher,
+.panel-window {
     background: none;
 }
 
