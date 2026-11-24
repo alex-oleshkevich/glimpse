@@ -1,5 +1,5 @@
 pkgname=glimpse-desktop-bin
-pkgver=0.18.0
+pkgver=0.19.0
 pkgrel=1
 pkgdesc="Desktop shell suite for Wayland compositors: panel, wallpaper, lock screen and night light"
 arch=('x86_64')
